@@ -12,13 +12,13 @@ SHELL := bash
 init:
 	node scripts/init-module.mjs --organization "$(ORG)" --module "$(MODULE_NAME)" --title "$(TITLE)" $(if $(NAMESPACE),--namespace "$(NAMESPACE)",) $(if $(TAG),--tag "$(TAG)",) $(if $(GITHUB_OWNER),--github-owner "$(GITHUB_OWNER)",)
 setup:
-	wippy update
-	cd test && wippy update
+	$(WIPPY) update
+	cd test && $(WIPPY) update
 check:
 	node scripts/check-module.mjs
 	node scripts/test-initializer.mjs
 lint:
-	wippy lint
+	$(WIPPY) lint
 # The runner exits 0 when it discovers zero tests, which turns a broken
 # discovery setup into a false-green run. An empty discovery is always a
 # defect here — the template ships suites — so both targets fail on it.
@@ -26,20 +26,29 @@ lint:
 # этого момента автодетект терминального хоста в CLI отказывается выбирать:
 # он просто считает записи kind terminal.host, а их теперь две. Набор идёт на
 # обычном хосте приложения; свой нужен только десктопу.
+# Чем запускать. Модуль объявляет записи с модулем `gfx`, а его нет в
+# релизном рантайме: `wippy` из PATH (0.3.40a) не грузит модуль ВОВСЕ и
+# сообщает об этом как «node with ID … not found» — по такому сообщению
+# причину не угадать. Поэтому здесь локальная сборка, и переопределяется она
+# одной переменной:
+#
+#   make test WIPPY=wippy
+WIPPY ?= /home/butschster/repos/wippy/runtime/dist/wippy-linux-amd64
+
 TEST_HOST := wippy.terminal:host
 test:
-	cd test && wippy test --host $(TEST_HOST) 2>&1 | tee .wippy/last-test-run.log && ! grep -q "No tests found" .wippy/last-test-run.log
+	cd test && $(WIPPY) test --host $(TEST_HOST) 2>&1 | tee .wippy/last-test-run.log && ! grep -q "No tests found" .wippy/last-test-run.log
 test-pg:
-	cd test && wippy test --host $(TEST_HOST) --profile postgres 2>&1 | tee .wippy/last-test-run.log && ! grep -q "No tests found" .wippy/last-test-run.log
+	cd test && $(WIPPY) test --host $(TEST_HOST) --profile postgres 2>&1 | tee .wippy/last-test-run.log && ! grep -q "No tests found" .wippy/last-test-run.log
 postgres-up:
 	docker compose -f compose.test.yaml up -d --wait
 postgres-down:
 	docker compose -f compose.test.yaml down -v
 verify: setup check lint test
 release-check: verify
-	wippy auth status
-	wippy publish --dry-run --create --module-visibility $(VIS) --module-type $(TYPE)
+	$(WIPPY) auth status
+	$(WIPPY) publish --dry-run --create --module-visibility $(VIS) --module-type $(TYPE)
 publish:
 	node scripts/check-module.mjs
-	wippy auth status
-	wippy publish --create --module-visibility $(VIS) --module-type $(TYPE)
+	$(WIPPY) auth status
+	$(WIPPY) publish --create --module-visibility $(VIS) --module-type $(TYPE)
