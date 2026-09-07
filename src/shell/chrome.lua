@@ -198,7 +198,6 @@ local MENU_BANNER = "WINDOWS 95"
 -- надписи в ней не было, отказа не происходило. Третий раз за ночь один и тот
 -- же класс.
 chrome.MENU_BANNER = MENU_BANNER
-local MAX_DEPTH = 3         -- глубже меню в терминале не читается (FR 5.4)
 
 local START_LABEL = " " .. glyphs.icons.start .. " Пуск "
 
@@ -556,20 +555,36 @@ end
 -- без программ бессмысленна, а объявленная отдельно — разъезжается со своим
 -- содержимым при удалении модуля. Глубже трёх уровней путь схлопывается: в
 -- терминале четвёртый отступ уже не читается.
+-- Путь папок приходит УЖЕ РАЗОБРАННЫМ — списком сегментов, а не строкой.
+--
+-- Разбирала его эта функция, и разбирала ВТОРОЙ раз: каталог
+-- (`butschster.windows.programs:catalog`) уже сделал это, с обрезкой по
+-- глубине и по пробелам, и клал сюда таблицу. Строкой она никогда не была,
+-- поэтому `type(item.group) == "string"` не срабатывал ни разу — путь выходил
+-- пустым, папка не заводилась, программа ложилась на верхний уровень.
+--
+-- Ни отказа, ни следа: программа ВИДНА, просто не там, где просили. Тот же
+-- класс, что и `id` вместо `action` в попадании, и что две таблицы стилей:
+-- два представления одного и того же, и расхождение молчит.
+--
+-- Своей обрезки по глубине здесь тоже больше нет. Она была вторым числом
+-- рядом с `catalog.MAX_DEPTH`, а два числа одного смысла однажды поменяют
+-- поодиночке. Глубину ограничивает тот, кто путь разбирает; каскад
+-- останавливает ширина экрана, и это ограничение настоящее.
 local function place(root, index, item)
     local node = root
-    local path = type(item.group) == "string" and item.group or ""
-    local depth = 0
-    for part in path:gmatch("[^/]+") do
-        if depth >= MAX_DEPTH then break end
-        local child = node.groups[part]
-        if not child then
-            child = new_node()
-            node.groups[part] = child
-            node.names[#node.names + 1] = part
+    local path: any = type(item.group) == "table" and item.group or {}
+    for _, part in ipairs(path) do
+        local name = tostring(part)
+        if name ~= "" then
+            local child = node.groups[name]
+            if not child then
+                child = new_node()
+                node.groups[name] = child
+                node.names[#node.names + 1] = name
+            end
+            node = child
         end
-        node = child
-        depth = depth + 1
     end
     node.programs[#node.programs + 1] = {index = index, item = item}
 end
@@ -700,7 +715,6 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
     local levels: any = {root}
     local names = {}
     for _, name in ipairs(path) do
-        if #levels > MAX_DEPTH then break end
         local node = levels[#levels].groups[name]
         if not node then break end
         levels[#levels + 1] = node

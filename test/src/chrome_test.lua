@@ -5,6 +5,7 @@
 -- выглядит, — или, хуже, кнопку, которая нарисована и молча не работает.
 -- Ни то, ни другое не выглядит ошибкой: выглядит, что «клик не сработал».
 local test = require("test")
+local catalog = require("catalog")
 local chrome = require("chrome")
 local chrome_pixels = require("chrome_pixels")
 local tty = require("tty")
@@ -223,6 +224,82 @@ local function define_tests()
                 test.not_nil(widgets_styles[name],
                     "стиль " .. name .. " обязан быть в общей таблице")
             end
+        end)
+
+        test.it("доводит группу от записи реестра до папки в меню", function()
+            -- ВЕСЬ ЭТОТ ПУТЬ БЫЛ ЗЕЛЁНЫМ И НИ РАЗУ НЕ ПРОЙДЕННЫМ. Каталог
+            -- разбирал `meta.group` в ТАБЛИЦУ сегментов, а тема ждала СТРОКУ
+            -- и разбирала второй раз — то есть путь выходил пустым, папка не
+            -- заводилась, программа ложилась на верхний уровень. Ни отказа, ни
+            -- следа: программа видна, просто не там, где просили.
+            --
+            -- Проверяется от края до края, через обе чистые функции: реестр
+            -- для этого не нужен, а по отдельности каждая половина была права.
+            local built = catalog.build({
+                {id = "app:calc", meta = {type = "tui_desktop.window",
+                                          title = "Калькулятор", group = "Стандартные"}},
+                {id = "app:bash", meta = {type = "tui_desktop.window",
+                                          title = "Сеанс MS-DOS"}},
+            })
+
+            test.eq(#built.tree.folders, 1, "папка обязана появиться в дереве каталога")
+            test.eq(built.tree.folders[1].title, "Стандартные")
+            test.eq(#built.tree.programs, 1, "на верхнем уровне остаётся только беcгруппная")
+
+            -- А теперь то же самое глазами темы: она получает пункты меню в
+            -- том виде, в каком их кладёт оболочка.
+            local items = {}
+            for _, program in ipairs(catalog.listed(built.programs)) do
+                items[#items + 1] = {
+                    entry = program.entry, title = program.title,
+                    group = program.group, order = program.order, icon = program.icon,
+                }
+            end
+
+            local flat = chrome.menu_layout(90, 24, items, nil, {})
+            test.eq(#flat.panels, 1, "без раскрытия панель одна")
+
+            local folders, programs = 0, 0
+            for _, line in ipairs(flat.panels[1].lines) do
+                if line.kind == "group" then folders = folders + 1 end
+                if line.kind == "item" then programs = programs + 1 end
+            end
+            test.eq(folders, 1, "тема обязана показать папку, а не разложить всё плоско")
+            test.eq(programs, 1)
+
+            -- И раскрытие: только тогда у стрелки появляется, с чем работать.
+            local opened = chrome.menu_layout(90, 24, items, nil, {"Стандартные"})
+            test.eq(#opened.panels, 2, "раскрытая папка обязана дать вторую панель")
+
+            local inside = 0
+            for _, line in ipairs(opened.panels[2].lines) do
+                if line.kind == "item" then inside = inside + 1 end
+            end
+            test.eq(inside, 1, "внутри папки лежит то, что в неё положили")
+        end)
+
+        test.it("держит глубину меню одним числом, а не двумя", function()
+            -- Обрезка по глубине жила ДВАЖДЫ: `catalog.MAX_DEPTH` и своя
+            -- константа в теме. Два числа одного смысла однажды поменяют
+            -- поодиночке — это та же беда, что две таблицы стилей, только про
+            -- число.
+            --
+            -- Теперь глубину ограничивает тот, кто путь разбирает, а каскад
+            -- останавливает ширина экрана. Проверяется тем, что тема
+            -- показывает РОВНО столько уровней, сколько дал каталог.
+            local built = catalog.build({
+                {id = "app:deep", meta = {type = "tui_desktop.window",
+                                          title = "Глубоко", group = "А/Б/В/Г/Д"}},
+            })
+            local program = catalog.find(built.programs, "app:deep")
+            test.eq(#program.group, catalog.MAX_DEPTH,
+                "каталог обязан обрезать путь сам, и обрезать до своего числа")
+
+            local items = {{entry = program.entry, title = program.title,
+                            group = program.group, order = program.order}}
+            local opened = chrome.menu_layout(200, 24, items, nil, program.group)
+            test.eq(#opened.panels, catalog.MAX_DEPTH + 1,
+                "тема показывает ровно столько уровней, сколько дал каталог")
         end)
     end)
 end

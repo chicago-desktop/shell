@@ -117,9 +117,10 @@ entries:
       group: Windows Shell
       suite: butschster_windows
     source: file://chrome_test.lua
-    modules: [tty, gfx]
+    modules: [tty, gfx, registry]
     imports:
       test: wippy.test:test
+      catalog: butschster.windows.programs:catalog
       chrome: butschster.windows.shell:chrome
       chrome_pixels: butschster.windows.shell:chrome_pixels
       widgets: butschster.windows.shell:widgets
@@ -168,6 +169,23 @@ entries:
       test: wippy.test:test
       defaults: butschster.windows.programs:defaults
     method: run
+
+  # Программа С ГРУППОЙ. Заведена нарочно: в харнессе не было ни одной записи
+  # с `meta.group`, и весь путь «группа → папка → раскрытие» был зелёным, ни
+  # разу не пройденным на настоящих записях реестра. Дефект, из-за которого
+  # папка не заводилась, жил в этом промежутке.
+  - name: grouped_probe
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: Проба в папке
+      group: Служебные/Проверка
+      comment: Запись с группой — чтобы каталог собирал папки меню на настоящем реестре, а не только в чистом тесте.
+    source: file://grouped_probe.lua
+    method: main
+    modules: [channel]
+    security:
+      policies: [app:probe_scope]
 
   # Настоящая файловая система в реестре. Без неё «диски приходят из реестра»
   # проверялось бы на выдуманных записях, то есть не проверялось бы вовсе:

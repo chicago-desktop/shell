@@ -172,6 +172,30 @@ local function define_tests()
                 "неизвестный тип считается обычным окном")
             test.eq(catalog.find(built.programs, "app:fine").window_type, "dialog")
         end)
+
+        test.it("собирает папку из настоящей записи реестра", function()
+            -- До этого места каталог проверялся только на выдуманных
+            -- таблицах: в харнессе не было ни одной записи с `meta.group`.
+            -- Промежуток между реестром и деревом папок был зелёным и ни разу
+            -- не пройденным, и дефект жил именно в нём.
+            local found, err = catalog.list()
+            test.is_nil(err, "каталог обязан прочитаться")
+            test.not_nil(found)
+
+            local probe = catalog.find(found.programs, "app:grouped_probe")
+            test.not_nil(probe, "запись с группой обязана быть в каталоге харнесса")
+            test.eq(#probe.group, 2, "путь обязан приехать РАЗОБРАННЫМ, а не строкой")
+            test.eq(probe.group[1], "Служебные")
+            test.eq(probe.group[2], "Проверка")
+
+            local outer = nil
+            for _, folder in ipairs(found.tree.folders) do
+                if folder.title == "Служебные" then outer = folder end
+            end
+            test.not_nil(outer, "папка обязана появиться в дереве")
+            test.eq(#outer.folders, 1, "и вложенная в неё тоже")
+            test.eq(outer.folders[1].title, "Проверка")
+        end)
     end)
 end
 

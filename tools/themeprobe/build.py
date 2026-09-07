@@ -24,6 +24,7 @@ MODULES = (
     ("shell", "widgets"),
     ("shell", "icons"),
     ("shell", "chrome"),
+    ("programs", "catalog"),
     ("explorer", "model"),
     ("explorer", "render"),
 )

@@ -169,11 +169,61 @@ require = function(name)
     error("нет модуля " .. tostring(name))
 end
 
+-- Правила `meta.in_menu` и `meta.window_type` живут в библиотеке ОСНОВЫ, в
+-- соседнем репозитории. Тянуть её сюда пробник не станет: путь до чужого
+-- дерева — это то, из-за чего инструмент работает на одной машине.
+--
+-- Заглушка отвечает УМОЛЧАНИЯМИ и ничем больше, а пробник ни `in_menu`, ни
+-- `window_type` не рассматривает: их проверяет набор тестов на настоящей
+-- библиотеке. Стаб, который начнёт решать за неё, разойдётся с ней — и
+-- покажет меню, которого на стенде не будет.
+modules.programs_meta = {
+    DEFAULT_TYPE = "app",
+    window_type = function() return "app", nil end,
+    in_menu = function() return true end,
+}
+
+-- Реестр пробнику не нужен: он зовёт только `catalog.build`, чистую сборку.
+-- Заглушка отвечает ОТКАЗОМ, а не пустотой — если кто-то позовёт `list`, это
+-- должно быть видно, а не выглядеть как «программ нет».
+modules.registry = {
+    find = function() return nil, "пробник в реестр не ходит" end,
+    get = function() return nil, "пробник в реестр не ходит" end,
+}
+
 modules.palette = dofile(BASE .. "shell/palette.lua")
 modules.glyphs = dofile(BASE .. "shell/glyphs.lua")
 modules.widgets = dofile(BASE .. "shell/widgets.lua")
 modules.icons = dofile(BASE .. "shell/icons.lua")
 local chrome = dofile(BASE .. "shell/chrome.lua")
+modules.catalog = dofile(BASE .. "programs/catalog.lua")
+local catalog = modules.catalog
+
+-- Пункты меню собираются НАСТОЯЩИМ каталогом, а не пишутся руками.
+--
+-- Писались руками, и пробник повторял контракт по памяти: он слал `group`
+-- СТРОКОЙ, а каталог давно кладёт туда разобранный список. Из-за этого
+-- расхождения папки в меню не заводились на стенде, а в пробнике заводились —
+-- то есть инструмент показывал не то, что покажет оболочка.
+--
+-- Теперь путь тот же, что у оболочки: запись реестра → `catalog.build` →
+-- пункты. Разойтись с ней пробнику больше нечем.
+local function menu_items(records)
+    local built = catalog.build(records)
+    local items = {}
+    for _, program in ipairs(catalog.listed(built.programs)) do
+        items[#items + 1] = {
+            entry = program.entry, title = program.title,
+            group = program.group, order = program.order, icon = program.icon,
+        }
+    end
+    return items
+end
+
+local function program(id, title, group, icon)
+    return {id = id, meta = {type = "tui_desktop.window", title = title,
+                             group = group, icon = icon}}
+end
 local glyphs = modules.glyphs
 
 -- Каталог программ — заглушка, и только он. `model` зовёт его в одном месте,
@@ -281,14 +331,14 @@ scene(96, 24, {
         windows = {{id = "w2", title = "Командная строка"}},
         focused_id = "w2", clock = "21:47", menu_open = true,
     },
-    menu = {items = {
-        {entry = "app:calc", title = "Калькулятор", icon = "▣"},
-        {entry = "app:ping", title = "Пинг", group = "Служебные/Сеть", order = 2},
-        {entry = "app:trace", title = "Трассировка", group = "Служебные/Сеть", order = 1},
-        {entry = "app:sysinfo", title = "Сведения о системе", group = "Служебные"},
-        {entry = "app:notepad", title = "Блокнот"},
-        {entry = "app:deep", title = "Глубоко", group = "А/Б/В/Г"},
-    }},
+    menu = {items = menu_items({
+        program("app:calc", "Калькулятор", nil, "▣"),
+        program("app:ping", "Пинг", "Служебные/Сеть"),
+        program("app:trace", "Трассировка", "Служебные/Сеть"),
+        program("app:sysinfo", "Сведения о системе", "Служебные"),
+        program("app:notepad", "Блокнот"),
+        program("app:deep", "Глубоко", "А/Б/В/Г"),
+    })},
 })
 
 scene(96, 14, {
@@ -338,11 +388,11 @@ scene(60, 12, {
 scene(50, 12, {
     title = "каталог длиннее экрана",
     state = {clock = "21:47", menu_open = true},
-    menu = {items = (function()
+    menu = {items = menu_items((function()
         local list = {}
-        for i = 1, 20 do list[i] = {entry = "app:p" .. i, title = "Программа " .. i} end
+        for i = 1, 20 do list[i] = program("app:p" .. i, "Программа " .. i) end
         return list
-    end)()},
+    end)())},
 })
 
 
@@ -409,17 +459,17 @@ end
 scene(96, 20, {
     title = "каскад «Пуска»: раскрыты Программы → Стандартные, курсор на второй строке",
     state = {clock = "21:47", menu_open = true, windows = {}},
-    menu = {open = {"Программы", "Стандартные"}, cursor = 2, items = {
-        {entry = "app:calc", title = "Калькулятор", icon = "▣", group = "Программы/Стандартные"},
-        {entry = "app:notepad", title = "Блокнот", group = "Программы/Стандартные"},
-        {entry = "app:paint", title = "Графический редактор", group = "Программы/Стандартные"},
-        {entry = "app:ping", title = "Пинг", group = "Программы/Связь"},
-        {entry = "app:bash", title = "Сеанс MS-DOS", group = "Программы"},
-        {entry = "app:explorer", title = "Проводник", group = "Программы"},
-        {entry = "app:docs", title = "Документы"},
-        {entry = "app:settings", title = "Настройка"},
-        {entry = "app:shutdown", title = "Завершение работы"},
-    }},
+    menu = {open = {"Программы", "Стандартные"}, cursor = 2, items = menu_items({
+        program("app:calc", "Калькулятор", "Программы/Стандартные", "▣"),
+        program("app:notepad", "Блокнот", "Программы/Стандартные"),
+        program("app:paint", "Графический редактор", "Программы/Стандартные"),
+        program("app:ping", "Пинг", "Программы/Связь"),
+        program("app:bash", "Сеанс MS-DOS", "Программы"),
+        program("app:explorer", "Проводник", "Программы"),
+        program("app:docs", "Документы"),
+        program("app:settings", "Настройка"),
+        program("app:shutdown", "Завершение работы"),
+    })},
 })
 
 -- Три типа окна: состав кнопок заголовка выбирает тема по `window_type`,
