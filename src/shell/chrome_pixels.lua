@@ -278,7 +278,13 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
         pixels.button_at(bar, 1, 1, start_span, 1,
             {id = "menu", label = "Пуск", font = bold, inset = 2}, cell)
     end
-    hits.bars[#hits.bars + 1] = {row = h, from = 1, to = start_span, id = "menu"}
+    -- «Пуск» отдаёт `action`, а НЕ `id`, и это не стиль.
+    --
+    -- Композитор проверяет `spot.id` ПЕРВЫМ: увидев его, он ищет окно с таким
+    -- именем, не находит и молча ничего не делает. Ветка про меню при этом
+    -- недостижима. Снаружи это выглядит как «мышь не работает», и именно так
+    -- оно и выглядело в первый живой запуск пиксельного режима.
+    hits.bars[#hits.bars + 1] = {row = h, from = 1, to = start_span, action = "menu"}
 
     local at = start_span + 2
     for _, entry in ipairs(state.windows or {}) do
@@ -290,8 +296,8 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
                 {id = window.id, label = window.title, font = face, inset = 2,
                  pressed = window.id == state.focused_id}, cell)
         end
-        hits.bars[#hits.bars + 1] = {row = h, from = at, to = at + span - 1,
-                                     id = window.id, window = window.id}
+        -- А кнопка окна — наоборот, `id`: по нему композитор поднимает окно.
+        hits.bars[#hits.bars + 1] = {row = h, from = at, to = at + span - 1, id = window.id}
         at = at + span + 1
     end
 
@@ -440,13 +446,26 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
             store.place(id, x, y)
             out[#out + 1] = {id = id, raster = raster, x = x, y = y,
                              cols = grid.w - 1, rows = grid.drawn}
-            hits.desktop[#hits.desktop + 1] = {
-                row = y, from = x, to = x + grid.w - 2,
-                bottom_row = y + grid.drawn - 1,
-                id = item.id, kind = item.kind, entry = item.entry,
-                title = item.title, broken = item.broken and true or false,
-                w = tonumber(item.w), h = tonumber(item.h), args = item.args,
-            }
+            -- Попадание на КАЖДУЮ строку значка, а не одно на всю высоту.
+            --
+            -- Композитор сверяет `event.y == spot.row` — ровно одну строку, —
+            -- и поля `bottom_row` не знает вовсе. Одно попадание на три
+            -- строки означало бы значок, который нажимается по картинке и не
+            -- нажимается по подписи. Молча: щелчок по подписи просто ничего
+            -- не делает.
+            --
+            -- Форма та же, что у `chrome.fill` в режиме символов, и это не
+            -- совпадение: composer один на оба режима, и попадание, которое
+            -- он не умеет читать, неотличимо от отсутствующего.
+            for row = y, y + grid.drawn - 1 do
+                hits.desktop[#hits.desktop + 1] = {
+                    row = row, from = x, to = x + grid.w - 2,
+                    id = item.id, kind = item.kind,
+                    broken = item.broken and true or false,
+                    entry = item.entry, title = item.title,
+                    w = tonumber(item.w), h = tonumber(item.h), args = item.args,
+                }
+            end
         end
     end
 

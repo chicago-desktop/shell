@@ -187,6 +187,7 @@ modules.render_pixels = dofile(BASE .. "explorer/render_pixels.lua")
 
 local pixels = modules.pixels
 local rasters = modules.rasters
+local chrome = modules.chrome
 local chrome_pixels = modules.chrome_pixels
 local render = modules.render
 local render_pixels = modules.render_pixels
@@ -705,7 +706,9 @@ do
     check(painted.hits.desktop ~= nil and painted.hits.bars ~= nil
             and painted.hits.menu ~= nil,
         "попадания обязаны приезжать группами {desktop, bars, menu}")
-    check(#painted.hits.desktop == 3, "у каждого значка стола обязано быть попадание")
+    -- Числом попадания здесь НЕ проверяются: обе ночные ошибки прошли бы
+    -- проверку «их не меньше двух». Форму сверяет отдельный блок ниже — с тем,
+    -- что отдаёт режим символов на том же состоянии.
     check(#painted.hits.bars >= 2, "«Пуск» и кнопка окна обязаны быть нажимаемы")
 
     -- Попадание значка обязано лежать в его же размещении.
@@ -719,6 +722,74 @@ do
             check(hit.from >= found.x and hit.to <= found.x + found.cols - 1,
                 "попадание значка " .. tostring(hit.id) .. " шире своего размещения")
         end
+    end
+
+    -- ─── ПОПАДАНИЯ ДВУХ РЕЖИМОВ ОБЯЗАНЫ СОВПАДАТЬ ПО ФОРМЕ ──────────────
+    --
+    -- Композитор один на оба режима, и попадание, которое он не умеет читать,
+    -- неотличимо от отсутствующего: щелчок просто ничего не делает.
+    --
+    -- Так пропали два щелчка сразу. «Пуск» отдавал `id = "menu"` вместо
+    -- `action = "menu"` — композитор проверяет `id` первым, искал окно с
+    -- таким именем и не находил. А значки стола отдавали ОДНО попадание на
+    -- три строки с полем `bottom_row`, которого композитор не знает: значок
+    -- нажимался бы по картинке и не нажимался по подписи.
+    --
+    -- Проверка не считает попадания, а сравнивает их с тем, что отдаёт РЕЖИМ
+    -- СИМВОЛОВ на том же состоянии. Считать бесполезно: обе ошибки прошли бы
+    -- проверку «попаданий не меньше двух».
+    do
+        local state = desktop_state()
+        local canvas = {
+            clear = function() end,
+            put = function() end,
+            put_rows = function() end,
+            rows = function() return {} end,
+        }
+        local cell_desk = chrome.fill(canvas, state.width, state.height, {
+            top = state.top, bottom = state.bottom,
+            items = state.items, selected = state.selected,
+        })
+        local cell_bars = chrome.bars(canvas, state.width, state.height, {
+            windows = state.windows, focused_id = state.focused_id,
+            status = state.status, clock = state.clock,
+        })
+
+        local function shape_of(hit: any)
+            local keys = {}
+            for key, value in pairs(hit) do
+                if value ~= nil then keys[#keys + 1] = key end
+            end
+            table.sort(keys)
+            return table.concat(keys, ",")
+        end
+
+        local function shapes(list)
+            local seen, out = {}, {}
+            for _, hit in ipairs(list or {}) do
+                local form = shape_of(hit)
+                if not seen[form] then seen[form] = true; out[#out + 1] = form end
+            end
+            table.sort(out)
+            return out
+        end
+
+        local function compare(what, cells_list, pixels_list)
+            local left = shapes(cells_list)
+            local right = shapes(pixels_list)
+            check(#cells_list == #pixels_list,
+                what .. ": в ячейках попаданий " .. #cells_list
+                    .. ", в пикселях " .. #pixels_list)
+            check(table.concat(left, " | ") == table.concat(right, " | "),
+                what .. ": форма попаданий разошлась\n        ячейки:  "
+                    .. table.concat(left, " | ") .. "\n        пиксели: "
+                    .. table.concat(right, " | "))
+            print("    " .. what .. ": " .. #pixels_list .. " попаданий, формы "
+                .. table.concat(right, " | "))
+        end
+
+        compare("стол", cell_desk, painted.hits.desktop)
+        compare("панель задач", cell_bars, painted.hits.bars)
     end
 
     local before = snapshot(placements)
