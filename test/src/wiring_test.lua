@@ -305,6 +305,62 @@ local function define_tests()
                 "policy must cover butschster.windows.api:*")
         end)
     end)
+
+    test.describe("butschster.windows declared modules have rights", function()
+        test.it("не объявляет модуля, права на который не выдано", function()
+            -- ОБЪЯВЛЕННЫЙ МОДУЛЬ БЕЗ ВЫДАННОГО ПРАВА ВЫГЛЯДИТ КАК МОДУЛЬ,
+            -- КОТОРОМУ НЕЧЕГО СКАЗАТЬ.
+            --
+            -- Так пропала целая просьба человека: `modules: [env]` у оболочки
+            -- был, действия `env.get` в политике не было, и `env.get_all`
+            -- отдавал ПУСТУЮ таблицу — он кладёт в неё только разрешённые
+            -- ключи и на отказ не жалуется вовсе. Снаружи это выглядело как
+            -- «человек не просил пиксельного режима».
+            --
+            -- Проверяется правилом, а не списком: список пришлось бы
+            -- дополнять при каждой новой записи, и его забыли бы ровно на той,
+            -- где это важно.
+            local gated = {
+                env = {"env.get"},
+                fs = {"fs.get"},
+                sql = {"db.get"},
+                gfx = {},          -- рисование правами не закрыто
+                registry = {"registry.get", "registry.find", "registry.entry"},
+            }
+
+            local checked = 0
+            for _, id in ipairs({
+                "butschster.windows:shell",
+                "butschster.windows.explorer:window",
+            }) do
+                local entry = get(id)
+                local data = data_of(entry)
+                local granted = {}
+                for _, policy in ipairs(data.security and data.security.policies
+                        or (meta_of(entry).command and meta_of(entry).command.security
+                            and meta_of(entry).command.security.policies) or {}) do
+                    for _, action in ipairs(actions_of(get(qualify(policy, "butschster.windows")))) do
+                        granted[action] = true
+                    end
+                end
+
+                for _, module in ipairs(data.modules or {}) do
+                    local wanted = gated[module]
+                    if wanted and #wanted > 0 then
+                        local ok = false
+                        for _, action in ipairs(wanted) do
+                            if granted[action] then ok = true end
+                        end
+                        checked = checked + 1
+                        test.is_true(ok, id .. " объявляет модуль " .. module
+                            .. ", но права на него не выдано — он будет молчать, а не отказывать")
+                    end
+                end
+            end
+
+            test.is_true(checked > 0, "проверка обязана хоть что-то проверить")
+        end)
+    end)
 end
 
 local run_cases = test.run_cases(define_tests)
