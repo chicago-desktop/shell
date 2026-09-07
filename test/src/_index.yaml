@@ -180,6 +180,61 @@ entries:
     base: project
     directory: ./src
 
+  # Второй уровень пиксельного пробника: команда, которая рисует кадр и
+  # кладёт PNG. Живёт в харнессе, а не в модуле: снимок — это проверка, а не
+  # часть оболочки, и в поставку он не едет.
+  #
+  #   cd test && wippy run --host wippy.terminal:host paint-png
+  - name: paint_png
+    kind: process.lua
+    meta:
+      comment: Рисует пиксельные примитивы настоящим gfx и кладёт PNG в test/shots — единственный способ увидеть глиф, грань и цвет.
+      command:
+        name: paint-png
+        short: Нарисовать пиксельные примитивы и положить PNG
+    source: file://paint_png.lua
+    method: main
+    modules:
+      - fs
+      - gfx
+    security:
+      policies: [app:probe_scope]
+    imports:
+      pixels: butschster.windows.shell:pixels
+      rasters: butschster.windows.shell:rasters
+
+  # Права пробника названы, а не взяты у общей разрешительной политики
+  # харнесса: `fs.get` — это доступ к файловой системе по записи реестра, и
+  # проверка, которой выдали всё, не заметит, что на стенде прав не хватает.
+  - name: probe_scope
+    kind: security.policy
+    meta:
+      comment: Права пиксельного пробника — прочитать шрифт и записать снимок; ничего больше.
+    policy:
+      actions:
+        - process.context
+        - fs.get
+      resources: "*"
+      effect: allow
+
+  # Каталог снимков. Пишется, поэтому auto_init включён; каталог шрифтов рядом
+  # только на чтение — приложение не должно пытаться его создавать и
+  # переставлять права.
+  - name: shots
+    kind: fs.directory
+    meta:
+      comment: Куда кладутся PNG пиксельного пробника.
+    base: project
+    directory: ./shots
+    auto_init: true
+
+  - name: system_fonts
+    kind: fs.directory
+    meta:
+      comment: Системные шрифты TrueType, только для чтения — шрифт приезжает в gfx байтами, а не путём.
+    auto_init: false
+    directory: /usr/share/fonts/truetype/liberation/
+
   - name: db
     kind: db.sql.sqlite
     meta:

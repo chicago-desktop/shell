@@ -11,3 +11,4 @@ static/*.map
 ui/vite.config.js
 ui/vite.config.d.ts
 /test/wippy.lock
+/test/shots/
