@@ -108,6 +108,76 @@ local function define_tests()
             end
         end)
 
+        test.it("не рисует в меню цифровых сокращений", function()
+            -- Их не было в Windows 95, и человек, открывающий программы
+            -- мышью, читает колонку цифр как вопрос «а зачем они». Завелись
+            -- они не от замысла, а от инструмента: пробник не умел мышь.
+            local canvas = tty.canvas(60, 20)
+            chrome.menu(canvas, 60, 20, {
+                {entry = "app:calc", title = "Калькулятор", icon = "▣"},
+                {entry = "app:notepad", title = "Блокнот"},
+                {entry = "app:paint", title = "Редактор"},
+            }, nil, {})
+
+            local rows = canvas:rows()
+            for index = 1, 20 do
+                local line = table.concat(visible(rows[index] or ""))
+                test.is_true(line:find("%d") == nil or line:find("21:") ~= nil,
+                    "строка " .. index .. " меню несёт цифру: " .. line)
+            end
+        end)
+
+        test.it("подсвечивает ту строку меню, которую откроет Enter", function()
+            -- Композитор не считает заново, что сейчас выбрано, а читает то,
+            -- что НАРИСОВАНО: второй счёт разъехался бы с первым, и Enter
+            -- открывал бы не ту строку, которая подсвечена.
+            local canvas = tty.canvas(60, 20)
+            local hits = chrome.menu(canvas, 60, 20, {
+                {entry = "app:calc", title = "Калькулятор", icon = "▣"},
+                {entry = "app:notepad", title = "Блокнот"},
+                {entry = "app:ping", title = "Пинг", group = "Служебные"},
+            }, nil, {}, 2)
+
+            local under = nil
+            local marked = 0
+            for _, hit in ipairs(hits) do
+                if hit.cursor then marked = marked + 1; under = hit end
+            end
+            test.eq(marked, 1, "подсвечена ровно одна строка")
+            test.eq(under.slot, 2, "вторая выбираемая строка панели")
+            test.eq(under.level, 1)
+        end)
+
+        test.it("не подсвечивает ничего, когда курсора нет", function()
+            -- Мышь курсора не заводит: подсвеченная строка при работе мышью
+            -- обещала бы, что Enter что-то откроет, а его никто не нажимал.
+            local canvas = tty.canvas(60, 20)
+            local hits = chrome.menu(canvas, 60, 20, {
+                {entry = "app:calc", title = "Калькулятор"},
+            }, nil, {})
+            for _, hit in ipairs(hits) do
+                test.is_nil(hit.cursor)
+            end
+        end)
+
+        test.it("считает выбираемые строки, а не все подряд", function()
+            -- Подсказки и обрезка «…ещё N» тоже занимают строки, а выбирать
+            -- их нельзя: считай их — и курсор вставал бы на строку, которую
+            -- нечем открыть.
+            local many = {}
+            for index = 1, 40 do
+                many[index] = {entry = "app:p" .. index, title = "Программа " .. index}
+            end
+            local canvas = tty.canvas(60, 12)
+            local hits = chrome.menu(canvas, 60, 12, many, nil, {}, 1)
+
+            local slots = {}
+            for _, hit in ipairs(hits) do slots[#slots + 1] = hit.slot end
+            for index, slot in ipairs(slots) do
+                test.eq(slot, index, "номера выбираемых строк идут подряд с единицы")
+            end
+        end)
+
         test.it("уступает место имени, когда кнопки не помещаются", function()
             -- Заголовок без имени не говорит, какое это окно, а закрыть его
             -- можно и с панели задач.

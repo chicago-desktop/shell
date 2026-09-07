@@ -234,7 +234,8 @@ local function scene(w, h, opts)
     end
     local hits = chrome.bars(canvas, w, h, opts.state or {})
     if opts.menu then
-        local mhits = chrome.menu(canvas, w, h, opts.menu.items, opts.menu.failure, opts.menu.open)
+        local mhits = chrome.menu(canvas, w, h, opts.menu.items, opts.menu.failure,
+            opts.menu.open, opts.menu.cursor)
         for _, hit in ipairs(mhits) do hits[#hits+1] = hit end
     end
     print("layout: top=" .. layout.top .. " bottom=" .. layout.bottom)
@@ -394,9 +395,9 @@ end
 
 
 scene(96, 20, {
-    title = "каскад «Пуска»: раскрыты Программы → Стандартные",
+    title = "каскад «Пуска»: раскрыты Программы → Стандартные, курсор на второй строке",
     state = {clock = "21:47", menu_open = true, windows = {}},
-    menu = {open = {"Программы", "Стандартные"}, items = {
+    menu = {open = {"Программы", "Стандартные"}, cursor = 2, items = {
         {entry = "app:calc", title = "Калькулятор", icon = "▣", group = "Программы/Стандартные"},
         {entry = "app:notepad", title = "Блокнот", group = "Программы/Стандартные"},
         {entry = "app:paint", title = "Графический редактор", group = "Программы/Стандартные"},

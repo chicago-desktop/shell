@@ -600,9 +600,14 @@ end
 local function line_text(line)
     if line.kind == "item" then
         local item = line.item
-        local key = line.index <= 9 and tostring(line.index) or " "
+        -- Цифры перед пунктом здесь БЫЛИ и убраны нарочно. Их не было в
+        -- Windows 95, и человек, открывающий программы мышью, читает колонку
+        -- цифр как вопрос «а зачем они». Завелись они не от замысла, а от
+        -- инструмента: пробник не умел мышь, и других способов открыть окно
+        -- в проверке не было. Ограничение инструмента протекло в интерфейс —
+        -- инструмент починен, цифры ушли.
         local icon = type(item.icon) == "string" and item.icon ~= "" and item.icon or glyphs.icons.unknown
-        return " " .. key .. " " .. icon .. " " .. line.text, ""
+        return " " .. icon .. " " .. line.text, ""
     end
     if line.kind == "group" then
         return " " .. glyphs.icons.folder .. " " .. line.text, glyphs.icons.submenu .. " "
@@ -622,7 +627,18 @@ end
 --   папка     — {row, from, to, open = {…полный путь…}, level = k}
 -- Номер программы — именно в ПЕРЕДАННОМ массиве, а не в порядке показа: тот
 -- же номер стоит в строке акселератором, и разъехаться им нечем.
-function chrome.menu(canvas, width: any, height: any, items, failure, open)
+-- `cursor` — номер выделенной строки в САМОЙ ГЛУБОКОЙ раскрытой панели, с
+-- единицы. Меню его не хранит: тема рисует кадр и ничего не помнит между
+-- кадрами, а помнит композитор — он же двигает курсор стрелками.
+--
+-- Выделенная строка помечается в разметке попаданий полем `cursor`, и это
+-- существенно: композитор не считает заново, что сейчас выбрано, а читает то,
+-- что НАРИСОВАНО. Второй счёт разъехался бы с первым, и Enter открывал бы не
+-- ту строку, которая подсвечена.
+--
+-- У каждого попадания есть `level` и `slot` — уровень панели и номер строки в
+-- ней. По ним композитор зажимает курсор, не зная устройства панелей.
+function chrome.menu(canvas, width: any, height: any, items, failure, open, cursor: any)
     local hits = {}
     local w, h = whole(width), whole(height)
     if w < 8 or h < 4 then return hits end
@@ -673,12 +689,15 @@ function chrome.menu(canvas, width: any, height: any, items, failure, open)
     end
 
     local left, parent_row = 1, 0
+    local deepest = #levels
+    local at = whole(cursor)
 
     for level, node in ipairs(levels) do
+        -- Номер строки внутри панели. Считается ЗДЕСЬ, а не по индексу в
+        -- списке строк: подсказки и обрезка «…ещё N» строками тоже занимают
+        -- место, а выбирать их нельзя.
+        local slot = 0
         local lines: any = panel_lines(node)
-        if level == 1 then
-            lines[#lines + 1] = {kind = "hint", text = "цифра — открыть · esc — закрыть"}
-        end
 
         -- Ширина панели — по самой длинной подписи, не по константе:
         -- каскад из трёх панелей одинаковой ширины съедает экран, а узкая
@@ -727,13 +746,20 @@ function chrome.menu(canvas, width: any, height: any, items, failure, open)
 
             if banner_w > 0 then
                 -- Надпись читается снизу вверх, как повёрнутая на 90°.
-                local slot = #lines - index + 1
-                local letter = slot <= #MENU_BANNER and MENU_BANNER:sub(slot, slot) or " "
+                -- Переменная названа НЕ `slot` нарочно: `slot` в этой же
+                -- функции — номер выбираемой строки, и одно имя на два разных
+                -- числа рано или поздно окажется прочитано не тем.
+                local letter_at = #lines - index + 1
+                local letter = letter_at <= #MENU_BANNER and MENU_BANNER:sub(letter_at, letter_at) or " "
                 parts[#parts + 1] = styles.banner:render(letter .. " ")
             end
 
             local text, tail = line_text(line)
             local style = styles.face
+            local selectable = line.kind == "item" or line.kind == "group"
+            if selectable then slot = slot + 1 end
+            local under_cursor = selectable and level == deepest and at > 0 and slot == at
+
             if line.kind == "group" then
                 style = styles.face_bold
                 -- Раскрытая папка остаётся подсвеченной: иначе по каскаду
@@ -742,6 +768,7 @@ function chrome.menu(canvas, width: any, height: any, items, failure, open)
             elseif line.kind == "hint" then
                 style = styles.face_dim
             end
+            if under_cursor then style = styles.select end
 
             local head = clip(text, math.max(0, list_w - cells(tail)))
             parts[#parts + 1] = style:render(head
@@ -751,6 +778,7 @@ function chrome.menu(canvas, width: any, height: any, items, failure, open)
                 hits[#hits + 1] = {
                     row = row, from = left + 1 + banner_w,
                     to = left + box_w - 2, index = line.index,
+                    level = level, slot = slot, cursor = under_cursor or nil,
                 }
             elseif line.kind == "group" then
                 local target = {}
@@ -758,7 +786,8 @@ function chrome.menu(canvas, width: any, height: any, items, failure, open)
                 target[level] = line.text
                 hits[#hits + 1] = {
                     row = row, from = left + 1 + banner_w,
-                    to = left + box_w - 2, open = target, level = level,
+                    to = left + box_w - 2, open = target,
+                    level = level, slot = slot, cursor = under_cursor or nil,
                 }
                 if names[level] ~= nil and line.text == names[level] then parent_row = row end
             end
