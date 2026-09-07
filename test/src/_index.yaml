@@ -113,14 +113,16 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Кнопки заголовка — у каждого типа окна свой состав, неизвестный тип считается обычным окном, и нажимается ровно то, что нарисовано.
+      comment: Кнопки заголовка — у каждого типа окна свой состав, неизвестный тип считается обычным окном, нажимается ровно то, что нарисовано; заливка зовётся у обеих тем, а стили лежат в одной таблице, а не в двух похожих.
       group: Windows Shell
       suite: butschster_windows
     source: file://chrome_test.lua
-    modules: [tty]
+    modules: [tty, gfx]
     imports:
       test: wippy.test:test
       chrome: butschster.windows.shell:chrome
+      chrome_pixels: butschster.windows.shell:chrome_pixels
+      widgets: butschster.windows.shell:widgets
     method: run
 
   - name: shell_test

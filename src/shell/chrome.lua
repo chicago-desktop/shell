@@ -185,24 +185,11 @@ local MAX_DEPTH = 3         -- глубже меню в терминале не 
 
 local START_LABEL = " " .. glyphs.icons.start .. " Пуск "
 
-local styles = {
-    desktop        = tty.style():background(color.desktop),
-    desktop_text   = tty.style():bold():foreground(color.desktop_text):background(color.desktop),
-    desktop_broken = tty.style():bold():foreground(color.desktop_broken):background(color.desktop),
-    face           = tty.style():foreground(color.face_text):background(color.face),
-    face_bold      = tty.style():bold():foreground(color.face_text):background(color.face),
-    face_dim       = tty.style():foreground(color.shadow):background(color.face),
-    accel          = tty.style():underline():foreground(color.face_text):background(color.face),
-    light          = tty.style():foreground(color.light):background(color.face),
-    shadow         = tty.style():foreground(color.shadow):background(color.face),
-    frame          = tty.style():foreground(color.frame):background(color.face),
-    etched         = tty.style():foreground(color.shadow):background(color.light),
-    title          = tty.style():bold():foreground(color.title_active_fg):background(color.title_active_bg),
-    title_idle     = tty.style():foreground(color.title_idle_fg):background(color.title_idle_bg),
-    select         = tty.style():bold():foreground(color.select_fg):background(color.select_bg),
-    banner         = tty.style():bold():foreground(color.select_fg):background(color.select_bg),
-    alert          = tty.style():bold():foreground(color.alert):background(color.face),
-}
+-- Стили общие с `widgets`, а не свои. Своя копия здесь БЫЛА и разошлась: в
+-- ней жил бирюзовый стол, которого не было у соседей, и пиксельная тема упала
+-- на нём в первый же живой запуск. Две таблицы одного и того же расходятся
+-- ровно на тех ключах, которые редко нужны обеим.
+local styles = widgets.styles
 
 -- ─── Общие мерки и детали ────────────────────────────────────────────────
 --

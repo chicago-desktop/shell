@@ -88,7 +88,24 @@ end
 --
 -- Общая таблица, а не копия у каждого: два одинаковых серых на глаз
 -- отличаются, а в коде — нет.
+-- Стили — ОДНА таблица на всю оболочку.
+--
+-- Их было две: эта и своя у темы, почти такая же. Разошлись они не сразу, и
+-- обнаружилось это отказом на живом стенде: пиксельная тема взяла
+-- `widgets.styles.desktop`, которого здесь не было, потому что бирюзовый стол
+-- лежал в чужой копии. Две таблицы одного и того же расходятся ровно на тех
+-- ключах, которые редко нужны обеим.
 widgets.styles = {
+    -- Рабочий стол. Здесь, а не у темы: им красит и тема, и пиксельная
+    -- заливка, и обе обязаны брать один и тот же цвет.
+    desktop        = tty.style():background(color.desktop),
+    desktop_text   = tty.style():bold():foreground(color.desktop_text):background(color.desktop),
+    desktop_broken = tty.style():bold():foreground(color.desktop_broken):background(color.desktop),
+    -- Заголовок окна. Разница активного и неактивного — по ФОНУ, а не по
+    -- яркости текста: иначе на тёмной теме терминала оба сливаются.
+    title          = tty.style():bold():foreground(color.title_active_fg):background(color.title_active_bg),
+    title_idle     = tty.style():foreground(color.title_idle_fg):background(color.title_idle_bg),
+    banner         = tty.style():bold():foreground(color.select_fg):background(color.select_bg),
     face      = tty.style():foreground(color.face_text):background(color.face),
     face_bold = tty.style():bold():foreground(color.face_text):background(color.face),
     face_dim  = tty.style():foreground(color.shadow):background(color.face),

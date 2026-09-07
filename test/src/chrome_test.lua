@@ -6,6 +6,7 @@
 -- Ни то, ни другое не выглядит ошибкой: выглядит, что «клик не сработал».
 local test = require("test")
 local chrome = require("chrome")
+local chrome_pixels = require("chrome_pixels")
 local tty = require("tty")
 
 -- Что реально нарисовано в строке заголовка. Стиль вырезается: нас
@@ -185,6 +186,43 @@ local function define_tests()
                             window_type = "app", rows = {}}
             test.is_nil(chrome.title_button_at(narrow, 8, 2),
                 "кнопки не нарисованы — значит и попадания нет")
+        end)
+
+        test.it("заливает стол и лицо панели задач в обоих режимах", function()
+            -- ФУНКЦИЯ, КОТОРУЮ НЕ ЗОВУТ, ЗЕЛЁНАЯ В ЛЮБОМ НАБОРЕ.
+            --
+            -- `chrome_pixels.fill` была написана и не вызывалась ничем:
+            -- композитор в пиксельном режиме её пропускал. В первый же живой
+            -- запуск она упала на `widgets.styles.desktop`, которого не
+            -- существовало, — стиль стола лежал во второй, почти такой же
+            -- таблице у темы. Две таблицы одного и того же расходятся ровно
+            -- на тех ключах, которые редко нужны обеим.
+            --
+            -- Поэтому здесь зовутся ОБЕ заливки: их не должно быть возможно
+            -- сломать по отдельности.
+            for _, theme in ipairs({chrome, chrome_pixels}) do
+                local canvas = tty.canvas(40, 10)
+                local hits = (theme :: any).fill(canvas, 40, 10, {top = 1, bottom = 9, items = {}})
+                test.not_nil(hits, "заливка обязана вернуть разметку, пусть и пустую")
+
+                local rows = canvas:rows()
+                test.eq(#rows, 10)
+                test.is_true(#tostring(rows[1]) > 0, "стол обязан быть закрашен")
+                test.is_true(#tostring(rows[10]) > 0, "лицо панели задач обязано быть закрашено")
+            end
+        end)
+
+        test.it("держит стили в одной таблице, а не в двух похожих", function()
+            -- Ключ, живущий у одной темы и отсутствующий у другой, — это
+            -- отказ на живом стенде, а не расхождение вида. Проверяется
+            -- тождеством таблицы: две копии рано или поздно разойдутся, одна
+            -- разойтись не может.
+            local widgets_styles = require("widgets").styles
+            for _, name in ipairs({"desktop", "desktop_text", "desktop_broken",
+                                   "title", "title_idle", "banner", "face", "select"}) do
+                test.not_nil(widgets_styles[name],
+                    "стиль " .. name .. " обязан быть в общей таблице")
+            end
         end)
     end)
 end

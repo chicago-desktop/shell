@@ -225,14 +225,26 @@ end
 local function scene(w, h, opts)
     local canvas = tty.canvas(w, h)
     local layout = chrome.layout(w, h)
-    chrome.fill(canvas, w, h)
+    -- Состояние стола передаётся ОБЯЗАТЕЛЬНО, даже когда его нет.
+    --
+    -- Раньше здесь стояло `chrome.fill(canvas, w, h)` без четвёртого
+    -- аргумента, и три сцены, названные «значки рабочего стола», рисовали
+    -- пустоту: значки не появлялись ни разу, а заголовок сцены обещал их.
+    -- Пробник, врущий умолчанием, хуже отсутствующего — на него ссылаются.
+    local desk_hits = chrome.fill(canvas, w, h, opts.desk or {})
     if opts.empty then
         chrome.empty_desktop(canvas, w, h, opts.empty)
     end
     for _, win in ipairs(opts.windows or {}) do
         chrome.window(canvas, win, win.focused)
     end
-    local hits = chrome.bars(canvas, w, h, opts.state or {})
+    local hits = {}
+    for _, hit in ipairs(type(desk_hits) == "table" and desk_hits or {}) do
+        hits[#hits+1] = hit
+    end
+    for _, hit in ipairs(chrome.bars(canvas, w, h, opts.state or {})) do
+        hits[#hits+1] = hit
+    end
     if opts.menu then
         local mhits = chrome.menu(canvas, w, h, opts.menu.items, opts.menu.failure,
             opts.menu.open, opts.menu.cursor)
