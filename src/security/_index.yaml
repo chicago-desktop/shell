@@ -1,0 +1,97 @@
+version: "1.0"
+namespace: butschster.windows.security
+
+# Права разделены на две, а не слиты в одну «всё можно»: оболочке нужно
+# порождать окна и запускать программы, ручкам раскладки — только прочитать
+# реестр и базу. Ручка, умеющая порождать процессы, рано или поздно это
+# сделает не тем, кем надо.
+
+entries:
+  # butschster.windows.security:shell_runtime
+  #
+  # Права самой оболочки. Список повторяет права композитора основы: оболочка
+  # ЕСТЬ композитор, вызванный со своей темой, и всё, что он делает, он делает
+  # под этим актором.
+  #
+  # `registry.apply` здесь есть, и это не оплошность. Окна, собранные
+  # мастерской, возвращает в реестр сам композитор — платформа запрещает
+  # менять реестр фоновым процессам группы `wippy.security:process`, и
+  # сервис-восстановитель молча не сделал бы ничего. Оболочка, поднятая одна,
+  # без этого права показала бы меню без окон мастерской и не объяснила бы,
+  # почему их нет. Отказ восстановления виден в GET /windows/status.
+  - name: shell_runtime
+    kind: security.policy
+    meta:
+      comment: Права оболочки — порождать окна с грантом на viewport, гасить их, запускать программы под PTY, читать каталог из реестра и раскладку из базы.
+    policy:
+      actions:
+        - process.context
+        - process.spawn
+        - process.spawn.monitored
+        - process.monitor
+        - process.host
+        - process.terminate
+        - process.send
+        - process.registry
+        - process.registry.register
+        - process.registry.unregister
+        - exec.get
+        - exec.run
+        # Каталог программ читается из реестра по meta.type — своей копии
+        # списка оболочка не держит.
+        - registry.get
+        - registry.find
+        - registry.entry
+        - registry.apply
+        # Раскладка читается и пишется на старте (ярлыки для программ с
+        # desktop true). Доступ к базе проверяется как действие `db.get` на
+        # идентификатор ресурса, а не как `sql.*` — проверено на основе.
+        - db.get
+      resources: "*"
+      effect: allow
+
+  # butschster.windows.security:shell_storage
+  #
+  # Права ручек раскладки: прочитать каталог и прочитать-записать свои строки.
+  # Ни порождения процессов, ни запуска программ здесь нет — ручки раскладку
+  # двигают, окна открывает оболочка.
+  - name: shell_storage
+    kind: security.policy
+    meta:
+      comment: Права ручек раскладки — чтение каталога из реестра и работа со своими строками в базе.
+    policy:
+      actions:
+        - process.context
+        - registry.get
+        - registry.find
+        - registry.entry
+        - db.get
+        # Раскладку композитор перечитывает по команде: ручка обязана его
+        # толкнуть, иначе значок появится только после перезапуска. Права
+        # ровно на это — найти адресата и послать сообщение; порождать
+        # процессы ручка по-прежнему не может.
+        - process.registry
+        - process.send
+      resources: "*"
+      effect: allow
+
+  # butschster.windows.security:shell_endpoint_access
+  - name: shell_endpoint_access
+    kind: security.policy
+    meta:
+      comment: Аутентифицированные пользователи приложения могут обращаться к ручкам оболочки.
+    groups: []
+    policy:
+      resources:
+        - butschster.windows.api:*
+      actions: access
+      effect: allow
+
+  # butschster.windows.security:user_security_scope
+  - name: user_security_scope
+    kind: ns.requirement
+    meta:
+      comment: Группа безопасности приложения, которой открыт доступ к ручкам оболочки.
+    targets:
+      - entry: butschster.windows.security:shell_endpoint_access
+        path: ".groups +="

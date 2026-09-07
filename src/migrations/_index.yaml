@@ -1,0 +1,29 @@
+version: "1.0"
+namespace: butschster.windows.migrations
+
+entries:
+  # butschster.windows.migrations:01_create_desktop_items
+  - name: 01_create_desktop_items
+    kind: function.lua
+    meta:
+      type: migration
+      comment: Раскладка рабочего стола — ярлыки и папки стола, которые двигает пользователь, — и отметка о том, какие программы оболочка уже предлагала вынести на стол.
+      target_db: app:db
+      timestamp: "2026-09-07T19:00:00Z"
+    source: file://01_create_desktop_items.lua
+    imports:
+      migration: wippy.migration:migration
+    method: migrate
+
+  # butschster.windows.migrations:02_desktop_items_unplaced
+  - name: 02_desktop_items_unplaced
+    kind: function.lua
+    meta:
+      type: migration
+      comment: Координаты становятся необязательными — пусто означает «место никто не называл», и такой значок композитор вправе положить сам.
+      target_db: app:db
+      timestamp: "2026-09-07T23:30:00Z"
+    source: file://02_desktop_items_unplaced.lua
+    imports:
+      migration: wippy.migration:migration
+    method: migrate

@@ -1,0 +1,21 @@
+version: "1.0"
+namespace: butschster.windows.persist
+
+# Хранилище раскладки рабочего стола.
+#
+# Кода программ здесь нет: он живёт в butschster_tui_desktop_windows у
+# основы. Здесь только то, что двигает пользователь, — где значок и как он
+# назван.
+
+entries:
+  # butschster.windows.persist:repo
+  - name: repo
+    kind: library.lua
+    meta:
+      comment: Ярлыки и папки стола; удаление отвечает, была ли строка, а отметка о предложенных программах живёт отдельно и не удаляется.
+    source: file://repo.lua
+    modules:
+      - sql
+      - env
+      - time
+      - uuid

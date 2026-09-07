@@ -1,0 +1,377 @@
+-- Примитивы Windows 95, не знающие про экран.
+--
+-- Отдельная библиотека, потому что рисуют ими ДВОЕ. Тема рисует рамку окна
+-- и панель задач; окно «Мой компьютер» рисует внутри себя строку меню,
+-- панель инструментов, вкладки и статусную строку — и делает это само, в
+-- свой viewport, ничего не зная про тему. Своя копия объёма у второго
+-- разошлась бы с рамкой вокруг него, и разошлась бы ВИДОМ, а не отказом:
+-- две почти одинаковые кнопки замечают через неделю.
+--
+-- Граница проведена так: здесь то, что рисуется по своим координатам и не
+-- спрашивает, какой ширины экран. Всё, что знает про экран целиком, —
+-- рамка окна, панель задач, меню «Пуск», значки стола — остаётся в теме.
+--
+-- Цель рисования — любой `tty.canvas`: и тот, что держит композитор, и тот,
+-- что окно заводит себе. Это один и тот же тип, поэтому сечение проходит
+-- здесь, а не по границе процессов.
+
+local tty = require("tty")
+
+local glyphs = require("glyphs")
+local palette = require("palette")
+
+local color = palette.active
+
+local widgets = {}
+
+-- ─── Мерки ───────────────────────────────────────────────────────────────
+
+function widgets.whole(value: any): integer
+    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
+end
+
+local whole = widgets.whole
+
+-- Ширина считается в ЯЧЕЙКАХ. `#строка` считает байты и не видит SGR: на
+-- кириллице врёт вдвое, на стилизованном тексте — втрое.
+function widgets.cells(text): integer
+    return whole(tty.text.width(text))
+end
+
+local cells = widgets.cells
+
+function widgets.clip(text, room: any)
+    local width = whole(room)
+    if width <= 0 then return "" end
+    return tty.text.truncate(tostring(text or ""), width)
+end
+
+local clip = widgets.clip
+
+-- fit(style, text, room) — строка РОВНО в `room` ячеек одним стилем.
+--
+-- Дополнять пробелами приходится вручную: `style:width(n)` кладёт свой фон
+-- под чужие SGR-последовательности только до первого сброса, и хвост строки
+-- остаётся с фоном терминала — на серой панели это видно как дыра.
+function widgets.fit(style, text, room: any)
+    local width = whole(room)
+    if width <= 0 then return "" end
+    local clipped = clip(text, width)
+    local gap = width - cells(clipped)
+    if gap > 0 then clipped = clipped .. string.rep(" ", gap) end
+    return style:render(clipped)
+end
+
+local fit = widgets.fit
+
+function widgets.centered(style, text, room: any)
+    local width = whole(room)
+    if width <= 0 then return "" end
+    local body = clip(text, width)
+    local left = (width - cells(body)) // 2
+    return style:render(string.rep(" ", left) .. body
+        .. string.rep(" ", width - left - cells(body)))
+end
+
+-- runes(text) — разбор на символы. Нужен там, где важен НОМЕР символа, а не
+-- его смещение в байтах: подчёркнутая буква акселератора — четвёртая буква,
+-- а не четвёртый байт, и на кириллице это разные места.
+local function runes(text)
+    local out = {}
+    for char in tostring(text):gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+        out[#out + 1] = char
+    end
+    return out
+end
+
+-- ─── Стили ───────────────────────────────────────────────────────────────
+--
+-- Общая таблица, а не копия у каждого: два одинаковых серых на глаз
+-- отличаются, а в коде — нет.
+widgets.styles = {
+    face      = tty.style():foreground(color.face_text):background(color.face),
+    face_bold = tty.style():bold():foreground(color.face_text):background(color.face),
+    face_dim  = tty.style():foreground(color.shadow):background(color.face),
+    accel     = tty.style():underline():foreground(color.face_text):background(color.face),
+    light     = tty.style():foreground(color.light):background(color.face),
+    shadow    = tty.style():foreground(color.shadow):background(color.face),
+    frame     = tty.style():foreground(color.frame):background(color.face),
+    etched    = tty.style():foreground(color.shadow):background(color.light),
+    field     = tty.style():foreground(color.field_text):background(color.field),
+    select    = tty.style():bold():foreground(color.select_fg):background(color.select_bg),
+    alert     = tty.style():bold():foreground(color.alert):background(color.face),
+}
+
+local styles = widgets.styles
+
+-- ─── Объём ───────────────────────────────────────────────────────────────
+--
+-- Объём даётся гранью в одну ячейку: светлая сверху и слева, тёмная снизу и
+-- справа. Поменять их местами — получить вдавленную деталь тем же кодом; на
+-- этом держится и нажатая кнопка, и утопленное поле.
+
+-- bezel(body, sunken) — деталь с гранью слева и справа, в одну строку.
+--
+-- `body` приходит УЖЕ отрисованным: наложить стиль поверх стилизованной
+-- строки значит обернуть её вторым SGR-конвертом, и первый же внутренний
+-- сброс оставит хвост с фоном терминала. Ширина результата — ширина тела
+-- плюс две ячейки.
+function widgets.bezel(body, sunken)
+    local left = sunken and styles.shadow or styles.light
+    local right = sunken and styles.light or styles.shadow
+    return left:render(glyphs.bevel.left) .. body .. right:render(glyphs.bevel.right)
+end
+
+local bezel = widgets.bezel
+
+function widgets.edge_top(width: any, sunken)
+    local w = whole(width)
+    if w <= 0 then return "" end
+    local style = sunken and styles.shadow or styles.light
+    if w == 1 then return style:render(glyphs.bevel.corner_light) end
+    return style:render(glyphs.bevel.corner_light .. string.rep(glyphs.bevel.top, w - 1))
+end
+
+function widgets.edge_bottom(width: any, sunken)
+    local w = whole(width)
+    if w <= 0 then return "" end
+    local style = sunken and styles.light or styles.shadow
+    if w == 1 then return style:render(glyphs.bevel.corner_shadow) end
+    return style:render(string.rep(glyphs.bevel.bottom, w - 1) .. glyphs.bevel.corner_shadow)
+end
+
+-- panel(target, x, y, box_w, body, sunken) — прямоугольник с объёмом.
+--
+-- `body` — уже отрисованные строки РОВНО в `box_w - 2` ячеек. Высота —
+-- `#body + 2`. Выпуклый и вдавленный отличаются только тем, какая грань
+-- светлая: одна форма на меню, табличку, поле часов и поле списка. Три
+-- разные таблички разъехались бы по виду на первой же правке.
+function widgets.panel(target, x: any, y: any, box_w: any, body, sunken)
+    local left, top, span = whole(x), whole(y), whole(box_w)
+    if span < 3 then return end
+    target:put(left, top, widgets.edge_top(span, sunken), span)
+    for index, row in ipairs(body) do
+        target:put(left, top + index, bezel(row, sunken), span)
+    end
+    target:put(left, top + #body + 1, widgets.edge_bottom(span, sunken), span)
+end
+
+-- Вдавленное поле под чужое содержимое: рисуется рамка, внутренность
+-- остаётся вызывающему.
+function widgets.field(target, x: any, y: any, box_w: any, box_h: any)
+    local w, h = whole(box_w), whole(box_h)
+    if w < 3 or h < 2 then return end
+    local body = {}
+    for row = 1, h - 2 do body[row] = styles.face:render(string.rep(" ", w - 2)) end
+    widgets.panel(target, x, y, w, body, true)
+end
+
+-- ─── Части диалога ───────────────────────────────────────────────────────
+
+-- accel(style, text, position) — текст с подчёркнутой буквой-акселератором.
+--
+-- Позиция считается в БУКВАХ. Нулевая или выходящая за строку означает
+-- «акселератора нет» и отрисовывается обычным текстом: подчеркнуть не ту
+-- букву хуже, чем не подчеркнуть ни одной — человек нажмёт её и ничего не
+-- произойдёт.
+function widgets.accel(style, text, position: any)
+    local at = whole(position)
+    local list = runes(text)
+    if at < 1 or at > #list then return style:render(tostring(text)) end
+    local head, tail = {}, {}
+    for index = 1, at - 1 do head[#head + 1] = list[index] end
+    for index = at + 1, #list do tail[#tail + 1] = list[index] end
+    return style:render(table.concat(head))
+        .. styles.accel:render(list[at])
+        .. style:render(table.concat(tail))
+end
+
+-- Ширина кнопки: две грани, два пробела вокруг подписи и сама подпись;
+-- у кнопки по умолчанию ещё две ячейки чёрного контура.
+function widgets.button_width(label, opts): integer
+    local extra = (type(opts) == "table" and opts.default) and 2 or 0
+    return cells(tostring(label or "")) + 4 + extra
+end
+
+-- button(label, opts) — выпуклая кнопка в одну строку.
+--
+-- opts.pressed — нажата (грани меняются местами), opts.default — кнопка по
+-- умолчанию: в Windows 95 у неё сверх объёма ещё чёрный контур, и это не
+-- украшение, а единственный признак того, что сделает Enter.
+-- opts.accel — номер подчёркиваемой буквы.
+function widgets.button(label, opts)
+    local options: any = type(opts) == "table" and opts or {}
+    local text = " " .. tostring(label or "") .. " "
+    local body = options.accel
+        and widgets.accel(styles.face, text, whole(options.accel) + 1)
+        or styles.face:render(text)
+    local out = bezel(body, options.pressed and true or false)
+    if options.default then
+        out = styles.frame:render(glyphs.bevel.left) .. out
+            .. styles.frame:render(glyphs.bevel.right)
+    end
+    return out
+end
+
+-- etched(width) — разделитель диалога в одну строку.
+--
+-- Половинка блока красит верх ячейки цветом текста, низ — цветом фона:
+-- тёмная грань над светлой, то есть настоящий этчед Windows 95, а не просто
+-- тонкая черта. Двух строк на разделитель не нужно.
+function widgets.etched(width: any)
+    local w = whole(width)
+    if w <= 0 then return "" end
+    return styles.etched:render(string.rep(glyphs.shade.half_top, w))
+end
+
+-- ─── Полосы окна ─────────────────────────────────────────────────────────
+--
+-- Рисует их САМО окно, внутри своего viewport: пункты меню свои у каждого
+-- окна, а «6 объектов» пересчитывается на каждое открытие папки. Отдай их
+-- теме — и композитор начал бы знать про устройство чужого окна.
+
+-- Строка меню: `File Edit View Help` с подчёркнутой буквой.
+--
+-- Возвращает попадания. Пункт, нарисованный без попадания, — это слово, по
+-- которому щёлкают и ничего не происходит, а отличить его от «меню
+-- сломалось» с экрана нельзя.
+function widgets.menu_bar(target, x: any, y: any, width: any, entries)
+    local hits = {}
+    local left, row, span = whole(x), whole(y), whole(width)
+    if span < 1 then return hits end
+
+    local parts, used = {}, 0
+    for _, entry in ipairs(type(entries) == "table" and entries or {}) do
+        local record: any = entry
+        local text = type(record) == "table" and tostring(record.text or "?") or tostring(record)
+        local at = type(record) == "table" and whole(record.accel) or 1
+        if at < 1 then at = 1 end
+        local label = " " .. text .. " "
+        local room = cells(label)
+        if used + room > span then break end
+        -- Ведущий пробел сдвигает букву на одну: акселератор считается по
+        -- ИМЕНИ пункта, а не по нарисованной строке.
+        parts[#parts + 1] = widgets.accel(styles.face, label, at + 1)
+        hits[#hits + 1] = {row = row, from = left + used, to = left + used + room - 1, menu = text}
+        used = used + room
+    end
+    if used < span then parts[#parts + 1] = styles.face:render(string.rep(" ", span - used)) end
+
+    target:put(left, row, table.concat(parts), span)
+    return hits
+end
+
+-- Панель инструментов: кнопки со значком и подписью в одну строку.
+function widgets.toolbar(target, x: any, y: any, width: any, buttons)
+    local hits = {}
+    local left, row, span = whole(x), whole(y), whole(width)
+    if span < 3 then return hits end
+
+    local parts, used = {}, 0
+    for _, entry in ipairs(type(buttons) == "table" and buttons or {}) do
+        local button: any = entry
+        if button.sep then
+            if used + 1 > span then break end
+            parts[#parts + 1] = styles.shadow:render(glyphs.bevel.left)
+            used = used + 1
+        else
+            local icon = type(button.icon) == "string" and button.icon or glyphs.icons.program
+            local label = type(button.label) == "string" and button.label or ""
+            local text = label ~= "" and (" " .. icon .. " " .. label .. " ") or (" " .. icon .. " ")
+            local room = cells(text) + 2
+            if used + room > span then break end
+            parts[#parts + 1] = bezel(styles.face:render(text), button.pressed and true or false)
+            hits[#hits + 1] = {row = row, from = left + used, to = left + used + room - 1, id = button.id}
+            used = used + room
+        end
+    end
+    if used < span then parts[#parts + 1] = styles.face:render(string.rep(" ", span - used)) end
+
+    target:put(left, row, table.concat(parts), span)
+    return hits
+end
+
+-- Статусная строка: вдавленные поля. Последнее забирает остаток — иначе на
+-- широком окне справа остаётся полоса голого лица, и строка выглядит
+-- недорисованной.
+function widgets.statusbar(target, x: any, y: any, width: any, fields)
+    local left, row, span = whole(x), whole(y), whole(width)
+    if span < 3 then return end
+
+    local list: any = type(fields) == "table" and fields or {}
+    local parts, used = {}, 0
+    for index, entry in ipairs(list) do
+        local field: any = entry
+        local text = type(field) == "table" and tostring(field.text or "") or tostring(field)
+        local want = type(field) == "table" and whole(field.width) or 0
+        if want <= 0 then want = cells(text) + 2 end
+        if index == #list then want = span - used - 2 end
+        if want < 1 then break end
+        if used + want + 2 > span then want = span - used - 2 end
+        if want < 1 then break end
+        parts[#parts + 1] = bezel(fit(styles.face, " " .. text, want), true)
+        used = used + want + 2
+    end
+    if used < span then parts[#parts + 1] = styles.face:render(string.rep(" ", span - used)) end
+
+    target:put(left, row, table.concat(parts), span)
+end
+
+-- Вкладки со страницей под ними.
+--
+-- Весь приём — РАЗРЫВ: рамка страницы прерывается ровно под активной
+-- вкладкой, и от этого вкладка сливается со страницей. Без разрыва это
+-- просто ряд кнопок над прямоугольником, и какая выбрана — видно только по
+-- жирности.
+--
+-- Рисует ряд вкладок, рамку страницы и её пустую внутренность; содержимое
+-- страницы кладёт вызывающий по (x + 1, y + 2).
+function widgets.tabs(target, x: any, y: any, box_w: any, box_h: any, labels, active: any)
+    local hits = {}
+    local left, top = whole(x), whole(y)
+    local span, height = whole(box_w), whole(box_h)
+    if span < 6 or height < 4 then return hits end
+
+    local list: any = type(labels) == "table" and labels or {}
+    local current = whole(active)
+    if current < 1 then current = 1 end
+
+    local parts, used = {}, 0
+    local gap: any = {}
+    for index, entry in ipairs(list) do
+        local label = type(entry) == "table" and tostring(entry.text or "?") or tostring(entry)
+        local text = " " .. label .. " "
+        local room = cells(text) + 2
+        if used + room > span then break end
+        local style = index == current and styles.face_bold or styles.face_dim
+        parts[#parts + 1] = bezel(style:render(text), false)
+        hits[#hits + 1] = {row = top, from = left + used, to = left + used + room - 1,
+                           index = index, tab = label}
+        if index == current then gap.from, gap.to = used, used + room - 1 end
+        used = used + room
+    end
+    if used < span then parts[#parts + 1] = styles.face:render(string.rep(" ", span - used)) end
+    target:put(left, top, table.concat(parts), span)
+
+    local edge = {}
+    for column = 0, span - 1 do
+        if gap.from ~= nil and column >= gap.from and column <= gap.to then
+            edge[#edge + 1] = styles.face:render(" ")
+        elseif column == 0 then
+            edge[#edge + 1] = styles.light:render(glyphs.bevel.corner_light)
+        else
+            edge[#edge + 1] = styles.light:render(glyphs.bevel.top)
+        end
+    end
+    target:put(left, top + 1, table.concat(edge), span)
+
+    local blank = bezel(styles.face:render(string.rep(" ", span - 2)), false)
+    for row = 2, height - 2 do
+        target:put(left, top + row, blank, span)
+    end
+    target:put(left, top + height - 1, widgets.edge_bottom(span, false), span)
+
+    return hits
+end
+
+return widgets

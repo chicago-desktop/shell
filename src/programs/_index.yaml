@@ -1,0 +1,55 @@
+version: "1.0"
+namespace: butschster.windows.programs
+
+# Каталог программ и его единственная связь с раскладкой.
+#
+# Реестр объявляет, что можно запустить; раскладка хранит, что где лежит.
+# Пересекаются они ровно в одном месте — `desktop: true`, просьба программы
+# вынести свой ярлык на стол при первом появлении. Всё остальное каталог о
+# раскладке не знает и знать не должен.
+
+entries:
+  # butschster.windows.programs:catalog
+  - name: catalog
+    kind: library.lua
+    meta:
+      comment: Каталог из реестра — программы, папки меню, порядок. Отказ реестра и пустой каталог возвращаются разными значениями.
+    source: file://catalog.lua
+    modules:
+      - registry
+
+  # butschster.windows.programs:defaults
+  - name: defaults
+    kind: library.lua
+    meta:
+      comment: Мебель рабочего стола первого запуска — только то, за чем что-то стоит; значок-бутафория тут не заводится.
+    source: file://defaults.lua
+    modules:
+      - registry
+    imports:
+      catalog: butschster.windows.programs:catalog
+
+  # butschster.windows.programs:seed
+  - name: seed
+    kind: library.lua
+    meta:
+      comment: Ярлык для программы с desktop true — один раз за всё время, даже если пользователь его удалил.
+    source: file://seed.lua
+    modules:
+      - sql
+      - env
+      - time
+      - uuid
+    imports:
+      repo: butschster.windows.persist:repo
+
+  # butschster.windows.programs:desktop_view
+  - name: desktop_view
+    kind: library.lua
+    meta:
+      comment: Раскладка, соединённая с каталогом — одно место, где ярлык встречается с записью реестра, и одно правило, как выглядит битый.
+    source: file://desktop_view.lua
+    modules:
+      - registry
+    imports:
+      catalog: butschster.windows.programs:catalog

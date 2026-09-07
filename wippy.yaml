@@ -1,0 +1,26 @@
+organization: butschster
+module: windows
+description: Оболочка терминального десктопа в стиле Windows 95 — бирюзовый рабочий стол, панель задач с «Пуском» и часами, меню программ из реестра и раскладка ярлыков, которую двигает пользователь.
+license: MIT
+repository: https://github.com/butschster/windows
+homepage: https://wippy.ai
+keywords:
+  - kickside
+  - tui
+  - terminal
+  - desktop
+  - shell
+exclude_meta:
+  type:
+    - test
+exclude:
+  - "wippy.lock"
+  - "app:**"
+  - "app.env:**"
+  - "test/**"
+  - "test:**"
+  - ".wippy/**"
+  - ".wippy:**"
+  - "test/stubs/**"
+  - "test/stubs:**"
+  - "src/**/stubs/**"

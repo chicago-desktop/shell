@@ -1,0 +1,13 @@
+{
+  "templateVersion": 1,
+  "initialized": true,
+  "identity": {
+    "organization": "butschster",
+    "module": "windows",
+    "namespace": "butschster.windows",
+    "tag": "butschster-windows",
+    "route": "windows",
+    "title": "Windows Shell",
+    "githubOwner": "butschster"
+  }
+}

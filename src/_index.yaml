@@ -1,0 +1,124 @@
+version: "1.0"
+namespace: butschster.windows
+
+# Оболочка терминального десктопа в стиле Windows 95.
+#
+# Своей механики окон здесь нет: хостинг окон, PTY, командный канал и
+# хранилище собранных на ходу приложений остаются в butschster/tui-desktop.
+# Этот модуль приносит три вещи — вид (тема), раскладку рабочего стола
+# (своя таблица) и меню программ, собираемое из реестра.
+#
+# Разделение, на котором стоит всё остальное: реестр объявляет, что можно
+# запустить; оболочка хранит, что где лежит. Список программ в состоянии не
+# хранится — иначе установленный модуль не появится, пока кто-то не нажмёт
+# «обновить»; позиция ярлыка в реестре не хранится — иначе перетаскивание
+# значка правит исходники.
+
+entries:
+  - name: definition
+    kind: ns.definition
+    meta:
+      title: Windows Shell
+      description: Оболочка терминального десктопа в стиле Windows 95 — бирюзовый рабочий стол, панель задач с «Пуском» и часами, меню программ из реестра и раскладка ярлыков, которую двигает пользователь.
+
+  # ─── Зависимости ─────────────────────────────────────────────────────
+  - version: "*"
+    name: dep.wippy.migration
+    kind: ns.dependency
+    meta:
+      comment: Миграция для таблицы раскладки рабочего стола.
+    component: wippy/migration
+
+  # Оболочка — надстройка над основой, а не её копия. Отсюда берутся
+  # композитор, хост окон, PTY-окна, командный канал и мастерская.
+  - version: "*"
+    name: dep.butschster.tui_desktop
+    kind: ns.dependency
+    meta:
+      comment: Основа десктопа — композитор, окна и командный канал. Оболочка вызывает её композитор со своей темой.
+    component: butschster/tui-desktop
+
+  # ─── Что модуль просит у приложения ──────────────────────────────────
+  - name: target_db
+    kind: ns.requirement
+    meta:
+      comment: База, где хранится раскладка рабочего стола — ярлыки и папки стола.
+    default: app:db
+    targets:
+      - entry: butschster.windows.migrations:01_create_desktop_items
+        path: .meta.target_db
+      - entry: butschster.windows.migrations:02_desktop_items_unplaced
+        path: .meta.target_db
+
+  - name: api_router
+    kind: ns.requirement
+    meta:
+      comment: HTTP-роутер, к которому крепятся ручки оболочки. Обязан требовать аутентификацию и endpoint_firewall.
+    default: app:api
+    targets:
+      - entry: butschster.windows.api:list_programs.endpoint
+        path: .meta.router
+      - entry: butschster.windows.api:list_desktop.endpoint
+        path: .meta.router
+      - entry: butschster.windows.api:create_desktop_item.endpoint
+        path: .meta.router
+      - entry: butschster.windows.api:update_desktop_item.endpoint
+        path: .meta.router
+      - entry: butschster.windows.api:delete_desktop_item.endpoint
+        path: .meta.router
+      - entry: butschster.windows.api:shell_status.endpoint
+        path: .meta.router
+
+  # ─── Хост ────────────────────────────────────────────────────────────
+  # Единственный процесс на настоящих stdin/stdout/stderr — оболочка.
+  #
+  # hide_logs обязателен: диффер поверхности считает себя единственным
+  # писателем в терминал, и строка лога разъезжает кадр насовсем.
+  #
+  # ВНИМАНИЕ приложению-хозяину: автодетект терминального хоста в CLI —
+  # просто подсчёт записей `terminal.host` во всём реестре. Установка этого
+  # модуля рядом с основой делает их три, и КАЖДАЯ команда приложения
+  # требует явного `--host`. Это цена второй оболочки, а не дефект.
+  - name: terminal
+    kind: terminal.host
+    hide_logs: true
+    lifecycle:
+      auto_start: true
+
+  # Хост окон здесь не объявляется: окна порождает композитор основы на
+  # своём `butschster.tui_desktop:workers`. Второй хост означал бы вторую
+  # копию механики окон, которая разошлась бы с оригиналом на первой правке.
+
+  # ─── Оболочка ────────────────────────────────────────────────────────
+  # butschster.windows:shell
+  - name: shell
+    kind: process.lua
+    meta:
+      comment: Оболочка Windows 95 — композитор основы со своей темой, своим каталогом и своей раскладкой стола.
+      command:
+        name: windows
+        short: Оболочка терминального десктопа в стиле Windows 95
+        security:
+          actor: {id: butschster.windows:shell}
+          policies: [butschster.windows.security:shell_runtime]
+    source: file://windows.lua
+    method: main
+    modules:
+      - channel
+      - env
+      - json
+      - logger
+      - process
+      - registry
+      - sql
+      - time
+      - tty
+      - uuid
+    imports:
+      library: butschster.tui_desktop.desktop:library
+      chrome: butschster.windows.shell:chrome
+      catalog: butschster.windows.programs:catalog
+      defaults: butschster.windows.programs:defaults
+      seed: butschster.windows.programs:seed
+      view: butschster.windows.programs:desktop_view
+      repo: butschster.windows.persist:repo

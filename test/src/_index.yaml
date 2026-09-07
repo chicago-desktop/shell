@@ -1,0 +1,190 @@
+version: "1.0"
+namespace: app
+
+# Standalone harness for butschster/windows. Provides the host resources the
+# boot needs (app:db, app:processes, gateway + api router, env storage, a
+# permissive actor scope) and wires them through wippy/bootloader so the
+# co-located *_test.lua suites run in isolation. The router exists only so the
+# endpoint entries resolve; the suites call the libraries directly.
+#
+# Оболочка отсюда тоже поднимается руками, без приложения:
+#   cd test && wippy run --host butschster.windows:terminal windows
+# Harness-only; excluded from publish via the module wippy.yaml.
+
+entries:
+  - name: definition
+    kind: ns.definition
+    meta: { title: Windows Shell Test Harness }
+
+  - name: storage_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Раскладка переживает круг «создал — прочитал — подвинул — удалил», битый ярлык остаётся и помечен, удалённый ярлык не возвращается.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://storage_test.lua
+    modules: [sql, env, json, time, uuid, registry]
+    imports:
+      test: wippy.test:test
+      repo: butschster.windows.persist:repo
+      catalog: butschster.windows.programs:catalog
+      seed: butschster.windows.programs:seed
+      view: butschster.windows.programs:desktop_view
+    method: run
+
+  - name: catalog_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Каталог собирает папки меню из meta.group и различает пустой каталог и нечитаемый реестр разными значениями.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://catalog_test.lua
+    modules: [registry]
+    imports:
+      test: wippy.test:test
+      catalog: butschster.windows.programs:catalog
+    method: run
+
+  - name: defaults_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Мебель стола заводится один раз, выброшенная не возвращается, ярлык на отсутствующую программу пропускается, а не заводится битым.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://defaults_test.lua
+    modules: [sql, env, json, time, uuid, registry, tty]
+    imports:
+      test: wippy.test:test
+      repo: butschster.windows.persist:repo
+      defaults: butschster.windows.programs:defaults
+      seed: butschster.windows.programs:seed
+      chrome: butschster.windows.shell:chrome
+    method: run
+
+  - name: explorer_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: «Мой компьютер» показывает сам стенд, описывает двойной щелчок намерением и нигде не подменяет «не прочитали» словом «пусто».
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://explorer_test.lua
+    modules: [registry]
+    imports:
+      test: wippy.test:test
+      model: butschster.windows.explorer:model
+    method: run
+
+  - name: glyphs_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Каждый символ набора занимает ровно одну ячейку, и оба набора палитры несут одни и те же имена — иначе одна деталь красится «как получится».
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://glyphs_test.lua
+    modules: [tty]
+    imports:
+      test: wippy.test:test
+      glyphs: butschster.windows.shell:glyphs
+      palette: butschster.windows.shell:palette
+    method: run
+
+  - name: wiring_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Хост, процесс оболочки, ручки и политики существуют и ссылаются друг на друга; лог терминального хоста заглушён, у ручек раскладки нет права порождать процессы, ручки создания программы нет.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://wiring_test.lua
+    modules: [registry]
+    imports:
+      test: wippy.test:test
+    method: run
+
+  - name: db
+    kind: db.sql.sqlite
+    meta:
+      comment: In-memory database — харнесс его не использует, но загрузчик просит ресурс.
+    file: ":memory:"
+
+  - name: env_storage
+    kind: env.storage.file
+    meta:
+      type: envstorage
+    file_path: ./.wippy/test.env
+    auto_create: true
+
+  - name: processes
+    kind: process.host
+    lifecycle:
+      auto_start: true
+
+  # The endpoint entries resolve against these resources at boot; no suite
+  # calls them over HTTP — the wiring suite checks registry shape.
+  - name: gateway
+    kind: http.service
+    addr: :19229
+    lifecycle:
+      auto_start: true
+
+  - name: api
+    kind: http.router
+    meta:
+      server: gateway
+    prefix: /api
+
+  - name: user
+    kind: security.policy
+    meta:
+      comment: Permissive actor scope for the suites.
+    policy:
+      resources: '*'
+      actions: '*'
+      effect: allow
+
+  # Харнесс тестирует модуль, значит зависит от него. Замена в .wippy.yaml
+  # подставляет сюда рабочую копию из ../, поэтому исходник и колокейтед
+  # тесты грузятся напрямую, без публикации.
+  - name: windows_harness.dep.module
+    version: "*"
+    kind: ns.dependency
+    meta:
+      comment: Модуль под тестом; источник подменяется на ../ в .wippy.yaml.
+    component: "butschster/windows"
+    parameters:
+      - name: butschster.windows:api_router
+        value: app:api
+
+  - name: windows_harness.dep.migration
+    version: "*"
+    kind: ns.dependency
+    meta:
+      comment: Host binding for the migration dependency used by the module under test.
+    component: "wippy/migration"
+    parameters:
+      - name: wippy.migration:app_db
+        value: app:db
+
+  - name: windows_harness.dep.security
+    version: "*"
+    kind: ns.dependency
+    meta:
+      comment: Platform security groups (wippy.security:process) that give host-managed services their policy scope under strict mode.
+    component: "wippy/security"
+
+  - name: windows_harness.dep.bootloader
+    version: "*"
+    kind: ns.dependency
+    meta:
+      comment: Host wiring for the standalone test harness.
+    component: "wippy/bootloader"
+    parameters:
+      - name: wippy.bootloader:application_host
+        value: app:processes
+      - name: wippy.bootloader:env_storage
+        value: app:env_storage

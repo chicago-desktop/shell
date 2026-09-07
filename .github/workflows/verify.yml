@@ -1,0 +1,51 @@
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # "latest" resolves the newest published runtime CLI on every run so the
+  # template is always verified against current releases. Set an exact tag
+  # (e.g. v0.3.28a) only to bisect a runtime regression.
+  WIPPY_VERSION: latest
+
+jobs:
+  module:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Install verified Wippy CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${WIPPY_VERSION}" = "latest" ]; then
+            base="https://github.com/wippyai/runtime/releases/latest/download"
+          else
+            base="https://github.com/wippyai/runtime/releases/download/${WIPPY_VERSION}"
+          fi
+          curl -fsSLO "${base}/wippy-linux-amd64"
+          curl -fsSLO "${base}/SHA256SUMS"
+          grep ' wippy-linux-amd64$' SHA256SUMS | sha256sum -c -
+          sudo install -m 0755 wippy-linux-amd64 /usr/local/bin/wippy
+          wippy version
+
+      - name: Verify registry wiring, lint, and suites
+        run: make verify
+
+      - name: Generated artifacts are reproducible
+        run: git diff --exit-code

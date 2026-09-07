@@ -1,0 +1,83 @@
+version: "1.0"
+namespace: butschster.windows.shell
+
+# Вид оболочки и ничего больше.
+#
+# Четыре библиотеки вместо одной — по границе, на которой их правят. Символы
+# меняют, глядя на экран; цвета — глядя на эталонный кадр; примитивы — глядя
+# на деталь; тему — глядя на контракт композитора. Слитые в один файл, они
+# правятся вслепую.
+#
+# Важнее другое. Рисуют этими примитивами ДВОЕ — тема снаружи окна и само
+# окно внутри своего viewport. Поэтому всё, что не знает про экран целиком,
+# лежит отдельно от темы и импортируется обоими. Своя копия у окна разошлась
+# бы с рамкой вокруг него, и разошлась бы видом, а не отказом.
+#
+# Ни одна из них не ходит в рантайм — только строки и арифметика. Поэтому их
+# можно мерить тестом без терминала, а это единственный способ поймать
+# разъехавшуюся на ячейку рамку, пока она не уехала на стенд.
+#
+# ЛОВУШКА ЭТОГО ФАЙЛА. Двоеточие с пробелом внутри незакавыченного значения
+# YAML читает как начало новой пары, и отказ приходит от загрузчика записей
+# с указанием на файл, а не на фразу. В комментариях ниже двоеточий нет
+# нарочно.
+
+entries:
+  # butschster.windows.shell:palette
+  - name: palette
+    kind: library.lua
+    meta:
+      comment: Палитра точными цветами Windows 95 и те же имена базовыми индексами ANSI как запасной путь.
+    source: file://palette.lua
+
+  # butschster.windows.shell:glyphs
+  - name: glyphs
+    kind: library.lua
+    meta:
+      comment: Псевдографика оболочки — грани объёма, кнопки, полоса прокрутки, значки. Каждый символ шириной ровно в одну ячейку.
+    source: file://glyphs.lua
+
+  # butschster.windows.shell:widgets
+  #
+  # Примитивы, не знающие про экран. Их импортирует и тема, и окно.
+  - name: widgets
+    kind: library.lua
+    meta:
+      comment: Объёмные детали Windows 95 — грани, панель, вдавленное поле, кнопка, этчед-разделитель, строка меню, панель инструментов, статусная строка, вкладки.
+    source: file://widgets.lua
+    modules:
+      - tty
+    imports:
+      glyphs: butschster.windows.shell:glyphs
+      palette: butschster.windows.shell:palette
+
+  # butschster.windows.shell:icons
+  #
+  # Значок рисуют двое — стол композитором и окно «Мой компьютер» само.
+  - name: icons
+    kind: library.lua
+    meta:
+      comment: Значок с подписью, один на всю оболочку — и для рабочего стола, и для списка объектов внутри окна.
+    source: file://icons.lua
+    modules:
+      - tty
+    imports:
+      glyphs: butschster.windows.shell:glyphs
+      palette: butschster.windows.shell:palette
+
+  # butschster.windows.shell:chrome
+  #
+  # Тема по контракту основы. Здесь остаётся только то, что знает про экран
+  # целиком.
+  - name: chrome
+    kind: library.lua
+    meta:
+      comment: Тема по контракту основы — рабочий стол со значками, рамка окна, панель задач и каскадное меню «Пуск».
+    source: file://chrome.lua
+    modules:
+      - tty
+    imports:
+      glyphs: butschster.windows.shell:glyphs
+      icons: butschster.windows.shell:icons
+      palette: butschster.windows.shell:palette
+      widgets: butschster.windows.shell:widgets
