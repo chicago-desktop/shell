@@ -18,6 +18,7 @@ local gfx = require("gfx")
 
 local pixels = require("pixels")
 local rasters = require("rasters")
+local chrome_pixels = require("chrome_pixels")
 local render = require("render")
 local render_pixels = require("render_pixels")
 
@@ -40,6 +41,10 @@ local FALLBACK = {w = 10, h = 20}
 -- только в лог, не рассказан никому: числа про метрики шрифта и про
 -- переживающие кадр растры — это половина проверки, и её надо ЧИТАТЬ.
 local REPORT = "report.txt"
+
+-- Бирюзовый стола. В живом кадре его кладут ячейки, здесь — только ради
+-- снимка: чтобы человек видел то же, что увидит на экране.
+local color_desktop = "#008080"
 
 local SHOTS = "app:shots"
 local FONTS = "app:system_fonts"
@@ -299,10 +304,66 @@ local function main(spec)
         return #moved == 0
     end
 
+    -- ─── весь экран одним снимком ────────────────────────────────────────
+    --
+    -- Композитор кладёт размещения по отдельности, но человек смотрит на
+    -- ЭКРАН. Куски, разложенные по восьми файлам, не показывают ни того, что
+    -- рамка сошлась, ни того, что значок не наехал на окно.
+    --
+    -- `blit` собирает их в один растр по тем же координатам, по которым их
+    -- положит поверхность, — то есть снимок врёт ровно настолько, насколько
+    -- врут координаты, и ни на сколько больше.
+    local function screen_shot()
+        chrome_pixels.use_fonts(font, bold)
+
+        local cols, rows = 100, 28
+        local state: any = {
+            width = cols, height = rows, top = 1, bottom = rows - 1,
+            windows = {
+                {id = "w1", title = "Командная строка", x = 20, y = 4, w = 52, h = 14,
+                 window_type = "app"},
+                {id = "w2", title = "Свойства системы", x = 44, y = 12, w = 44, h = 10,
+                 window_type = "dialog"},
+            },
+            focused_id = "w2",
+            items = {
+                {id = "s1", kind = "shortcut", entry = "app:computer",
+                 title = "Мой компьютер", x = 2, y = 1},
+                {id = "f1", kind = "folder", title = "Программы", x = 2, y = 5},
+                {id = "s2", kind = "shortcut", entry = "app:bin", title = "Корзина", x = 2, y = 9},
+                {id = "s3", kind = "shortcut", entry = "app:gone", title = "Старая программа",
+                 x = 2, y = 13, broken = true},
+            },
+            selected = "f1",
+            clock = "21:47",
+            status = "Свойства системы · 40x7 · окон: 2",
+        }
+
+        local painted = chrome_pixels.paint(state, cell.w, cell.h)
+        local screen = gfx.raster(cols * cell.w, rows * cell.h)
+        -- Стол заливкой: в живом кадре это стили ЯЧЕЕК, а не картинка
+        -- (FR-005 §3а). Здесь он закрашен, чтобы снимок показывал то же, что
+        -- увидит человек, — но в кадр такой растр не попадает никогда.
+        screen:fill(color_desktop)
+
+        for _, item in ipairs(painted.placements) do
+            screen:blit(item.raster, (item.x - 1) * cell.w + 1, (item.y - 1) * cell.h + 1)
+        end
+
+        local bytes = screen:encode("png")
+        if bytes then
+            store_shots:writefile("desktop.png", bytes)
+            say(string.format("экран: размещений %d, значков %d, кнопок панели %d → desktop.png",
+                #painted.placements, #painted.hits.desktop, #painted.hits.bars))
+        end
+    end
+
     local steady = check_frames(cell, font)
     if not steady then
         say("ОТКАЗ: растры не переживают кадр — экран будет правильным, а летать будет всё")
     end
+
+    screen_shot()
 
     local explorer_ok = explorer_shots(rasters.store())
     if not explorer_ok then

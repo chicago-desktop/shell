@@ -23,6 +23,8 @@ MODULES = (
     ("shell", "icons"),
     ("shell", "pixels"),
     ("shell", "rasters"),
+    ("shell", "chrome"),
+    ("shell", "chrome_pixels"),
     ("explorer", "render"),
     ("explorer", "render_pixels"),
 )

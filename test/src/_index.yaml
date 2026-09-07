@@ -201,6 +201,7 @@ entries:
     security:
       policies: [app:probe_scope]
     imports:
+      chrome_pixels: butschster.windows.shell:chrome_pixels
       pixels: butschster.windows.shell:pixels
       rasters: butschster.windows.shell:rasters
       render: butschster.windows.explorer:render

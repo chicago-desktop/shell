@@ -8,8 +8,12 @@
 -- и обнаружилось бы это через неделю на живом стенде.
 
 local logger = require("logger")
+local env = require("env")
+local fs = require("fs")
+local gfx = require("gfx")
 local library = require("library")
 local chrome = require("chrome")
+local chrome_pixels = require("chrome_pixels")
 local catalog = require("catalog")
 local defaults = require("defaults")
 local seed = require("seed")
@@ -17,6 +21,48 @@ local view = require("view")
 local repo = require("repo")
 
 local SERVICE_NAME = "butschster.windows.shell"
+
+-- Шрифт пиксельной темы. Приезжает БАЙТАМИ через `fs`, а не путём внутри
+-- `gfx`: чтение файла управляется правами процесса, и модуль, открывающий
+-- пути сам, был бы дорогой мимо них. Побочно это значит, что шрифт может
+-- приехать откуда угодно — из встроенной файловой системы модуля, из базы.
+--
+-- Полужирный — ОТДЕЛЬНЫЙ файл, а не опция: в Windows 95 заголовок набран им,
+-- и синтезировать его размазыванием пикселей значит перестать быть похожим.
+local FONTS = env.get("BUTSCHSTER_WINDOWS_FONTS") or "app:system_fonts"
+local FONT_FACE = "LiberationSans-Regular.ttf"
+local FONT_BOLD = "LiberationSans-Bold.ttf"
+local FONT_SIZE = 13
+
+-- Пиксельный режим включается ЯВНО, а не по наличию графики (FR-005 §6):
+-- терминал, умеющий sixel, — не повод перерисовывать интерфейс иначе, чем
+-- человек просил.
+local function wants_pixels()
+    local asked = env.get("BUTSCHSTER_WINDOWS_PIXELS")
+    return asked == "1" or asked == "true" or asked == "yes"
+end
+
+-- Шрифты для пиксельной темы. Отказ здесь — НЕ повод погасить оболочку:
+-- она поднимается в ячейках и говорит причину. Пустой экран вместо стола
+-- читается как сломанный стенд, а не как ненайденный файл.
+local function load_fonts(log)
+    local store, err = fs.get(FONTS)
+    if err or not store then
+        return nil, "шрифты не открылись (" .. FONTS .. "): " .. tostring(err)
+    end
+
+    local face_data, ferr = store:readfile(FONT_FACE)
+    if ferr or not face_data then
+        return nil, FONT_FACE .. " не прочитан: " .. tostring(ferr)
+    end
+    local bold_data, berr = store:readfile(FONT_BOLD)
+    if berr or not bold_data then
+        return nil, FONT_BOLD .. " не прочитан: " .. tostring(berr)
+    end
+
+    return {face = gfx.font(face_data, {size = FONT_SIZE}),
+            bold = gfx.font(bold_data, {size = FONT_SIZE})}, nil
+end
 
 local function main()
     local log = logger:named("windows.shell")
@@ -136,11 +182,52 @@ local function main()
         return true, nil
     end
 
+    -- Пиксельный режим собирается ЗДЕСЬ, а не в механике, и не по прихоти:
+    -- запись механики не объявляет `gfx`, поэтому спросить терминал о размере
+    -- ячейки она не может. Решение принимает она, вопрос задаём мы.
+    --
+    -- Каждый отказ по дороге оставляет оболочку в ячейках и НАЗЫВАЕТ причину.
+    -- Пиксельный режим, не включившийся молча, выглядит как «почему-то
+    -- по-старому», и человек идёт искать поломку там, где её нет.
+    local theme: any = chrome
+    local cell_size: any = nil
+
+    if wants_pixels() then
+        local protocol, why = gfx.supported()
+        local width, height = gfx.cell_size()
+
+        if not protocol then
+            log:warn("пиксельный режим не включён: терминал не умеет графику",
+                {reason = tostring(why)})
+        elseif not width or not height then
+            -- Догадка «8×16» права достаточно часто, чтобы выглядеть верной, и
+            -- картинка не того размера читается как ошибка рисования, а не как
+            -- незаданный вопрос. Поэтому отказ, а не умолчание.
+            log:warn("пиксельный режим не включён: терминал не сказал размер ячейки",
+                {reason = tostring(height)})
+        else
+            local fonts, ferr = load_fonts(log)
+            if not fonts then
+                log:warn("пиксельный режим не включён: нет шрифта", {error = tostring(ferr)})
+            else
+                chrome_pixels.use_fonts(fonts.face, fonts.bold)
+                theme = chrome_pixels
+                cell_size = gfx.cell_size
+                log:info("пиксельный режим включён",
+                    {protocol = protocol, cell = width .. "x" .. height})
+            end
+        end
+    end
+
     -- Голым `return library.run(...)` это писать нельзя: в go-lua v1.5.18
     -- хвостовой вызов yield-функции из базового фрейма корутины не
     -- выполняется вовсе — молча, за 0 мс.
     local ok, err = library.run({
-        chrome = chrome,
+        chrome = theme,
+        pixels = cell_size ~= nil,
+        -- Функцией, а не значением: размер ячейки меняется, когда человек
+        -- меняет шрифт терминала, и снятое однажды число разъедется с экраном.
+        cell_size = cell_size,
         service_name = SERVICE_NAME,
         hint = "Пуск — программы · alt+n — окно с bash · ctrl+q — выход",
         -- Необязательные швы к основе. Не поддержи их композитор — меню

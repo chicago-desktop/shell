@@ -178,11 +178,16 @@ modules.widgets = dofile(BASE .. "shell/widgets.lua")
 modules.icons = dofile(BASE .. "shell/icons.lua")
 modules.pixels = dofile(BASE .. "shell/pixels.lua")
 modules.rasters = dofile(BASE .. "shell/rasters.lua")
+-- `chrome` тянется сюда не ради отрисовки в ячейки, а ради ОДНОЙ таблицы
+-- составов кнопок заголовка: второй список разошёлся бы с первым.
+modules.chrome = dofile(BASE .. "shell/chrome.lua")
+modules.chrome_pixels = dofile(BASE .. "shell/chrome_pixels.lua")
 modules.render = dofile(BASE .. "explorer/render.lua")
 modules.render_pixels = dofile(BASE .. "explorer/render_pixels.lua")
 
 local pixels = modules.pixels
 local rasters = modules.rasters
+local chrome_pixels = modules.chrome_pixels
 local render = modules.render
 local render_pixels = modules.render_pixels
 
@@ -607,6 +612,127 @@ do
     check(#noticed == 1 and noticed[1] == "explorer:status",
         "смена замечания перерисовала: " .. table.concat(noticed, ", "))
     print("    сменилось замечание: перерисовано " .. table.concat(noticed, ", "))
+end
+
+-- ─── ТЕМА ОБОЛОЧКИ ПИКСЕЛЯМИ ────────────────────────────────────────────
+--
+-- Здесь проверяется нарезка кадра целиком: стол со значками, рамки окон,
+-- панель задач. Ошибка нарезки не видна ни на снимке, ни на стенде — экран
+-- правильный, просто набор текста в bash стоит сорока семи миллисекунд.
+
+local function desktop_state(extra: any)
+    local state: any = {
+        width = 60, height = 20, top = 1, bottom = 19,
+        windows = {
+            {id = "w1", title = "Командная строка", x = 6, y = 3, w = 40, h = 12,
+             window_type = "app"},
+        },
+        focused_id = "w1",
+        items = {
+            {id = "s1", kind = "shortcut", entry = "app:computer", title = "Мой компьютер", x = 2, y = 1},
+            {id = "f1", kind = "folder", title = "Программы", x = 2, y = 5},
+            {id = "s2", kind = "shortcut", entry = "app:gone", title = "Старая", x = 2, y = 9, broken = true},
+        },
+        clock = "21:47",
+        status = "Командная строка · 38x9 · окон: 1",
+    }
+    for key, value in pairs(type(extra) == "table" and extra or {}) do state[key] = value end
+    return state
+end
+
+do
+    print("")
+    print("┌── тема оболочки: нарезка кадра")
+
+    chrome_pixels.use_fonts(font, font)
+    local painted = chrome_pixels.paint(desktop_state(), CELL.w, CELL.h)
+    local placements = painted.placements
+
+    for _, item in ipairs(placements) do
+        print(string.format("    %-18s ячейка %2d,%-3d %2d×%-3d ячеек", item.id,
+            item.x, item.y, item.cols, item.rows))
+    end
+
+    -- ЦЕНА ОДНОГО НАЖАТИЯ КЛАВИШИ. Содержимое окна меняется на каждое
+    -- нажатие, строки перерисовываются, и КАЖДОЕ размещение, лежащее на этих
+    -- строках, уезжает заново. Это не проверяется «да/нет» — это измеряется,
+    -- потому что вопрос не «задевает ли», а «во что обходится».
+    --
+    -- Мерка — полный экран: 1000×560 px, 47 мс, 131 КБ. Ради ухода от них всё
+    -- и затевалось, и держаться надо на порядок ниже.
+    local window = desktop_state().windows[1]
+    local body_top, body_bottom = window.y + 2, window.y + window.h - 2
+    local cost, culprits = 0, {}
+    for _, item in ipairs(placements) do
+        if item.y <= body_bottom and item.y + item.rows - 1 >= body_top then
+            local area = item.cols * CELL.w * item.rows * CELL.h
+            cost = cost + area
+            culprits[#culprits + 1] = item.id .. " " .. area .. "px"
+        end
+    end
+
+    local full = 100 * CELL.w * 28 * CELL.h
+    print(string.format("    нажатие клавиши в окне переотправляет %d px (%.1f%% от полного экрана): %s",
+        cost, cost * 100 / full, table.concat(culprits, ", ")))
+
+    -- Порог не круглый, а выведенный: одна десятая полного экрана — это уже
+    -- 4–5 мс на нажатие, и по ssh это заметно.
+    check(cost < full // 10,
+        "нажатие клавиши переотправляет " .. cost .. " px — это больше десятой доли экрана")
+
+    -- А вот ШИРОКОЕ размещение поперёк содержимого — всегда ошибка нарезки,
+    -- сколько бы оно ни весило: значит кусок хрома не разрезан по строкам.
+    for _, item in ipairs(placements) do
+        local touches = item.y <= body_bottom and item.y + item.rows - 1 >= body_top
+        local own_window = string.find(item.id, "^win:") ~= nil
+        check(not touches or not own_window or item.cols <= 1,
+            item.id .. " накрывает строки содержимого шириной " .. item.cols
+                .. " — рамка не разрезана по строкам")
+    end
+
+    -- Панель задач лежит на своей строке, куда окна не заходят.
+    local bars: any = nil
+    for _, item in ipairs(placements) do
+        if item.id == "bars" then bars = item end
+    end
+    check(bars ~= nil, "панели задач нет в кадре")
+    if bars then
+        check(bars.y == 20 and bars.rows == 1, "панель задач заняла не свою строку")
+    end
+
+    -- Попадания приезжают ГРУППАМИ, а не плоским списком: `id` в трёх
+    -- списках значит разное.
+    check(painted.hits.desktop ~= nil and painted.hits.bars ~= nil
+            and painted.hits.menu ~= nil,
+        "попадания обязаны приезжать группами {desktop, bars, menu}")
+    check(#painted.hits.desktop == 3, "у каждого значка стола обязано быть попадание")
+    check(#painted.hits.bars >= 2, "«Пуск» и кнопка окна обязаны быть нажимаемы")
+
+    -- Попадание значка обязано лежать в его же размещении.
+    for _, hit in ipairs(painted.hits.desktop) do
+        local found: any = nil
+        for _, item in ipairs(placements) do
+            if item.id == "desk:" .. tostring(hit.id) then found = item end
+        end
+        check(found ~= nil, "у значка " .. tostring(hit.id) .. " нет размещения")
+        if found then
+            check(hit.from >= found.x and hit.to <= found.x + found.cols - 1,
+                "попадание значка " .. tostring(hit.id) .. " шире своего размещения")
+        end
+    end
+
+    local before = snapshot(placements)
+    local again = snapshot(chrome_pixels.paint(desktop_state(), CELL.w, CELL.h).placements)
+    local still = moved(before, again)
+    check(#still == 0, "кадр без изменений сдвинул: " .. table.concat(still, ", "))
+    print("    тот же кадр ещё раз: сдвинулось " .. #still)
+
+    -- Сменились часы — обязана перерисоваться ТОЛЬКО панель задач.
+    local ticked = moved(again,
+        snapshot(chrome_pixels.paint(desktop_state({clock = "21:48"}), CELL.w, CELL.h).placements))
+    check(#ticked == 1 and ticked[1] == "bars",
+        "смена часов перерисовала: " .. table.concat(ticked, ", "))
+    print("    сменились часы: перерисовано " .. table.concat(ticked, ", "))
 end
 
 print("")

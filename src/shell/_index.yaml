@@ -94,6 +94,29 @@ entries:
     modules:
       - gfx
 
+  # butschster.windows.shell:chrome_pixels
+  #
+  # Пиксельная тема. Отдельной записью по тому же правилу, что и пиксельный
+  # бэкенд проводника: запись, объявившая `gfx`, на рантайме без него не
+  # грузится целиком, и путь в ячейках умер бы вместе с графикой.
+  - name: chrome_pixels
+    kind: library.lua
+    meta:
+      comment: Пиксельная тема оболочки — заливка остаётся ячейками, пикселями только фаски, значки и подписи; рамка окна нарезана по строкам, чтобы набор текста внутри стоил двух полосок.
+    source: file://chrome_pixels.lua
+    modules:
+      - gfx
+    imports:
+      # Состав кнопок заголовка берётся у темы в ячейках: одна таблица на оба
+      # режима. Второй список разошёлся бы с первым, и у диалога в пикселях
+      # оказалось бы три кнопки, а в ячейках две.
+      chrome: butschster.windows.shell:chrome
+      icons: butschster.windows.shell:icons
+      palette: butschster.windows.shell:palette
+      pixels: butschster.windows.shell:pixels
+      rasters: butschster.windows.shell:rasters
+      widgets: butschster.windows.shell:widgets
+
   # butschster.windows.shell:chrome
   #
   # Тема по контракту основы. Здесь остаётся только то, что знает про экран

@@ -50,6 +50,12 @@ entries:
       - entry: butschster.windows.migrations:02_desktop_items_unplaced
         path: .meta.target_db
 
+  # Каталога шрифтов здесь НЕТ, и это не пропуск. `ns.requirement` пишет поле
+  # в запись, а поля записи процесс о себе не читает — значение просто
+  # никуда бы не доехало, и требование стало бы украшением, которое выглядит
+  # настройкой. Каталог называется окружением: BUTSCHSTER_WINDOWS_FONTS,
+  # умолчание `app:system_fonts`. Тем же способом называется и база.
+
   - name: api_router
     kind: ns.requirement
     meta:
@@ -106,6 +112,10 @@ entries:
     modules:
       - channel
       - env
+      # Шрифт приезжает байтами через fs, а размер ячейки спрашивает gfx:
+      # запись механики их не объявляет, поэтому вопрос задаёт оболочка.
+      - fs
+      - gfx
       - json
       - logger
       - process
@@ -117,6 +127,7 @@ entries:
     imports:
       library: butschster.tui_desktop.desktop:library
       chrome: butschster.windows.shell:chrome
+      chrome_pixels: butschster.windows.shell:chrome_pixels
       catalog: butschster.windows.programs:catalog
       defaults: butschster.windows.programs:defaults
       seed: butschster.windows.programs:seed
