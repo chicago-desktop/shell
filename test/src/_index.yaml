@@ -122,6 +122,21 @@ entries:
       chrome: butschster.windows.shell:chrome
     method: run
 
+  - name: shell_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Оболочка поднимается на viewport теста и перечитывает раскладку по команде ручки; погашенная оболочка отличается от отказа.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://shell_test.lua
+    modules: [channel, process, registry, sql, env, time, tty, uuid]
+    imports:
+      test: wippy.test:test
+      control: butschster.windows.api:control
+      repo: butschster.windows.persist:repo
+    method: run
+
   - name: glyphs_test
     kind: function.lua
     meta:
