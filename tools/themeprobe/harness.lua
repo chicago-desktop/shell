@@ -409,6 +409,59 @@ scene(96, 20, {
     }},
 })
 
+-- Три типа окна: состав кнопок заголовка выбирает тема по `window_type`,
+-- который кладёт композитор. Под каждым набором печатается попадание — оно и
+-- есть доказательство, что нажимается ровно то, что нарисовано.
+scene(72, 18, {
+    title = "три типа окна: app, dialog, tool",
+    windows = {
+        {x = 2, y = 1, w = 34, h = 6, title = "Обычное окно", window_type = "app",
+         focused = true, rows = {"свернуть, развернуть, закрыть"}},
+        {x = 2, y = 8, w = 34, h = 6, title = "Свойства системы", window_type = "dialog",
+         rows = {"справка и закрыть"}},
+        {x = 38, y = 1, w = 32, h = 6, title = "Палитра", window_type = "tool",
+         rows = {"только закрыть"}},
+        {x = 38, y = 8, w = 32, h = 6, title = "Тип с опечаткой", window_type = "popup",
+         rows = {"неизвестный тип — это app"}},
+    },
+    state = {clock = "21:47", windows = {}},
+})
+
+do
+    local samples = {
+        {window_type = "app"}, {window_type = "dialog"},
+        {window_type = "tool"}, {window_type = "popup"}, {},
+    }
+    print("")
+    print("состав кнопок заголовка по типу окна:")
+    for _, spec in ipairs(samples) do
+        local set, width = chrome.buttons_for(spec)
+        local ids = {}
+        for _, button in ipairs(set) do ids[#ids+1] = button.id end
+        print(string.format("  %-10s → %-28s ширина %d",
+            tostring(spec.window_type or "не назван"), table.concat(ids, ", "), width))
+    end
+
+    -- Попадание считается по тем же числам, что и рисование. Здесь это видно
+    -- глазом: под каждой нарисованной кнопкой печатается то, что вернёт
+    -- title_button_at.
+    for _, window_type in ipairs({"app", "dialog", "tool"}) do
+        local window = {x = 1, y = 1, w = 34, h = 6, title = "Окно",
+                        window_type = window_type, rows = {}}
+        local canvas = tty.canvas(34, 6)
+        chrome.window(canvas, window, true)
+        local row = visible(canvas:rows()[2] or "")
+        local marks = {}
+        for x = 1, 34 do
+            local id = chrome.title_button_at(window, x, 2)
+            marks[x] = id and id:sub(1, 1) or "·"
+        end
+        print("")
+        print("  " .. window_type .. ": |" .. table.concat(row) .. "|")
+        print("  " .. string.rep(" ", #window_type) .. "  |" .. table.concat(marks) .. "|")
+    end
+end
+
 -- ─── «Мой компьютер»: содержимое рисует само окно ────────────────────────
 --
 -- Рамки вокруг него здесь нет нарочно: композитор отдаёт окну прямоугольник

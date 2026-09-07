@@ -5,12 +5,17 @@
 -- Своей копии списка оболочка не держит намеренно — копия означала бы, что
 -- установленный модуль не появится в меню, пока кто-то не нажмёт «обновить».
 --
+-- Что попадает в МЕНЮ, решает не этот файл: правила `meta.in_menu` и
+-- `meta.window_type` живут в библиотеке основы, потому что по ним же основа
+-- строит своё меню. Два чтения одной меты разъезжаются молча.
+--
 -- Главное здесь — форма отказа. `list` возвращает РАЗНЫЕ значения на «реестр
 -- не прочитан» (nil, причина) и на «программ нет» (пустой каталог, nil).
 -- Слитые в одно, они отправляют человека искать ошибку в своём приложении,
 -- где её нет.
 
 local registry = require("registry")
+local programs_meta = require("programs_meta")
 
 local catalog = {}
 
@@ -76,8 +81,22 @@ end
 local function to_program(record: any)
     local meta = type(record.meta) == "table" and record.meta or {}
     local order = tonumber(meta.order)
+    -- Тип окна и признак «показывать в меню» читает библиотека ОСНОВЫ, а не
+    -- этот файл. Правило одно на две оболочки, и второе его чтение здесь
+    -- разошлось бы с первым молча — умолчание посчиталось бы по-разному в
+    -- меню и при открытии, и одно и то же окно выглядело бы диалогом из
+    -- «Пуска» и обычным окном с рабочего стола.
+    --
+    -- Ловушка, на которой уже ловились: `meta.in_menu` через `x and x.f or
+    -- nil` даёт РОВНО ОБРАТНЫЙ ответ — `false` уходит в ветку «значения нет»
+    -- и превращается в умолчание `true`, то есть окно, которое просили
+    -- спрятать, показывается.
+    local window_type, unknown = programs_meta.window_type(meta)
     return {
         entry = record.id,
+        window_type = window_type,
+        unknown_type = unknown,
+        in_menu = programs_meta.in_menu(meta),
         title = type(meta.title) == "string" and meta.title ~= "" and meta.title or record.id,
         group = parse_group(meta.group),
         order = order or NO_ORDER,
@@ -99,29 +118,71 @@ end
 -- живого реестра. Правило, проверяемое только через реестр, проверяется
 -- один раз, а потом никогда.
 --
--- Каталог: { programs = плоский список, tree = корень меню }.
+-- Каталог: { programs = ВСЁ объявленное, tree = корень меню, warnings = … }.
+--
+-- Два списка, а не один, и разница между ними существенна.
+--
+-- `programs` — весь каталог, включая скрытые. По нему ярлык находит свою
+-- запись: ярлык на скрытое окно обязан работать, признак `in_menu` — про
+-- меню, а не про запуск. Отфильтруй мы здесь — ярлык на столе стал бы битым,
+-- и человек прочитал бы это как «программы больше нет».
+--
+-- `tree` — меню, и скрытых в нём нет.
+--
+-- ПАПКА, У КОТОРОЙ ВСЕ ДЕТИ СКРЫТЫ, В МЕНЮ НЕ ПОЯВЛЯЕТСЯ ВОВСЕ. Папка
+-- заводится тем, что в неё что-то положили, и скрытую программу мы не
+-- кладём — значит и папки не возникает. Так и надо: пустая папка в «Пуске» —
+-- это пункт, который раскрывается в ничто, и первым вопросом будет, куда
+-- делось её содержимое. Отдельной записи для папки меню нет, поэтому
+-- «объявленная, но опустевшая» папка тут невозможна по устройству.
 function catalog.build(records: any)
     local programs = {}
+    local warnings = {}
     for _, entry in ipairs(type(records) == "table" and records or {}) do
         local record = entry :: any
-        if type(record.id) == "string" then programs[#programs + 1] = to_program(record) end
+        if type(record.id) == "string" then
+            local program = to_program(record)
+            programs[#programs + 1] = program
+            -- Неизвестный тип окна не мешает показать программу, но должен
+            -- быть назван: опечатка в объявлении иначе живёт вечно.
+            if program.unknown_type then
+                warnings[#warnings + 1] = {
+                    entry = program.entry, window_type = program.unknown_type,
+                }
+            end
+        end
     end
     table.sort(programs, compare)
 
     local root = new_node(nil, "")
     root.order = NO_ORDER
     for _, program in ipairs(programs) do
-        local node = root
-        for _, name in ipairs(program.group) do
-            local folder = ensure_folder(node, name)
-            if program.order < folder.order then folder.order = program.order end
-            node = folder
+        if program.in_menu then
+            local node = root
+            for _, name in ipairs(program.group) do
+                local folder = ensure_folder(node, name)
+                if program.order < folder.order then folder.order = program.order end
+                node = folder
+            end
+            node.programs[#node.programs + 1] = program
         end
-        node.programs[#node.programs + 1] = program
     end
     sort_node(root)
 
-    return { programs = programs, tree = root }
+    return { programs = programs, tree = root, warnings = warnings }
+end
+
+-- Программы, которым место в меню. Отдельной функцией, а не полем каталога:
+-- список нужен ровно там, где человек ВЫБИРАЕТ программу, — в меню «Пуск» и
+-- в папке «Программы» окна «Мой компьютер». Всюду, где программу ищут по
+-- ссылке, нужен полный список, и подмени мы его — ярлык на скрытое окно
+-- перестал бы открываться.
+function catalog.listed(programs: any)
+    local out = {}
+    for _, program in ipairs(type(programs) == "table" and programs or {}) do
+        if (program :: any).in_menu then out[#out + 1] = program end
+    end
+    return out
 end
 
 -- list() -> (каталог, nil) | (nil, причина)

@@ -39,6 +39,23 @@ local color = palette.active
 
 local chrome = {}
 
+-- Короткие имена для примитивов, не знающих про экран. Объявлены ЗДЕСЬ, до
+-- первого использования, и это не вкусовщина: локальная переменная видна
+-- только ниже своего объявления, а обращение выше молча читается как
+-- глобальное — то есть как nil. Пока эти строки лежали в середине файла,
+-- `chrome.title_button_at` падал на первом же вызове с «attempt to call a
+-- non-function object», и не падал раньше только потому, что его никто не
+-- звал.
+local whole = widgets.whole
+local cells = widgets.cells
+local clip = widgets.clip
+local fit = widgets.fit
+local bezel = widgets.bezel
+local edge_top = widgets.edge_top
+local edge_bottom = widgets.edge_bottom
+local panel = widgets.panel
+local wrap = icons.wrap
+
 -- ─── Кнопки заголовка ────────────────────────────────────────────────────
 --
 -- Ровно три ячейки на кнопку: композитор ищет кнопку под точкой делением
@@ -64,16 +81,42 @@ chrome.DIALOG_BUTTONS = {
     {id = "close", glyph = glyphs.buttons.close},
 }
 
+-- Служебное окно открывают из другого и закрывают, когда оно больше не
+-- нужно. Свернуть его некуда — на панели задач его тоже нет, — а разворачивать
+-- на весь экран палитру инструментов незачем.
+chrome.TOOL_BUTTONS = {
+    {id = "close", glyph = glyphs.buttons.close},
+}
+
+-- Наборы по типу окна. Таблицей, а не цепочкой if: третий тип добавляется
+-- строкой, а не веткой, и «какой набор у tool» читается в одном месте.
+--
+-- Значения те же, что объявляет основа (`butschster.tui_desktop.desktop:programs`).
+-- Тип, которого здесь нет, — это `app`: неизвестное значение не повод не
+-- нарисовать окно, и решает это основа, а не тема.
+chrome.BUTTON_SETS = {
+    app = chrome.BUTTONS,
+    dialog = chrome.DIALOG_BUTTONS,
+    tool = chrome.TOOL_BUTTONS,
+}
+
 chrome.BUTTONS_WIDTH = #chrome.BUTTONS * chrome.BUTTON_STEP
 
--- Какой набор кнопок у этого окна и сколько он занимает. Одна таблица и
--- для рисования, и для попадания — иначе «закрыть» однажды окажется на
--- символ левее, чем выглядит.
+-- Какой набор кнопок у этого окна и сколько он занимает. ОДНА таблица и для
+-- рисования, и для попадания — иначе «закрыть» однажды окажется на символ
+-- левее, чем выглядит, а у диалога нарисуются три кнопки, из которых
+-- нажимаются две.
+--
+-- Читается `window_type` — поле, которое кладёт композитор основы. `dialog`
+-- как булев признак больше не читается: два имени одного и того же
+-- разъезжаются на первой правке, а окно, объявившее себя диалогом обоими
+-- способами сразу, выглядело бы по-разному в зависимости от того, какое
+-- чтение случилось первым.
 function chrome.buttons_for(window)
     local spec: any = type(window) == "table" and window or {}
-    -- Тип объявлен, а не выведен: два набора кнопок — это две разные
-    -- таблицы-литерала, и проверяющий сводит их к элементу, а не к массиву.
-    local set: any = spec.dialog and chrome.DIALOG_BUTTONS or chrome.BUTTONS
+    local kind: any = spec.window_type
+    local set: any = type(kind) == "string" and chrome.BUTTON_SETS[kind] or nil
+    if not set then set = chrome.BUTTONS end
     return set, #set * chrome.BUTTON_STEP
 end
 
@@ -164,17 +207,7 @@ local styles = {
 -- ─── Общие мерки и детали ────────────────────────────────────────────────
 --
 -- Всё, что не знает про экран, живёт в `widgets` и рисуется тем же кодом у
--- окна. Здесь только имена покороче.
-
-local whole = widgets.whole
-local cells = widgets.cells
-local clip = widgets.clip
-local fit = widgets.fit
-local bezel = widgets.bezel
-local edge_top = widgets.edge_top
-local edge_bottom = widgets.edge_bottom
-local panel = widgets.panel
-local wrap = icons.wrap
+-- окна. Короткие имена для них объявлены в начале файла.
 
 chrome.clip = clip
 chrome.panel = panel
@@ -310,15 +343,21 @@ end
 
 -- Полоса заголовка: идёт в ширину ВНУТРЕННЕЙ области, не касаясь граней.
 -- Возвращает строку ровно в `span` ячеек.
-local function title_bar(title, span: any, focused)
+local function title_bar(title, span: any, focused, window)
     local width = whole(span)
     if width <= 0 then return "" end
 
     local bar = focused and styles.title or styles.title_idle
 
+    -- Набор берётся у того же `buttons_for`, что и попадание. Рисовать
+    -- всегда три, а нажимать по набору типа — значит нарисовать диалогу
+    -- «свернуть», которая молча не работает; ровно за этим сюда и приехало
+    -- окно, а не одно его имя.
+    local set, set_width = chrome.buttons_for(window)
+
     -- Кнопки уступают место имени: заголовок без имени не говорит, какое это
     -- окно, а закрыть его можно и с панели задач.
-    local buttons = width >= chrome.BUTTONS_WIDTH + 6 and chrome.BUTTONS_WIDTH or 0
+    local buttons = width >= set_width + 6 and set_width or 0
     local room = width - buttons - 2
     local name = room > 0 and clip(title or "", room) or ""
 
@@ -329,7 +368,7 @@ local function title_bar(title, span: any, focused)
     if tail > 0 then parts[#parts + 1] = bar:render(string.rep(" ", tail)) end
 
     if buttons > 0 then
-        for _, button in ipairs(chrome.BUTTONS) do
+        for _, button in ipairs(set) do
             -- Кнопка — та же выпуклая деталь, что и всё остальное: светлая
             -- грань слева, тёмная справа. Три ячейки на каждую.
             parts[#parts + 1] = bezel(styles.face:render(button.glyph), false)
@@ -355,7 +394,7 @@ function chrome.window(canvas, window, focused)
 
     -- Выпуклая рамка окна.
     canvas:put(x, y, edge_top(w, false), w)
-    canvas:put(x, y + 1, bezel(title_bar(window.title, w - 2, focused), false), w)
+    canvas:put(x, y + 1, bezel(title_bar(window.title, w - 2, focused, window), false), w)
     local blank = bezel(styles.face:render(string.rep(" ", w - 2)), false)
     for row = 2, h - 2 do
         canvas:put(x, y + row, blank, w)

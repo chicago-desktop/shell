@@ -37,7 +37,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Каталог собирает папки меню из meta.group и различает пустой каталог и нечитаемый реестр разными значениями.
+      comment: Каталог собирает папки меню из meta.group, различает пустой каталог и нечитаемый реестр разными значениями, прячет из меню то, что просило спрятать, не заводит папку без содержимого и называет неизвестный тип окна, не пряча программу.
       group: Windows Shell
       suite: butschster_windows
     source: file://catalog_test.lua
@@ -106,6 +106,20 @@ entries:
     imports:
       test: wippy.test:test
       render: butschster.windows.explorer:render
+    method: run
+
+  - name: chrome_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Кнопки заголовка — у каждого типа окна свой состав, неизвестный тип считается обычным окном, и нажимается ровно то, что нарисовано.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://chrome_test.lua
+    modules: [tty]
+    imports:
+      test: wippy.test:test
+      chrome: butschster.windows.shell:chrome
     method: run
 
   - name: glyphs_test

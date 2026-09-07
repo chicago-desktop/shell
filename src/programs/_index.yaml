@@ -17,6 +17,12 @@ entries:
     source: file://catalog.lua
     modules:
       - registry
+    imports:
+      # Правила `meta.in_menu` и `meta.window_type` — библиотеки основы, а не
+      # свои. По ним же основа строит своё меню; два чтения одной меты
+      # разъезжаются молча, и одно и то же окно выглядело бы диалогом из
+      # «Пуска» и обычным окном с рабочего стола.
+      programs_meta: butschster.tui_desktop.desktop:programs
 
   # butschster.windows.programs:defaults
   - name: defaults

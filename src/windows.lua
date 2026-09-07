@@ -33,8 +33,21 @@ local function main()
         local found, err = catalog.list()
         if err or not found then return {}, err or "каталог не прочитан" end
 
+        -- Опечатка в `window_type` не мешает показать программу, но должна
+        -- быть названа: неназванная, она живёт вечно, а окно всё это время
+        -- рисуется не тем, чем его объявляли.
+        for _, warning in ipairs(found.warnings or {}) do
+            log:warn("неизвестный тип окна", {
+                entry = tostring((warning :: any).entry),
+                window_type = tostring((warning :: any).window_type),
+            })
+        end
+
         local items = {}
-        for _, program in ipairs(found.programs) do
+        -- В меню — только то, что просило в меню. Программа с `in_menu:
+        -- false` остаётся в каталоге и открывается ярлыком: признак про
+        -- меню, а не про запуск.
+        for _, program in ipairs(catalog.listed(found.programs)) do
             items[#items + 1] = {
                 entry = program.entry,
                 title = program.title,
@@ -49,6 +62,10 @@ local function main()
                 group = program.group,
                 order = program.order,
                 args = program.args,
+                -- Тип едет композитору, чтобы тема выбрала состав кнопок
+                -- заголовка по нему. Не поедь он — диалог откроется с тремя
+                -- кнопками, из которых две ничего не делают.
+                window_type = program.window_type,
             }
         end
         return items, nil

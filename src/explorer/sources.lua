@@ -130,7 +130,12 @@ function sources.list(path, context: any)
     if where.view == "programs" then
         local found, err = catalog.list()
         if err or not found then return nil, err or "каталог не прочитан" end
-        return {objects = model.programs(found.programs), title = "Программы"}, nil
+        -- Та же папка, что и меню «Пуск», только в другом виде: здесь человек
+        -- ВЫБИРАЕТ программу, а не ищет её по ссылке. Программа, попросившая
+        -- не показывать себя в меню, спрятана и тут — иначе признак не значит
+        -- ничего, кроме «в одном из двух списков меня нет».
+        return {objects = model.programs(catalog.listed(found.programs)),
+                title = "Программы"}, nil
     end
 
     if where.view == "desktop" then

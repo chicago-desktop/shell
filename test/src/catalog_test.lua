@@ -109,6 +109,69 @@ local function define_tests()
             test.eq(#built.programs, 1)
             test.eq(built.programs[1].entry, "app:ok")
         end)
+
+        test.it("не показывает в меню того, кто просил себя спрятать", function()
+            -- Признак про МЕНЮ, а не про запуск: программа остаётся в
+            -- каталоге, и ярлык на неё продолжает работать. Отфильтруй мы её
+            -- из каталога — ярлык на столе стал бы битым, и человек прочитал
+            -- бы это как «программы больше нет».
+            local built = catalog.build({
+                {id = "app:visible", meta = {type = "tui_desktop.window", title = "Видимая"}},
+                {id = "app:hidden", meta = {type = "tui_desktop.window", title = "Скрытая",
+                                            in_menu = false}},
+            })
+            test.eq(#built.programs, 2, "каталог держит обе")
+            test.eq(#built.tree.programs, 1, "в меню только одна")
+            test.eq(built.tree.programs[1].entry, "app:visible")
+            test.not_nil(catalog.find(built.programs, "app:hidden"),
+                "ярлык обязан находить скрытую программу")
+
+            local listed = catalog.listed(built.programs)
+            test.eq(#listed, 1, "«Программы» в «Моём компьютере» — тот же выбор, что и меню")
+        end)
+
+        test.it("читает in_menu полем, а не через and-or", function()
+            -- Ловушка тише, чем кажется: `meta.in_menu` через `x and x.f or
+            -- nil` даёт РОВНО ОБРАТНЫЙ ответ — false уходит в ветку «значения
+            -- нет» и превращается в умолчание true, то есть окно, которое
+            -- просили спрятать, показывается.
+            local strings = catalog.build({
+                {id = "app:yaml", meta = {type = "tui_desktop.window", in_menu = "false"}},
+            })
+            test.eq(#strings.tree.programs, 0,
+                "строка «false» приезжает из YAML и значит то же самое")
+        end)
+
+        test.it("не заводит в меню папку, у которой все дети скрыты", function()
+            -- Пустая папка в «Пуске» — это пункт, который раскрывается в
+            -- ничто, и первым вопросом будет, куда делось её содержимое.
+            -- Папка заводится тем, что в неё положили; скрытую программу мы
+            -- не кладём — значит и папки не возникает.
+            local built = catalog.build({
+                {id = "app:tool", meta = {type = "tui_desktop.window", title = "Служебное",
+                                          group = "Служебные/Внутреннее", in_menu = false}},
+            })
+            test.eq(#built.tree.folders, 0, "папки без содержимого в меню нет")
+            test.eq(#built.programs, 1, "но сама программа в каталоге есть")
+        end)
+
+        test.it("называет неизвестный тип окна, но программу показывает", function()
+            -- Запись объявлена кем-то другим, и опечатка в одном поле не
+            -- повод спрятать окно, которое в остальном исправно. Но
+            -- неназванная опечатка живёт вечно.
+            local built = catalog.build({
+                {id = "app:odd", meta = {type = "tui_desktop.window", window_type = "popup"}},
+                {id = "app:fine", meta = {type = "tui_desktop.window", window_type = "dialog"}},
+            })
+            test.eq(#built.tree.programs, 2, "показываются обе")
+            test.eq(#built.warnings, 1)
+            test.eq(built.warnings[1].entry, "app:odd")
+            test.eq(built.warnings[1].window_type, "popup")
+
+            test.eq(catalog.find(built.programs, "app:odd").window_type, "app",
+                "неизвестный тип считается обычным окном")
+            test.eq(catalog.find(built.programs, "app:fine").window_type, "dialog")
+        end)
     end)
 end
 
