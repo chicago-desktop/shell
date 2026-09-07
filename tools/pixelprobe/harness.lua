@@ -21,7 +21,7 @@
 -- прямоугольники, та — какой ширины оказался текст.
 
 -- Метки для build.py: строки ниже он заменяет телом самих файлов.
-local BASE = "src/shell/"
+local BASE = "src/"
 
 -- Размер ячейки терминала человека, измеренный: Windows Terminal ответил на
 -- `CSI 16 t`. Числа здесь не «примерно такие»: на них стоит вся проверка
@@ -129,8 +129,42 @@ gfx.cell_size = function() return CELL.w, CELL.h end
 gfx.raster = function(w, h) return new_raster(w, h) end
 gfx.font = function(_, opts) return new_font((opts and opts.size) or 12) end
 
+-- ─── подставка tty ───────────────────────────────────────────────────────
+--
+-- УМЕЕТ РОВНО СТОЛЬКО, СКОЛЬКО НУЖНО, ЧТОБЫ БИБЛИОТЕКИ ЗАГРУЗИЛИСЬ. Это
+-- условие, а не экономия: стаб, который начнёт притворяться настоящим `tty`,
+-- разойдётся с ним, и проверки станут врать в другую сторону.
+--
+-- `widgets` и `icons` строят таблицы стилей на загрузке — им нужен только
+-- `tty.style()`. Холст здесь не нужен НИКОМУ: пробник зовёт `render.layout`,
+-- которая ничего не рисует, и `render_pixels`, которая рисует в растр.
+-- Поэтому `tty.canvas` отсутствует, и попытка нарисовать в ячейки падает
+-- вслух — вместо того чтобы тихо нарисоваться в никуда.
+local function new_style()
+    local self: any = {}
+    local function same() return self end
+    self.foreground = same
+    self.background = same
+    self.bold = same
+    self.faint = same
+    self.underline = same
+    self.width = same
+    self.render = function(_, text) return tostring(text) end
+    return self
+end
+
+local tty = {style = new_style}
+tty.text = {
+    width = function(text)
+        local count = 0
+        for _ in tostring(text):gmatch("[%z\1-\127\194-\244][\128-\191]*") do count = count + 1 end
+        return count
+    end,
+    truncate = function(text) return text end,
+}
+
 -- ─── загрузка примитивов ─────────────────────────────────────────────────
-local modules = {gfx = gfx}
+local modules = {gfx = gfx, tty = tty}
 local saved_require = require
 require = function(name)
     if modules[name] then return modules[name] end
@@ -138,9 +172,19 @@ require = function(name)
     error("нет модуля " .. tostring(name))
 end
 
-modules.palette = dofile(BASE .. "palette.lua")
-local pixels = dofile(BASE .. "pixels.lua")
-local rasters = dofile(BASE .. "rasters.lua")
+modules.palette = dofile(BASE .. "shell/palette.lua")
+modules.glyphs = dofile(BASE .. "shell/glyphs.lua")
+modules.widgets = dofile(BASE .. "shell/widgets.lua")
+modules.icons = dofile(BASE .. "shell/icons.lua")
+modules.pixels = dofile(BASE .. "shell/pixels.lua")
+modules.rasters = dofile(BASE .. "shell/rasters.lua")
+modules.render = dofile(BASE .. "explorer/render.lua")
+modules.render_pixels = dofile(BASE .. "explorer/render_pixels.lua")
+
+local pixels = modules.pixels
+local rasters = modules.rasters
+local render = modules.render
+local render_pixels = modules.render_pixels
 
 -- ─── печать ──────────────────────────────────────────────────────────────
 --
@@ -457,6 +501,112 @@ do
     -- памятью. Выброшенное меню обязано уйти и оттуда.
     check(store.size() == #without_menu,
         "в хранилище осталось растров больше, чем в кадре: " .. store.size())
+end
+
+-- ─── ПРОВОДНИК ПИКСЕЛЬНЫМ БЭКЕНДОМ ──────────────────────────────────────
+--
+-- Здесь проверяется НАРЕЗКА и КЛЮЧИ — то, что на снимке не видно вовсе и что
+-- иначе стоило бы полного прогона на локальной сборке.
+--
+-- Раскладку считает тот же `render.layout`, что и путь в ячейках. Разъедься
+-- они — щелчок попадал бы на соседа в одном из двух режимов, а оба снимка
+-- выглядели бы правильно.
+
+local function explorer_view(extra: any)
+    local view: any = {
+        title = "Мой компьютер",
+        selected = 2,
+        offset = 0,
+        objects = {
+            {id = "app:app_fs", kind = "drive", title = "app_fs", detail = "app:app_fs"},
+            {id = "wippy.facade:public_files", kind = "drive", title = "public_files",
+             detail = "wippy.facade:public_files"},
+            {id = "keeper:ui_static_fs", kind = "drive", title = "keeper ui_static_fs",
+             detail = "keeper:ui_static_fs"},
+            {id = "programs", kind = "folder", title = "Программы", detail = "12 объектов"},
+            {id = "desktop", kind = "folder", title = "Рабочий стол", detail = "3 объекта"},
+            {id = "windows", kind = "folder", title = "Открытые окна", detail = "2 объекта"},
+        },
+    }
+    for key, value in pairs(type(extra) == "table" and extra or {}) do view[key] = value end
+    return view
+end
+
+local function paint_explorer(store, view)
+    local plan = render.layout(view, 46, 14)
+    return render_pixels.paint(store, plan, CELL, {face = font, bold = font}, "explorer"), plan
+end
+
+do
+    print("")
+    print("┌── проводник: нарезка размещений и ключи")
+
+    local store = rasters.store()
+    local placements, plan = paint_explorer(store, explorer_view())
+
+    for _, item in ipairs(placements) do
+        print(string.format("    %-18s ячейка %2d,%-3d %2d×%-3d ячеек", item.id,
+            item.x, item.y, item.cols, item.rows))
+    end
+
+    -- Нарезка по СТРОКАМ: размещения не имеют права накрывать друг друга,
+    -- иначе перерисовка одного задевает строки другого и тот уезжает заново.
+    local occupied = {}
+    for _, item in ipairs(placements) do
+        for row = item.y, item.y + item.rows - 1 do
+            check(occupied[row] == nil,
+                "строку " .. row .. " делят два размещения: "
+                    .. tostring(occupied[row]) .. " и " .. item.id)
+            occupied[row] = item.id
+        end
+    end
+
+    -- Каждое попадание значка обязано лежать ВНУТРИ поля: попадание, уехавшее
+    -- за своё размещение, ведёт на картинку, которой там нет.
+    local field: any = nil
+    for _, item in ipairs(placements) do
+        if item.id == "explorer:field" then field = item end
+    end
+    check(field ~= nil, "поле не размещено")
+    if field then
+        for _, cell in ipairs(plan.cells) do
+            check(cell.from >= field.x and cell.to <= field.x + field.cols - 1
+                    and cell.top >= field.y and cell.bottom <= field.y + field.rows - 1,
+                "попадание значка " .. cell.index .. " лежит вне поля")
+        end
+    end
+
+    local before = snapshot(placements)
+
+    -- Тот же кадр ещё раз.
+    local again = snapshot((paint_explorer(store, explorer_view())))
+    local still = moved(before, again)
+    check(#still == 0, "кадр без изменений сдвинул: " .. table.concat(still, ", "))
+    print("    тот же кадр ещё раз: сдвинулось " .. #still)
+
+    -- Сменилось выделение — перерисовываются поле И статусная строка, а меню
+    -- с панелью инструментов НЕТ.
+    --
+    -- Статусная строка здесь не лишняя: она показывает `detail` выделенного
+    -- объекта — полный идентификатор диска, который в подпись под значком не
+    -- помещается. Выделили другой объект — изменился и её текст. Это
+    -- следствие вида, а не промах ключа, и стоит оно одного размещения 46×1.
+    --
+    -- Проверка написана перечислением, а не числом: «перерисовалось два»
+    -- прошло бы и на паре «поле и меню», то есть на настоящей ошибке.
+    local selected = moved(again, snapshot((paint_explorer(store, explorer_view({selected = 3})))))
+    check(table.concat(selected, ",") == "explorer:field,explorer:status",
+        "смена выделения перерисовала: " .. table.concat(selected, ", ")
+            .. " (ожидались поле и статусная строка)")
+    print("    сменилось выделение: перерисовано " .. table.concat(selected, ", "))
+
+    -- Сменилось замечание — только статусная строка.
+    local base = snapshot((paint_explorer(store, explorer_view({selected = 3}))))
+    local noticed = moved(base,
+        snapshot((paint_explorer(store, explorer_view({selected = 3, notice = "показаны первые 500"})))))
+    check(#noticed == 1 and noticed[1] == "explorer:status",
+        "смена замечания перерисовала: " .. table.concat(noticed, ", "))
+    print("    сменилось замечание: перерисовано " .. table.concat(noticed, ", "))
 end
 
 print("")

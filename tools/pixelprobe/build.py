@@ -13,22 +13,33 @@
 import pathlib
 
 HERE = pathlib.Path(__file__).resolve().parent
-SHELL = HERE.parent.parent / "src" / "shell"
-MODULES = ("palette", "pixels", "rasters")
+SRC = HERE.parent.parent / "src"
+# Порядок важен: каждый файл заворачивается на месте своей метки, а метки в
+# harness.lua идут в порядке зависимостей.
+MODULES = (
+    ("shell", "palette"),
+    ("shell", "glyphs"),
+    ("shell", "widgets"),
+    ("shell", "icons"),
+    ("shell", "pixels"),
+    ("shell", "rasters"),
+    ("explorer", "render"),
+    ("explorer", "render_pixels"),
+)
 
 
-def wrapped(name: str) -> str:
-    source = (SHELL / f"{name}.lua").read_text(encoding="utf-8")
+def wrapped(folder: str, name: str) -> str:
+    source = (SRC / folder / f"{name}.lua").read_text(encoding="utf-8")
     return "(function()\n" + source + "\nend)()"
 
 
 def main() -> None:
     text = (HERE / "harness.lua").read_text(encoding="utf-8")
-    for name in MODULES:
-        marker = f'dofile(BASE .. "{name}.lua")'
+    for folder, name in MODULES:
+        marker = f'dofile(BASE .. "{folder}/{name}.lua")'
         if marker not in text:
-            raise SystemExit(f"в harness.lua нет метки для {name}")
-        text = text.replace(marker, wrapped(name))
+            raise SystemExit(f"в harness.lua нет метки для {folder}/{name}")
+        text = text.replace(marker, wrapped(folder, name))
     out = HERE / "combined.lua"
     out.write_text(text, encoding="utf-8")
     print(f"собрано: {out}")
