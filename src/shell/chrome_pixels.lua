@@ -369,7 +369,11 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
             local text_w = whole(bold:measure(label))
             local text_h = 16
             if label ~= "" and text_w > 0 then
-                local temp = gfx.raster(text_w, text_h)
+                -- `any` здесь не ленью: шрифт приезжает снаружи, через
+                -- `use_fonts`, и типа `gfx.Font` у него нет — а `temp` в
+                -- отличие от растров хранилища создаётся тут же и типизирован,
+                -- поэтому проверка срабатывает именно на нём.
+                local temp: any = gfx.raster(text_w, text_h)
                 temp:fill(color.select_bg)
                 -- Координаты ЕДИНИЧНЫЕ. `y = 0` здесь уже стоял, и строка
                 -- уходила за край растра целиком: полоса рисовалась, надписи
