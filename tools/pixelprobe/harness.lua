@@ -103,6 +103,28 @@ local function new_raster(w, h)
         return advance
     end
 
+    -- Перенос одного растра в другой. Подставка не переносит пикселей —
+    -- она отмечает ЗАНЯТУЮ площадь и записывает вызов: карта в ячейках
+    -- показывает, куда рисунок лёг, а точность красок — дело снимка.
+    --
+    -- Поворот на прямой угол меняет ширину и высоту местами, и это здесь
+    -- существенно: место под повёрнутую надпись считают по её ВЫСОТЕ, и
+    -- ошибка в этом обмене — как раз то, чего на карте не видно иначе.
+    self.blit = function(_, source, x, y, opts)
+        opts = opts or {}
+        local sw, sh = source:size()
+        local turn = tonumber(opts.rotate) or 0
+        if turn == 90 or turn == 270 then sw, sh = sh, sw end
+        local touched = false
+        for row = y, y + sh - 1 do
+            for col = x, x + sw - 1 do
+                if put(col, row, "#blit") then touched = true end
+            end
+        end
+        if touched then version = version + 1 end
+        ops[#ops+1] = {op = "blit", x = x, y = y, w = sw, h = sh, rotate = turn}
+    end
+
     self.at = function(x, y) return px[(y - 1) * w + x] end
     self.is_text = function(x, y) return ink[(y - 1) * w + x] == true end
     return self
@@ -790,6 +812,53 @@ do
 
         compare("стол", cell_desk, painted.hits.desktop)
         compare("панель задач", cell_bars, painted.hits.bars)
+    end
+
+    -- ─── КУРСОР ДОЕЗЖАЕТ ДО ПИКСЕЛЕЙ ───────────────────────────────────
+    --
+    -- В режиме символов подсветку рисует один код, в пикселях другой. Курсор,
+    -- который двигается стрелками и не подсвечивается, — это «стрелки
+    -- работают, но человек не видит, где он»: хуже, чем неработающие стрелки,
+    -- потому что выглядит как работающие.
+    --
+    -- Проверяется не «нарисовалось что-то», а РАЗНИЦА: тот же кадр без
+    -- курсора не имеет права нести подсветку, а с курсором обязан.
+    do
+        local menu_items = {
+            {entry = "app:calc", title = "Калькулятор", group = "Программы"},
+            {entry = "app:notepad", title = "Блокнот", group = "Программы"},
+            {entry = "app:bash", title = "Сеанс MS-DOS"},
+        }
+
+        local function highlights(cursor)
+            local fresh = chrome_pixels
+            local painted = fresh.paint(desktop_state({
+                menu = {items = menu_items, open = {"Программы"}, cursor = cursor},
+            }), CELL.w, CELL.h)
+
+            local count = 0
+            for _, item in ipairs(painted.placements) do
+                if string.find(item.id, "^menu:") then
+                    for _, op in ipairs(item.raster.__ops) do
+                        if op.colour == "#000080" and op.op == "rect" then count = count + 1 end
+                    end
+                end
+            end
+            return count, painted
+        end
+
+        -- Растры живут между кадрами, поэтому для честного сравнения нужны
+        -- разные ключи: без курсора и с курсором — это разные картинки, и
+        -- хранилище перерисует их обе.
+        local without = highlights(nil)
+        local with_cursor = highlights(2)
+
+        check(with_cursor > without,
+            "курсор не подсветился в пикселях: подсветок без него " .. without
+                .. ", с ним " .. with_cursor
+                .. " — стрелки будут работать, а человек не увидит, где он")
+        print("    подсветок в меню: без курсора " .. without
+            .. ", с курсором " .. with_cursor)
     end
 
     local before = snapshot(placements)

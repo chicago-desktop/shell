@@ -370,6 +370,27 @@ local function main(spec)
         end
     end
 
+    -- Проверка поворота отдельно от темы: если надпись не видна на экране,
+    -- надо знать, поворот ли это не работает или место посчитано мимо.
+    do
+        local label = "WINDOWS 95"
+        local tw, th = bold:measure(label)
+        local temp = gfx.raster(tw, th + 2)
+        temp:fill("#000080")
+        temp:text(1, 1, label, {font = bold, color = "#ffffff"})
+
+        local canvas = gfx.raster(60, tw + 20)
+        canvas:fill("#c0c0c0")
+        canvas:blit(temp, 4, 8, {rotate = 270})
+        canvas:blit(temp, 34, 8, {rotate = 90})
+        local bytes = canvas:encode("png")
+        if bytes then
+            store_shots:writefile("banner.png", bytes)
+            say(string.format("поворот: строка %d×%d px, слева 270°, справа 90° → banner.png",
+                tw, th))
+        end
+    end
+
     local steady = check_frames(cell, font)
     if not steady then
         say("ОТКАЗ: растры не переживают кадр — экран будет правильным, а летать будет всё")

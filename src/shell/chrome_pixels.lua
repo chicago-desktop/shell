@@ -349,22 +349,39 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
         local area = pixels.box(1, 1, box.w, box.h, cell)
         pixels.panel(raster, 1, 1, area.w, area.h)
 
-        -- Вертикальная надпись «Windows 95» читается снизу вверх. В пикселях
-        -- она не собирается из букв по строкам, как в ячейках, — каждая буква
-        -- ставится по центру своей строки, и от этого она перестаёт разъезжать
-        -- при смене высоты панели.
+        -- Вертикальная надпись «Windows 95» — ПОВЁРНУТАЯ СТРОКА, а не колонка
+        -- букв.
+        --
+        -- В ячейках иначе было нельзя: там буква занимает клетку, и надпись
+        -- складывалась по строкам панели — а когда панель становилась короче
+        -- девяти строк, надпись пропадала МОЛЧА, по букве за строку. В
+        -- пикселях у неё своя высота, не связанная с числом пунктов меню.
+        --
+        -- Текст рисуется горизонтально во временный растр и кладётся
+        -- повёрнутым на 270°: так он читается снизу вверх, как на эталоне.
+        -- Временный растр не размещается на экране и живёт только внутри
+        -- перерисовки — версия от него не двигается ни у кого.
         if box.banner > 0 and bold then
             local strip = pixels.box(1, 1, box.banner, box.h, cell)
             raster:rect(2, 2, strip.w - 2, strip.h - 4, color.select_bg)
-            for index, entry in ipairs(box.lines) do
-                local line: any = entry
-                if line.banner_letter ~= " " then
-                    local at = pixels.box(1, index + 1, box.banner, 1, cell)
-                    local width = whole(bold:measure(line.banner_letter))
-                    raster:text(2 + (strip.w - 2 - width) // 2,
-                        at.y - cell.h + (cell.h - 15) // 2,
-                        line.banner_letter, {font = bold, color = color.select_fg})
-                end
+
+            local label = tostring(chrome.MENU_BANNER or "")
+            local text_w = whole(bold:measure(label))
+            local text_h = 16
+            if label ~= "" and text_w > 0 then
+                local temp = gfx.raster(text_w, text_h)
+                temp:fill(color.select_bg)
+                -- Координаты ЕДИНИЧНЫЕ. `y = 0` здесь уже стоял, и строка
+                -- уходила за край растра целиком: полоса рисовалась, надписи
+                -- в ней не было, и никакого отказа при этом не происходило.
+                temp:text(1, 1, label, {font = bold, color = color.select_fg})
+
+                -- После поворота ширина и высота меняются местами: ширина
+                -- рисунка на экране — это высота строки, и наоборот.
+                local room = strip.h - 6
+                local at_y = 3
+                if text_w < room then at_y = strip.h - 3 - text_w end
+                raster:blit(temp, 2 + (strip.w - 2 - text_h) // 2, at_y, {rotate = 270})
             end
         end
 
