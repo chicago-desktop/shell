@@ -1,11 +1,15 @@
 -- Что показывает «Мой компьютер».
 --
--- Дисков здесь нет, и это не упущение: их нет и на стенде. Окно показывает
--- сам стенд — то, из чего он состоит с точки зрения оболочки, — потому что
--- нарисовать диск C: значило бы показать предмет, которого не существует, и
--- первым же вопросом было бы, почему он не открывается.
+-- Диски — это записи `fs.*` реестра, и заводить их не надо: почти каждый
+-- установленный модуль привозит свою файловую систему, и на стенде их
+-- десятки. Окно их ПОКАЗЫВАЕТ. Отсюда оба правила разом: диск, объявленный
+-- установленным модулем, появляется сам, без правки в оболочке; а диска,
+-- которого нет в реестре, здесь не будет — нарисованный `C:` был бы
+-- предметом, которого не существует, и первым вопросом было бы, почему он не
+-- открывается.
 --
--- Три источника, и все три оболочка УЖЕ читает по другим поводам:
+-- Кроме дисков окно показывает три источника, и все три оболочка УЖЕ читает
+-- по другим поводам:
 --
 --   Программы      — каталог реестра, тот же, что наполняет меню «Пуск»
 --   Рабочий стол   — своя раскладка, ярлыки и папки стола
@@ -29,7 +33,9 @@ local model = {}
 model.ROOT = ""
 
 -- Папки верхнего уровня. Порядок задан здесь и не сортируется: «Программы»
--- первыми, потому что за ними чаще всего и приходят.
+-- первыми, потому что за ними чаще всего и приходят. Стоят они ПОСЛЕ дисков,
+-- как «Панель управления» в настоящем «Моём компьютере»: сначала то, из чего
+-- стенд состоит, потом то, чем его настраивают.
 model.FOLDERS = {
     {id = "programs", title = "Программы", icon = "▤"},
     {id = "desktop", title = "Рабочий стол", icon = "▣"},
@@ -38,6 +44,66 @@ model.FOLDERS = {
 
 model.DEFAULT_ICON = "▢"
 model.BROKEN_ICON = "▨"
+model.DRIVE_ICON = "▦"
+model.DIR_ICON = "▤"
+model.FILE_ICON = "▫"
+
+-- Путь — строка, и её грамматика вся здесь, потому что читают её трое: окно
+-- (чтобы знать, что рисовать), источники (чтобы знать, что читать) и кнопка
+-- «Вверх» (чтобы знать, куда возвращаться). Разойдись они — «Вверх» уводила
+-- бы не туда, куда ведёт двойной щелчок.
+--
+--   ""                    корень «Моего компьютера»
+--   "programs"            каталог программ
+--   "desktop"             рабочий стол, верхний уровень
+--   "desktop/<id>"        папка стола
+--   "windows"             открытые окна
+--   "drive/<запись>"      корень файловой системы из реестра
+--   "drive/<запись>/<путь>"  каталог внутри неё
+--
+-- Идентификатор записи реестра — всегда `namespace:name`, и косой черты в нём
+-- быть не может; на этом и стоит разбор пути внутри диска.
+function model.parse(path: any)
+    local text = type(path) == "string" and path or ""
+
+    if text == model.ROOT then return {view = "root"} end
+    if text == "programs" then return {view = "programs"} end
+    if text == "desktop" then return {view = "desktop"} end
+    if text == "windows" then return {view = "windows"} end
+
+    local folder = string.match(text, "^desktop/(.+)$")
+    if folder then return {view = "desktop_folder", id = folder} end
+
+    local drive, rest = string.match(text, "^drive/([^/]+)(.*)$")
+    if drive then
+        local inside = string.match(tostring(rest), "^/(.+)$")
+        return {view = "drive", id = drive, sub = inside}
+    end
+
+    -- Неизвестный путь — это не корень. Молчаливый откат к корню превратил бы
+    -- опечатку в успешный переход, и человек решил бы, что папка пуста.
+    return {view = "unknown"}
+end
+
+-- parent(path) -> путь на уровень выше | nil, если выше некуда
+--
+-- Тем же разбором, что и `parse`: кнопка «Вверх», считающая путь своей
+-- формулой, разъедется с двойным щелчком, и разойдутся они молча.
+function model.parent(path: any)
+    local where = model.parse(path)
+
+    if where.view == "root" then return nil end
+    if where.view == "desktop_folder" then return "desktop" end
+
+    if where.view == "drive" then
+        if not where.sub then return model.ROOT end
+        local up = string.match(tostring(where.sub), "^(.+)/[^/]+$")
+        if up then return "drive/" .. tostring(where.id) .. "/" .. up end
+        return "drive/" .. tostring(where.id)
+    end
+
+    return model.ROOT
+end
 
 -- Объект: что видно (title, icon, detail) и что происходит по двойному щелчку
 -- (open). Двойной, а не одиночный: программа, стартующая с одного клика, —
@@ -57,11 +123,119 @@ local function object(fields: any)
     }
 end
 
--- Корень: три папки со счётчиком объектов внутри. Счётчик — не украшение:
--- пустая папка и папка, которую не удалось прочитать, обязаны отличаться, и
--- `nil` здесь означает второе.
-function model.root(counts: any)
+-- Диски: записи `fs.directory` и `fs.embed` реестра как они есть.
+--
+-- Своей таблицы дисков нет и быть не может — она означала бы, что модуль,
+-- привёзший файловую систему, не появится здесь, пока кто-то не впишет его
+-- руками. Поэтому список ровно такой, каким его отдал реестр.
+--
+-- Подпись — имя записи, а не полный идентификатор: `wippy.facade:public_files`
+-- в двенадцать ячеек подписи не помещается и обрезается ровно там, где
+-- начинается различие.
+--
+-- Но имя не всегда различает: `ui_static_fs` привозят сразу несколько
+-- модулей, и два одинаковых значка рядом — это не подпись, а загадка. Тогда
+-- к имени добавляется пространство имён, и добавляется ПРОБЕЛОМ, а не
+-- двоеточием: подпись переносится по пробелам, и `keeper ui_static_fs`
+-- ложится двумя строками, где хотя бы первая читается целиком, а
+-- `keeper:ui_static_fs` обрезается в `keeper:ui_st` — то есть ровно там, где
+-- начинается различие, ради которого его и удлинили.
+--
+-- Удлиняются ОБА совпавших имени, а не второе: подпись, зависящая от порядка
+-- чтения реестра, меняется сама по себе.
+--
+-- Полный идентификатор при этом не теряется: он в `detail`, а `detail`
+-- выделенного объекта окно показывает в статусной строке.
+function model.drives(records: any)
+    local seen: any = {}
+    local drives: any = {}
+
+    for _, entry in ipairs(type(records) == "table" and records or {}) do
+        local record: any = entry
+        if type(record.id) == "string" and record.id ~= "" then
+            local space, name = string.match(record.id, "^([^:]*):(.+)$")
+            if not name then space, name = "", record.id end
+            seen[name] = (seen[name] or 0) + 1
+            drives[#drives + 1] = {
+                id = record.id, name = name, space = space, kind = record.kind,
+            }
+        end
+    end
+
+    -- Порядок задан здесь и не наследуется от реестра: список, порядок
+    -- которого решает чужая выдача, переставляет значки сам по себе, и
+    -- человек, привыкший к месту, каждый раз ищет заново.
+    table.sort(drives, function(left, right) return left.id < right.id end)
+
     local out = {}
+    for _, drive in ipairs(drives) do
+        local ambiguous = (seen[drive.name] or 0) > 1 and drive.space ~= ""
+        out[#out + 1] = object({
+            id = drive.id,
+            kind = "drive",
+            title = ambiguous and (drive.space .. " " .. drive.name) or drive.name,
+            icon = model.DRIVE_ICON,
+            -- Вид записи — это ответ на «почему он не открывается»: `fs.embed`
+            -- вморожен в модуль и доступен только на чтение, `fs.directory` —
+            -- настоящий каталог на диске.
+            detail = drive.id .. " · " .. tostring(drive.kind or "fs"),
+            open = {action = "folder", path = "drive/" .. drive.id},
+        })
+    end
+    return out
+end
+
+-- Содержимое каталога внутри диска. `entries` — то, что отдал `readdir`:
+-- имя и вид, и больше ничего. Размера здесь нет намеренно — за ним пришлось
+-- бы делать `stat` на каждую строку, то есть сотню обращений к диску ради
+-- колонки, которой в значках всё равно нет.
+--
+-- У файла НЕТ намерения открыть: просмотрщика файлов в оболочке пока нет, и
+-- намерение «открыть» было бы обещанием, которое некому исполнить. Что
+-- двойной щелчок по такому объекту не пропал впустую, говорит окно — тем же
+-- способом, что и про любой другой отказ.
+function model.files(entries: any, path: any)
+    local rows = {}
+    for _, entry in ipairs(type(entries) == "table" and entries or {}) do
+        local record: any = entry
+        if type(record.name) == "string" and record.name ~= "" then
+            rows[#rows + 1] = {name = record.name, dir = record.type == "directory"}
+        end
+    end
+
+    -- Папки раньше файлов, дальше по имени — как в проводнике. Порядок,
+    -- взятый у файловой системы, у каждой свой.
+    table.sort(rows, function(left, right)
+        if left.dir ~= right.dir then return left.dir end
+        return left.name < right.name
+    end)
+
+    local base = type(path) == "string" and path or ""
+    local out = {}
+    for _, row in ipairs(rows) do
+        out[#out + 1] = object({
+            id = row.name,
+            kind = row.dir and "directory" or "file",
+            title = row.name,
+            icon = row.dir and model.DIR_ICON or model.FILE_ICON,
+            detail = row.dir and "папка" or "файл",
+            open = row.dir and {action = "folder", path = base .. "/" .. row.name} or nil,
+        })
+    end
+    return out
+end
+
+-- Корень: диски из реестра, за ними три папки со счётчиком объектов внутри.
+-- Счётчик — не украшение: пустая папка и папка, которую не удалось прочитать,
+-- обязаны отличаться, и `nil` здесь означает второе.
+--
+-- У дисков счётчика нет и не будет: чтобы его показать, пришлось бы открыть
+-- и прочитать каждую из десятков файловых систем при каждом открытии окна.
+function model.root(counts: any, drives: any)
+    local out = {}
+    for _, drive in ipairs(type(drives) == "table" and drives or {}) do
+        out[#out + 1] = drive
+    end
     for _, folder in ipairs(model.FOLDERS) do
         local count = type(counts) == "table" and counts[folder.id] or nil
         out[#out + 1] = object({

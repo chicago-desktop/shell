@@ -169,12 +169,21 @@ require = function(name)
     error("нет модуля " .. tostring(name))
 end
 
-modules.palette = dofile(BASE .. "palette.lua")
-modules.glyphs = dofile(BASE .. "glyphs.lua")
-modules.widgets = dofile(BASE .. "widgets.lua")
-modules.icons = dofile(BASE .. "icons.lua")
-local chrome = dofile(BASE .. "chrome.lua")
+modules.palette = dofile(BASE .. "shell/palette.lua")
+modules.glyphs = dofile(BASE .. "shell/glyphs.lua")
+modules.widgets = dofile(BASE .. "shell/widgets.lua")
+modules.icons = dofile(BASE .. "shell/icons.lua")
+local chrome = dofile(BASE .. "shell/chrome.lua")
 local glyphs = modules.glyphs
+
+-- Каталог программ — заглушка, и только он. `model` зовёт его в одном месте,
+-- чтобы отличить битый ярлык от исправного; сценам ниже это не нужно, а
+-- тащить сюда реестр значило бы завести в пробнике половину рантайма.
+modules.catalog = {find = function() return nil end}
+modules.model = dofile(BASE .. "explorer/model.lua")
+modules.render = dofile(BASE .. "explorer/render.lua")
+local model = modules.model
+local render = modules.render
 
 -- ─── печать ──────────────────────────────────────────────────────────────
 local function show(title, canvas, w, h, hits)
@@ -398,6 +407,90 @@ scene(96, 20, {
         {entry = "app:settings", title = "Настройка"},
         {entry = "app:shutdown", title = "Завершение работы"},
     }},
+})
+
+-- ─── «Мой компьютер»: содержимое рисует само окно ────────────────────────
+--
+-- Рамки вокруг него здесь нет нарочно: композитор отдаёт окну прямоугольник
+-- ВНУТРИ рамки, и то, что рисует окно, начинается с первой строки этого
+-- прямоугольника. Нарисуй пробник рамку — он проверял бы не то, что окно
+-- отдаёт композитору.
+local function window_scene(w, h, title, view)
+    local canvas = tty.canvas(w, h)
+    local hits = render.window(canvas, view, w, h)
+    local flat = {}
+    for _, hit in ipairs(hits.tools) do
+        flat[#flat+1] = {row = hit.row, from = hit.from, to = hit.to, id = hit.id}
+    end
+    for _, cell in ipairs(hits.cells) do
+        local object = view.objects[cell.index] or {}
+        flat[#flat+1] = {row = cell.top, from = cell.from, to = cell.to,
+                         id = "значок " .. tostring(object.title)}
+    end
+    show(title, canvas, w, h, flat)
+end
+
+window_scene(64, 20, "«Мой компьютер»: диски из реестра и папки оболочки", {
+    title = "Мой компьютер",
+    selected = 2,
+    objects = model.root({programs = 12, desktop = 3, windows = 2}, model.drives({
+        {id = "app:app_fs", kind = "fs.directory"},
+        {id = "wippy.facade:public_files", kind = "fs.directory"},
+        {id = "keeper:ui_static_fs", kind = "fs.embed"},
+        {id = "vlad.doom:ui_static_fs", kind = "fs.directory"},
+        {id = "butschster.windows:previews_fs", kind = "fs.directory"},
+    })),
+})
+
+window_scene(64, 16, "внутри диска: папки раньше файлов, у файла нечего открыть", {
+    title = "app:app_fs",
+    selected = 4,
+    objects = model.files({
+        {name = "index.html", type = "file"},
+        {name = "assets", type = "directory"},
+        {name = "app.js", type = "file"},
+        {name = "chunks", type = "directory"},
+        {name = "style.css", type = "file"},
+    }, "drive/app:app_fs"),
+})
+
+window_scene(64, 12, "диск объявлен, но не открылся — причина, а не пустота", {
+    title = "Мой компьютер",
+    failure = "диск не открылся: filesystem not found: app:gone_fs",
+    objects = {},
+})
+
+window_scene(64, 12, "прочитали не всё, и об этом сказано", {
+    title = "app:huge_fs",
+    notice = "показаны первые 500",
+    objects = model.files({
+        {name = "0001.log", type = "file"},
+        {name = "0002.log", type = "file"},
+    }, "drive/app:huge_fs"),
+})
+
+-- Столько дисков на стенде и есть. Без прокрутки окно показало бы первые
+-- десять и промолчало про остальные — то есть соврало бы счётчиком внизу.
+local many = {}
+for i = 1, 68 do
+    many[i] = {id = "модуль" .. i .. ":fs", kind = "fs.directory"}
+end
+
+window_scene(64, 20, "дисков больше, чем помещается: полоса и ползунок", {
+    title = "Мой компьютер",
+    selected = 1,
+    objects = model.root({}, model.drives(many)),
+})
+
+window_scene(64, 20, "та же сетка, прокрученная к концу", {
+    title = "Мой компьютер",
+    offset = 99,
+    objects = model.root({}, model.drives(many)),
+})
+
+window_scene(30, 10, "окно уже одной колонки значков", {
+    title = "Мой компьютер",
+    objects = model.root({}, model.drives({{id = "app:app_fs", kind = "fs.directory"}})),
 })
 
 -- ─── проверка набора символов ────────────────────────────────────────────

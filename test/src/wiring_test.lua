@@ -7,6 +7,7 @@
 -- программы обязано не быть вовсе.
 local test = require("test")
 local registry = require("registry")
+local defaults = require("defaults")
 
 local TERMINAL_ID = "butschster.windows:terminal"
 local SHELL_ID = "butschster.windows:shell"
@@ -19,6 +20,9 @@ local MIGRATION_ID = "butschster.windows.migrations:01_create_desktop_items"
 local RUNTIME_POLICY_ID = "butschster.windows.security:shell_runtime"
 local STORAGE_POLICY_ID = "butschster.windows.security:shell_storage"
 local ACCESS_POLICY_ID = "butschster.windows.security:shell_endpoint_access"
+local EXPLORER_ID = "butschster.windows.explorer:window"
+local EXPLORER_POLICY_ID = "butschster.windows.security:explorer_window"
+local RENDER_ID = "butschster.windows.explorer:render"
 
 local ENDPOINTS = {
     {id = "butschster.windows.api:list_programs", method = "GET", path = "/windows/programs"},
@@ -85,6 +89,88 @@ local function define_tests()
             -- ошибки — иначе тест падает ровно тогда, когда всё правильно.
             local workers = registry.get("butschster.windows:workers")
             test.is_nil(workers, "хост окон принадлежит основе")
+        end)
+    end)
+
+    test.describe("butschster.windows explorer", function()
+        test.it("объявляет «Мой компьютер» обычной программой реестра", function()
+            -- Оболочка находит его тем же registry.find, что и всё остальное.
+            -- Особый путь для своего окна означал бы, что окно оболочки
+            -- живёт по другим правилам, чем окно любого другого модуля.
+            local entry = get(EXPLORER_ID)
+            local meta = meta_of(entry)
+            test.eq(meta.type, "tui_desktop.window",
+                "без этого типа окно не попадёт ни в меню, ни в каталог")
+            test.not_nil(meta.title)
+
+            local data = data_of(entry)
+            test.eq(data.kind or entry.kind, "process.lua")
+            test.eq(data.method, "main")
+            for _, needed in ipairs({"channel", "tty", "process", "fs", "registry", "sql"}) do
+                test.is_true(has(data.modules or {}, needed),
+                    "окну нужен модуль " .. needed)
+            end
+        end)
+
+        test.it("рисует общими примитивами темы, а не своей копией", function()
+            -- Своя, чуть другая кнопка означала бы, что внутри окна Windows 95
+            -- живёт другая Windows. Разошлись бы они видом, а не отказом, — то
+            -- есть заметили бы через неделю.
+            local imports = data_of(get(EXPLORER_ID)).imports or {}
+            test.eq(qualify(imports.render, "butschster.windows.explorer"), RENDER_ID)
+            test.eq(qualify(imports.sources, "butschster.windows.explorer"),
+                "butschster.windows.explorer:sources")
+
+            local drawing = data_of(get(RENDER_ID)).imports or {}
+            test.eq(qualify(drawing.widgets, "butschster.windows.explorer"),
+                "butschster.windows.shell:widgets")
+            test.eq(qualify(drawing.icons, "butschster.windows.explorer"),
+                "butschster.windows.shell:icons")
+        end)
+
+        test.it("держит вид окна вне процесса окна", function()
+            -- Полноэкранную программу не проверить кодом возврата, а кадр,
+            -- собираемый внутри процесса, не посмотреть ничем, кроме стенда.
+            -- Отсюда правило: содержимое рисует библиотека, которой нужен
+            -- только tty, — её гоняет пробник без рантайма.
+            local data = data_of(get(RENDER_ID))
+            test.eq(data.kind or get(RENDER_ID).kind, "library.lua")
+            for _, forbidden in ipairs({"process", "sql", "registry", "fs"}) do
+                test.is_false(has(data.modules or {}, forbidden),
+                    "виду нечего делать с модулем " .. forbidden)
+            end
+        end)
+
+        test.it("не даёт окну порождать процессы и запускать программы", function()
+            -- Окно с правом порождать процессы рано или поздно запустит не то,
+            -- чем ему открыли файл. Открыть соседнее окно оно может только
+            -- просьбой к композитору, который решает сам.
+            local actions = actions_of(get(EXPLORER_POLICY_ID))
+            test.is_false(has(actions, "process.spawn"), "порождать процессы окно не может")
+            test.is_false(has(actions, "process.spawn.monitored"))
+            test.is_false(has(actions, "exec.run"), "запускать программы окно не может")
+            test.is_false(has(actions, "registry.apply"), "менять реестр окно не может")
+
+            for _, needed in ipairs({"registry.find", "db.get", "fs.get",
+                "process.send", "process.registry"}) do
+                test.is_true(has(actions, needed), "окну нужно право " .. needed)
+            end
+        end)
+
+        test.it("ставит на стол ярлыки только на существующие записи", function()
+            -- Ярлык на исчезнувшую программу мебель пропускает МОЛЧА — это
+            -- правильно при первом запуске и невыносимо здесь: переезд
+            -- «Моего компьютера» в другую запись выглядел бы не как ошибка, а
+            -- как пустой стол. Проверяется вся мебель, а не одна строка:
+            -- список, из которого можно забыть добавить проверку, проверяет
+            -- не то, что стоит на столе.
+            for _, item in ipairs(defaults.ITEMS) do
+                if item.kind == "shortcut" then
+                    test.not_nil(registry.get(item.entry),
+                        "мебель ведёт на " .. tostring(item.entry) ..
+                        " — записи с таким идентификатором нет")
+                end
+            end
         end)
     end)
 

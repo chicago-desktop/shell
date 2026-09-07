@@ -14,22 +14,33 @@
 import pathlib
 
 HERE = pathlib.Path(__file__).resolve().parent
-SHELL = HERE.parent.parent / "src" / "shell"
-MODULES = ("palette", "glyphs", "widgets", "icons", "chrome")
+SRC = HERE.parent.parent / "src"
+# Файлы темы и файлы окна «Мой компьютер». Второе здесь потому, что содержимое
+# окна — такие же строки и арифметика, как тема, и проверяется тем же способом:
+# полноэкранную программу иначе не посмотреть вовсе.
+MODULES = (
+    ("shell", "palette"),
+    ("shell", "glyphs"),
+    ("shell", "widgets"),
+    ("shell", "icons"),
+    ("shell", "chrome"),
+    ("explorer", "model"),
+    ("explorer", "render"),
+)
 
 
-def wrapped(name: str) -> str:
-    source = (SHELL / f"{name}.lua").read_text(encoding="utf-8")
+def wrapped(folder: str, name: str) -> str:
+    source = (SRC / folder / f"{name}.lua").read_text(encoding="utf-8")
     return "(function()\n" + source + "\nend)()"
 
 
 def main() -> None:
     text = (HERE / "harness.lua").read_text(encoding="utf-8")
-    for name in MODULES:
-        marker = f'dofile(BASE .. "{name}.lua")'
+    for folder, name in MODULES:
+        marker = f'dofile(BASE .. "{folder}/{name}.lua")'
         if marker not in text:
-            raise SystemExit(f"в harness.lua нет метки для {name}")
-        text = text.replace(marker, wrapped(name))
+            raise SystemExit(f"в harness.lua нет метки для {folder}/{name}")
+        text = text.replace(marker, wrapped(folder, name))
     out = HERE / "combined.lua"
     out.write_text(text, encoding="utf-8")
     print(f"собрано: {out}")

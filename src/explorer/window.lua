@@ -1,21 +1,5 @@
 -- «Мой компьютер» — окно, показывающее сам стенд.
 --
--- НЕЗАКОНЧЕНО И НАМЕРЕННО НЕ ОБЪЯВЛЕНО В РЕЕСТРЕ. Работа остановлена по
--- просьбе человека; файл оставлен целым, но записи процесса для него нет ни в
--- одном `_index.yaml`, поэтому на боот и на `wippy lint` он не влияет никак.
---
--- Чтобы продолжить, нужны четыре вещи, и все они названы в отчёте координатору:
---   1) запись процесса `butschster.windows.explorer:window` с
---      `meta.type: tui_desktop.window`, своей политикой и модулями
---      [channel, process, time, tty, sql, env, uuid, registry];
---   2) своя политика окна: process.context, process.send, process.registry,
---      db.get, registry.get, registry.find — без spawn и exec;
---   3) `sources.list` для пути `desktop/<id>` — содержимое папки стола;
---   4) `defaults.lua`: «Мой компьютер» должен вести сюда, а не на обозреватель
---      стенда `butschster.tui_desktop.apps:commander`.
---
--- Проверено глазами, но НЕ запуском: окно ни разу не поднималось.
---
 -- Рисует ТОЛЬКО своё содержимое: строку меню, панель инструментов, поле со
 -- значками и статусную строку. Рамка, заголовок и кнопки заголовка — хром, он
 -- за темой; композитор отдаёт окну весь прямоугольник внутри рамки, и что там
@@ -25,16 +9,20 @@
 -- вторую, чуть другую кнопку, и внутри окна Windows 95 оказалась бы другая
 -- Windows. Разошлись бы они видом, а не отказом, — то есть заметили бы через
 -- неделю.
+--
+-- Окно не читает ни базы, ни реестра само: и то, и другое — через `sources`,
+-- под правами своей политики. Своих процессов оно не порождает: `spawn` и
+-- `exec` ему не выданы, и открыть соседнее окно оно может только просьбой к
+-- композитору.
 
 local channel = require("channel")
 local process = require("process")
 local time = require("time")
 local tty = require("tty")
 
-local icons = require("icons")
 local model = require("model")
+local render = require("render")
 local sources = require("sources")
-local widgets = require("widgets")
 
 -- Композитор, которому окно шлёт просьбы. Это НЕ имя основы: под второй
 -- оболочкой композитор зарегистрирован своим именем, и библиотека основы
@@ -46,13 +34,6 @@ local REPLY_TOPIC = "desktop.reply"
 -- Тот же порог, что у композитора на столе: одинаковый двойной щелчок в двух
 -- местах одной оболочки — это не совпадение чисел, а одно поведение.
 local DOUBLE_CLICK_NS = 500000000
-
-local MENU = {
-    {text = "Файл", accel = 1},
-    {text = "Правка", accel = 1},
-    {text = "Вид", accel = 1},
-    {text = "Справка", accel = 1},
-}
 
 local function whole(value: any): integer
     return math.tointeger(math.floor(tonumber(value) or 0)) or 0
@@ -76,21 +57,32 @@ local function main()
     if width < 20 then width = 60 end
     if height < 8 then height = 18 end
 
-    local grid = icons.grid()
-
     local state: any = {
         path = model.ROOT,
         title = "Мой компьютер",
         objects = {},
         failure = nil,
         selected = 0,
+        -- Первый видимый ряд сетки. Живёт здесь, а не в отрисовке: кадр
+        -- собирается заново на каждое событие, и прокрутка, забытая между
+        -- кадрами, отскакивала бы к началу на каждое нажатие.
+        offset = 0,
         -- Список открытых окон приносит ответ композитора, а не библиотека:
         -- цикл ожидания ответа забрал бы из inbox и чужие сообщения тоже, а
         -- съеденная команда композитора неотличима от неполученной.
         windows = nil,
         windows_error = nil,
+        -- Замечание — третье состояние между «показано всё» и «не прочитано»:
+        -- срезанный список, непрочитанные диски, отказ на двойной щелчок.
+        -- Оно не прячет объектов и не выдаёт себя за отказ.
+        notice = nil,
     }
     local cells: any = {}
+    -- Попадания панели инструментов возвращает та же функция, что её рисует.
+    -- Своя формула здесь дала бы кнопку, которая на ячейку левее, чем
+    -- выглядит, — и разъехались бы они молча.
+    local tools: any = {}
+    local bar: any = {}
     local last_click: any = {x = 0, y = 0, at = 0}
 
     local function shell_pid()
@@ -111,17 +103,11 @@ local function main()
 
     local function load()
         state.selected = 0
-        if state.path == model.ROOT then
-            local counts = sources.counts()
-            -- Открытые окна считает не `sources`: их знает только композитор,
-            -- и число приезжает вместе со списком.
-            if state.windows then (counts :: any).windows = #state.windows end
-            state.objects = model.root(counts)
-            state.failure = nil
-            state.title = "Мой компьютер"
-            return
-        end
+        state.offset = 0
+        state.notice = nil
 
+        -- Открытые окна — единственный источник, который не читается: его
+        -- приносит ответ композитора, и до ответа сказать про него нечего.
         if state.path == "windows" then
             state.title = "Открытые окна"
             if state.windows_error then
@@ -137,16 +123,24 @@ local function main()
             return
         end
 
-        local objects, err = sources.list(state.path)
-        state.title = state.path == "programs" and "Программы" or "Рабочий стол"
-        if err or not objects then
+        local shown, err = sources.list(state.path, {
+            windows = state.windows and #state.windows or nil,
+        })
+        if err or not shown then
+            -- Заголовок при отказе НЕ меняется на имя папки, которую не
+            -- открыли: подпись «Программы» над причиной читалась бы как
+            -- «программы кончились».
             state.objects, state.failure = {}, err or "не прочитано"
-        else
-            state.objects, state.failure = objects, nil
+            state.title = "Мой компьютер"
+            return
         end
+
+        state.objects, state.failure = shown.objects, nil
+        state.title = tostring(shown.title or "Мой компьютер")
+        state.notice = shown.notice
     end
 
-    local function go(path)
+    local function go(path: any)
         state.path = path
         if path == "windows" then
             state.windows, state.windows_error = nil, nil
@@ -157,105 +151,81 @@ local function main()
     end
 
     local function activate(object: any)
-        if type(object) ~= "table" or type(object.open) ~= "table" then return end
+        if type(object) ~= "table" then return end
+
+        -- Двойной щелчок, после которого не произошло ничего, неотличим от
+        -- незамеченного, и второе, что попробует человек, — щёлкнуть сильнее.
+        -- Причина уже собрана моделью в `detail`.
+        if type(object.open) ~= "table" then
+            state.notice = "открыть нечем: " .. tostring(object.detail or object.title)
+            return
+        end
+
         local open = object.open
         if open.action == "folder" then
             go(open.path)
         elseif open.action == "open_window" then
-            ask("desktop.open", {
+            local ok, err = ask("desktop.open", {
                 entry = open.entry, title = open.title,
                 w = open.w, h = open.h, args = open.args,
             })
+            if not ok then state.notice = "не открылось: " .. tostring(err) end
         elseif open.action == "raise" then
-            ask("desktop.raise", {id = open.id})
+            -- Команда композитора называется `desktop.focus`; «raise» — это
+            -- намерение модели, а не имя топика. Послать топик, которого у
+            -- композитора нет, значит не получить ни окна, ни отказа.
+            local ok, err = ask("desktop.focus", {id = open.id})
+            if not ok then state.notice = "не поднялось: " .. tostring(err) end
         end
     end
 
     -- ─── отрисовка ───────────────────────────────────────────────────────
 
+    -- Рисует не окно, а `render`: там только строки и арифметика, и поэтому
+    -- кадр можно посмотреть пробником, не поднимая ни окна, ни стенда.
+    -- Попадания приезжают оттуда же, где нарисованы, — посчитанные здесь
+    -- своей формулой, они разъехались бы с рисунком молча.
     local function draw()
         local canvas = tty.canvas(width, height)
-        canvas:clear(widgets.styles.face:render(" "))
-
-        widgets.menu_bar(canvas, 1, 1, width, MENU)
-        widgets.toolbar(canvas, 1, 2, width, {
-            {icon = "↑", label = "Вверх"},
-            {sep = true},
-            {icon = "⟳", label = "Обновить"},
-        })
-
-        -- Поле списка: вдавленная рамка от темы, белая изнанка своя. Значки
-        -- лежат на белом, как в проводнике, а не на сером лице панели.
-        local field_top, field_bottom = 3, height - 1
-        local field_h = field_bottom - field_top + 1
-        widgets.field(canvas, 1, field_top, width, field_h)
-
-        local inner_x, inner_y = 2, field_top + 1
-        local inner_w, inner_h = width - 2, field_h - 2
-        if inner_w > 0 and inner_h > 0 then
-            local blank = widgets.styles.field:render(string.rep(" ", inner_w))
-            for row = 0, inner_h - 1 do canvas:put(inner_x, inner_y + row, blank, inner_w) end
-        end
-
-        cells = {}
-        if state.failure then
-            canvas:put(inner_x + 1, inner_y,
-                widgets.fit(widgets.styles.field, tostring(state.failure), inner_w - 2), inner_w - 2)
-        else
-            local columns = inner_w // grid.w
-            if columns < 1 then columns = 1 end
-            local rows = inner_h // grid.h
-            if rows < 1 then rows = 1 end
-
-            for index, object in ipairs(state.objects) do
-                local slot = index - 1
-                local column = slot % columns
-                local row = slot // columns
-                if row < rows then
-                    -- Прямоугольник попадания берётся у `icons.cell`, а не
-                    -- считается своей формулой: посчитанный отдельно, он
-                    -- разъедется с рисунком, и щелчок попадёт на соседа.
-                    local box = icons.cell(canvas,
-                        inner_x + column * grid.w, inner_y + row * grid.h,
-                        object,
-                        {surface = "panel", room = grid.w, selected = index == state.selected})
-                    if box then
-                        cells[#cells + 1] = {
-                            index = index, from = box.from, to = box.to,
-                            top = box.top, bottom = box.bottom,
-                        }
-                    end
-                end
-            end
-        end
-
-        -- Счётчик — содержимое окна, а не хрома: он пересчитывается на каждое
-        -- открытие папки, и канал «окно сообщает теме свою строку» означал бы,
-        -- что композитор знает про устройство чужого окна.
-        local count = state.failure and "—" or (tostring(#state.objects) .. " объектов")
-        widgets.statusbar(canvas, 1, height, width, {
-            {text = count, width = 16},
-            {text = state.title},
-        })
-
+        local hits = render.window(canvas, state, width, height)
+        cells = hits.cells
+        tools = hits.tools
+        bar = hits.scroll
         assert(out:present(canvas:rows()))
     end
 
     -- ─── ввод ────────────────────────────────────────────────────────────
 
-    local function move(delta)
+    local function shape()
+        return render.shape(width, height, #state.objects, state.offset)
+    end
+
+    -- Прокрутка на `delta` рядов. Зажимает её `render.shape`, и намеренно:
+    -- одно место, где решается, что дальше показывать нечего. Отсюда и два
+    -- присваивания — первое двигает от того ряда, на котором прокрутка стоит
+    -- на самом деле, второе спрашивает, куда она встала.
+    local function scroll(delta: any)
+        state.offset = shape().first + whole(delta)
+        state.offset = shape().first
+    end
+
+    -- Выделение ходит по сетке, а не по списку, и тянет за собой прокрутку:
+    -- выделенный объект, уехавший за край видимого, — это выделение, которого
+    -- не видно, и следующая клавиша уводит его дальше вслепую.
+    local function move(delta: any)
         if #state.objects == 0 then return end
-        local next_index = state.selected + delta
+        local next_index = state.selected + whole(delta)
         if next_index < 1 then next_index = 1 end
         if next_index > #state.objects then next_index = #state.objects end
         state.selected = next_index
-    end
 
-    local function columns_now()
-        local inner_w = width - 2
-        local columns = inner_w // grid.w
-        if columns < 1 then columns = 1 end
-        return columns
+        local grid = shape()
+        local row = (next_index - 1) // grid.columns
+        if row < grid.first then
+            state.offset = row
+        elseif row >= grid.first + grid.rows then
+            state.offset = row - grid.rows + 1
+        end
     end
 
     local function handle_key(event: any)
@@ -263,15 +233,22 @@ local function main()
         if key == "enter" then
             activate(state.objects[state.selected])
         elseif key == "backspace" then
-            if state.path ~= model.ROOT then go(model.ROOT) end
+            local up = model.parent(state.path)
+            if up then go(up) end
         elseif key == "right" then
             move(1)
         elseif key == "left" then
             move(-1)
         elseif key == "down" then
-            move(columns_now())
+            move(shape().columns)
         elseif key == "up" then
-            move(-columns_now())
+            move(-shape().columns)
+        elseif key == "pgdn" or key == "page_down" then
+            scroll(shape().rows)
+        elseif key == "pgup" or key == "page_up" then
+            scroll(-shape().rows)
+        elseif key == "home" then
+            state.selected, state.offset = 1, 0
         elseif event.key == "r" and event.ctrl then
             load()
         end
@@ -294,14 +271,29 @@ local function main()
         -- что делать в первой версии. Кнопка, которая ничего не делает, —
         -- бутафория, и первое, что о ней спросят, почему она не работает;
         -- поэтому их всего две.
-        if event.y == 2 then
-            if event.x <= 10 then
-                if state.path ~= model.ROOT then go(model.ROOT) end
-            else
-                load()
+        -- Полоса прокрутки проверяется раньше значков: она лежит на том же
+        -- поле, и щелчок по стрелке иначе достался бы значку под ней.
+        for _, hit in ipairs(bar) do
+            local arrow: any = hit
+            if event.y == arrow.row and event.x >= arrow.from and event.x <= arrow.to then
+                scroll(arrow.id == "scroll_down" and 1 or -1)
+                draw()
+                return
             end
-            draw()
-            return
+        end
+
+        for _, hit in ipairs(tools) do
+            local button: any = hit
+            if event.y == button.row and event.x >= button.from and event.x <= button.to then
+                if button.id == "up" then
+                    local up = model.parent(state.path)
+                    if up then go(up) end
+                elseif button.id == "refresh" then
+                    load()
+                end
+                draw()
+                return
+            end
         end
 
         local moment = time.now():unix_nano()

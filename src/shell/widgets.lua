@@ -317,6 +317,56 @@ function widgets.statusbar(target, x: any, y: any, width: any, fields)
     target:put(left, row, table.concat(parts), span)
 end
 
+-- Вертикальная полоса прокрутки: стрелка, дорожка с ползунком, стрелка.
+--
+-- Рисуется ТОЛЬКО когда есть что прокручивать. Полоса при полностью видимом
+-- содержимом — обещание, что где-то есть ещё, и человек будет её тянуть.
+--
+-- `state`: first — первая видимая строка считая с нуля, visible — сколько
+-- строк помещается, total — сколько их всего.
+--
+-- Возвращает попадания стрелок. Стрелка, по которой нельзя щёлкнуть, — та же
+-- бутафория, что и кнопка, которая ничего не делает.
+function widgets.scrollbar(target, x: any, y: any, box_h: any, state)
+    local hits = {}
+    local col, top, height = whole(x), whole(y), whole(box_h)
+    if height < 3 then return hits end
+
+    local bar: any = type(state) == "table" and state or {}
+    local total = whole(bar.total)
+    local visible = whole(bar.visible)
+    if visible < 1 or total <= visible then return hits end
+
+    local first = whole(bar.first)
+    local last = total - visible
+    if first < 0 then first = 0 end
+    if first > last then first = last end
+
+    target:put(col, top, styles.face:render(glyphs.scrollbar.up), 1)
+    target:put(col, top + height - 1, styles.face:render(glyphs.scrollbar.down), 1)
+    hits[#hits + 1] = {row = top, from = col, to = col, id = "scroll_up"}
+    hits[#hits + 1] = {row = top + height - 1, from = col, to = col, id = "scroll_down"}
+
+    -- Ползунок ростом не меньше одной ячейки: выродившись в ноль, он исчезает
+    -- ровно там, где прокручивать больше всего.
+    local track = height - 2
+    local thumb = (track * visible) // total
+    if thumb < 1 then thumb = 1 end
+    if thumb > track then thumb = track end
+
+    local room = track - thumb
+    local offset = 0
+    if room > 0 and last > 0 then offset = (room * first) // last end
+
+    for row = 0, track - 1 do
+        local inside = row >= offset and row < offset + thumb
+        local glyph = inside and glyphs.scrollbar.thumb or glyphs.scrollbar.track
+        target:put(col, top + 1 + row, styles.face:render(glyph), 1)
+    end
+
+    return hits
+end
+
 -- Вкладки со страницей под ними.
 --
 -- Весь приём — РАЗРЫВ: рамка страницы прерывается ровно под активной

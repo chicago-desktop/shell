@@ -68,7 +68,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: «Мой компьютер» показывает сам стенд, описывает двойной щелчок намерением и нигде не подменяет «не прочитали» словом «пусто».
+      comment: «Мой компьютер» показывает сам стенд, делает диском каждую запись fs, читает путь одинаково для щелчка и для кнопки «Вверх», описывает двойной щелчок намерением и нигде не подменяет «не прочитали» словом «пусто».
       group: Windows Shell
       suite: butschster_windows
     source: file://explorer_test.lua
@@ -76,6 +76,36 @@ entries:
     imports:
       test: wippy.test:test
       model: butschster.windows.explorer:model
+    method: run
+
+  - name: sources_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Диски приходят из живого реестра, а не из своей таблицы; содержимое диска читается модулем fs; закрытый диск отвечает причиной, а не пустотой; верхний уровень стола и папка стола не показывают одно и то же дважды.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://sources_test.lua
+    modules: [fs, registry, sql, env, time, uuid]
+    imports:
+      test: wippy.test:test
+      model: butschster.windows.explorer:model
+      repo: butschster.windows.persist:repo
+      sources: butschster.windows.explorer:sources
+    method: run
+
+  - name: render_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Сетка значков внутри окна — ряды считаются по рисунку, а не по шагу; полоса прокрутки заводится только когда есть что прокручивать и отнимает колонку у поля; сдвиг зажимается, а не показывает пустоту за последним рядом.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://render_test.lua
+    modules: [tty]
+    imports:
+      test: wippy.test:test
+      render: butschster.windows.explorer:render
     method: run
 
   - name: glyphs_test
@@ -97,14 +127,29 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Хост, процесс оболочки, ручки и политики существуют и ссылаются друг на друга; лог терминального хоста заглушён, у ручек раскладки нет права порождать процессы, ручки создания программы нет.
+      comment: Хост, процесс оболочки, окно проводника, ручки и политики существуют и ссылаются друг на друга; лог терминального хоста заглушён, у ручек раскладки и у окна нет права порождать процессы, ручки создания программы нет, а мебель стола ведёт на существующие записи.
       group: Windows Shell
       suite: butschster_windows
     source: file://wiring_test.lua
     modules: [registry]
     imports:
       test: wippy.test:test
+      defaults: butschster.windows.programs:defaults
     method: run
+
+  # Настоящая файловая система в реестре. Без неё «диски приходят из реестра»
+  # проверялось бы на выдуманных записях, то есть не проверялось бы вовсе:
+  # ошиблись бы мы в имени фильтра — тест остался бы зелёным.
+  #
+  # Каталог выбран тот, в котором лежит сам набор тестов: он заведомо есть и
+  # заведомо не пуст, а значит «прочитали пустоту» и «прочитали» здесь
+  # различимы.
+  - name: probe_fs
+    kind: fs.directory
+    meta:
+      comment: Файловая система харнесса — она и есть проверяемый диск.
+    base: project
+    directory: ./src
 
   - name: db
     kind: db.sql.sqlite

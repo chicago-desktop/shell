@@ -58,10 +58,19 @@ local function define_tests()
                 test.eq(item.kind, "folder", item.title .. ": без каталога остаются только папки")
             end
 
-            local with = defaults.resolve({
-                {entry = "butschster.tui_desktop.apps:commander", title = "Обозреватель стенда"},
-            })
-            test.is_true(#with > #without, "с обозревателем в каталоге мебели становится больше")
+            -- Запись берётся у самой мебели, а не переписывается сюда: имя,
+            -- списанное в тест, переживает переезд программы и продолжает
+            -- проверять то, чего больше нет.
+            local wanted = {}
+            for _, item in ipairs(defaults.ITEMS) do
+                if item.kind == "shortcut" then
+                    wanted[#wanted + 1] = {entry = item.entry, title = item.title}
+                end
+            end
+            test.is_true(#wanted > 0, "хоть один ярлык в мебели быть обязан")
+
+            local with = defaults.resolve(wanted)
+            test.is_true(#with > #without, "с программой в каталоге мебели становится больше")
         end)
 
         test.it("заводит мебель один раз и не возвращает выброшенную", function()
