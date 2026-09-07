@@ -98,7 +98,6 @@ entries:
       - channel
       - env
       - fs
-      - process
       - registry
       - sql
       - time
@@ -107,6 +106,11 @@ entries:
     security:
       policies: [butschster.windows.security:explorer_window]
     imports:
+      # Просьбы к композитору — библиотекой основы, а не своим протоколом.
+      # Имя композитора она читает из контекста процесса; своя константа
+      # работала бы только под нашей оболочкой и молча промахивалась бы под
+      # любой другой.
+      desktop: butschster.tui_desktop.desktop:window_api
       model: butschster.windows.explorer:model
       render: butschster.windows.explorer:render
       sources: butschster.windows.explorer:sources

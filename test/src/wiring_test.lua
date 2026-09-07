@@ -106,10 +106,26 @@ local function define_tests()
             local data = data_of(entry)
             test.eq(data.kind or entry.kind, "process.lua")
             test.eq(data.method, "main")
-            for _, needed in ipairs({"channel", "tty", "process", "fs", "registry", "sql"}) do
+            for _, needed in ipairs({"channel", "tty", "fs", "registry", "sql"}) do
                 test.is_true(has(data.modules or {}, needed),
                     "окну нужен модуль " .. needed)
             end
+        end)
+
+        test.it("просит композитор библиотекой основы, а не своим протоколом", function()
+            -- Имя композитора приезжает окну в контексте процесса. Своя
+            -- константа работала бы только под нашей оболочкой и молча
+            -- промахивалась бы под любой другой — а `open` ответа не ждёт,
+            -- так что промах выглядел бы как успех.
+            local imports = data_of(get(EXPLORER_ID)).imports or {}
+            test.eq(qualify(imports.desktop, "butschster.windows.explorer"),
+                "butschster.tui_desktop.desktop:window_api")
+
+            -- С процессами окно само не разговаривает: за него это делает
+            -- библиотека, и модуль объявлен у неё. Модуль `process` у окна
+            -- означал бы второй, свой протокол рядом с общим.
+            test.is_false(has(data_of(get(EXPLORER_ID)).modules or {}, "process"),
+                "окно не разговаривает с процессами напрямую")
         end)
 
         test.it("рисует общими примитивами темы, а не своей копией", function()

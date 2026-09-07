@@ -16,20 +16,18 @@
 -- композитору.
 
 local channel = require("channel")
-local process = require("process")
 local time = require("time")
 local tty = require("tty")
 
+local desktop = require("desktop")
 local model = require("model")
 local render = require("render")
 local sources = require("sources")
 
--- Композитор, которому окно шлёт просьбы. Это НЕ имя основы: под второй
--- оболочкой композитор зарегистрирован своим именем, и библиотека основы
--- `window_api` с зашитым `butschster.tui_desktop.desktop` сюда не годится —
--- она искала бы чужой процесс и молча ничего не делала.
-local SHELL_SERVICE = "butschster.windows.shell"
-local REPLY_TOPIC = "desktop.reply"
+-- Имени композитора здесь нет и быть не должно. Оно приезжает окну в
+-- контексте процесса, и читает его `window_api` основы; своя константа
+-- работала бы только под нашей оболочкой и молча промахивалась бы под любой
+-- другой — а `open` ответа не ждёт, так что промах выглядел бы как успех.
 
 -- Тот же порог, что у композитора на столе: одинаковый двойной щелчок в двух
 -- местах одной оболочки — это не совпадение чисел, а одно поведение.
@@ -46,7 +44,22 @@ local function main()
     assert(tty.start())
 
     local out = assert(tty.surface({hide_cursor = true, synchronized_output = true}))
-    local inbox = process.inbox()
+
+    -- Канал ответов композитора. Отдельная подписка на топик, а НЕ чтение
+    -- общего inbox, и это не вкусовщина: цикл, читающий inbox ради ответа,
+    -- забирает оттуда и чужое, а выброшенная команда композитора неотличима
+    -- от неполученной. Смешивать два способа нельзя — подписка забирает
+    -- `desktop.reply` себе, и в inbox его больше не будет.
+    --
+    -- Подписка открывается ДО первого вопроса: открытая после, она пропустила
+    -- бы быстрый ответ. Отказ подписаться не мешает окну рисоваться — без
+    -- ответов не работает только папка «Открытые окна», и она скажет почему.
+    local answers, answers_error = desktop.replies()
+
+    -- Inbox здесь не читается вовсе. Клавиши, мышь, изменение размера и
+    -- закрытие едут окну через viewport, а не сообщениями, а сообщение,
+    -- которому некому отдаться, ждёт в очереди процесса — рантайм его не
+    -- теряет. Читать его, чтобы выбросить, было бы хуже, чем не читать.
 
     local width, height = tty.screen_size()
     width, height = whole(width), whole(height)
@@ -67,9 +80,10 @@ local function main()
         -- собирается заново на каждое событие, и прокрутка, забытая между
         -- кадрами, отскакивала бы к началу на каждое нажатие.
         offset = 0,
-        -- Список открытых окон приносит ответ композитора, а не библиотека:
-        -- цикл ожидания ответа забрал бы из inbox и чужие сообщения тоже, а
-        -- съеденная команда композитора неотличима от неполученной.
+        -- Список открытых окон приносит ответ композитора и приносит его
+        -- ПОЗЖЕ вопроса: окно спрашивает и продолжает рисоваться, а ответ
+        -- приходит своим каналом в тот же цикл. Ждущий вызов заморозил бы
+        -- кадр на всё время ожидания.
         windows = nil,
         windows_error = nil,
         -- Замечание — третье состояние между «показано всё» и «не прочитано»:
@@ -85,18 +99,13 @@ local function main()
     local bar: any = {}
     local last_click: any = {x = 0, y = 0, at = 0}
 
-    local function shell_pid()
-        local pid = process.registry.lookup(SHELL_SERVICE)
-        return pid
-    end
-
-    local function ask(topic, body: any)
-        local pid = shell_pid()
-        if not pid then return false, "оболочка не отвечает" end
-        body = type(body) == "table" and body or {}
-        local sent, serr = process.send(pid, topic, body)
-        if not sent then return false, tostring(serr) end
-        return true, nil
+    -- Спросить композитор и НЕ ждать: ответ приедет в `desktop.replies()`,
+    -- который лежит в том же `select`, что и события. Ждущий вызов (`ask`)
+    -- удобнее, но на время ожидания окно не рисуется, а рисовать себя — это
+    -- всё, чем оно занято.
+    local function request(topic, body: any)
+        local ok, err = desktop.request(topic, body)
+        return ok, err
     end
 
     -- ─── содержимое ──────────────────────────────────────────────────────
@@ -144,8 +153,16 @@ local function main()
         state.path = path
         if path == "windows" then
             state.windows, state.windows_error = nil, nil
-            local ok, err = ask("desktop.list", {reply_to = process.pid()})
-            if not ok then state.windows_error = tostring(err) end
+            -- `reply_to` подставляет библиотека: адрес ответа — это адрес
+            -- процесса, и повторять его здесь значит завести второе место,
+            -- где он может разойтись с подпиской.
+            if not answers then
+                state.windows_error = tostring(answers_error
+                    or "подписка на ответы композитора не открылась")
+            else
+                local ok, err = request("desktop.list", {})
+                if not ok then state.windows_error = tostring(err) end
+            end
         end
         load()
     end
@@ -165,16 +182,17 @@ local function main()
         if open.action == "folder" then
             go(open.path)
         elseif open.action == "open_window" then
-            local ok, err = ask("desktop.open", {
+            local ok, err = desktop.open({
                 entry = open.entry, title = open.title,
                 w = open.w, h = open.h, args = open.args,
             })
             if not ok then state.notice = "не открылось: " .. tostring(err) end
         elseif open.action == "raise" then
-            -- Команда композитора называется `desktop.focus`; «raise» — это
-            -- намерение модели, а не имя топика. Послать топик, которого у
-            -- композитора нет, значит не получить ни окна, ни отказа.
-            local ok, err = ask("desktop.focus", {id = open.id})
+            -- «raise» — намерение модели, а не имя топика: у композитора это
+            -- `desktop.focus`, и зовётся оно по имени из библиотеки, а не
+            -- строкой. Послать топик, которого у композитора нет, значит не
+            -- получить ни окна, ни отказа.
+            local ok, err = desktop.focus(open.id)
             if not ok then state.notice = "не поднялось: " .. tostring(err) end
         end
     end
@@ -320,29 +338,35 @@ local function main()
     draw()
 
     while true do
-        local selected = channel.select({events:case_receive(), inbox:case_receive()})
+        local cases = {events:case_receive()}
+        if answers then cases[#cases + 1] = answers:case_receive() end
+
+        local selected = channel.select(cases)
         if not selected.ok then break end
 
-        if selected.channel == inbox then
-            local message = selected.value
-            -- Ответ разбирает собственный цикл окна. Библиотека запрос-ответ
-            -- забрала бы из inbox и команды композитора тоже, а съеденная
-            -- команда неотличима от неполученной.
-            if message:topic() == REPLY_TOPIC then
-                local payload: any = message:payload()
-                if type(payload) == "userdata" then
-                    local ok, decoded = pcall(function() return payload:data() end)
-                    payload = ok and decoded or {}
-                end
-                if type(payload) == "table" and payload[1] ~= nil and #payload > 0 then
-                    payload = payload[1]
-                end
-                local body: any = type(payload) == "table" and payload or {}
+        if answers and selected.channel == answers then
+            -- Ответ приезжает обёрнутым: payload — userdata, внутри бывает
+            -- ещё и массив из одного элемента. Поле, прочитанное напрямую,
+            -- окажется nil без ошибки — то есть «композитор ответил пустотой».
+            local payload: any = selected.value:payload()
+            if type(payload) == "userdata" then
+                local ok, decoded = pcall(function() return payload:data() end)
+                payload = ok and decoded or {}
+            end
+            if type(payload) == "table" and payload[1] ~= nil and #payload > 0 then
+                payload = payload[1]
+            end
+            local body: any = type(payload) == "table" and payload or {}
+
+            if body.ok == false then
+                state.windows_error = tostring(body.error or "композитор отказал без причины")
+                state.windows = nil
+            else
                 state.windows = type(body.windows) == "table" and body.windows or {}
                 state.windows_error = nil
-                if state.path == "windows" or state.path == model.ROOT then load() end
-                draw()
             end
+            if state.path == "windows" or state.path == model.ROOT then load() end
+            draw()
         else
             local event: any = selected.value
             if event.type == "close" then
