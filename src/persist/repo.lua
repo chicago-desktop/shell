@@ -13,7 +13,24 @@ local uuid = require("uuid")
 
 -- Значение по умолчанию в коде, переопределяемое окружением: ресурс базы
 -- принадлежит приложению, а не модулю.
-local DB_ID = env.get("BUTSCHSTER_WINDOWS_DB_ID") or "app:db"
+--
+-- Читается ОБА источника, и это не перестраховка. `env.get` видит только
+-- файловое хранилище: на переменную, которая есть в окружении процесса, он
+-- отвечает «environment variable not found». Читай мы одним `env.get` —
+-- названная человеком база молча подменялась бы умолчанием, и обнаружилось бы
+-- это тем, что раскладка «не сохраняется», а не отказом.
+local function from_environment(name)
+    local all = env.get_all()
+    if type(all) == "table" then
+        local value: any = all[name]
+        if type(value) == "string" and value ~= "" then return value end
+    end
+    local stored = env.get(name)
+    if type(stored) == "string" and stored ~= "" then return stored end
+    return nil
+end
+
+local DB_ID = from_environment("BUTSCHSTER_WINDOWS_DB_ID") or "app:db"
 local ITEMS = "butschster_windows_desktop_items"
 local SEEDED = "butschster_windows_desktop_seeded"
 

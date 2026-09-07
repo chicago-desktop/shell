@@ -280,6 +280,38 @@ function pixels.mark_close(raster, x: any, y: any, size: any, tint)
     end
 end
 
+-- Стрелка подменю: треугольник вправо. Строится полосками разной длины —
+-- диагонали нет, а треугольник из неё и состоит.
+function pixels.mark_submenu(raster, x: any, y: any, size: any, tint)
+    local side = math.max(4, whole(size))
+    local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    local half = side // 2
+    for step = 0, half do
+        local height = (half - step) * 2 + 1
+        raster:rect(left + step, top + half - (half - step), 1, height, ink)
+    end
+end
+
+-- Значок пункта меню: программа — маленькое окно с заголовком, папка —
+-- та же папка, что на столе. Примитивами, а не символом: в шрифте
+-- геометрических символов нет, и на их месте выходит пустота.
+function pixels.mark_program(raster, x: any, y: any, size: any, tint)
+    local side = math.max(6, whole(size))
+    local left, top = whole(x), whole(y)
+    raster:rect(left, top, side, side, color.field)
+    pixels.bevel(raster, left, top, side, side, true)
+    raster:rect(left + 1, top + 1, side - 2, 3, tint or color.title_active_bg)
+end
+
+function pixels.mark_folder(raster, x: any, y: any, size: any, tint)
+    local side = math.max(6, whole(size))
+    local left, top = whole(x), whole(y)
+    raster:rect(left, top + 2, side, side - 3, "#c8a848")
+    raster:rect(left, top, side // 2, 2, "#c8a848")
+    pixels.bevel(raster, left, top + 2, side, side - 3, true)
+end
+
 pixels.MARKS = {
     minimize = pixels.mark_minimize,
     maximize = pixels.mark_maximize,

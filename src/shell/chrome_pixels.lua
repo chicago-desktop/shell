@@ -305,6 +305,112 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     out[#out + 1] = {id = id, raster = bar, x = 1, y = h, cols = w, rows = 1}
 end
 
+-- ─── меню «Пуск» ─────────────────────────────────────────────────────────
+--
+-- Раскладку каскада считает `chrome.menu_layout` — та же функция, по которой
+-- меню рисуется символами. Второй расчёт разъехался бы с первым, и щелчок
+-- попадал бы на соседний пункт в одном из двух режимов, а оба кадра выглядели
+-- бы правильными.
+--
+-- Каждая панель — своё размещение. Панели каскада делят строки между собой, и
+-- это неизбежно: они стоят рядом. Но меню открыто ровно тогда, когда человек
+-- на него смотрит, — набора текста в это время нет, и перерисовывать их
+-- нечему.
+--
+-- Закрытое меню исчезает ОТСУТСТВИЕМ в списке размещений, а не рисованием
+-- поверх: `store.frame` выбрасывает то, чего в кадре не назвали.
+
+local function menu_key(box: any)
+    local parts = {tostring(box.x), tostring(box.y), tostring(box.w), tostring(box.h),
+                   tostring(box.banner)}
+    for _, entry in ipairs(box.lines) do
+        local line: any = entry
+        parts[#parts + 1] = table.concat({
+            tostring(line.kind), tostring(line.text), tostring(line.tail),
+            line.selected and "1" or "0", line.bold and "b" or "",
+            line.dim and "d" or "", tostring(line.banner_letter),
+        }, "\30")
+    end
+    return table.concat(parts, "\31")
+end
+
+local function paint_menu_panel(cell: any, box: any, id, fonts: any)
+    local face: any = type(fonts) == "table" and fonts.face or nil
+    local bold: any = type(fonts) == "table" and fonts.bold or face
+
+    local raster, dirty = store.take(id, box.w, box.h, cell, menu_key(box))
+    if dirty then
+        local area = pixels.box(1, 1, box.w, box.h, cell)
+        pixels.panel(raster, 1, 1, area.w, area.h)
+
+        -- Вертикальная надпись «Windows 95» читается снизу вверх. В пикселях
+        -- она не собирается из букв по строкам, как в ячейках, — каждая буква
+        -- ставится по центру своей строки, и от этого она перестаёт разъезжать
+        -- при смене высоты панели.
+        if box.banner > 0 and bold then
+            local strip = pixels.box(1, 1, box.banner, box.h, cell)
+            raster:rect(2, 2, strip.w - 2, strip.h - 4, color.select_bg)
+            for index, entry in ipairs(box.lines) do
+                local line: any = entry
+                if line.banner_letter ~= " " then
+                    local at = pixels.box(1, index + 1, box.banner, 1, cell)
+                    local width = whole(bold:measure(line.banner_letter))
+                    raster:text(2 + (strip.w - 2 - width) // 2,
+                        at.y - cell.h + (cell.h - 15) // 2,
+                        line.banner_letter, {font = bold, color = color.select_fg})
+                end
+            end
+        end
+
+        local text_left = pixels.box(box.banner + 1, 1, 1, 1, cell).x + 4
+        for index, entry in ipairs(box.lines) do
+            local line: any = entry
+            local at = pixels.box(1, index + 1, box.w, 1, cell)
+            local top = at.y - cell.h
+
+            -- Выделение — полосой во всю ширину списка, как в Windows 95:
+            -- в меню синий прямоугольник обнимает строку целиком, а не
+            -- подпись, в отличие от значка на столе.
+            local tint = color.face_text
+            if line.selected then
+                local strip = pixels.box(box.banner + 1, index + 1, box.list_w, 1, cell)
+                raster:rect(strip.x, top, strip.w, cell.h, color.select_bg)
+                tint = color.select_fg
+            elseif line.dim then
+                tint = color.shadow
+            end
+
+            -- Значок пункта — ПРИМИТИВОМ, а не символом. В `line.text` он
+            -- едет буквой `▢` или `▤`, и это верно для ячеек; в шрифте таких
+            -- рун нет, отсутствующая руна advance-ится пробелом, и на первом
+            -- же снимке меню на их месте вышла пустота.
+            local mark_size = 12
+            local mark_top = top + (cell.h - mark_size) // 2
+            if line.kind == "group" then
+                pixels.mark_folder(raster, text_left, mark_top, mark_size, tint)
+            elseif line.kind == "item" then
+                pixels.mark_program(raster, text_left, mark_top, mark_size, tint)
+            end
+
+            local font = line.bold and bold or face
+            if font then
+                local label_left = text_left
+                if line.kind ~= "hint" then label_left = text_left + mark_size + 6 end
+                raster:text(label_left, top + (cell.h - 15) // 2, line.label,
+                    {font = font, color = tint})
+
+                -- Стрелка подменю — тем же примитивом и по правому краю
+                -- списка, как в Windows 95.
+                if line.arrow then
+                    local right = pixels.box(box.banner + box.list_w, 1, 1, 1, cell)
+                    pixels.mark_submenu(raster, right.x - 8, mark_top + 2, 8, tint)
+                end
+            end
+        end
+    end
+    return raster
+end
+
 -- ─── кадр целиком ────────────────────────────────────────────────────────
 --
 -- paint(state, cell_w, cell_h) -> {placements, hits}
@@ -352,6 +458,33 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     end
 
     paint_bars(cell, view, fonts, out, hits)
+
+    -- Меню поверх всего: оно и на экране поверх всего, а порядок списка и есть
+    -- порядок рисования.
+    if view.menu then
+        local menu: any = view.menu
+        local shown = chrome.menu_layout(view.width, view.height,
+            menu.items, menu.failure, menu.open, menu.cursor)
+
+        if shown.notice then
+            local id = "menu:notice"
+            local raster = paint_menu_panel(cell, shown.notice, id, fonts)
+            out[#out + 1] = {id = id, raster = raster, x = shown.notice.x,
+                             y = shown.notice.y, cols = shown.notice.w, rows = shown.notice.h}
+        end
+
+        for index, entry in ipairs(shown.panels) do
+            local box: any = entry
+            -- Имя размещения — по УРОВНЮ, а не по порядку: уровень не меняется,
+            -- пока панель на экране, и поверхность узнаёт ту же картинку.
+            local id = "menu:" .. tostring(index)
+            local raster = paint_menu_panel(cell, box, id, fonts)
+            out[#out + 1] = {id = id, raster = raster, x = box.x, y = box.y,
+                             cols = box.w, rows = box.h}
+        end
+
+        for _, hit in ipairs(shown.hits) do hits.menu[#hits.menu + 1] = hit end
+    end
 
     -- Размещения объявляются через хранилище, чтобы `sweep` выбросил то, чего
     -- в кадре не назвали: закрытое меню исчезает отсутствием в списке, а не

@@ -638,14 +638,28 @@ end
 --
 -- У каждого попадания есть `level` и `slot` — уровень панели и номер строки в
 -- ней. По ним композитор зажимает курсор, не зная устройства панелей.
-function chrome.menu(canvas, width: any, height: any, items, failure, open, cursor: any)
-    local hits = {}
+-- menu_layout(width, height, items, failure, open, cursor) -> раскладка
+--
+-- ЧТО и ГДЕ, без единой краски. Вынесено из отрисовки по той же причине, что
+-- и раскладка проводника: рисующих стало двое — символы и пиксели, — и «одна
+-- таблица» означает теперь раскладку. Два бэкенда, считающие каскад каждый
+-- по-своему, разъедутся молча, и щелчок попадёт на соседний пункт в одном из
+-- двух режимов.
+--
+-- Отдаёт `{panels, hits, notice}`:
+--
+--   panels  список панелей от корня наружу: x, y, w, h, ширина колонки,
+--           ширина вертикальной надписи и строки с их видом
+--   hits    разметка попаданий, как раньше
+--   notice  панель отказа или пустого каталога, когда каскада нет вовсе
+function chrome.menu_layout(width: any, height: any, items, failure, open, cursor: any): any
+    local out: any = {panels = {}, hits = {}, notice = nil}
     local w, h = whole(width), whole(height)
-    if w < 8 or h < 4 then return hits end
+    if w < 8 or h < 4 then return out end
 
     local catalog = type(items) == "table" and items or {}
     local room = h - 1 - 2
-    if room < 1 then return hits end
+    if room < 1 then return out end
 
     -- Отказ реестра и пустой каталог обязаны различаться на экране:
     -- одинаковый вид отправляет человека искать ошибку в своём приложении,
@@ -654,21 +668,22 @@ function chrome.menu(canvas, width: any, height: any, items, failure, open, curs
         local box_w = math.min(MENU_WIDTH, math.max(MENU_MIN, w - 2))
         if box_w > w then box_w = w end
         local list_w = box_w - 2
-        if list_w < 4 then return hits end
+        if list_w < 4 then return out end
 
         local body = {}
         if failure then
-            body[#body + 1] = fit(styles.alert, " каталог не прочитан:", list_w)
-            local reason = wrap(tostring(failure), list_w - 2, 3)
-            for _, piece in ipairs(reason) do
-                body[#body + 1] = fit(styles.alert, " " .. piece, list_w)
+            body[#body + 1] = {text = " каталог не прочитан:", alert = true}
+            for _, piece in ipairs(wrap(tostring(failure), list_w - 2, 3)) do
+                body[#body + 1] = {text = " " .. piece, alert = true}
             end
         else
-            body[#body + 1] = fit(styles.face_dim, " приложения не зарегистрированы", list_w)
+            body[#body + 1] = {text = " приложения не зарегистрированы", dim = true}
         end
         if #body > room then for index = #body, room + 1, -1 do body[index] = nil end end
-        panel(canvas, 1, h - 1 - (#body + 2) + 1, box_w, body, false)
-        return hits
+
+        out.notice = {x = 1, y = h - 1 - (#body + 2) + 1, w = box_w, h = #body + 2,
+                      list_w = list_w, lines = body}
+        return out
     end
 
     local root = new_node()
@@ -739,43 +754,46 @@ function chrome.menu(canvas, width: any, height: any, items, failure, open, curs
         end
         if top < 1 then top = 1 end
 
-        local body = {}
+        local painted: any = {x = left, y = top, w = box_w, h = box_h,
+                              list_w = list_w, banner = banner_w, level = level, lines = {}}
+
         for index, line in ipairs(lines) do
             local row = top + index
-            local parts = {}
+            local text, tail = line_text(line)
+            local selectable = line.kind == "item" or line.kind == "group"
+            if selectable then slot = slot + 1 end
+            local under_cursor = selectable and level == deepest and at > 0 and slot == at
+            local expanded = line.kind == "group" and names[level] ~= nil
+                and line.text == names[level]
 
+            local letter = " "
             if banner_w > 0 then
                 -- Надпись читается снизу вверх, как повёрнутая на 90°.
                 -- Переменная названа НЕ `slot` нарочно: `slot` в этой же
                 -- функции — номер выбираемой строки, и одно имя на два разных
                 -- числа рано или поздно окажется прочитано не тем.
                 local letter_at = #lines - index + 1
-                local letter = letter_at <= #MENU_BANNER and MENU_BANNER:sub(letter_at, letter_at) or " "
-                parts[#parts + 1] = styles.banner:render(letter .. " ")
+                if letter_at <= #MENU_BANNER then
+                    letter = MENU_BANNER:sub(letter_at, letter_at)
+                end
             end
 
-            local text, tail = line_text(line)
-            local style = styles.face
-            local selectable = line.kind == "item" or line.kind == "group"
-            if selectable then slot = slot + 1 end
-            local under_cursor = selectable and level == deepest and at > 0 and slot == at
-
-            if line.kind == "group" then
-                style = styles.face_bold
-                -- Раскрытая папка остаётся подсвеченной: иначе по каскаду
-                -- не видно, из какой строки выехала правая панель.
-                if names[level] ~= nil and line.text == names[level] then style = styles.select end
-            elseif line.kind == "hint" then
-                style = styles.face_dim
-            end
-            if under_cursor then style = styles.select end
-
-            local head = clip(text, math.max(0, list_w - cells(tail)))
-            parts[#parts + 1] = style:render(head
-                .. string.rep(" ", list_w - cells(head) - cells(tail)) .. tail)
+            -- `label` и `text` — РАЗНЫЕ вещи, и различие не косметическое.
+            -- `text` несёт значок символом (`▢`, `▤`) и годится только для
+            -- ячеек. В шрифте геометрических символов нет: «отсутствующая
+            -- руна advance-ится пробелом», то есть в пикселях на их месте
+            -- пустота — на первом же снимке меню это и вышло. Пиксельный
+            -- бэкенд рисует значок примитивом и берёт `label`.
+            painted.lines[#painted.lines + 1] = {
+                kind = line.kind, text = text, tail = tail, row = row,
+                label = tostring(line.text or ""),
+                arrow = line.kind == "group",
+                selected = under_cursor or expanded, bold = line.kind == "group",
+                dim = line.kind == "hint", banner_letter = letter,
+            }
 
             if line.kind == "item" then
-                hits[#hits + 1] = {
+                out.hits[#out.hits + 1] = {
                     row = row, from = left + 1 + banner_w,
                     to = left + box_w - 2, index = line.index,
                     level = level, slot = slot, cursor = under_cursor or nil,
@@ -784,25 +802,62 @@ function chrome.menu(canvas, width: any, height: any, items, failure, open, curs
                 local target = {}
                 for step = 1, level - 1 do target[step] = names[step] end
                 target[level] = line.text
-                hits[#hits + 1] = {
+                out.hits[#out.hits + 1] = {
                     row = row, from = left + 1 + banner_w,
                     to = left + box_w - 2, open = target,
                     level = level, slot = slot, cursor = under_cursor or nil,
                 }
-                if names[level] ~= nil and line.text == names[level] then parent_row = row end
+                if expanded then parent_row = row end
             end
-
-            body[#body + 1] = table.concat(parts)
         end
 
-        panel(canvas, left, top, box_w, body, false)
+        out.panels[#out.panels + 1] = painted
 
         -- Следующая панель встаёт справа от этой.
         left = left + box_w
         if left > w then break end
     end
 
-    return hits
+    return out
+end
+
+function chrome.menu(canvas, width: any, height: any, items, failure, open, cursor: any)
+    local shown = chrome.menu_layout(width, height, items, failure, open, cursor)
+
+    if shown.notice then
+        local body = {}
+        for _, line in ipairs(shown.notice.lines) do
+            local style = line.alert and styles.alert or styles.face_dim
+            body[#body + 1] = fit(style, line.text, shown.notice.list_w)
+        end
+        panel(canvas, shown.notice.x, shown.notice.y, shown.notice.w, body, false)
+        return shown.hits
+    end
+
+    for _, entry in ipairs(shown.panels) do
+        local box: any = entry
+        local body = {}
+        for _, item in ipairs(box.lines) do
+            local line: any = item
+            local parts = {}
+            if box.banner > 0 then
+                parts[#parts + 1] = styles.banner:render(line.banner_letter .. " ")
+            end
+
+            local style = styles.face
+            if line.bold then style = styles.face_bold end
+            if line.dim then style = styles.face_dim end
+            if line.selected then style = styles.select end
+
+            local head = clip(line.text, math.max(0, box.list_w - cells(line.tail)))
+            parts[#parts + 1] = style:render(head
+                .. string.rep(" ", box.list_w - cells(head) - cells(line.tail)) .. line.tail)
+            body[#body + 1] = table.concat(parts)
+        end
+        panel(canvas, box.x, box.y, box.w, body, false)
+    end
+
+    return shown.hits
 end
 
 -- ─── Пустой стол ─────────────────────────────────────────────────────────

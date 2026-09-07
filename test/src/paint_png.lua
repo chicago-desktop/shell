@@ -337,6 +337,17 @@ local function main(spec)
             selected = "f1",
             clock = "21:47",
             status = "Свойства системы · 40x7 · окон: 2",
+            menu = {open = {"Программы"}, cursor = 2, items = {
+                {entry = "app:calc", title = "Калькулятор", icon = "▣",
+                 group = "Программы"},
+                {entry = "app:notepad", title = "Блокнот", group = "Программы"},
+                {entry = "app:paint", title = "Графический редактор", group = "Программы"},
+                {entry = "app:ping", title = "Пинг", group = "Программы/Связь"},
+                {entry = "app:bash", title = "Сеанс MS-DOS"},
+                {entry = "app:docs", title = "Документы"},
+                {entry = "app:settings", title = "Настройка"},
+                {entry = "app:shutdown", title = "Завершение работы"},
+            }},
         }
 
         local painted = chrome_pixels.paint(state, cell.w, cell.h)
@@ -353,8 +364,9 @@ local function main(spec)
         local bytes = screen:encode("png")
         if bytes then
             store_shots:writefile("desktop.png", bytes)
-            say(string.format("экран: размещений %d, значков %d, кнопок панели %d → desktop.png",
-                #painted.placements, #painted.hits.desktop, #painted.hits.bars))
+            say(string.format("экран: размещений %d, значков %d, кнопок панели %d, пунктов меню %d → desktop.png",
+                #painted.placements, #painted.hits.desktop, #painted.hits.bars,
+                #painted.hits.menu))
         end
     end
 

@@ -29,7 +29,38 @@ local SERVICE_NAME = "butschster.windows.shell"
 --
 -- Полужирный — ОТДЕЛЬНЫЙ файл, а не опция: в Windows 95 заголовок набран им,
 -- и синтезировать его размазыванием пикселей значит перестать быть похожим.
-local FONTS = env.get("BUTSCHSTER_WINDOWS_FONTS") or "app:system_fonts"
+-- ЛОВУШКА, СТОИВШАЯ ЧУЖОЙ СЕССИИ И ОДНОГО ПУСТОГО ЗАПУСКА ЗДЕСЬ.
+--
+-- `env.get` видит ТОЛЬКО файловое хранилище. На переменную, которая есть в
+-- окружении процесса, он отвечает «environment variable not found» — то есть
+-- `BUTSCHSTER_WINDOWS_PIXELS=1 wippy run …` не работает и работать не будет.
+-- Окружение процесса отдаёт `env.get_all`.
+--
+-- Хуже самого промаха его вид: отказ выглядит как «человек не просил
+-- пикселей», а не как «мы не сумели прочитать». Поэтому читаем оба источника
+-- и РАЗЛИЧАЕМ их в причине.
+local function environment(): any
+    local all = env.get_all()
+    return type(all) == "table" and all or {}
+end
+
+-- read(name) -> значение, откуда взято
+--
+-- Возвращает второе значение нарочно: «переменная не задана» и «переменная
+-- задана, но не тем способом» — разные факты, и второй человек не угадает.
+local function read(name): (any, string)
+    local from_env: any = environment()[name]
+    if type(from_env) == "string" and from_env ~= "" then
+        return from_env, "окружение процесса"
+    end
+    local stored = env.get(name)
+    if type(stored) == "string" and stored ~= "" then
+        return stored, "файловое хранилище"
+    end
+    return nil, "не задана"
+end
+
+local FONTS = read("BUTSCHSTER_WINDOWS_FONTS") or "app:system_fonts"
 local FONT_FACE = "LiberationSans-Regular.ttf"
 local FONT_BOLD = "LiberationSans-Bold.ttf"
 local FONT_SIZE = 13
@@ -37,9 +68,14 @@ local FONT_SIZE = 13
 -- Пиксельный режим включается ЯВНО, а не по наличию графики (FR-005 §6):
 -- терминал, умеющий sixel, — не повод перерисовывать интерфейс иначе, чем
 -- человек просил.
-local function wants_pixels()
-    local asked = env.get("BUTSCHSTER_WINDOWS_PIXELS")
-    return asked == "1" or asked == "true" or asked == "yes"
+--
+-- Отвечает вторым значением, ОТКУДА взято, чтобы «не просил» и «просил, но не
+-- прочиталось» не выглядели одинаково.
+local function wants_pixels(): (boolean, string)
+    local asked, source = read("BUTSCHSTER_WINDOWS_PIXELS")
+    if asked == "1" or asked == "true" or asked == "yes" then return true, source end
+    if asked ~= nil then return false, "задана как «" .. tostring(asked) .. "»" end
+    return false, source
 end
 
 -- Шрифты для пиксельной темы. Отказ здесь — НЕ повод погасить оболочку:
@@ -192,7 +228,10 @@ local function main()
     local theme: any = chrome
     local cell_size: any = nil
 
-    if wants_pixels() then
+    local asked, source = wants_pixels()
+    log:info("пиксельный режим", {asked = asked, source = source})
+
+    if asked then
         local protocol, why = gfx.supported()
         local width, height = gfx.cell_size()
 
