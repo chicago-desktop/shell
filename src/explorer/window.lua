@@ -208,7 +208,7 @@ local function main()
         local hits = render.window(canvas, state, width, height)
         cells = hits.cells
         tools = hits.tools
-        bar = hits.scroll
+        bar = hits.scroll or {}
         assert(out:present(canvas:rows()))
     end
 

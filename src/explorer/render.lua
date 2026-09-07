@@ -2,23 +2,30 @@
 --
 -- Отделено от процесса окна по той же границе, по которой тема отделена от
 -- композитора: здесь только строки и арифметика, ни одного обращения в
--- рантайм. Поэтому кадр можно посмотреть пробником `tools/themeprobe`, не
--- поднимая ни окна, ни стенда, — а полноэкранную программу иначе не
--- проверить вовсе.
+-- рантайм. Поэтому кадр можно посмотреть пробником, не поднимая ни окна, ни
+-- стенда, — а полноэкранную программу иначе не проверить вовсе.
 --
--- Рисуется ТОЛЬКО содержимое: строка меню, панель инструментов, поле со
--- значками и статусная строка. Рамка, заголовок и кнопки заголовка — хром, он
--- за темой; композитор отдаёт окну весь прямоугольник внутри рамки, и что там
--- нарисовано — дело окна.
+-- ─── ОДНА РАСКЛАДКА, ДВА БЭКЕНДА ────────────────────────────────────────
 --
--- Примитивы общие с темой (`widgets`, `icons`): свои значило бы завести
--- вторую, чуть другую кнопку, и внутри окна Windows 95 оказалась бы другая
--- Windows. Разошлись бы они видом, а не отказом, — то есть заметили бы через
--- неделю.
+-- Файл разделён на три части, и разделение не косметическое.
 --
--- ГЛАВНОЕ ЗДЕСЬ. Попадания возвращает та же функция, что рисует, и берёт их
--- у того же `icons.cell`, который положил значок. Посчитанные отдельно, они
--- разъезжаются с рисунком на ячейку, и щелчок попадает на соседа — молча.
+--   `render.layout`  — ЧТО и ГДЕ. Чистые числа: строки, поле, сетка,
+--                      прямоугольники значков, попадания. Ни одной краски.
+--   `render.cells`   — рисует символами в холст `tty`.
+--   `render.pixels`  — рисует пикселями в растры.
+--
+-- Оболочка обязана работать в обычном xterm, где графики нет вовсе (FR-005
+-- §8б), и умереть там молча она не имеет права. Значит бэкендов два, и цена
+-- второго уплачена ровно тем, что раскладка у них общая.
+--
+-- ПОПАДАНИЯ СЧИТАЕТ РАСКЛАДКА, А НЕ ОТРИСОВКА. Раньше их возвращал тот, кто
+-- рисовал, — и это было верно, пока рисующий был один. С двумя рисующими
+-- «одна таблица» означает уже не «функция, которая рисует», а раскладку: два
+-- бэкенда, считающие попадания каждый по-своему, разъедутся молча, и щелчок
+-- попадёт на соседа в одном из двух режимов.
+--
+-- Прямоугольник значка при этом всё равно берётся у `icons.box` — той же
+-- функции, которой пользуется `icons.cell`, когда рисует.
 
 local icons = require("icons")
 local widgets = require("widgets")
@@ -54,74 +61,82 @@ render.FIELD_TOP = 3
 -- строит только это окно, ему и держать просвет.
 render.GAP = 1
 
--- window(canvas, view, width, height) -> {cells = …, tools = …}
+-- layout(view, width, height) -> план
 --
--- `view`: objects, title, failure, notice, selected.
+-- План — единственная таблица, из которой считают оба бэкенда:
 --
--- `failure` — «не прочитали», и тогда объектов нет вовсе. `notice` — третье
--- состояние между ним и «показано всё»: прочитали, но не всё, или двойной
--- щелчок не сработал. Замечание не прячет объектов и не выдаёт себя за отказ.
-function render.window(canvas, view: any, width: any, height: any)
+--   rows      номера строк: меню, панель инструментов, поле, статусная
+--   field     прямоугольник поля списка, в ячейках
+--   inner     его внутренность, куда ложатся значки
+--   shape     сетка: колонки, ряды, всего рядов, с какого начинать
+--   tools     кнопки панели инструментов, с попаданиями
+--   cells     значки: индекс объекта, его место и его попадание
+--   scroll    полоса прокрутки, если она нужна
+--   status    два поля статусной строки, уже готовым текстом
+--
+-- Ни одного обращения к холсту и ни одной краски: план считается и когда
+-- рисовать некуда.
+function render.layout(view: any, width: any, height: any): any
     local state: any = type(view) == "table" and view or {}
     local w = widgets.whole(width)
     local h = widgets.whole(height)
     local grid = icons.grid()
-
-    canvas:clear(widgets.styles.face:render(" "))
-
-    widgets.menu_bar(canvas, 1, render.MENU_ROW, w, render.MENU)
-    local tools = widgets.toolbar(canvas, 1, render.TOOL_ROW, w, render.TOOLS)
-
-    -- Поле списка: вдавленная рамка от темы, белая изнанка своя. Значки
-    -- лежат на белом, как в проводнике, а не на сером лице панели.
-    local field_bottom = h - 1
-    local field_h = field_bottom - render.FIELD_TOP + 1
-    widgets.field(canvas, 1, render.FIELD_TOP, w, field_h)
-
-    local inner_x, inner_y = 2, render.FIELD_TOP + 1
-    local inner_w, inner_h = w - 2, field_h - 2
-    if inner_w > 0 and inner_h > 0 then
-        local blank = widgets.styles.field:render(string.rep(" ", inner_w))
-        for row = 0, inner_h - 1 do canvas:put(inner_x, inner_y + row, blank, inner_w) end
-    end
-
-    local cells = {}
-    local scroll = {}
     local objects: any = type(state.objects) == "table" and state.objects or {}
 
-    if state.failure then
-        canvas:put(inner_x + 1, inner_y,
-            widgets.fit(widgets.styles.field, tostring(state.failure), inner_w - 2), inner_w - 2)
-    elseif inner_w > 0 and inner_h > 0 then
-        local shape = render.shape(width, height, #objects, state.offset)
+    local field_h = (h - 1) - render.FIELD_TOP + 1
+    local inner_x, inner_y = 2, render.FIELD_TOP + 1
+    local inner_w, inner_h = w - 2, field_h - 2
 
-        -- Полоса прокрутки съедает колонку у поля, поэтому и ширина её
-        -- отнимает `shape`, а не эта функция: посчитай их двое — значки
-        -- заедут под полосу ровно тогда, когда она появится.
+    local plan: any = {
+        width = w, height = h,
+        rows = {menu = render.MENU_ROW, tool = render.TOOL_ROW,
+                field = render.FIELD_TOP, status = h},
+        field = {x = 1, y = render.FIELD_TOP, w = w, h = field_h},
+        inner = {x = inner_x, y = inner_y, w = inner_w, h = inner_h},
+        menu = render.MENU,
+        tools = {},
+        cells = {},
+        scroll = nil,
+        failure = state.failure,
+    }
+
+    -- Панель инструментов раскладывается той же функцией, что её рисует:
+    -- ширина кнопки считается по подписи, и своя формула здесь дала бы
+    -- кнопку на ячейку левее, чем выглядит.
+    plan.tools = widgets.toolbar_hits(1, render.TOOL_ROW, w, render.TOOLS)
+
+    if not state.failure and inner_w > 0 and inner_h > 0 then
+        local shape = render.shape(width, height, #objects, state.offset)
+        plan.shape = shape
+
         if shape.scrolling then
-            scroll = widgets.scrollbar(canvas, inner_x + inner_w - 1, inner_y, inner_h, {
-                first = shape.first, visible = shape.rows, total = shape.total,
-            })
+            plan.scroll = {x = inner_x + inner_w - 1, y = inner_y, h = inner_h,
+                           first = shape.first, visible = shape.rows, total = shape.total}
         end
 
-        for index, object in ipairs(objects) do
+        for index = 1, #objects do
             local slot = index - 1
             local column = slot % shape.columns
             local row = slot // shape.columns - shape.first
             if row >= 0 and row < shape.rows then
-                local box = icons.cell(canvas,
-                    inner_x + column * grid.w, inner_y + row * grid.h,
-                    object,
-                    {surface = "panel", room = grid.w - render.GAP,
-                     selected = index == state.selected})
+                local x = inner_x + column * grid.w
+                local y = inner_y + row * grid.h
+                -- Прямоугольник — у `icons.box`, той же функции, которой
+                -- пользуется `icons.cell`, когда рисует.
+                local box = icons.box(x, y, grid.w - render.GAP)
                 if box then
-                    cells[#cells + 1] = {
-                        index = index, from = box.from, to = box.to,
+                    plan.cells[#plan.cells + 1] = {
+                        index = index, object = objects[index],
+                        x = x, y = y, room = grid.w - render.GAP,
+                        selected = index == state.selected,
+                        from = box.from, to = box.to,
                         top = box.top, bottom = box.bottom,
                     }
                 end
             end
         end
+    else
+        plan.shape = render.shape(width, height, #objects, state.offset)
     end
 
     -- Счётчик — содержимое окна, а не хрома: он пересчитывается на каждое
@@ -139,13 +154,87 @@ function render.window(canvas, view: any, width: any, height: any)
         local chosen: any = objects[state.selected]
         right = type(chosen) == "table" and chosen.detail or nil
     end
+    plan.status = {count = count, detail = right or tostring(state.title or "")}
 
-    widgets.statusbar(canvas, 1, h, w, {
-        {text = count, width = 16},
-        {text = right or tostring(state.title or "")},
+    return plan
+end
+
+-- Попадания из плана. Собраны в одном месте, чтобы бэкенду не приходилось их
+-- пересобирать: пересоберёт — разойдётся.
+function render.hits(plan: any): any
+    local out: any = {cells = {}, tools = plan.tools or {}, scroll = {}}
+    for _, cell in ipairs(plan.cells or {}) do
+        out.cells[#out.cells + 1] = {
+            index = cell.index, from = cell.from, to = cell.to,
+            top = cell.top, bottom = cell.bottom,
+        }
+    end
+    return out
+end
+
+-- ─── бэкенд ячеек ────────────────────────────────────────────────────────
+
+-- cells(canvas, plan) -> {cells = …, tools = …, scroll = …}
+--
+-- Рисует символами. Попадания НЕ считает — берёт из плана; исключение одно и
+-- названо: полоса прокрутки возвращает попадания стрелок оттуда же, откуда
+-- рисуется.
+function render.cells(canvas, plan: any): any
+    local hits = render.hits(plan)
+
+    canvas:clear(widgets.styles.face:render(" "))
+
+    widgets.menu_bar(canvas, 1, plan.rows.menu, plan.width, plan.menu)
+    widgets.toolbar(canvas, 1, plan.rows.tool, plan.width, render.TOOLS)
+
+    -- Поле списка: вдавленная рамка от темы, белая изнанка своя. Значки
+    -- лежат на белом, как в проводнике, а не на сером лице панели.
+    widgets.field(canvas, plan.field.x, plan.field.y, plan.field.w, plan.field.h)
+
+    local inner: any = plan.inner
+    if inner.w > 0 and inner.h > 0 then
+        local blank = widgets.styles.field:render(string.rep(" ", inner.w))
+        for row = 0, inner.h - 1 do canvas:put(inner.x, inner.y + row, blank, inner.w) end
+    end
+
+    if plan.failure then
+        canvas:put(inner.x + 1, inner.y,
+            widgets.fit(widgets.styles.field, tostring(plan.failure), inner.w - 2), inner.w - 2)
+    else
+        if plan.scroll then
+            hits.scroll = widgets.scrollbar(canvas, plan.scroll.x, plan.scroll.y, plan.scroll.h, {
+                first = plan.scroll.first, visible = plan.scroll.visible,
+                total = plan.scroll.total,
+            })
+        end
+
+        for _, cell in ipairs(plan.cells) do
+            icons.cell(canvas, cell.x, cell.y, cell.object,
+                {surface = "panel", room = cell.room, selected = cell.selected})
+        end
+    end
+
+    widgets.statusbar(canvas, 1, plan.rows.status, plan.width, {
+        {text = plan.status.count, width = 16},
+        {text = plan.status.detail},
     })
 
-    return {cells = cells, tools = tools, scroll = scroll}
+    return hits
+end
+
+-- window(canvas, view, width, height) -> {cells = …, tools = …, scroll = …}
+--
+-- Прежний вход, оставленный окну: раскладка плюс бэкенд ячеек.
+--
+-- `view`: objects, title, failure, notice, selected, offset.
+--
+-- `failure` — «не прочитали», и тогда объектов нет вовсе. `notice` — третье
+-- состояние между ним и «показано всё»: прочитали, но не всё, или двойной
+-- щелчок не сработал. Замечание не прячет объектов и не выдаёт себя за отказ.
+function render.window(canvas, view: any, width: any, height: any)
+    local plan = render.layout(view, width, height)
+    local hits = render.cells(canvas, plan)
+    return hits
 end
 
 -- Раскладка сетки: сколько колонок, сколько рядов видно, сколько их всего и

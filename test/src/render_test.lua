@@ -4,7 +4,9 @@
 -- поместилось, с какого ряда рисовать и нужна ли полоса прокрутки. Ошибка в
 -- любом из них не выглядит ошибкой — она выглядит как «объектов больше нет».
 local test = require("test")
+local icons = require("icons")
 local render = require("render")
+local tty = require("tty")
 
 local function define_tests()
     test.describe("butschster.windows explorer render", function()
@@ -59,6 +61,65 @@ local function define_tests()
         test.it("не прокручивает того, что и так видно", function()
             test.eq(render.shape(64, 20, 3, 7).first, 0,
                 "три объекта прокручивать некуда, какой бы сдвиг ни назвали")
+        end)
+
+        test.it("считает попадания раскладкой, а не отрисовкой", function()
+            -- Раньше попадания возвращал тот, кто рисовал, и это было верно,
+            -- пока рисующий был один. С двумя бэкендами «одна таблица»
+            -- означает уже раскладку: два рисующих, считающие попадания
+            -- каждый по-своему, разъедутся молча, и щелчок попадёт на соседа
+            -- в одном из двух режимов.
+            local view = {
+                title = "Мой компьютер",
+                selected = 2,
+                objects = {
+                    {id = "a", kind = "drive", title = "app_fs"},
+                    {id = "b", kind = "drive", title = "public_files"},
+                    {id = "c", kind = "folder", title = "Программы"},
+                },
+            }
+
+            local plan = render.layout(view, 46, 14)
+            test.eq(#plan.cells, 3, "все три объекта помещаются")
+            test.is_true(#plan.tools > 0, "панель инструментов размечена без отрисовки")
+
+            -- А теперь то же самое НАРИСОВАННОЕ: прямоугольник, который
+            -- вернул icons.cell, обязан совпасть с тем, что предсказал план.
+            -- Разойдись они на ячейку — щелчок попал бы на соседа.
+            local canvas = tty.canvas(46, 14)
+            for _, cell in ipairs(plan.cells) do
+                local box = icons.cell(canvas, cell.x, cell.y, cell.object,
+                    {surface = "panel", room = cell.room, selected = cell.selected})
+                test.not_nil(box, "значок обязан нарисоваться")
+                test.eq(box.from, cell.from, "левый край разъехался с планом")
+                test.eq(box.to, cell.to, "правый край разъехался с планом")
+                test.eq(box.top, cell.top, "верх разъехался с планом")
+                test.eq(box.bottom, cell.bottom, "низ разъехался с планом")
+            end
+        end)
+
+        test.it("отдаёт бэкенду ячеек те же попадания, что и раскладка", function()
+            local view = {
+                title = "Мой компьютер",
+                objects = {{id = "a", kind = "drive", title = "app_fs"}},
+            }
+            local plan = render.layout(view, 46, 14)
+            local canvas = tty.canvas(46, 14)
+            local hits = render.cells(canvas, plan)
+
+            test.eq(#hits.cells, #plan.cells)
+            test.eq(hits.cells[1].from, plan.cells[1].from)
+            test.eq(hits.cells[1].index, 1)
+            test.eq(#hits.tools, #plan.tools)
+        end)
+
+        test.it("называет отказ вместо объектов, а не вместе с ними", function()
+            -- «Не прочитали» и «прочитали пустоту» — разные утверждения, и
+            -- значок рядом с причиной означал бы, что прочитали наполовину.
+            local plan = render.layout({failure = "диск не открылся", objects = {}}, 46, 14)
+            test.eq(#plan.cells, 0)
+            test.eq(plan.status.count, "—", "счётчик не выдаёт отказ за ноль объектов")
+            test.is_nil(plan.scroll, "прокручивать нечего")
         end)
     end)
 end

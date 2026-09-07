@@ -98,13 +98,14 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Сетка значков внутри окна — ряды считаются по рисунку, а не по шагу; полоса прокрутки заводится только когда есть что прокручивать и отнимает колонку у поля; сдвиг зажимается, а не показывает пустоту за последним рядом.
+      comment: Сетка значков внутри окна и раскладка как единственная таблица для обоих бэкендов — ряды считаются по рисунку, а не по шагу; прямоугольник, предсказанный планом, совпадает с нарисованным; сдвиг зажимается, а не показывает пустоту за последним рядом.
       group: Windows Shell
       suite: butschster_windows
     source: file://render_test.lua
     modules: [tty]
     imports:
       test: wippy.test:test
+      icons: butschster.windows.shell:icons
       render: butschster.windows.explorer:render
     method: run
 
@@ -202,6 +203,8 @@ entries:
     imports:
       pixels: butschster.windows.shell:pixels
       rasters: butschster.windows.shell:rasters
+      render: butschster.windows.explorer:render
+      render_pixels: butschster.windows.explorer:render_pixels
 
   # Права пробника названы, а не взяты у общей разрешительной политики
   # харнесса: `fs.get` — это доступ к файловой системе по записи реестра, и

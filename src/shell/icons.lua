@@ -143,6 +143,27 @@ end
 --
 -- `state`: `selected` — выделен, `surface` — "desktop" или "panel",
 -- `room` — ширина колонки, если она уже, чем ячейка (у правого края).
+-- box(x, y, room) -> прямоугольник значка в ЯЧЕЙКАХ
+--
+-- Вынесено из отрисовки, потому что читателей стало двое: рисует `icons.cell`,
+-- а раскладку окна считает `render.layout` — и считает ДО того, как что-то
+-- нарисовано, потому что пиксельный бэкенд рисует не сюда.
+--
+-- Посчитай они порознь — попадание разъедется с рисунком на ячейку, и это
+-- ровно тот дефект, из-за которого правило «рисование и хит-тест из одной
+-- таблицы» здесь вообще появилось. Теперь таблица одна и она тут.
+--
+-- `room` — ширина колонки, `CELL_DRAWN` — сколько строк занимает рисунок.
+-- Высота НЕ равна шагу сетки: шагом раскладывают, по нарисованному считают
+-- попадание.
+function icons.box(x: any, y: any, room: any): any
+    local col, row = whole(x), whole(y)
+    local span = whole(room)
+    if span <= 0 then span = CELL_W end
+    if span < 3 then return nil end
+    return {from = col, to = col + span - 1, top = row, bottom = row + CELL_DRAWN - 1}
+end
+
 function icons.cell(target, x: any, y: any, item, state)
     local opts: any = type(state) == "table" and state or {}
     local surface: any = surfaces[opts.surface] or surfaces.desktop
@@ -150,7 +171,8 @@ function icons.cell(target, x: any, y: any, item, state)
     local col, row = whole(x), whole(y)
     local span = whole(opts.room)
     if span <= 0 then span = CELL_W end
-    if span < 3 then return nil end
+    local box = icons.box(col, row, span)
+    if not box then return nil end
 
     local record: any = type(item) == "table" and item or {}
 
@@ -186,7 +208,7 @@ function icons.cell(target, x: any, y: any, item, state)
         end
     end
 
-    return {from = col, to = col + span - 1, top = row, bottom = row + CELL_DRAWN - 1}
+    return box
 end
 
 return icons

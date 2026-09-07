@@ -143,6 +143,58 @@ function pixels.label(raster, x: any, y: any, w: any, h: any, text, font, tint)
     return raster:text(left, top, caption, {font = font, color = tint or color.face_text})
 end
 
+-- Перенос по словам ПО ИЗМЕРЕННОЙ ширине, а не по числу символов.
+--
+-- Это половина того, ради чего переходили на пиксели: шрифт пропорциональный,
+-- и «сколько символов влезет» — вопрос, у которого нет ответа. Посчитанная
+-- по символам подпись промахивается на разную величину в каждом языке.
+--
+-- Слово, которое само шире строки, переносить некуда: оно обрезается, и
+-- обрезка честная — по измеренной ширине, посимвольно с конца.
+function pixels.wrap(font, text, room: any, limit: any): any
+    local out = {}
+    if not font then return out end
+    local width = whole(room)
+    local max = whole(limit)
+    if width <= 0 or max <= 0 then return out end
+
+    local function fits(piece)
+        local measured = font:measure(piece)
+        return whole(measured) <= width
+    end
+
+    local function clip(word)
+        local kept = ""
+        for rune in tostring(word):gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+            if not fits(kept .. rune) then break end
+            kept = kept .. rune
+        end
+        return kept
+    end
+
+    local line = ""
+    for word in tostring(text or ""):gmatch("%S+") do
+        local candidate = line == "" and word or (line .. " " .. word)
+        if fits(candidate) then
+            line = candidate
+        else
+            if line ~= "" then
+                if #out >= max then return out end
+                out[#out + 1] = line
+                line = ""
+            end
+            if fits(word) then
+                line = word
+            else
+                if #out >= max then return out end
+                out[#out + 1] = clip(word)
+            end
+        end
+    end
+    if line ~= "" and #out < max then out[#out + 1] = line end
+    return out
+end
+
 -- Кнопка, занимающая целое число ЯЧЕЕК. Место называется в ячейках нарочно —
 -- см. `pixels.box`: кнопка, поставленная по пикселям, делит ячейку с соседкой,
 -- и щелчок по этой ячейке принадлежит обеим.
@@ -189,6 +241,74 @@ function pixels.button(raster, x: any, y: any, w: any, h: any, spec: any, cell: 
     return hit
 end
 
+-- ─── Знаки кнопок заголовка ──────────────────────────────────────────────
+--
+-- Примитивами, а не шрифтом: в Windows 95 это были маленькие растры, и
+-- нарисованные шрифтом они получаются другого веса и не садятся в сетку.
+-- `gfx.image` пока нет, а `rect` и `set` есть.
+
+-- Свернуть: короткая жирная линия у нижней грани.
+function pixels.mark_minimize(raster, x: any, y: any, size: any, tint)
+    local side = math.max(6, whole(size))
+    local left, top = whole(x), whole(y)
+    raster:rect(left + 2, top + side - 4, side - 5, 2, tint or color.face_text)
+end
+
+-- Развернуть: рамка с утолщённой верхней гранью — это заголовок окна,
+-- нарисованный в шести пикселях.
+function pixels.mark_maximize(raster, x: any, y: any, size: any, tint)
+    local side = math.max(6, whole(size))
+    local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    raster:rect(left + 1, top + 1, side - 2, side - 2, ink)
+    raster:rect(left + 2, top + 4, side - 4, side - 6, color.face)
+end
+
+-- Закрыть: две диагонали. Диагональ прямоугольниками не рисуется, поэтому
+-- она кладётся по пикселям — ровно тот случай, ради которого `set` и есть.
+-- Толщина в два пикселя: в один крестик читается как грязь на экране.
+function pixels.mark_close(raster, x: any, y: any, size: any, tint)
+    local side = math.max(6, whole(size))
+    local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    local span = side - 4
+    for step = 0, span - 1 do
+        raster:set(left + 2 + step, top + 2 + step, ink)
+        raster:set(left + 3 + step, top + 2 + step, ink)
+        raster:set(left + 2 + span - 1 - step, top + 2 + step, ink)
+        raster:set(left + 3 + span - 1 - step, top + 2 + step, ink)
+    end
+end
+
+pixels.MARKS = {
+    minimize = pixels.mark_minimize,
+    maximize = pixels.mark_maximize,
+    close = pixels.mark_close,
+}
+
+-- Ряд кнопок ОДИНАКОВОЙ ширины — по самой широкой подписи.
+--
+-- В Windows 95 кнопки диалога были одной ширины, и разноширокие «ОК» и
+-- «Отмена» — первое, что выдаёт подделку. Ширина считается по ИЗМЕРЕННОМУ
+-- тексту, а потом округляется вверх до целых ячеек: место интерактивной
+-- детали называется в ячейках, иначе соседние кнопки делят ячейку.
+--
+-- Возвращает ширину в ячейках; рисует вызывающий, по ней же.
+function pixels.button_span(font, labels, cell: any, least: any): integer
+    local unit: any = type(cell) == "table" and cell or {}
+    local cw = math.max(1, whole(unit.w))
+
+    local widest = whole(least)
+    for _, label in ipairs(type(labels) == "table" and labels or {}) do
+        local measured = font and font:measure(tostring(label)) or 0
+        if whole(measured) > widest then widest = whole(measured) end
+    end
+    -- Поля по бокам подписи: без них текст упирается в грань.
+    local span = (widest + 16 + cw - 1) // cw
+    if span < 1 then span = 1 end
+    return math.tointeger(span) or 1
+end
+
 -- Полоса заголовка: тёмно-синяя при фокусе, серая без него. Разница по ФОНУ,
 -- а не по яркости текста — иначе на тёмной теме терминала оба заголовка
 -- сливаются. В пикселях терминальной темы нет вовсе, но правило остаётся: по
@@ -204,7 +324,10 @@ function pixels.title(raster, x: any, y: any, w: any, h: any, spec: any, cell: a
         focused and color.title_active_bg or color.title_idle_bg)
 
     local tint = focused and color.title_active_fg or color.title_idle_fg
-    local font = options.font
+    -- Полужирный, а не обычный: в Windows 95 подпись заголовка набрана
+    -- полужирным, и это отдельный ФАЙЛ шрифта, а не опция — синтезировать его
+    -- размазыванием пикселей значит перестать быть похожим.
+    local font = options.bold or options.font
     if font then
         local _, text_h = font:measure(tostring(options.text or ""))
         -- Текст прижат влево и центрирован по высоте полосы: заголовок в

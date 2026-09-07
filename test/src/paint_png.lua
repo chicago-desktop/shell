@@ -18,6 +18,8 @@ local gfx = require("gfx")
 
 local pixels = require("pixels")
 local rasters = require("rasters")
+local render = require("render")
+local render_pixels = require("render_pixels")
 
 -- Размер ячейки. У этой команды терминала НЕТ — она пишет файлы, а не рисует
 -- на экране, — поэтому `gfx.cell_size()` здесь честно молчит, и это измерено,
@@ -42,6 +44,9 @@ local REPORT = "report.txt"
 local SHOTS = "app:shots"
 local FONTS = "app:system_fonts"
 local FACE = "LiberationSans-Regular.ttf"
+-- Полужирный — отдельный ФАЙЛ, а не опция: в Windows 95 заголовок набран им,
+-- и синтезировать его размазыванием пикселей значит перестать быть похожим.
+local BOLD = "LiberationSans-Bold.ttf"
 
 local function cell_size(spec)
     local w, h = gfx.cell_size()
@@ -56,10 +61,10 @@ local function cell_size(spec)
     return FALLBACK, "ЗАПАСНОЕ ЗНАЧЕНИЕ — терминал молчит, аргумента нет"
 end
 
-local function load_font(size)
+local function load_font(file, size)
     local store, err = fs.get(FONTS)
     if err or not store then return nil, "шрифты не открылись: " .. tostring(err) end
-    local data, rerr = store:readfile(FACE)
+    local data, rerr = store:readfile(file)
     if rerr or not data then return nil, "шрифт не прочитан: " .. tostring(rerr) end
     local face = gfx.font(data, {size = size})
     return face, nil
@@ -70,42 +75,59 @@ end
 -- Те же, что у подставки: снимок и карта обязаны показывать одно и то же,
 -- иначе один из двух уровней проверяет не то, что второй.
 
-local function scene_window(raster, cell, font)
+local function scene_window(raster, cell, font, bold)
     local w, h = raster:size()
     pixels.panel(raster, 1, 1, w, h)
     pixels.title(raster, 4, 4, w - 6, cell.h - 2,
-        {text = "Мой компьютер", font = font, focused = true}, cell)
+        {text = "Мой компьютер", font = font, bold = bold, focused = true}, cell)
 
-    local ids = {"minimize", "maximize", "close"}
-    for index, id in ipairs(ids) do
-        pixels.button_at(raster, 24 + (index - 1) * 2, 1, 2, 1,
+    -- Кнопки заголовка ставятся В ЯЧЕЙКАХ, по две на кнопку: поставленные по
+    -- пикселям с шагом 18, они выглядели бы так же, а зоны попадания
+    -- пересекались бы — пробник это и поймал.
+    local marks = {"minimize", "maximize", "close"}
+    for index, id in ipairs(marks) do
+        local hit = pixels.button_at(raster, 24 + (index - 1) * 2, 1, 2, 1,
             {id = id, label = "", font = font, inset = 2}, cell)
+        local area = pixels.box(hit.from, hit.row, 2, 1, cell)
+        -- Знак кладётся по центру НАРИСОВАННОГО прямоугольника, а не ячейки:
+        -- у кнопки есть отступ, и знак, посчитанный от ячейки, съехал бы.
+        local side = 10
+        pixels.MARKS[id](raster,
+            area.x + (area.w - side) // 2, area.y + (area.h - side) // 2, side)
     end
 
     pixels.field(raster, 4, cell.h + 4, w - 6, h - cell.h - 7)
 end
 
-local function scene_buttons(raster, cell, font)
+local function scene_buttons(raster, cell, font, bold)
     local w, h = raster:size()
     pixels.panel(raster, 1, 1, w, h)
-    pixels.button_at(raster, 2, 2, 7, 1,
-        {id = "ok", label = "ОК", font = font, inset = 2}, cell)
-    pixels.button_at(raster, 10, 2, 7, 1,
-        {id = "cancel", label = "Отмена", font = font, pressed = true, inset = 2}, cell)
+
+    -- Одна ширина на обе: разноширокие «ОК» и «Отмена» — первое, что выдаёт
+    -- подделку. Считается по самой широкой ИЗМЕРЕННОЙ подписи и округляется
+    -- вверх до целых ячеек, не меньше семидесяти пяти пикселей — как в
+    -- Windows 95.
+    local labels = {"ОК", "Отмена"}
+    local span = pixels.button_span(font, labels, cell, 75)
+    for index, label in ipairs(labels) do
+        pixels.button_at(raster, 2 + (index - 1) * (span + 1), 2, span, 1,
+            {id = label, label = label, font = font, inset = 2,
+             pressed = index == 2}, cell)
+    end
 end
 
-local function scene_titles(raster, cell, font)
+local function scene_titles(raster, cell, font, bold)
     local w = raster:size()
     pixels.panel(raster, 1, 1, w, cell.h * 2)
     pixels.title(raster, 2, 2, w - 2, cell.h - 2,
-        {text = "В фокусе", font = font, focused = true}, cell)
+        {text = "В фокусе", font = font, bold = bold, focused = true}, cell)
     pixels.title(raster, 2, cell.h + 2, w - 2, cell.h - 2,
-        {text = "Не в фокусе", font = font}, cell)
+        {text = "Не в фокусе", font = font, bold = bold}, cell)
 end
 
 local SCENES = {
     {name = "window", cols = 30, rows = 8, paint = scene_window},
-    {name = "buttons", cols = 24, rows = 4, paint = scene_buttons},
+    {name = "buttons", cols = 23, rows = 3, paint = scene_buttons},
     {name = "titles", cols = 20, rows = 2, paint = scene_titles},
 }
 
@@ -186,8 +208,8 @@ local function check_frames(cell, font)
 end
 
 local function main(spec)
-    local store, serr = fs.get(SHOTS)
-    if not store then
+    local store_shots, serr = fs.get(SHOTS)
+    if not store_shots then
         print("ОТКАЗ: каталог снимков не открылся: " .. tostring(serr))
         return false, serr
     end
@@ -195,10 +217,15 @@ local function main(spec)
     local cell, source = cell_size(spec)
     say("ячейка " .. cell.w .. "×" .. cell.h .. " px (" .. source .. ")")
 
-    local font, ferr = load_font(13)
+    local font, ferr = load_font(FACE, 13)
     if not font then
-        print("ОТКАЗ: " .. tostring(ferr))
+        say("ОТКАЗ: " .. tostring(ferr))
         return false, ferr
+    end
+    local bold, berr = load_font(BOLD, 13)
+    if not bold then
+        say("ОТКАЗ: полужирный не загрузился: " .. tostring(berr))
+        return false, berr
     end
 
     -- Метрики шрифта печатаются рядом со снимком: подставка их не знает и
@@ -210,14 +237,81 @@ local function main(spec)
         font:size(), font:height(), font:ascent(), sample, tw, th))
 
 
+    -- «Мой компьютер» ПИКСЕЛЬНЫМ бэкендом. Раскладку считает тот же
+    -- `render.layout`, что и путь в ячейках, — на то и разделение: разъедься
+    -- они, щелчок попадал бы на соседа в одном из двух режимов.
+    local function explorer_shots(store)
+        local view: any = {
+            title = "Мой компьютер",
+            selected = 2,
+            offset = 0,
+            objects = {
+                {id = "app:app_fs", kind = "drive", title = "app_fs",
+                 detail = "app:app_fs · fs.directory"},
+                {id = "wippy.facade:public_files", kind = "drive", title = "public_files",
+                 detail = "wippy.facade:public_files · fs.directory"},
+                {id = "keeper:ui_static_fs", kind = "drive", title = "keeper ui_static_fs",
+                 detail = "keeper:ui_static_fs · fs.embed"},
+                {id = "programs", kind = "folder", title = "Программы",
+                 detail = "12 объектов"},
+                {id = "desktop", kind = "folder", title = "Рабочий стол",
+                 detail = "3 объекта"},
+                {id = "windows", kind = "folder", title = "Открытые окна",
+                 detail = "2 объекта"},
+            },
+        }
+
+        local plan = render.layout(view, 46, 14)
+        local placements = render_pixels.paint(store, plan, cell,
+            {face = font, bold = bold}, "explorer")
+
+        say(string.format("проводник: размещений %d, попаданий по значкам %d",
+            #placements, #plan.cells))
+
+        for _, item in ipairs(placements) do
+            local bytes = item.raster:encode("png")
+            local file = "explorer-" .. string.gsub(item.id, "[^%w]", "-") .. ".png"
+            if bytes then
+                store_shots:writefile(file, bytes)
+                say(string.format("  %-22s ячейка %2d,%-2d  %2d×%-2d ячеек  → %s",
+                    item.id, item.x, item.y, item.cols, item.rows, file))
+            end
+        end
+
+        -- Тот же кадр ещё раз: ни одно размещение не имеет права уехать
+        -- заново. Это и есть мера FR-005 §4, применённая к настоящему виду, а
+        -- не к учебной сцене.
+        local before: any = {}
+        for _, item in ipairs(placements) do
+            before[item.id] = {raster = item.raster, version = item.raster:version()}
+        end
+        local again = render_pixels.paint(store, plan, cell,
+            {face = font, bold = bold}, "explorer")
+        local moved = {}
+        for _, item in ipairs(again) do
+            local was: any = before[item.id]
+            if not was then moved[#moved+1] = item.id .. " (появился)"
+            elseif was.raster ~= item.raster then moved[#moved+1] = item.id .. " (ПЕРЕСОЗДАН)"
+            elseif was.version ~= item.raster:version() then moved[#moved+1] = item.id end
+        end
+        say("проводник, тот же кадр ещё раз: сдвинулось " .. #moved
+            .. (#moved == 0 and "" or " — " .. table.concat(moved, ", ")))
+        return #moved == 0
+    end
+
     local steady = check_frames(cell, font)
     if not steady then
         say("ОТКАЗ: растры не переживают кадр — экран будет правильным, а летать будет всё")
     end
 
+    local explorer_ok = explorer_shots(rasters.store())
+    if not explorer_ok then
+        say("ОТКАЗ: проводник пересоздаёт растры — экран останется СТАРЫМ, не медленным")
+    end
+
     for _, scene in ipairs(SCENES) do
         local raster = gfx.raster(scene.cols * cell.w, scene.rows * cell.h)
-        scene.paint(raster, cell, font)
+        scene.paint(raster, cell, font, bold)
 
         local bytes, eerr = raster:encode("png")
         if not bytes then
@@ -226,7 +320,7 @@ local function main(spec)
         end
 
         local path = scene.name .. ".png"
-        local ok, werr = store:writefile(path, bytes)
+        local ok, werr = store_shots:writefile(path, bytes)
         if not ok then
             say("ОТКАЗ: " .. path .. " не записался: " .. tostring(werr))
             return false, werr
@@ -237,10 +331,10 @@ local function main(spec)
     end
 
     local report = table.concat(lines, "\n") .. "\n"
-    local wrote, rerr = store:writefile(REPORT, report)
+    local wrote, rerr = store_shots:writefile(REPORT, report)
     if not wrote then print("отчёт не записался: " .. tostring(rerr)) end
 
-    return steady, nil
+    return steady and explorer_ok, nil
 end
 
 return {main = main}

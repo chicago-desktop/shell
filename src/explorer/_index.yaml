@@ -70,6 +70,26 @@ entries:
       icons: butschster.windows.shell:icons
       widgets: butschster.windows.shell:widgets
 
+  # butschster.windows.explorer:render_pixels
+  #
+  # Второй бэкенд того же вида. Отдельной записью, а не веткой внутри
+  # `render`, потому что `render` обязан грузиться там, где модуля `gfx` нет
+  # вовсе: оболочка должна работать в обычном xterm, и путь в ячейках не имеет
+  # права умирать вместе с графикой. Запись, объявившая `gfx`, на таком
+  # рантайме не грузится — не «без пикселей», а целиком.
+  #
+  # Правило: `gfx` объявляет только тот, кто без него не существует.
+  - name: render_pixels
+    kind: library.lua
+    meta:
+      comment: Пиксельные краски «Моего компьютера» — раскладку и попадания берёт готовыми у render, растры у хранилища; кадр нарезан по строкам, чтобы выделение значка не перерисовывало меню.
+    source: file://render_pixels.lua
+    modules:
+      - gfx
+    imports:
+      palette: butschster.windows.shell:palette
+      pixels: butschster.windows.shell:pixels
+
   # butschster.windows.explorer:window
   #
   # Само окно. Обычная программа реестра — оболочка находит его тем же

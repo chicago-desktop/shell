@@ -262,17 +262,25 @@ function widgets.menu_bar(target, x: any, y: any, width: any, entries)
 end
 
 -- Панель инструментов: кнопки со значком и подписью в одну строку.
-function widgets.toolbar(target, x: any, y: any, width: any, buttons)
-    local hits = {}
+-- Раскладка панели инструментов БЕЗ отрисовки.
+--
+-- Вынесено, потому что читателей стало двое: рисует `widgets.toolbar`, а
+-- раскладку окна считает `render.layout` — и считает до того, как что-то
+-- нарисовано, потому что второй бэкенд рисует не в холст. Своя формула у
+-- второго читателя дала бы кнопку на ячейку левее, чем выглядит.
+--
+-- Возвращает попадания и подписи: подпись нужна тому, кто будет рисовать,
+-- чтобы не собирать её заново по тем же правилам.
+function widgets.toolbar_hits(x: any, y: any, width: any, buttons): any
+    local hits: any = {}
     local left, row, span = whole(x), whole(y), whole(width)
     if span < 3 then return hits end
 
-    local parts, used = {}, 0
+    local used = 0
     for _, entry in ipairs(type(buttons) == "table" and buttons or {}) do
         local button: any = entry
         if button.sep then
             if used + 1 > span then break end
-            parts[#parts + 1] = styles.shadow:render(glyphs.bevel.left)
             used = used + 1
         else
             local icon = type(button.icon) == "string" and button.icon or glyphs.icons.program
@@ -280,10 +288,34 @@ function widgets.toolbar(target, x: any, y: any, width: any, buttons)
             local text = label ~= "" and (" " .. icon .. " " .. label .. " ") or (" " .. icon .. " ")
             local room = cells(text) + 2
             if used + room > span then break end
-            parts[#parts + 1] = bezel(styles.face:render(text), button.pressed and true or false)
-            hits[#hits + 1] = {row = row, from = left + used, to = left + used + room - 1, id = button.id}
+            hits[#hits + 1] = {
+                row = row, from = left + used, to = left + used + room - 1,
+                id = button.id, text = text, icon = icon, label = label,
+                pressed = button.pressed and true or false,
+            }
             used = used + room
         end
+    end
+    return hits
+end
+
+function widgets.toolbar(target, x: any, y: any, width: any, buttons)
+    local left, row, span = whole(x), whole(y), whole(width)
+    local hits = widgets.toolbar_hits(x, y, width, buttons)
+    if span < 3 then return hits end
+
+    -- Рисуется по ТЕМ ЖЕ числам, что вернула раскладка: разделители между
+    -- кнопками восстанавливаются по промежуткам, а не считаются заново.
+    local parts, used = {}, 0
+    for _, entry in ipairs(hits) do
+        local button: any = entry
+        local at = button.from - left
+        while used < at do
+            parts[#parts + 1] = styles.shadow:render(glyphs.bevel.left)
+            used = used + 1
+        end
+        parts[#parts + 1] = bezel(styles.face:render(button.text), button.pressed)
+        used = used + (button.to - button.from + 1)
     end
     if used < span then parts[#parts + 1] = styles.face:render(string.rep(" ", span - used)) end
 
