@@ -126,6 +126,20 @@ entries:
       widgets: butschster.windows.shell:widgets
     method: run
 
+  - name: images_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Пакет значков Windows 95 — каждое имя декодируется в 32 и 16, растр кэшируется, неизвестное имя и чужой размер отказывают с причиной, накладка ярлыка ложится в растр.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://images_test.lua
+    modules: [gfx]
+    imports:
+      test: wippy.test:test
+      images: butschster.windows.shell:images
+    method: run
+
   - name: shell_test
     kind: function.lua
     meta:

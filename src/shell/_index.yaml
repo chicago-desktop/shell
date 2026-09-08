@@ -133,3 +133,32 @@ entries:
       icons: butschster.windows.shell:icons
       palette: butschster.windows.shell:palette
       widgets: butschster.windows.shell:widgets
+
+  # butschster.windows.shell:icon_files
+  #
+  # Настоящие значки Windows 95 — PNG 32×32 и 16×16 в assets/icons, см.
+  # SOURCE.md там же. Каталог объявлен модулем (`base: module`), а не
+  # приложением: значки — часть вида, и приложение о них знать не должно.
+  # Только чтение, поэтому auto_init выключен: ни создавать, ни переставлять
+  # права на каталог с чужим артворком нельзя.
+  - name: icon_files
+    kind: fs.directory
+    meta:
+      comment: Значки Windows 95 из shell32.dll в PNG — приезжают в gfx байтами, а не путём.
+    base: module
+    directory: ./assets/icons
+    auto_init: false
+
+  # butschster.windows.shell:images
+  #
+  # Растровые значки: имя → файл → декодированный растр, с кэшем на процесс.
+  # Кэш обязателен, а не желателен: значок, декодированный заново на каждый
+  # кадр, — новый растр с той же версией, и поверхность его не переотправит.
+  - name: images
+    kind: library.lua
+    meta:
+      comment: Настоящие значки Windows 95 из PNG — декодирование через gfx.image, наложение через blit, одна таблица «вид → имя».
+    source: file://images.lua
+    modules:
+      - fs
+      - gfx
