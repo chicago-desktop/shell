@@ -107,47 +107,101 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     end
                 end
             elseif node.kind == "clock" then
-                -- Циферблат: белое вдавленное поле, двенадцать делений, три стрелки.
+                -- Часы «Дата и время» Windows 95, по пикселям оригинала:
+                -- циферблат на лице без белого поля; шестьдесят меток по
+                -- кругу — минутные выпуклые точки 3×3 (тень сверху-слева,
+                -- свет снизу-справа), часовые бирюзовые с чёрной тенью;
+                -- стрелки — сужающиеся бирюзовые клинья с белым бликом и
+                -- серой тенью, секундная — тонкая серая, в центре красная
+                -- точка.
                 local side = whole(math.min(w, h))
                 local left, top = whole(x + (w - side) // 2), whole(y + (h - side) // 2)
-                pixels.field(raster, left, top, side, side)
                 local cx, cy = left + side // 2, top + side // 2
-                local radius = side // 2 - 8
-                for tick = 0, 11 do
-                    local radians = math.rad(tick * 30)
-                    local px = cx + math.floor(math.sin(radians) * radius + 0.5)
-                    local py = cy - math.floor(math.cos(radians) * radius + 0.5)
-                    local dot = tick % 3 == 0 and 4 or 2
-                    raster:rect(whole(px - dot // 2), whole(py - dot // 2), dot, dot, color.face_text)
+                local radius = side // 2 - 4
+                local teal, cyan = "#008080", "#00ffff"
+                local function at(angle: any, distance: any): (integer, integer)
+                    local radians = math.rad(tonumber(angle) or 0)
+                    return whole(cx + math.floor(math.sin(radians) * distance + 0.5)),
+                        whole(cy - math.floor(math.cos(radians) * distance + 0.5))
                 end
+                for tick = 0, 59 do
+                    local px, py = at(tick * 6, radius)
+                    if tick % 5 == 0 then
+                        raster:rect(px - 1, py - 1, 3, 3, color.frame)
+                        raster:rect(px - 1, py - 1, 2, 1, cyan)
+                        raster:set(px - 1, py, cyan)
+                        raster:set(px, py, teal)
+                    else
+                        raster:rect(px - 1, py - 1, 2, 1, color.shadow)
+                        raster:set(px - 1, py, color.shadow)
+                        raster:set(px + 1, py, color.light)
+                        raster:rect(px, py + 1, 2, 1, color.light)
+                    end
+                end
+                -- Выпуклый многоугольник построчно: клин стрелки — остриё,
+                -- два плеча у основания и короткий хвост за центром.
+                local function polygon(points: any, tint: any)
+                    local lowest, highest = math.huge, -math.huge
+                    for _, point in ipairs(points) do
+                        local py: number = tonumber(point[2]) or 0
+                        lowest = math.min(lowest, py); highest = math.max(highest, py)
+                    end
+                    for row = whole(lowest), whole(highest) do
+                        local from, to = math.huge, -math.huge
+                        for index, a in ipairs(points) do
+                            local b = points[index % #points + 1]
+                            local ax: number, ay: number = tonumber(a[1]) or 0, tonumber(a[2]) or 0
+                            local bx: number, by: number = tonumber(b[1]) or 0, tonumber(b[2]) or 0
+                            if (row >= math.min(ay, by)) and (row <= math.max(ay, by)) and ay ~= by then
+                                local t = (row - ay) / (by - ay)
+                                local px: number = ax + (bx - ax) * t
+                                from = math.min(from, px); to = math.max(to, px)
+                            elseif ay == by and row == ay then
+                                from = math.min(from, ax, bx); to = math.max(to, ax, bx)
+                            end
+                        end
+                        if from <= to then
+                            raster:rect(whole(math.floor(from + 0.5)), row, whole(math.floor(to + 0.5)) - whole(math.floor(from + 0.5)) + 1, 1, tint)
+                        end
+                    end
+                end
+                local function hand(angle: any, length: any, half: any)
+                    local radians = math.rad(tonumber(angle) or 0)
+                    local dx, dy = math.sin(radians), -math.cos(radians)
+                    local nx, ny = -dy, dx
+                    local reach = whole(length)
+                    local function shape(shift_x: any, shift_y: any, narrow: any): any
+                        local wide = math.max(1, whole(half) - whole(narrow))
+                        return {
+                            {cx + dx * reach + shift_x, cy + dy * reach + shift_y},
+                            {cx + dx * reach * 0.12 + nx * wide + shift_x, cy + dy * reach * 0.12 + ny * wide + shift_y},
+                            {cx - dx * 7 + shift_x, cy - dy * 7 + shift_y},
+                            {cx + dx * reach * 0.12 - nx * wide + shift_x, cy + dy * reach * 0.12 - ny * wide + shift_y},
+                        }
+                    end
+                    polygon(shape(2, 2, 0), color.shadow)
+                    polygon(shape(-1, -1, 0), color.light)
+                    polygon(shape(0, 0, 1), teal)
+                end
+                local hour, minute, second = whole(node.hour) % 12, whole(node.minute), whole(node.second)
+                hand(hour * 30 + minute / 2, radius * 0.55, 5)
+                hand(minute * 6 + second / 10, radius * 0.85, 4)
                 local function line(x0: any, y0: any, x1: any, y1: any, tint: any)
                     local ax, ay, bx, by = whole(x0), whole(y0), whole(x1), whole(y1)
-                    local dx, dy = math.abs(bx - ax), -math.abs(by - ay)
+                    local ddx, ddy = math.abs(bx - ax), -math.abs(by - ay)
                     local sx, sy = ax < bx and 1 or -1, ay < by and 1 or -1
-                    local err = dx + dy
+                    local err = ddx + ddy
                     while true do
                         raster:set(ax, ay, tint)
                         if ax == bx and ay == by then break end
                         local twice = err * 2
-                        if twice >= dy then err = err + dy; ax = ax + sx end
-                        if twice <= dx then err = err + dx; ay = ay + sy end
+                        if twice >= ddy then err = err + ddy; ax = ax + sx end
+                        if twice <= ddx then err = err + ddx; ay = ay + sy end
                     end
                 end
-                local function hand(angle: any, length: any, width: any, tint: any)
-                    local radians = math.rad(tonumber(angle) or 0)
-                    local ex = cx + math.floor(math.sin(radians) * whole(length) + 0.5)
-                    local ey = cy - math.floor(math.cos(radians) * whole(length) + 0.5)
-                    for step = 0, whole(width) - 1 do
-                        local shift = step - whole(width) // 2
-                        if math.abs(math.sin(radians)) < 0.7071 then line(cx + shift, cy, ex + shift, ey, tint)
-                        else line(cx, cy + shift, ex, ey + shift, tint) end
-                    end
-                end
-                local hour, minute, second = whole(node.hour) % 12, whole(node.minute), whole(node.second)
-                hand(hour * 30 + minute / 2, radius - 16, 3, color.face_text)
-                hand(minute * 6 + second / 10, radius - 6, 2, color.face_text)
-                hand(second * 6, radius - 4, 1, color.shadow)
-                raster:rect(whole(cx - 2), whole(cy - 2), 5, 5, color.face_text)
+                local sx2, sy2 = at(second * 6, radius * 0.9)
+                line(cx, cy, sx2, sy2, color.shadow)
+                raster:rect(cx - 1, cy - 1, 3, 2, "#ff0000")
             elseif node.kind == "tree" then
                 -- Дерево, как в regedit: пунктирные линии предков, крестики,
                 -- значки папок и записей, выделение только на подписи.

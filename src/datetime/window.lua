@@ -53,7 +53,7 @@ function definition.view(state: any, context: any): any
     if state.tab == 1 then
         page = {kind = "column", gap = 0, children = {
             {kind = "row", gap = 1, children = {
-                {kind = "group", title = "Дата", padding = 1, children = {
+                {kind = "group", title = "Дата", children = {
                     {kind = "row", size = 1, gap = 1, children = {
                         {kind = "field", text = tostring(MONTHS[whole(c.month)] or "—")},
                         {kind = "field", size = 7, text = tostring(c.year)},
@@ -61,7 +61,7 @@ function definition.view(state: any, context: any): any
                     {kind = "calendar", year = c.year, month = c.month, day = c.day,
                         first_weekday = c.first_weekday, days = c.days},
                 }},
-                {kind = "group", size = 16, title = "Время", padding = 1, children = {
+                {kind = "group", size = 16, title = "Время", children = {
                     {kind = "clock", hour = c.hour, minute = c.minute, second = c.second},
                     {kind = "field", size = 1, text = digital, align = "left"},
                 }},

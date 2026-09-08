@@ -18,7 +18,7 @@ entries:
       window_type: dialog
       resizable: false
       width: 44
-      height: 19
+      height: 22
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.datetime:window
       comment: Свойства даты и времени в виде Windows 95, только для чтения — календарь, стрелочные часы, часовой пояс; диалог на SDK оболочки.

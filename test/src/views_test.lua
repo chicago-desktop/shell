@@ -71,7 +71,7 @@ local function define_tests()
         end)
 
         test.it("кнопки внизу не делят ячеек, «ОК» по умолчанию, «Применить» не нажимается", function()
-            local plan = ui.plan(datetime.definition.view(clock_state(), {width = 42, height = 17}), 42, 17, ui.interaction())
+            local plan = ui.plan(datetime.definition.view(clock_state(), {width = 42, height = 20}), 42, 20, ui.interaction())
             local buttons = {}
             for _, item in ipairs(plan.items) do
                 if item.node.kind == "button" then
@@ -85,7 +85,7 @@ local function define_tests()
             test.is_true(ui.default_look(plan, plan.by_id.ok.node, false), "«ОК» по умолчанию")
             test.is_true(plan.by_id.apply.node.disabled, "«Применить» выключена")
             local interaction = ui.interaction()
-            plan = ui.plan(datetime.definition.view(clock_state(), {width = 42, height = 17}), 42, 17, interaction)
+            plan = ui.plan(datetime.definition.view(clock_state(), {width = 42, height = 20}), 42, 20, interaction)
             local apply = plan.by_id.apply.rect
             test.is_nil(ui.event(plan, interaction, {type = "mouse", action = "press", button = "left", x = apply.x, y = apply.y}))
             test.is_nil(interaction.armed, "выключенная кнопка не взводится")
@@ -97,7 +97,7 @@ local function define_tests()
         test.it("та же секунда не перерисовывает, «ОК» и Esc закрывают", function()
             local state = clock_state()
             local closed = 0
-            local context = {width = 42, height = 17, close = function() closed = closed + 1 end}
+            local context = {width = 42, height = 20, close = function() closed = closed + 1 end}
             state.clock = datetime.snapshot()
             local verdict = datetime.definition.update(state, {type = "tick"}, context)
             test.is_true(verdict == false or verdict == true)
