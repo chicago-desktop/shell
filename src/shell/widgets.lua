@@ -354,24 +354,51 @@ end
 -- Возвращает попадания: `field` — само поле, `drop` — кнопка. Оба открывают
 -- список: в Windows щелчок по полю выделяет текст, но текст здесь не
 -- редактируется, и поле, которое ни на что не отвечает, хуже поля-кнопки.
-function widgets.address_bar(target, x: any, y: any, width: any, text: any, icon: any?): any
+widgets.ADDRESS_LABEL = " Адрес "
+widgets.ADDRESS_DROP = " ▾ "
+
+-- address_hits(x, y, width) -> {field, drop} | {}
+--
+-- Геометрия адресной строки в ячейках — ОДНА на оба бэкенда: по ней рисует
+-- `address_bar`, по ней же пиксельный рисовальщик кладёт растр, и по ней
+-- окно считает щелчок. Своя формула у любого из трёх дала бы кнопку ▾ на
+-- ячейку левее, чем выглядит.
+function widgets.address_hits(x: any, y: any, width: any): any
     local left, row, span = whole(x), whole(y), whole(width)
     local hits: any = {}
     if span < 12 then return hits end
-    local label = " Адрес "
-    local label_w = cells(label)
-    local drop = " ▾ "
-    local drop_w = cells(drop) + 2
+    local label_w = cells(widgets.ADDRESS_LABEL)
+    local drop_w = cells(widgets.ADDRESS_DROP) + 2
     local field_w = span - label_w - drop_w
     if field_w < 4 then return hits end
+    hits.field = {row = row, from = left + label_w, to = left + label_w + field_w - 1}
+    hits.drop = {row = row, from = left + label_w + field_w, to = left + span - 1}
+    return hits
+end
+
+function widgets.address_bar(target, x: any, y: any, width: any, text: any, icon: any?): any
+    local left, row, span = whole(x), whole(y), whole(width)
+    local hits: any = widgets.address_hits(x, y, width)
+    if not hits.field then return hits end
+    local field_w = hits.field.to - hits.field.from + 1
 
     local mark = type(icon) == "string" and icon ~= "" and icon or glyphs.icons.folder
     local body = fit(styles.field, " " .. mark .. " " .. tostring(text or ""), field_w - 2)
-    local line = styles.face:render(label) .. bezel(body, true) .. bezel(styles.face:render(drop), false)
+    local line = styles.face:render(widgets.ADDRESS_LABEL) .. bezel(body, true)
+        .. bezel(styles.face:render(widgets.ADDRESS_DROP), false)
     target:put(left, row, line, span)
+    return hits
+end
 
-    hits.field = {row = row, from = left + label_w, to = left + label_w + field_w - 1}
-    hits.drop = {row = row, from = left + label_w + field_w, to = left + span - 1}
+-- dropdown_hits(x, y, width, count) -> строки списка: {row, from, to, index}
+function widgets.dropdown_hits(x: any, y: any, width: any, count: any): any
+    local left, top, span = whole(x), whole(y), whole(width)
+    local hits: any = {}
+    local total = whole(count)
+    if span < 6 or total < 1 then return hits end
+    for index = 1, total do
+        hits[#hits + 1] = {row = top + index, from = left, to = left + span - 1, index = index}
+    end
     return hits
 end
 
@@ -382,7 +409,8 @@ function widgets.dropdown(target, x: any, y: any, width: any, items: any, curren
     local left, top, span = whole(x), whole(y), whole(width)
     local hits: any = {}
     local list: any = type(items) == "table" and items or {}
-    if span < 6 or #list == 0 then return hits end
+    hits = widgets.dropdown_hits(x, y, width, #list)
+    if #hits == 0 then return hits end
     local body = {}
     local chosen = whole(current)
     for index, item in ipairs(list) do
@@ -390,7 +418,6 @@ function widgets.dropdown(target, x: any, y: any, width: any, items: any, curren
         local text = type(record) == "table" and tostring(record.title or "?") or tostring(record)
         local style = index == chosen and styles.select or styles.field
         body[#body + 1] = fit(style, " " .. text, span - 2)
-        hits[#hits + 1] = {row = top + index, from = left, to = left + span - 1, index = index}
     end
     widgets.panel(target, left, top, span, body, true)
     return hits

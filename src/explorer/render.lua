@@ -124,6 +124,8 @@ function render.layout(view: any, width: any, height: any): any
         failure = state.failure,
         -- Адресная строка есть только у бэкенда ячеек: пиксельный держит
         -- свою раскладку из метрик и пока её не рисует.
+        -- Адресная строка: попадания поля, кнопки ▾ и строк списка считаются
+        -- ЗДЕСЬ, одни на оба бэкенда.
         address = {
             row = render.ADDRESS_ROW,
             text = tostring(state.address or state.title or ""),
@@ -131,6 +133,12 @@ function render.layout(view: any, width: any, height: any): any
             open = state.address_open == true,
         },
     }
+    plan.address.hits = widgets.address_hits(1, plan.address.row, w)
+    if plan.address.open and plan.address.hits.field and #plan.address.items > 0 then
+        local field: any = plan.address.hits.field
+        plan.address.dropdown = widgets.dropdown_hits(field.from, plan.address.row + 1,
+            field.to - field.from + 1, #plan.address.items)
+    end
 
     -- Панель инструментов раскладывается той же функцией, что её рисует:
     -- ширина кнопки считается по подписи, и своя формула здесь дала бы
@@ -194,7 +202,9 @@ end
 -- Попадания из плана. Собраны в одном месте, чтобы бэкенду не приходилось их
 -- пересобирать: пересоберёт — разойдётся.
 function render.hits(plan: any): any
-    local out: any = {cells = {}, tools = plan.tools or {}, scroll = {}, address = {}, dropdown = {}}
+    local address: any = plan.address or {}
+    local out: any = {cells = {}, tools = plan.tools or {}, scroll = {},
+        address = address.hits or {}, dropdown = address.dropdown or {}}
     for _, cell in ipairs(plan.cells or {}) do
         out.cells[#out.cells + 1] = {
             index = cell.index, from = cell.from, to = cell.to,
@@ -254,13 +264,11 @@ function render.cells(canvas, plan: any): any
     -- Адресная строка и её список рисуются последними: список ложится
     -- поверх поля, и рисовать его раньше значило бы закрасить его значками.
     if plan.address then
-        hits.address = widgets.address_bar(canvas, 1, plan.address.row, plan.width, plan.address.text)
-        if plan.address.open and #plan.address.items > 0 then
-            local field: any = hits.address.field
-            if field then
-                hits.dropdown = widgets.dropdown(canvas, field.from, plan.address.row + 1,
-                    field.to - field.from + 1, plan.address.items, #plan.address.items)
-            end
+        widgets.address_bar(canvas, 1, plan.address.row, plan.width, plan.address.text)
+        if plan.address.dropdown and #plan.address.dropdown > 0 then
+            local field: any = plan.address.hits.field
+            widgets.dropdown(canvas, field.from, plan.address.row + 1,
+                field.to - field.from + 1, plan.address.items, #plan.address.items)
         end
     end
 

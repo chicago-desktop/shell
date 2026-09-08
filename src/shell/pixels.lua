@@ -318,6 +318,165 @@ pixels.MARKS = {
     close = pixels.mark_close,
 }
 
+-- ─── знаки панели инструментов ──────────────────────────────────────────
+--
+-- Символы панели (✂ ⧉ ⎘ ↶ ✕ ▤ ▦ ▩ ≡ ☷) — это глифы для ячеек; в Liberation их
+-- нет, и отсутствующая руна рисуется пробелом. Поэтому в пикселях каждый
+-- знак — примитивы в квадрате `size`, как у кнопок заголовка.
+
+local function hline(raster, x: any, y: any, len: any, ink)
+    raster:rect(whole(x), whole(y), math.max(1, whole(len)), 1, ink)
+end
+
+local function vline(raster, x: any, y: any, len: any, ink)
+    raster:rect(whole(x), whole(y), 1, math.max(1, whole(len)), ink)
+end
+
+local function hollow(raster, x: any, y: any, w: any, h: any, ink)
+    local left, top, width, height = whole(x), whole(y), whole(w), whole(h)
+    hline(raster, left, top, width, ink)
+    hline(raster, left, top + height - 1, width, ink)
+    vline(raster, left, top, height, ink)
+    vline(raster, left + width - 1, top, height, ink)
+end
+
+-- Стрелки: древко в две линии и голова из полосок убывающей длины.
+function pixels.mark_back(raster, x: any, y: any, size: any, tint)
+    local side = math.max(8, whole(size)); local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    local mid = top + side // 2
+    raster:rect(left + 5, mid - 1, side - 6, 3, ink)
+    for step = 0, 4 do hline(raster, left + 1 + step, mid - step, 1 + step * 2 // 1, ink) end
+    for step = 0, 4 do hline(raster, left + 1 + step, mid + step, 1, ink) end
+    for step = 1, 4 do vline(raster, left + 1 + step, mid - step, step * 2 + 1, ink) end
+end
+
+function pixels.mark_forward(raster, x: any, y: any, size: any, tint)
+    local side = math.max(8, whole(size)); local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    local mid = top + side // 2
+    raster:rect(left + 1, mid - 1, side - 6, 3, ink)
+    for step = 1, 4 do vline(raster, left + side - 2 - step, mid - step, step * 2 + 1, ink) end
+    raster:set(left + side - 2, mid, ink)
+end
+
+function pixels.mark_up(raster, x: any, y: any, size: any, tint)
+    local side = math.max(8, whole(size)); local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    local mid = left + side // 2
+    raster:rect(mid - 1, top + 5, 3, side - 6, ink)
+    for step = 1, 4 do hline(raster, mid - step, top + 1 + step, step * 2 + 1, ink) end
+    raster:set(mid, top + 1, ink)
+end
+
+-- Ножницы: два лезвия крест-накрест и два кольца рукояток внизу.
+function pixels.mark_cut(raster, x: any, y: any, size: any, tint)
+    local side = math.max(10, whole(size)); local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    for step = 0, side - 7 do
+        raster:set(left + 2 + step, top + step, ink)
+        raster:set(left + side - 3 - step, top + step, ink)
+    end
+    hollow(raster, left + 1, top + side - 5, 4, 4, ink)
+    hollow(raster, left + side - 5, top + side - 5, 4, 4, ink)
+end
+
+-- Копировать: два листа, второй выглядывает из-под первого.
+function pixels.mark_copy(raster, x: any, y: any, size: any, tint)
+    local side = math.max(10, whole(size)); local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    hollow(raster, left + 1, top + 1, side - 5, side - 5, ink)
+    raster:rect(left + 5, top + 5, side - 6, side - 6, color.field)
+    hollow(raster, left + 5, top + 5, side - 6, side - 6, ink)
+end
+
+-- Вставить: планшет с зажимом и лист на нём.
+function pixels.mark_paste(raster, x: any, y: any, size: any, tint)
+    local side = math.max(10, whole(size)); local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    hollow(raster, left + 1, top + 2, side - 4, side - 3, ink)
+    raster:rect(left + side // 2 - 2, top + 1, 4, 2, ink)
+    raster:rect(left + 5, top + 6, side - 6, side - 7, color.field)
+    hollow(raster, left + 5, top + 6, side - 6, side - 7, ink)
+end
+
+-- Отменить: стрелка влево с хвостом, загнутым вниз и вправо.
+function pixels.mark_undo(raster, x: any, y: any, size: any, tint)
+    local side = math.max(10, whole(size)); local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    local row = top + 4
+    raster:rect(left + 4, row, side - 7, 2, ink)
+    vline(raster, left + side - 4, row, 5, ink); vline(raster, left + side - 3, row, 5, ink)
+    raster:rect(left + side - 8, row + 4, 5, 2, ink)
+    for step = 1, 3 do vline(raster, left + 1 + step, row - step + 1, step * 2, ink) end
+end
+
+pixels.mark_delete = pixels.mark_close
+
+-- Свойства: лист с тремя строками.
+function pixels.mark_properties(raster, x: any, y: any, size: any, tint)
+    local side = math.max(10, whole(size)); local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    hollow(raster, left + 2, top + 1, side - 4, side - 2, ink)
+    for line = 0, 2 do hline(raster, left + 4, top + 4 + line * 3, side - 8, ink) end
+end
+
+-- Четыре вида: крупные значки, мелкие, список, таблица.
+function pixels.mark_view_large(raster, x: any, y: any, size: any, tint)
+    local left, top = whole(x), whole(y); local ink = tint or color.face_text
+    for row = 0, 1 do for col = 0, 1 do hollow(raster, left + 1 + col * 7, top + 1 + row * 7, 6, 6, ink) end end
+end
+
+function pixels.mark_view_small(raster, x: any, y: any, size: any, tint)
+    local left, top = whole(x), whole(y); local ink = tint or color.face_text
+    for row = 0, 2 do for col = 0, 2 do raster:rect(left + 1 + col * 5, top + 1 + row * 5, 3, 3, ink) end end
+end
+
+function pixels.mark_view_list(raster, x: any, y: any, size: any, tint)
+    local left, top = whole(x), whole(y); local ink = tint or color.face_text
+    for row = 0, 2 do
+        raster:rect(left + 1, top + 2 + row * 5, 3, 3, ink)
+        hline(raster, left + 6, top + 3 + row * 5, 8, ink)
+    end
+end
+
+function pixels.mark_view_details(raster, x: any, y: any, size: any, tint)
+    local left, top = whole(x), whole(y); local ink = tint or color.face_text
+    for row = 0, 3 do hline(raster, left + 1, top + 1 + row * 4, 13, ink) end
+    vline(raster, left + 1, top + 1, 13, ink); vline(raster, left + 6, top + 1, 13, ink); vline(raster, left + 13, top + 1, 13, ink)
+end
+
+-- Треугольник вниз — кнопка раскрытия списка.
+function pixels.mark_drop(raster, x: any, y: any, size: any, tint)
+    local side = math.max(8, whole(size)); local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    local mid = left + side // 2
+    for step = 0, 3 do hline(raster, mid - 3 + step, top + side // 2 - 2 + step, 7 - step * 2, ink) end
+end
+
+pixels.MARKS.back = pixels.mark_back
+pixels.MARKS.forward = pixels.mark_forward
+pixels.MARKS.up = pixels.mark_up
+pixels.MARKS.cut = pixels.mark_cut
+pixels.MARKS.copy = pixels.mark_copy
+pixels.MARKS.paste = pixels.mark_paste
+pixels.MARKS.undo = pixels.mark_undo
+pixels.MARKS.delete = pixels.mark_delete
+pixels.MARKS.properties = pixels.mark_properties
+pixels.MARKS.view_large = pixels.mark_view_large
+pixels.MARKS.view_small = pixels.mark_view_small
+pixels.MARKS.view_list = pixels.mark_view_list
+pixels.MARKS.view_details = pixels.mark_view_details
+pixels.MARKS.drop = pixels.mark_drop
+
+-- Выцветший знак Windows 95: серый, с белой копией на пиксель ниже и правее.
+function pixels.mark_disabled(raster, mark, x: any, y: any, size: any)
+    if type(mark) ~= "function" then return end
+    mark(raster, whole(x) + 1, whole(y) + 1, size, color.light)
+    mark(raster, x, y, size, color.shadow)
+end
+
+
 -- Ряд кнопок ОДИНАКОВОЙ ширины — по самой широкой подписи.
 --
 -- В Windows 95 кнопки диалога были одной ширины, и разноширокие «ОК» и
