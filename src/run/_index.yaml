@@ -26,7 +26,7 @@ entries:
       window_type: dialog
       resizable: false
       width: 54
-      height: 12
+      height: 13
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.run:window
       comment: Ввод команды и запуск в отдельном окне Bash через композитор; диалог на SDK оболочки.

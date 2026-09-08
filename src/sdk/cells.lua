@@ -26,7 +26,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             elseif item.node.kind == "tabs" then style = styles.face_dim end
             local body = span.accel > 0 and widgets.accel(style, text, span.accel) or style:render(text)
             if item.node.kind == "tabs" then parts[#parts + 1] = widgets.bezel(body, false)
-            else parts[#parts + 1] = style:render(" ") .. body .. style:render(" ") end
+            else parts[#parts + 1] = body end
             used = used + span.w
         end
         if used < r.w then parts[#parts + 1] = styles.face:render(string.rep(" ", r.w - used)) end

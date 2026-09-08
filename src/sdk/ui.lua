@@ -67,11 +67,15 @@ end
 -- Полосы вкладок и меню: каждая подпись занимает « подпись » плюс две грани.
 -- Одна раскладка на оба отрисовщика и на попадания; строка длиннее полосы
 -- обрезается по целым вкладкам — половина вкладки нажимается «в никуда».
-function ui.spans(labels: any, width: any): any
+function ui.spans(labels: any, width: any, pad: any): any
     local out, used = {}, 0
+    -- Отступ с каждой стороны: у вкладок две ячейки (грани и воздух), у
+    -- заголовков меню одна — иначе «Правка Вид Справка» не влезает в
+    -- калькулятор шириной в 27 ячеек.
+    local side = whole(pad or 2)
     for index, entry in ipairs(labels or {}) do
         local title = type(entry) == "table" and tostring(entry.title or entry.text or "?") or tostring(entry)
-        local room = cells_of(title) + 4
+        local room = cells_of(title) + side * 2
         if used + room > whole(width) then break end
         out[#out + 1] = {index = index, x = used, w = room, title = title,
             accel = type(entry) == "table" and whole(entry.accel) or 0}
@@ -199,7 +203,7 @@ local function add(node: any, rect: any, plan: any, interaction: any)
     if kind == "menu" then
         -- Строка меню: полоса заголовков; раскрытый список — поверх всего,
         -- поэтому попадает в `plan.overlays` и рисуется последним.
-        item.spans = ui.spans(node.entries, rect.w)
+        item.spans = ui.spans(node.entries, rect.w, 1)
         local open: any = interaction.menus[id]
         if open and open.index then
             item.popup = ui.popup(item, open.index)

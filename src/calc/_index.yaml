@@ -23,8 +23,8 @@ entries:
       order: 20
       window_type: app
       resizable: false
-      width: 33
-      height: 15
+      width: 29
+      height: 16
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.calc:window
       comment: Калькулятор в виде Windows 95 — обычный вид с памятью, считает как настольный; окно на SDK оболочки.

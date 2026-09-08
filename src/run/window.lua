@@ -29,7 +29,7 @@ function definition.view(state: any, context: any): any
             {kind = "image", size = 5, image = "run", icon = "▸"},
             {kind = "label", text = "Введите имя программы или команду для запуска в Bash."},
         }},
-        {kind = "row", size = 1, gap = 1, children = {
+        {kind = "row", size = 2, gap = 1, children = {
             {kind = "label", size = 9, text = "Открыть:"},
             {kind = "input", id = "command", text = state.text},
         }},

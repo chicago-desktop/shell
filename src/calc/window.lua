@@ -34,8 +34,11 @@ local function spacer(size: any): any
 end
 
 local function key(state: any, id: any, label: any, ink: any, size: any): any
+    -- Клавиша на весь свой прямоугольник с зазором в два пикселя с каждой
+    -- стороны: соседние стоят в четырёх пикселях, как в оригинале; подпись
+    -- жирная, цвет — синий у цифр и функций, красный у операций.
     return {kind = "button", id = id, text = label, ink = ink, size = size,
-        pressed = state.calc.pressed == id}
+        fill = true, inset = 2, bold = true, pressed = state.calc.pressed == id}
 end
 
 function definition.view(state: any, context: any): any
@@ -45,16 +48,17 @@ function definition.view(state: any, context: any): any
             {title = "Вид", accel = 1, items = {{id = "normal", text = "Обычный"}}},
             {title = "Справка", accel = 1, items = {{id = "about", text = "О программе"}}},
         }},
-        {kind = "row", size = 1, children = {spacer(1), {kind = "field", text = engine.display(state.calc), align = "right"}, spacer(1)}},
+        -- Табло: две строки ячеек, чтобы у числа был отступ сверху и снизу.
+        {kind = "row", size = 2, children = {spacer(1), {kind = "field", text = engine.display(state.calc), align = "right"}, spacer(1)}},
+        -- Окошко памяти — вдавленное поле цвета лица; Back шире CE и C.
         {kind = "row", size = 2, children = {
-            spacer(1), {kind = "field", size = 3, text = state.calc.memory ~= nil and "M" or "", align = "left"}, spacer(6),
-            key(state, "back", "Back", RED, 6), spacer(1), key(state, "ce", "CE", RED, 6), spacer(1), key(state, "c", "C", RED, 6),
+            spacer(1), {kind = "field", size = 4, face = true, text = state.calc.memory ~= nil and "M" or "", align = "left"}, spacer(7),
+            key(state, "back", "Back", RED, 6), key(state, "ce", "CE", RED, 4), key(state, "c", "C", RED, 4),
         }},
     }
     for _, line in ipairs(KEYPAD) do
-        local children: any = {spacer(1), key(state, line.memory[1], line.memory[2], RED, 4)}
+        local children: any = {spacer(1), key(state, line.memory[1], line.memory[2], RED, 4), spacer(1)}
         for _, button in ipairs(line.keys) do
-            children[#children + 1] = spacer(1)
             children[#children + 1] = key(state, button[1], button[2], button[3], 4)
         end
         rows[#rows + 1] = {kind = "row", size = 2, children = children}

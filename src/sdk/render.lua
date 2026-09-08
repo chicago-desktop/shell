@@ -36,7 +36,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     if font then
                         local runes: any = text_lib.runes(span.title)
                         local tint = pressed and color.select_fg or color.face_text
-                        local tx = sx + 2 * cell.w
+                        local tx = sx + cell.w
                         raster:text(whole(tx), whole(y + (cell.h - 15) // 2), span.title, {font = font, color = tint})
                         if span.accel > 0 and runes[span.accel] then
                             local before = whole(font:measure(table.concat(runes, "", 1, span.accel - 1)))
@@ -239,14 +239,19 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     end
                 end
             elseif node.kind == "field" then
+                -- Поле только для чтения: до 26 px по центру своих строк, текст
+                -- по центру высоты с отступом от граней. `face = true` — фон
+                -- лица, а не белый: окошко памяти калькулятора, пустое поле.
                 local fh = math.min(whole(h), 26)
                 local fy = y + (h - fh) // 2
                 pixels.field(raster, whole(x), whole(fy), whole(w), whole(fh))
+                if node.face then raster:rect(whole(x + 2), whole(fy + 2), whole(w - 4), whole(fh - 4), color.face) end
                 if font then
-                    local shown = pixels.ellipsize(font, tostring(node.text or ""), whole(math.max(0, w - 10)))
-                    local tx = x + 5
-                    if node.align == "right" then tx = x + w - 5 - whole(font:measure(shown)) end
-                    raster:text(whole(tx), whole(fy + (fh - 15) // 2), shown, {font = font, color = color.field_text})
+                    local shown = pixels.ellipsize(font, tostring(node.text or ""), whole(math.max(0, w - 12)))
+                    local tx = x + 6
+                    if node.align == "right" then tx = x + w - 6 - whole(font:measure(shown)) end
+                    raster:text(whole(tx), whole(fy + (fh - whole(font:height())) // 2), shown,
+                        {font = font, color = node.face and color.face_text or color.field_text})
                 end
             elseif node.kind == "image" then
                 local side = whole(node.size_px or 32)
@@ -339,10 +344,17 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "button" then
-                local bh = math.min(23, whole(h))
-                local by = whole(y + (h - bh) // 2)
+                -- Обычная кнопка — 23 px по центру своих строк; `fill` —
+                -- на весь прямоугольник минус `inset` со всех сторон (так
+                -- клавиши калькулятора стоят с зазором в четыре пикселя).
+                -- `bold` — жирная подпись, как у клавиш оригинала.
+                local pad = whole(node.inset)
+                local bx, bw = x + pad, w - pad * 2
+                local bh = node.fill and whole(h) - pad * 2 or math.min(23, whole(h))
+                local by = node.fill and whole(y + pad) or whole(y + (h - bh) // 2)
                 local armed = state.interaction.armed
-                pixels.button(raster, x, by, w, bh, {label = node.text, font = font,
+                local face_font: any = (node.bold and fonts and fonts.bold) or font
+                pixels.button(raster, bx, by, bw, bh, {label = node.text, font = face_font,
                     default = ui.default_look(plan, node, focused), focused = focused, disabled = node.disabled,
                     pressed = node.pressed == true or (armed ~= nil and armed.id == node.id and armed.inside == true), color = node.ink}, cell)
             elseif node.kind == "checkbox" then
@@ -356,7 +368,9 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     pixels.focus_rect(raster, whole(x + 16), whole(y + (h - 17) // 2), tw + 4, 17)
                 end
             elseif node.kind == "input" then
-                local fh = math.min(22, whole(h))
+                -- Поле ввода — до 24 px по центру своих строк: в одной строке
+                -- ячеек текст упирался бы в грани, отдайте ему две.
+                local fh = math.min(24, whole(h))
                 y, h = y + (h - fh) // 2, fh
                 pixels.field(raster, whole(x), whole(y), whole(w), whole(h))
                 if node.disabled then raster:rect(whole(x + 2), whole(y + 2), whole(w - 4), whole(h - 4), color.face) end
