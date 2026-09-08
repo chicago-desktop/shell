@@ -163,7 +163,11 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
     -- ширина кнопки считается по подписи, и своя формула здесь дала бы
     -- кнопку на ячейку левее, чем выглядит.
     if plan.tool_rows > 0 then plan.tools = widgets.toolbar_hits(1, render.TOOL_ROW, w, render.TOOLS) end
-    for _, button in ipairs(plan.tools) do button.bottom_row = button.row + plan.tool_rows - 1 end
+    for _, button in ipairs(plan.tools) do
+        button.bottom_row = button.row + plan.tool_rows - 1
+        -- Взведённая мышью кнопка нарисована вдавленной до отпускания.
+        if state.armed_tool ~= nil and button.id == state.armed_tool then button.pressed = true end
+    end
 
     if not state.failure and inner_w > 0 and inner_h > 0 then
         local shape = render.shape(width, height, #objects, state.offset, metrics)

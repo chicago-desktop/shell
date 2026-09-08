@@ -324,9 +324,65 @@ local function main(service, window_id, args, viewport: any)
         return nil
     end
 
+    -- Кнопка панели срабатывает по ОТПУСКАНИЮ внутри себя, как в Windows и
+    -- как в SDK: нажатие взводит, увод мыши снимает, отпускание снаружи —
+    -- отмена. Взведённая кнопка нарисована вдавленной.
+    local armed: any = nil
+    local function tool_at(x: any, y: any): any
+        for _, hit in ipairs(tools) do
+            local button: any = hit
+            if y >= button.row and y <= (button.bottom_row or button.row)
+                and x >= button.from and x <= button.to then return button end
+        end
+        return nil
+    end
+    local function activate_tool(button: any)
+        if button.id == "back" then
+            local previous = table.remove(history.back :: {any})
+            if previous then
+                history.forward[#history.forward + 1] = state.path
+                go(previous, "back")
+            else
+                state.notice = "Назад: истории нет"
+            end
+        elseif button.id == "forward" then
+            local next_path = table.remove(history.forward :: {any})
+            if next_path then
+                history.back[#history.back + 1] = state.path
+                go(next_path, "forward")
+            else
+                state.notice = "Вперёд: истории нет"
+            end
+        elseif button.id == "up" then
+            local up = model.parent(state.path)
+            if up then go(up) else state.notice = "Вверх: это корень" end
+        elseif button.id == "refresh" then
+            load()
+        elseif button.id == "view_large" then
+            state.notice = "Крупные значки — единственный вид пока"
+        end
+    end
+
     local scroll_capture: any = nil
     local function handle_mouse(event: any)
         local plan = render.layout(state, width, height, metrics)
+        if armed and (event.action == "motion" or event.action == "release") then
+            local over = tool_at(event.x, event.y)
+            local inside = over ~= nil and over.id == armed.id
+            if event.action == "motion" then
+                if inside ~= (state.armed_tool == armed.id) then
+                    state.armed_tool = inside and armed.id or nil
+                    draw()
+                end
+                return
+            end
+            state.armed_tool = nil
+            local chosen = armed
+            armed = nil
+            if inside and event.button == "left" then activate_tool(chosen) end
+            draw()
+            return
+        end
         if not state.address_open and plan.scroll then
             local offset, capture, handled = scrolling.pointer(state.offset, plan.scroll.total, plan.scroll.visible,
                 plan.scroll, scroll_capture, event)
@@ -375,39 +431,15 @@ local function main(service, window_id, args, viewport: any)
             end
         end
 
-        for _, hit in ipairs(tools) do
-            local button: any = hit
-            if event.y >= button.row and event.y <= (button.bottom_row or button.row)
-                and event.x >= button.from and event.x <= button.to then
-                if button.disabled then
-                    state.notice = tostring(button.title) .. ": здесь недоступно, окно только читает"
-                elseif button.id == "back" then
-                    local previous = table.remove(history.back :: {any})
-                    if previous then
-                        history.forward[#history.forward + 1] = state.path
-                        go(previous, "back")
-                    else
-                        state.notice = "Назад: истории нет"
-                    end
-                elseif button.id == "forward" then
-                    local next_path = table.remove(history.forward :: {any})
-                    if next_path then
-                        history.back[#history.back + 1] = state.path
-                        go(next_path, "forward")
-                    else
-                        state.notice = "Вперёд: истории нет"
-                    end
-                elseif button.id == "up" then
-                    local up = model.parent(state.path)
-                    if up then go(up) else state.notice = "Вверх: это корень" end
-                elseif button.id == "refresh" then
-                    load()
-                elseif button.id == "view_large" then
-                    state.notice = "Крупные значки — единственный вид пока"
-                end
-                draw()
-                return
-            end
+        local tool = tool_at(event.x, event.y)
+        if tool then
+            -- Недоступная кнопка молчит, как в Windows: сообщение на каждый
+            -- щелчок читалось бы как «что-то сломалось».
+            if tool.disabled then return end
+            armed = tool
+            state.armed_tool = tool.id
+            draw()
+            return
         end
 
         local moment = time.now():unix_nano()
