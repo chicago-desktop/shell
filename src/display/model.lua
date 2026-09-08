@@ -45,8 +45,9 @@ function model.color_items(chosen: any): any
     return items
 end
 
--- Разрешение: ячейки и пиксели. Без размера ячейки пиксели не выдумываются:
--- «80×24 ячеек» честнее, чем «640×480» из запасного значения.
+-- Разрешение: ячейки и пиксели одной строкой в поле, размер ячейки —
+-- подписью под ним. Без размера ячейки пиксели не выдумываются: «80×24
+-- ячеек» честнее, чем «640×480» из запасного значения.
 function model.resolution(screen: any, cell: any): string
     local s: any = type(screen) == "table" and screen or {}
     local c: any = type(cell) == "table" and cell or {}
@@ -54,16 +55,28 @@ function model.resolution(screen: any, cell: any): string
     if cols < 1 or rows < 1 then return "неизвестно" end
     local text = string.format("%d × %d ячеек", cols, rows)
     if whole(c.w) > 0 and whole(c.h) > 0 then
-        text = text .. string.format(" · %d × %d пикселей (ячейка %d × %d)", cols * whole(c.w), rows * whole(c.h), whole(c.w), whole(c.h))
+        text = text .. string.format(", %d × %d px", cols * whole(c.w), rows * whole(c.h))
     end
     return text
 end
 
--- Палитра: рантайм принудительно включает TrueColor, режим кадра называет
--- композитор.
-function model.palette(pixels: any): string
-    if pixels == true then return "True Color (24 бит) · пиксельная графика" end
-    return "True Color (24 бит) · только ячейки"
+function model.cell_text(cell: any): string
+    local c: any = type(cell) == "table" and cell or {}
+    if whole(c.w) > 0 and whole(c.h) > 0 then
+        return string.format("Ячейка терминала %d × %d px", whole(c.w), whole(c.h))
+    end
+    return "Размер ячейки терминал не назвал"
+end
+
+-- Палитра: рантайм принудительно включает TrueColor; режим кадра называет
+-- композитор и идёт подписью.
+function model.palette(): string
+    return "True Color (24 бит)"
+end
+
+function model.graphics(pixels: any): string
+    if pixels == true then return "Пиксельная графика: есть" end
+    return "Пиксельная графика: нет, только ячейки"
 end
 
 return model

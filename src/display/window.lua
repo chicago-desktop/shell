@@ -62,12 +62,14 @@ local function settings(state: any): any
         {kind = "monitor", size = 8, color = state.saved},
         {kind = "row", gap = 1, children = {
             {kind = "group", title = "Цветовая палитра", children = {
-                {kind = "field", size = 2, text = model.palette(info.pixels)},
-                {kind = "label", text = ""},
+                {kind = "field", size = 2, text = model.palette()},
+                {kind = "label", size = 1, text = model.graphics(info.pixels)},
+                {kind = "label", text = "Задаётся рантаймом."},
             }},
             {kind = "group", title = "Разрешение экрана", children = {
                 {kind = "field", size = 2, text = model.resolution(info.screen, info.cell)},
-                {kind = "label", text = info.failure and ("композитор не ответил: " .. tostring(info.failure)) or "Задаётся терминалом; здесь только показывается.", alert = info.failure ~= nil},
+                {kind = "label", size = 1, text = info.failure and ("композитор не ответил: " .. tostring(info.failure)) or model.cell_text(info.cell), alert = info.failure ~= nil},
+                {kind = "label", text = "Задаётся терминалом."},
             }},
         }},
     }}
