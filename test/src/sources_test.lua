@@ -69,8 +69,11 @@ local function define_tests()
             local self_file = by_title(shown.objects, "sources_test.lua")
             test.not_nil(self_file, "файл, который это пишет, обязан быть виден")
             test.eq(self_file.kind, "file")
-            test.is_nil(self_file.open,
-                "просмотрщика файлов нет, и обещать открытие нечем")
+            test.not_nil(self_file.open, "файл с объявленным расширением обязан открываться")
+            test.eq(self_file.open.entry, "butschster.windows.viewers:notepad")
+            test.is_true(tostring(self_file.open.args):find("/sources_test.lua", 1, true) ~= nil,
+                "аргумент обязан называть путь внутри диска")
+            test.eq(self_file.image, "text_document", "значок файла — значок Блокнота")
         end)
 
         test.it("отвечает причиной на диск, которого нет, а не пустотой", function()

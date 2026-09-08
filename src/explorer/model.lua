@@ -27,6 +27,7 @@
 -- никогда.
 
 local catalog = require("catalog")
+local associations = require("associations")
 
 local model = {}
 
@@ -120,6 +121,9 @@ local function object(fields: any)
         icon = fields.icon,
         detail = fields.detail,
         open = fields.open,
+        -- Значок из реестра типов; без поля здесь он молча терялся бы —
+        -- список полей и есть контракт объекта.
+        image = fields.image,
     }
 end
 
@@ -194,7 +198,7 @@ end
 -- намерение «открыть» было бы обещанием, которое некому исполнить. Что
 -- двойной щелчок по такому объекту не пропал впустую, говорит окно — тем же
 -- способом, что и про любой другой отказ.
-function model.files(entries: any, path: any)
+function model.files(entries: any, path: any, drive: any, sub: any, programs: any)
     local rows = {}
     for _, entry in ipairs(type(entries) == "table" and entries or {}) do
         local record: any = entry
@@ -211,16 +215,36 @@ function model.files(entries: any, path: any)
     end)
 
     local base = type(path) == "string" and path or ""
+    -- Путь ВНУТРИ диска — то, что получит программа; `path` — это адрес
+    -- папки в проводнике, у него другая форма.
+    local inside = (type(sub) == "string" and sub ~= "") and ("/" .. sub) or ""
     local out = {}
     for _, row in ipairs(rows) do
-        out[#out + 1] = object({
-            id = row.name,
-            kind = row.dir and "directory" or "file",
-            title = row.name,
-            icon = row.dir and model.DIR_ICON or model.FILE_ICON,
-            detail = row.dir and "папка" or "файл",
-            open = row.dir and {action = "folder", path = base .. "/" .. row.name} or nil,
-        })
+        if row.dir then
+            out[#out + 1] = object({
+                id = row.name,
+                kind = "directory",
+                title = row.name,
+                icon = model.DIR_ICON,
+                detail = "папка",
+                open = {action = "folder", path = base .. "/" .. row.name},
+            })
+        else
+            -- Файл открывает программа из реестра типов, и она же даёт ему
+            -- значок. Файл, который нечем открыть, говорит об этом в
+            -- подробностях и не открывается — вместо тишины на двойной щелчок.
+            local file_path = inside .. "/" .. row.name
+            local open, why = associations.open(programs, drive, file_path)
+            out[#out + 1] = object({
+                id = row.name,
+                kind = "file",
+                title = row.name,
+                icon = model.FILE_ICON,
+                image = associations.image_for(programs, row.name),
+                detail = open and "файл" or tostring(why),
+                open = open,
+            })
+        end
     end
     return out
 end

@@ -104,6 +104,11 @@ local function to_program(record: any)
         width = tonumber(meta.width),
         height = tonumber(meta.height),
         args = type(meta.args) == "string" and meta.args or nil,
+        -- Что программа открывает — реестр типов файлов собирается из этого
+        -- поля проводником; таблица как есть, разбирает её associations.
+        opens = type(meta.opens) == "table" and meta.opens or nil,
+        -- Значок программы — он же значок её файлов в проводнике.
+        image = type(meta.image) == "string" and meta.image ~= "" and meta.image or nil,
         -- `desktop` в реестре — просьба ВЫНЕСТИ ярлык на стол при первом
         -- появлении, а не утверждение, что ярлык там есть. Есть он или нет,
         -- знает только раскладка.

@@ -191,8 +191,13 @@ function sources.list(path, context: any)
         local title = tostring(where.id)
         if where.sub then title = title .. "/" .. tostring(where.sub) end
 
+        -- Каталог нужен файлам: программа для расширения и её значок берутся
+        -- из реестра типов. Отказ каталога не прячет файлы — они остаются
+        -- «нечем открыть», как и положено без программ.
+        local found = catalog.list()
+
         return {
-            objects = model.files(entries, path),
+            objects = model.files(entries, path, where.id, where.sub, found and found.programs or nil),
             title = title,
             notice = cut and ("показаны первые " .. tostring(sources.FILE_LIMIT)) or nil,
         }, nil

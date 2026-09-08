@@ -30,6 +30,8 @@ entries:
     modules:
       - registry
     imports:
+      # Реестр типов файлов: программа для расширения и её значок.
+      associations: butschster.windows.viewers:associations
       catalog: butschster.windows.programs:catalog
 
   # butschster.windows.explorer:sources
@@ -43,6 +45,8 @@ entries:
       # на машине. Что именно открывается, решает политика окна, а не этот
       # список.
       - fs
+      # `json` — аргумент открытия файла собирается и разбирается JSON-ом.
+      - json
       - registry
       - sql
       - env
@@ -118,6 +122,8 @@ entries:
       - channel
       - env
       - fs
+      # `json` — аргумент открытия файла собирается и разбирается JSON-ом.
+      - json
       - registry
       - sql
       - time
