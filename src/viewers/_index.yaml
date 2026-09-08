@@ -1,0 +1,151 @@
+version: "1.0"
+namespace: butschster.windows.viewers
+
+# Просмотрщики: Блокнот для текста и просмотр картинок.
+#
+# Оба открываются из проводника по файлу, и оба получают файл одним и тем же
+# аргументом — строкой из `files.encode`. Разница в устройстве: Блокнот —
+# окно в ячейках, рисует себя сам в свой viewport; картинка — окно-вид
+# (`window_content: pixels`), которое рисует тема в процессе композитора,
+# а данные приносит отдельный поставщик со своими правами. Картинку в
+# ячейках показать нечем: размещения едут только в кадре физической
+# поверхности.
+#
+# Реестр типов файлов здесь же: программа объявляет `meta.opens` — какие
+# расширения она открывает, — и проводник собирает по каталогу таблицу
+# «расширение → запись». Отдельной таблицы нет и не нужно.
+
+entries:
+  # ─── Библиотеки ──────────────────────────────────────────────────────
+  # butschster.windows.viewers:files
+  - name: files
+    kind: library.lua
+    meta:
+      comment: Файл на диске реестра — аргумент окна одной строкой (JSON с диском и путём), расширение, чтение байтов через fs с потолком.
+    source: file://files.lua
+    modules:
+      - fs
+      - json
+
+  # butschster.windows.viewers:associations
+  - name: associations
+    kind: library.lua
+    meta:
+      comment: Реестр типов файлов — программа объявляет meta.opens, таблица «расширение → запись» собирается из каталога; спор за расширение называется, а не решается молча.
+    source: file://associations.lua
+    imports:
+      files: butschster.windows.viewers:files
+
+  # butschster.windows.viewers:picture_render
+  #
+  # Чистая отрисовка окна-вида: зовёт тема в процессе композитора. Прав у
+  # неё нет и не нужно — картинка приезжает в состоянии окна.
+  - name: picture_render
+    kind: library.lua
+    meta:
+      comment: Просмотр картинок, отрисовка — вписать или показать в масштабе, один растр кадра на окно, переотправка только при изменении.
+    source: file://picture_render.lua
+    modules:
+      - base64
+      - gfx
+
+  # ─── Права ───────────────────────────────────────────────────────────
+  # Окна просмотрщиков читают диск и больше ничего: ни реестра, ни базы, ни
+  # процессов. `fs.get` на `*` — потому что диском может быть любая из
+  # записей `fs.*` реестра, и какую откроет человек, заранее не известно.
+  - name: viewer_scope
+    kind: security.policy
+    meta:
+      comment: Права просмотрщиков — прочитать файл с диска реестра. Порождать процессы, читать реестр и базу они не могут.
+    policy:
+      actions:
+        - process.context
+        - fs.get
+      resources: "*"
+      effect: allow
+
+  # Поставщику картинки нужно ещё найти композитор и послать ему состояние.
+  - name: provider_scope
+    kind: security.policy
+    meta:
+      comment: Права поставщика состояния — прочитать файл с диска и послать состояние композитору.
+    policy:
+      actions:
+        - process.context
+        - process.registry
+        - process.send
+        - fs.get
+      resources: "*"
+      effect: allow
+
+  # ─── Блокнот ─────────────────────────────────────────────────────────
+  # butschster.windows.viewers:notepad
+  - name: notepad
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: Блокнот
+      image: text_document
+      icon: "▤"
+      group: Стандартные
+      width: 64
+      height: 20
+      # Что открывает. Проводник собирает по этому полю реестр типов.
+      opens: [txt, md, log, csv, json, yaml, yml, lua, ini, conf, toml, xml, html, css, js, ts, go, py, sh]
+      comment: Блокнот — просмотр текстового файла с диска реестра, только чтение; строки не переносятся, прокрутка стрелками и колесом.
+    source: file://notepad.lua
+    method: main
+    modules:
+      - channel
+      - fs
+      - json
+      - tty
+    security:
+      policies: [butschster.windows.viewers:viewer_scope]
+    imports:
+      files: butschster.windows.viewers:files
+      widgets: butschster.windows.shell:widgets
+
+  # ─── Просмотр картинок ───────────────────────────────────────────────
+  # butschster.windows.viewers:picture
+  #
+  # Окно-вид. Процесса внутри нет: рисует тема через `render`, данные
+  # приносит `state`. Источник — заглушка ради формы записи.
+  - name: picture
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: Просмотр картинок
+      image: document
+      icon: "▦"
+      group: Стандартные
+      width: 70
+      height: 22
+      window_content: pixels
+      render: butschster.windows.viewers:picture_render
+      state: butschster.windows.viewers:picture_state
+      opens: [png, gif, jpg, jpeg]
+      comment: Просмотр картинок — PNG, GIF, JPEG с диска реестра; вписывает в окно или показывает в масштабе со сдвигом. Только в пиксельном режиме.
+    source: file://idle_window.lua
+    method: main
+    modules:
+      - channel
+      - time
+
+  # butschster.windows.viewers:picture_state
+  - name: picture_state
+    kind: process.lua
+    meta:
+      comment: Поставщик состояния просмотра картинок — читает файл под своими правами, шлёт композитору картинку и способ показа, меняет способ по вводу.
+    source: file://picture_state.lua
+    method: main
+    modules:
+      - base64
+      - channel
+      - fs
+      - json
+      - process
+    security:
+      policies: [butschster.windows.viewers:provider_scope]
+    imports:
+      files: butschster.windows.viewers:files

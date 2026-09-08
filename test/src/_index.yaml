@@ -355,3 +355,36 @@ entries:
         value: app:processes
       - name: wippy.bootloader:env_storage
         value: app:env_storage
+
+  - name: window_images
+    kind: registry.entry
+    meta:
+      type: windows.program_images
+      comment: Значок окна без своего meta.image — проверка чтения объявления из реестра.
+    data:
+      images:
+        "app:grouped_probe": clock
+
+  - name: taskbar_clock
+    kind: registry.entry
+    meta:
+      type: windows.taskbar_clock
+      comment: Clock binding fixture.
+    data:
+      entry: app:grouped_probe
+
+  - name: viewers_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Просмотрщики — аргумент окна собирается и разбирается одной формой, реестр типов из meta.opens со спором по имени, кадр картинки ровно размера окна и тот же растр без изменений.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://viewers_test.lua
+    modules: [gfx, base64]
+    imports:
+      test: wippy.test:test
+      files: butschster.windows.viewers:files
+      associations: butschster.windows.viewers:associations
+      picture_render: butschster.windows.viewers:picture_render
+    method: run
