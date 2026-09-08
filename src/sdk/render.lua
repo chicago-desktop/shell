@@ -333,6 +333,26 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     raster:text(whole(tx), whole(fy + (fh - whole(font:height())) // 2), shown,
                         {font = font, color = node.face and color.face_text or color.field_text})
                 end
+            elseif node.kind == "monitor" then
+                -- Монитор из «Свойств экрана»: серый корпус с объёмной гранью,
+                -- экран цветом `color` (стол), подставка снизу. Пропорции
+                -- 4:3 по меньшей стороне, по центру своего прямоугольника.
+                -- Корпус 8 px вокруг экрана и подставка 8 px под ним — из
+                -- высоты, ширина от неё по 4:3.
+                local screen_h = whole(math.min(h - 26, (w - 24) * 3 // 4))
+                local screen_w = whole(screen_h * 4 // 3)
+                if screen_w >= 24 and screen_h >= 18 then
+                    local body_w, body_h = screen_w + 16, screen_h + 16
+                    local left = whole(x + (w - body_w) // 2)
+                    local top = whole(y + (h - body_h - 8) // 2)
+                    pixels.panel(raster, left, top, body_w, body_h)
+                    pixels.edge(raster, left + 6, top + 6, screen_w + 4, screen_h + 4, false)
+                    raster:rect(left + 8, top + 8, screen_w, screen_h, tostring(node.color or color.desktop))
+                    -- Индикатор питания и подставка.
+                    raster:rect(left + body_w - 12, top + body_h - 5, 4, 2, "#00c000")
+                    pixels.panel(raster, left + body_w // 2 - 12, top + body_h, 24, 4)
+                    pixels.panel(raster, left + body_w // 2 - 24, top + body_h + 4, 48, 4)
+                end
             elseif node.kind == "image" then
                 local side = whole(node.size_px or 32)
                 if w >= side and h >= side then

@@ -112,6 +112,18 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 local line = row == r.h // 2 and text or string.rep(" ", inner)
                 canvas:put(whole(r.x), whole(r.y + row), widgets.bezel(styles.field:render(line), true), whole(r.w))
             end
+        elseif node.kind == "monitor" then
+            -- В ячейках монитор — рамка лица и экран цветом стола внутри.
+            local screen = tty.style():background(tostring(node.color or "#008080"))
+            for row = 0, r.h - 1 do
+                local edge = row == 0 or row == r.h - 1
+                if edge or r.w < 3 then put(r.x, r.y + row, string.rep(" ", r.w), r.w, styles.face)
+                else
+                    put(r.x, r.y + row, " ", 1, styles.face)
+                    put(r.x + 1, r.y + row, string.rep(" ", r.w - 2), r.w - 2, screen)
+                    put(r.x + r.w - 1, r.y + row, " ", 1, styles.face)
+                end
+            end
         elseif node.kind == "image" then
             -- Значок в ячейках — один символ: шрифт растров не знает.
             local glyph = tostring(node.icon or "▸")

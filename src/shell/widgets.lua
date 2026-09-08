@@ -116,6 +116,17 @@ widgets.styles = {
     alert     = tty.style():bold():foreground(color.alert):background(color.face),
     farewell  = tty.style():bold():foreground(color.farewell_text):background(color.farewell_bg),
 }
+-- Цвет стола меняет человек («Свойства: Экран»), и стили, снятые с палитры
+-- при загрузке, обязаны пересняться: иначе стол в ячейках останется
+-- прежним, а значки в пикселях уже перекрасятся — два представления одного
+-- значения разошлись бы молча.
+function widgets.use_desktop(hex: any)
+    color.desktop = tostring(hex)
+    widgets.styles.desktop = tty.style():background(color.desktop)
+    widgets.styles.desktop_text = tty.style():bold():foreground(color.desktop_text):background(color.desktop)
+    widgets.styles.desktop_broken = tty.style():bold():foreground(color.desktop_broken):background(color.desktop)
+end
+
 
 local styles = widgets.styles
 

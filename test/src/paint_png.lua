@@ -29,6 +29,7 @@ local render = require("render")
 local render_pixels = require("render_pixels")
 local datetime_window = require("datetime_window")
 local sysprops_window = require("sysprops_window")
+local display_window = require("display_window")
 local calc_window = require("calc_window")
 local taskman_window = require("taskman_window")
 local sdk_render = require("sdk_render")
@@ -678,6 +679,14 @@ local function main(spec)
             view_shot("sysprops-" .. tab, sdk_render, {id = "shot", state_revision = tab, content_state = {sdk = 1, revision = tab,
                 interaction = ui.interaction(), ui = sysprops_window.definition.view(state, {width = 58, height = 22})}}, 58, 22)
         end
+    end
+    -- «Свойства: Экран»: фон с выбранным цветом и настройка.
+    for tab = 1, 2 do
+        local state: any = {tab = tab, chosen = "#000080", saved = "#008080",
+            info = {screen = {width = 100, height = 28}, cell = {w = cell.w, h = cell.h}, pixels = true},
+            persist = function() return true, nil end}
+        view_shot("display-" .. tab, sdk_render, {id = "shot", state_revision = tab, content_state = {sdk = 1, revision = tab,
+            interaction = ui.interaction(), ui = display_window.definition.view(state, {width = 58, height = 22})}}, 58, 22)
     end
     -- Экран прощания: крупный шрифт считается от высоты ячейки, как в оболочке.
     do

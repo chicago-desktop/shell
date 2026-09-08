@@ -9,10 +9,10 @@ local ui = {}
 local containers = {row = true, column = true, split = true}
 local leaves = {label = true, button = true, input = true, list = true, table = true, checkbox = true,
     statusbar = true, tabs = true, menu = true, image = true, field = true,
-    group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true}
+    group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true, monitor = true}
 -- Без `id` живут только те, что не принимают ввод.
 local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
-    calendar = true, clock = true}
+    calendar = true, clock = true, monitor = true}
 -- Сетка месяца: шесть недель по семь дней, число или false. `first` — день
 -- недели первого числа, 0 = понедельник; `days` — сколько дней в месяце.
 -- Календарной арифметики здесь нет нарочно: високосность считает `time`.

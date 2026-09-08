@@ -244,6 +244,21 @@ for name, style in pairs(widgets.styles) do styles[name] = style end
 
 styles.desktop = tty.style():background(color.desktop)
 styles.desktop_text = tty.style():bold():foreground(color.desktop_text):background(color.desktop)
+
+-- use_desktop(hex) — цвет стола из «Свойств экрана». Одна точка на все
+-- представления: палитра (её читают пиксели при каждой отрисовке значка),
+-- стили ячеек здесь, у виджетов и у значков. Форму цвета проверяет
+-- вызывающий; здесь принимается только `#rrggbb`, остальное молча не
+-- принимается и возвращает false — стол с битым цветом хуже прежнего.
+function chrome.use_desktop(hex: any): boolean
+    local value = tostring(hex or "")
+    if not value:match("^#%x%x%x%x%x%x$") then return false end
+    widgets.use_desktop(value)
+    icons.use_desktop()
+    styles.desktop = tty.style():background(color.desktop)
+    styles.desktop_text = tty.style():bold():foreground(color.desktop_text):background(color.desktop)
+    return true
+end
 styles.title = tty.style():bold():foreground(color.title_active_fg):background(color.title_active_bg)
 styles.title_idle = tty.style():foreground(color.title_idle_fg):background(color.title_idle_bg)
 -- Вертикальная надпись в меню и выделение — одна и та же пара цветов: в

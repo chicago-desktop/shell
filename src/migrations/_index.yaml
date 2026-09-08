@@ -27,3 +27,16 @@ entries:
     imports:
       migration: wippy.migration:migration
     method: migrate
+
+  # butschster.windows.migrations:03_settings
+  - name: 03_settings
+    kind: function.lua
+    meta:
+      type: migration
+      comment: Настройки оболочки ключ — значение; первая — цвет стола, выбранный в «Свойствах экрана».
+      target_db: app:db
+      timestamp: "2026-09-08T21:50:00Z"
+    source: file://03_settings.lua
+    imports:
+      migration: wippy.migration:migration
+    method: migrate

@@ -253,6 +253,7 @@ entries:
       taskman_window: butschster.windows.taskman:window
       sysprops_window: butschster.windows.sysprops:window
       sysprops_model: butschster.windows.sysprops:model
+      display_window: butschster.windows.display:window
       reg_model: butschster.windows.regedit:model
       regedit_window: butschster.windows.regedit:window
       images: butschster.windows.shell:images
@@ -466,6 +467,26 @@ entries:
     imports:
       test: wippy.test:test
       model: butschster.windows.appwiz:model
+    method: run
+
+  - name: display_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Свойства экрана — форма цвета и подпись разрешения, раскладка двух вкладок, выбор и применение через подставленную запись, ОК после успешной записи; тема перекрашивает стол одной точкой.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://display_test.lua
+    modules: [sql, env, time, uuid, tty]
+    imports:
+      test: wippy.test:test
+      model: butschster.windows.display:model
+      ui: butschster.windows.sdk:ui
+      display_window: butschster.windows.display:window
+      chrome: butschster.windows.shell:chrome
+      chrome_pixels: butschster.windows.shell:chrome_pixels
+      widgets: butschster.windows.shell:widgets
+      palette: butschster.windows.shell:palette
     method: run
 
   - name: sysprops_test

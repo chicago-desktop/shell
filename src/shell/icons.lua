@@ -37,6 +37,16 @@ function icons.grid()
     return {w = CELL_W, h = CELL_H, drawn = CELL_DRAWN, caption = CELL_CAPTION, left = CELL_LEFT}
 end
 
+local function desktop_surface(): any
+    return {
+        back   = tty.style():background(color.desktop),
+        icon   = tty.style():bold():foreground(color.desktop_text):background(color.desktop),
+        text   = tty.style():bold():foreground(color.desktop_text):background(color.desktop),
+        broken = tty.style():bold():foreground(color.desktop_broken):background(color.desktop),
+        select = tty.style():bold():foreground(color.select_fg):background(color.select_bg),
+    }
+end
+
 local surfaces = {
     desktop = {
         back   = tty.style():background(color.desktop),
@@ -208,6 +218,11 @@ function icons.cell(target, x: any, y: any, item, state)
     end
 
     return box
+end
+
+-- Стол перекрасили — стили значков в ячейках пересняты с палитры.
+function icons.use_desktop()
+    surfaces.desktop = desktop_surface()
 end
 
 return icons

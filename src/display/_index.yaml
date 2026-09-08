@@ -1,0 +1,65 @@
+version: "1.0"
+namespace: butschster.windows.display
+
+# «Свойства: Экран» — Display Properties Windows 95: цвет стола и сведения
+# об экране. Открывается пунктом «Свойства» по правой кнопке на пустом столе
+# и из «Пуск → Настройка».
+
+entries:
+  # butschster.windows.display:model
+  - name: model
+    kind: library.lua
+    meta:
+      comment: Чистая модель «Свойств экрана» — цвета стола, проверка формы цвета, подписи разрешения и палитры.
+    source: file://model.lua
+    imports:
+      geometry: butschster.tui_desktop.desktop:geometry
+
+  # Права: прочитать и записать настройку в базу оболочки (`db.get` на
+  # ресурс, имя базы — из окружения), спросить и толкнуть композитор.
+  - name: window_scope
+    kind: security.policy
+    meta:
+      comment: Права «Свойств экрана» — настройки оболочки в базе читать и писать, композитор спросить и попросить перечитать стол.
+    policy:
+      actions:
+        - process.context
+        - process.registry
+        - process.send
+        - db.get
+        - env.get
+      resources: "*"
+      effect: allow
+
+  # butschster.windows.display:window
+  - name: window
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: "Свойства: Экран"
+      image: desktop
+      icon: "▭"
+      group: Настройка
+      order: 140
+      window_type: dialog
+      resizable: false
+      width: 60
+      height: 24
+      pixel_render: butschster.windows.sdk:render
+      pixel_state: butschster.windows.display:window
+      comment: Свойства экрана — цвет стола с предпросмотром и применением через настройки оболочки; разрешение и палитра только чтение; окно на SDK оболочки.
+    source: file://window.lua
+    method: main
+    modules:
+      - sql
+      - env
+      - time
+      - uuid
+    security:
+      policies: [butschster.windows.display:window_scope]
+    imports:
+      geometry: butschster.tui_desktop.desktop:geometry
+      app: butschster.windows.sdk:app
+      desktop: butschster.tui_desktop.desktop:window_api
+      repo: butschster.windows.persist:repo
+      model: butschster.windows.display:model

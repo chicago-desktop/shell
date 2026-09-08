@@ -185,7 +185,23 @@ local function main()
     --
     -- Каталог подмешивается здесь же: значок открывает окно по размерам из
     -- реестра, а не по копии, снятой при создании ярлыка.
+    -- Цвет стола — настройка из «Свойств экрана». Читается при старте и на
+    -- каждом `desktop.refresh`: окно свойств пишет в базу и толкает
+    -- композитор, и тот перечитывает стол этим же путём. Отказ базы стол не
+    -- роняет: остаётся прежний цвет, причина в лог.
+    local function apply_desktop_color()
+        local hex, err = repo.setting("desktop_color")
+        if err then
+            log:warn("цвет стола не прочитан", {error = tostring(err)})
+            return
+        end
+        if type(hex) == "string" and hex ~= "" and not chrome.use_desktop(hex) then
+            log:warn("цвет стола в базе негодный", {value = hex})
+        end
+    end
+
     local function desktop_items()
+        apply_desktop_color()
         -- Каталог читается ДО раскладки: мебель заводится по нему, и читать
         -- раскладку раньше значило бы отдать кадр без только что заведённых
         -- значков — они появились бы лишь на следующем обновлении.
@@ -277,7 +293,13 @@ local function main()
                 chrome_pixels.use_fonts(fonts.face, fonts.bold, fonts.display)
                 chrome_pixels.use_cell_size(width, height)
                 theme = chrome_pixels
-                cell_size = gfx.cell_size
+                cell_size = function()
+                    local w, h = gfx.cell_size()
+                    if type(w) == "number" and type(h) == "number" then
+                        chrome_pixels.use_cell_size(w, h)
+                    end
+                    return w, h
+                end
                 pixel_note = "пиксели: " .. tostring(protocol) .. " " .. width .. "x" .. height
                 log:info("пиксельный режим включён",
                     {protocol = protocol, cell = width .. "x" .. height})
@@ -306,6 +328,8 @@ local function main()
         catalog = menu_catalog,
         desktop_items = desktop_items,
         move_desktop_item = move_desktop_item,
+        -- «Свойства» по правой кнопке на пустом столе — «Свойства: Экран».
+        desktop_properties = "butschster.windows.display:window",
         -- Окна, собранные мастерской основы, возвращаются в реестр на старте.
         -- Оболочка часто поднимается одна, и без восстановления её меню
         -- показало бы каталог без них, не объяснив, куда они делись. Отказ

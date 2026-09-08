@@ -32,6 +32,7 @@ end
 
 local DB_ID = from_environment("BUTSCHSTER_WINDOWS_DB_ID") or "app:db"
 local ITEMS = "butschster_windows_desktop_items"
+local SETTINGS = "butschster_windows_settings"
 local SEEDED = "butschster_windows_desktop_seeded"
 
 local repo = {}
@@ -244,6 +245,31 @@ end
 -- Живёт отдельно от раскладки и не удаляется никогда. Только благодаря
 -- этому удаление значка работает: ярлык ушёл, отметка осталась, и программа
 -- с `desktop: true` не выносится на стол вновь на следующем старте.
+
+-- ─── Настройки оболочки ───────────────────────────────────────────────────
+--
+-- Ключ — значение, строкой. Отсутствие строки — nil без ошибки: «не
+-- настраивали» и «база недоступна» различаются вторым значением.
+function repo.setting(key: any)
+    return with_db(function(db)
+        local rows, err = db:query("SELECT value FROM " .. SETTINGS .. " WHERE key = ? LIMIT 1", {tostring(key)})
+        if err then return nil, tostring(err) end
+        local first: any = type(rows) == "table" and rows[1] or nil
+        if type(first) == "table" and type(first.value) == "string" then return first.value, nil end
+        return nil, nil
+    end)
+end
+
+function repo.set_setting(key: any, value: any)
+    return with_db(function(db)
+        local stamp = now_stamp()
+        local _, err = db:execute("INSERT INTO " .. SETTINGS .. " (key, value, updated_at) VALUES (?, ?, ?)"
+            .. " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+            {tostring(key), tostring(value), stamp})
+        if err then return nil, tostring(err) end
+        return true, nil
+    end)
+end
 
 function repo.seeded()
     return with_db(function(db)

@@ -297,6 +297,8 @@ local function icon_key(item: any, selected)
         tostring(item.id), tostring(item.title or ""), tostring(item.kind or ""),
         tostring(item.icon or ""), tostring(item.image or ""), tostring(item.entry or ""), item.broken and "!" or "",
         selected and "1" or "0",
+        -- Цвет стола запечён в растр значка: сменили цвет — растр другой.
+        tostring(color.desktop),
     }, "\30")
 end
 
