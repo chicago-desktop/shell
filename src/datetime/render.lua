@@ -22,9 +22,8 @@ local color = palette.exact
 
 local render = {}
 
-local function whole(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
-end
+local geometry = require("geometry")
+local whole = geometry.whole
 
 -- Растр со сдвигом: сцена рисует в координатах содержимого окна, кусок
 -- видит её через своё окно. Методы те же, что у gfx.Raster, поэтому
@@ -88,7 +87,7 @@ end
 local function combo(r: any, x: any, y: any, w: any, h: any, text, font)
     pixels.field(r, x, y, w, h)
     local button_w = 16
-    pixels.panel(r, whole(x) + whole(w) - button_w - 2, whole(y) + 2, button_w, whole(h) - 4)
+    pixels.button(r, whole(x) + whole(w) - button_w - 2, whole(y) + 2, button_w, whole(h) - 4, {}, {w = 1, h = 1})
     arrow_down(r, whole(x) + whole(w) - button_w + 3, whole(y) + whole(h) // 2 - 1, color.face_text)
     if font then
         r:text(whole(x) + 5, whole(y) + (whole(h) - 15) // 2, text,
@@ -102,8 +101,8 @@ local function spinner(r: any, x: any, y: any, w: any, h: any, text, font)
     local button_w = 16
     local half = (whole(h) - 4) // 2
     local bx = whole(x) + whole(w) - button_w - 2
-    pixels.panel(r, bx, whole(y) + 2, button_w, half)
-    pixels.panel(r, bx, whole(y) + 2 + half, button_w, whole(h) - 4 - half)
+    pixels.button(r, bx, whole(y) + 2, button_w, half, {}, {w = 1, h = 1})
+    pixels.button(r, bx, whole(y) + 2 + half, button_w, whole(h) - 4 - half, {}, {w = 1, h = 1})
     arrow_up(r, bx + 5, whole(y) + 2 + (half - 4) // 2, color.face_text)
     arrow_down(r, bx + 5, whole(y) + 2 + half + (half - 4) // 2, color.face_text)
     if font then
@@ -215,18 +214,9 @@ local function bottom_button(r: any, button: any, cell: any, font, pressed)
     local h = 23
     local y = area.y + (area.h - h) // 2
     local x, w = area.x + 2, area.w - 4
-    pixels.panel(r, x, y, w, h)
-    if pressed then pixels.bevel(r, x, y, w, h, false) end
-    if not font then return end
-    local tw = whole(font:measure(button.label))
-    local tx = x + (w - tw) // 2 + (pressed and 1 or 0)
-    local ty = y + (h - 15) // 2 + (pressed and 1 or 0)
-    if button.enabled then
-        r:text(tx, ty, button.label, {font = font, color = color.face_text})
-    else
-        r:text(tx + 1, ty + 1, button.label, {font = font, color = color.light})
-        r:text(tx, ty, button.label, {font = font, color = color.shadow})
-    end
+    -- `default` — чёрный контур: это то, что сделает Enter, и он один.
+    pixels.button(r, x, y, w, h, {label = button.label, font = font,
+        pressed = pressed, disabled = not button.enabled, default = button.default}, cell)
 end
 
 -- Вся сцена в координатах содержимого окна (пиксели, единичные).

@@ -3,8 +3,144 @@
 
 local test = require("test")
 local model = require("model")
+local ui = require("ui")
+local taskman = require("taskman_window")
+local process = require("process")
+local channel = require("channel")
+local time = require("time")
+local tty = require("tty")
+local function receive(stream, predicate)
+    local deadline = time.after("8s")
+    while true do
+        local picked = channel.select({stream:case_receive(), deadline:case_receive()})
+        test.is_true(picked.channel ~= deadline and picked.ok, "Task Manager did not reach expected state")
+        local value: any = picked.value:payload()
+        if type(value) == "userdata" then value = value:data() end
+        if type(value) == "table" and value[1] then value = value[1] end
+        if predicate(value) then return value end
+    end
+end
+
 
 local function define_tests()
+
+    test.describe("Task Manager on the SDK", function()
+        local function fixture(tab: any): any
+            local state: any = {tab = tab, selected_id = nil, heap_history = {}, goroutine_history = {},
+                windows = {{id = "one", title = "Bash", image = "program", ready = true},
+                    {id = "two", title = "Блокнот", image = "text_document", ready = true, minimized = true}},
+                snapshot = {taken = 1788858300, goroutines = 428, cpu_count = 8, max_procs = 8, pid = "1", hostname = "host",
+                    memory = {alloc = 100, heap_in_use = 200, heap_sys = 300, heap_released = 10, num_gc = 5},
+                    processes = {}, hosts = {{id = "app:processes", workers = 4, processes = 64, executed = 1000}}}}
+            for index = 1, 80 do
+                state.snapshot.processes[index] = {pid = "p" .. index, source = "app:w" .. index, state = "waiting", steps = index, started = 1788850100}
+            end
+            for index = 1, 50 do
+                state.goroutine_history[index] = 400 + index
+                state.heap_history[index] = (200 + index) * 1024 * 1024
+            end
+            return state
+        end
+        test.it("lays out tabs, tables, groups and the refresh button without overlaps at several sizes", function()
+            for tab = 1, 4 do
+                for _, dims in ipairs({{76, 25}, {58, 22}, {40, 16}}) do
+                    local plan = ui.plan(taskman.definition.view(fixture(tab), {width = dims[1], height = dims[2]}), dims[1], dims[2], ui.interaction())
+                    test.not_nil(plan.by_id.pages)
+                    test.not_nil(plan.by_id.refresh)
+                    for index, item in ipairs(plan.items) do
+                        test.is_true(item.rect.x >= 1 and item.rect.y >= 1)
+                        test.is_true(item.rect.x + item.rect.w <= dims[1] + 1)
+                        test.is_true(item.rect.y + item.rect.h <= dims[2] + 1)
+                        if item.node.kind ~= "group" then
+                            for other = index + 1, #plan.items do
+                                local b = plan.items[other]
+                                if b.node.kind ~= "group" then
+                                    local r = item.rect
+                                    test.is_true(r.x + r.w <= b.rect.x or b.rect.x + b.rect.w <= r.x
+                                        or r.y + r.h <= b.rect.y or b.rect.y + b.rect.h <= r.y,
+                                        "пересечение " .. tostring(item.node.kind) .. "/" .. tostring(b.node.kind) .. " на вкладке " .. tab)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            local plan = ui.plan(taskman.definition.view(fixture(2), {width = 76, height = 25}), 76, 25, ui.interaction())
+            test.eq(#plan.by_id.procs.node.rows, 80)
+            test.eq(plan.by_id.procs.node.columns[4].align, "right")
+        end)
+        test.it("keeps the selected task by id when sampling reorders rows and switches tabs", function()
+            local state = fixture(2)
+            local context = {width = 76, height = 25, close = function() end}
+            taskman.definition.update(state, {type = "select", id = "procs", index = 80, value = {id = "p80"}}, context)
+            test.eq(state.selected_id, "p80")
+            table.remove(state.snapshot.processes, 1)
+            local plan = ui.plan(taskman.definition.view(state, context), 76, 25, ui.interaction())
+            test.eq(plan.by_id.procs.node.selected, 79, "после сдвига строк выделен тот же процесс")
+            state.snapshot.processes = {{pid = "new", source = "x", state = "waiting", steps = 1}}
+            plan = ui.plan(taskman.definition.view(state, context), 76, 25, ui.interaction())
+            test.eq(plan.by_id.procs.node.selected, 0, "исчезнувший процесс не выделяет чужую строку")
+            test.eq(taskman.definition.update(state, {type = "key", key_type = "runes", key = "x"}, context), false, "чужая клавиша не перерисовывает")
+        end)
+        test.it("opens the real native window, handles tabs and refresh, and keeps sampling", function()
+            local replies = process.listen("desktop.reply", {message = true})
+            local frames = process.listen("taskman.frame", {message = true})
+            local service = "butschster.windows.test.taskman"
+            local view = assert(tty.viewport({width = 110, height = 36}))
+            local pid = assert(process.with_options({terminal = assert(view:grant())})
+                :spawn_monitored("app:taskman_composer", "app:processes", service, tostring(process.pid())))
+            local deadline = time.now():unix_nano() + 5000000000
+            while not process.registry.lookup(service) and time.now():unix_nano() < deadline do
+                channel.select({time.after("20ms"):case_receive()})
+            end
+            test.not_nil(process.registry.lookup(service))
+            assert(process.send(service, "desktop.open", {entry = "butschster.windows.taskman:window", reply_to = tostring(process.pid())}))
+            local opened = receive(replies, function(value) return value.command == "desktop.open" end)
+            test.is_true(opened.ok)
+            test.eq(opened.window.content, "pixels")
+            local function plan_of(frame: any): any
+                return ui.plan(frame.state.ui, frame.width, frame.height, frame.state.interaction)
+            end
+            local function active(frame: any): any
+                return plan_of(frame).by_id.pages.node.active
+            end
+            local function graph_len(frame: any): any
+                local plan = plan_of(frame)
+                for _, item in ipairs(plan.items) do
+                    if item.node.kind == "graph" then return #(item.node.values or {}) end
+                end
+                return -1
+            end
+            local frame = receive(frames, function(value) return value.state.sdk == 1 and active(value) == 3 end)
+            local before = graph_len(frame)
+            frame = receive(frames, function(value) return active(value) == 3 and graph_len(value) > before end)
+            local function click(x, y)
+                assert(view:send({type = "mouse", action = "press", button = "left", x = x, y = y}))
+                assert(view:send({type = "mouse", action = "release", button = "left", x = x, y = y}))
+            end
+            local tabs = plan_of(frame).by_id.pages
+            local span = tabs.spans[2]
+            click(frame.x + tabs.rect.x + span.x, frame.y + tabs.rect.y)
+            frame = receive(frames, function(value) return active(value) == 2 end)
+            local procs = plan_of(frame).by_id.procs
+            test.is_true(#procs.node.rows > 0)
+            click(frame.x + procs.rect.x, frame.y + procs.rect.y + 1)
+            frame = receive(frames, function(value) return active(value) == 2 and plan_of(value).by_id.procs.node.selected == 1 end)
+            local refresh = plan_of(frame).by_id.refresh.rect
+            local status_before = plan_of(frame).by_id.pages
+            click(frame.x + refresh.x, frame.y + refresh.y)
+            frame = receive(frames, function(value) return active(value) == 2 and value.state.revision > frame.state.revision end)
+            span = plan_of(frame).by_id.pages.spans[1]
+            click(frame.x + tabs.rect.x + span.x, frame.y + tabs.rect.y)
+            frame = receive(frames, function(value) return active(value) == 1 end)
+            local apps = plan_of(frame).by_id.apps
+            test.is_true(#apps.node.rows > 0)
+            test.is_true(tostring(apps.node.rows[1].cells[1]):find("Диспетчер", 1, true) ~= nil, "окно видит себя в списке задач")
+            assert(view:send({type = "key", action = "press", key_type = "runes", key = "q", ctrl = true}))
+            process.terminate(pid)
+            view:close()
+        end)
+    end)
     test.describe("история и график", function()
         test.it("держит историю не длиннее потолка, старое уходит первым", function()
             local history = {}
@@ -73,35 +209,6 @@ local function define_tests()
         end)
     end)
 
-    test.describe("раскладка", function()
-        test.it("вкладки над статусной строкой, страница внутри рамки", function()
-            local plan = model.layout(72, 24)
-            test.eq(plan.status_row, 24)
-            test.eq(plan.tabs.h, 23)
-            test.eq(plan.page.x, 3)
-            test.eq(plan.page.w, 68)
-        end)
-
-        test.it("на быстродействии четыре ящика не выходят за страницу", function()
-            local plan = model.layout(72, 24)
-            local perf = plan.perf
-            test.is_true(perf ~= nil)
-            test.eq(perf.graph_a.x + perf.graph_a.w - 1, plan.page.x + plan.page.w - 1)
-            test.eq(perf.right.x + perf.right.w - 1, plan.page.x + plan.page.w - 1)
-            test.eq(perf.right.y + perf.right.h - 1, plan.page.y + plan.page.h - 1)
-        end)
-
-        test.it("в маленьком окне графиков нет, а не графики в никуда", function()
-            test.is_nil(model.layout(30, 10).perf)
-        end)
-
-        test.it("щелчок попадает в ту вкладку, что нарисована", function()
-            local hits = {{row = 1, from = 1, to = 14, index = 1}, {row = 1, from = 15, to = 26, index = 2}}
-            test.eq(model.tab_at(hits, 15, 1), 2)
-            test.eq(model.tab_at(hits, 14, 1), 1)
-            test.is_nil(model.tab_at(hits, 5, 2))
-        end)
-    end)
 end
 
 -- Форма раннера — как у shell_test. `return {run = run}` с describe внутри

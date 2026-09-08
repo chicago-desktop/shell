@@ -12,6 +12,11 @@ local test = require("test")
 local model = require("model")
 local repo = require("repo")
 local sources = require("sources")
+local render = require("render")
+local tty = require("tty")
+local process = require("process")
+local channel = require("channel")
+local time = require("time")
 
 local PROBE = "app:probe_fs"
 
@@ -30,6 +35,57 @@ local function by_title(objects, title)
 end
 
 local function define_tests()
+    test.describe("Explorer input", function()
+        test.it("scrolls a real viewport with wheel and scrollbar arrows", function()
+            local shown, err = sources.list(model.ROOT, {})
+            test.is_nil(err)
+            local width, height = 22, 9
+            local shape = render.shape(width, height, #shown.objects, 0)
+            test.is_true(shape.scrolling, "fixture must require scrolling")
+            test.is_true(shape.rows > 0)
+            local view = assert(tty.viewport({width = width, height = height}))
+            local pid, why = process.with_options({terminal = assert(view:grant())})
+                :spawn_monitored("butschster.windows.explorer:window", "app:processes")
+            test.is_nil(why)
+            test.not_nil(pid)
+            local state: any = {path = model.ROOT, title = shown.title, objects = shown.objects,
+                selected = 0, offset = 0}
+            local function wait_frame(offset)
+                state.offset = offset
+                local canvas = tty.canvas(width, height)
+                local hits = render.window(canvas, state, width, height)
+                local expected = table.concat(canvas:rows(), "\n")
+                local actual = ""
+                local deadline = time.now():unix_nano() + 5000000000
+                while time.now():unix_nano() < deadline do
+                    local snap: any = view:snapshot(-1)
+                    actual = snap and table.concat(snap.rows or {}, "\n") or ""
+                    if actual == expected then return hits end
+                    channel.select({time.after("20ms"):case_receive()})
+                end
+                test.eq(actual, expected, "viewport did not reach scroll row " .. offset)
+                return hits
+            end
+            local area = render.layout(state, width, height).inner
+            wait_frame(0)
+            view:send({type = "mouse", action = "wheel", button = "wheel_down", x = area.x, y = area.y})
+            wait_frame(1)
+            view:send({type = "mouse", action = "wheel", button = "wheel_up", x = area.x, y = area.y})
+            local hits = wait_frame(0)
+            for _, direction in ipairs({"scroll_down", "scroll_up"}) do
+                for _, arrow in ipairs(hits.scroll or {}) do
+                    if arrow.id == direction then
+                        view:send({type = "mouse", action = "press", button = "left", x = arrow.from, y = arrow.row})
+                        view:send({type = "mouse", action = "release", button = "left", x = arrow.from, y = arrow.row})
+                    end
+                end
+                hits = wait_frame(direction == "scroll_down" and 1 or 0)
+            end
+            view:send({type = "close"})
+            view:close()
+            process.terminate(tostring(pid))
+        end)
+    end)
     test.describe("butschster.windows explorer sources", function()
         test.it("берёт диски из реестра, а не из своей таблицы", function()
             -- Диск, объявленный установленным модулем, обязан появиться сам.
@@ -38,6 +94,13 @@ local function define_tests()
             local records, err = sources.drives()
             test.is_nil(err, "реестр обязан прочитаться")
             test.not_nil(records)
+            local seen = {}
+            for _, record in ipairs(records) do
+                test.is_true(record.kind == "fs.directory" or record.kind == "fs.embed",
+                    "реестр вернул не FS: " .. tostring(record.id))
+                test.is_nil(seen[record.id], "каждая FS показывается один раз")
+                seen[record.id] = true
+            end
 
             local drives = model.drives(records)
             local probe = by_id(drives, PROBE)
@@ -47,15 +110,17 @@ local function define_tests()
                 "двойной щелчок обязан вести в этот диск, а не в соседний")
         end)
 
-        test.it("показывает диски в корне вместе с папками оболочки", function()
+        test.it("показывает в корне только FS", function()
             local shown, err = sources.list(model.ROOT, {})
             test.is_nil(err)
             test.not_nil(by_id(shown.objects, PROBE), "диск обязан быть в корне")
-            test.not_nil(by_id(shown.objects, "programs"))
-            test.not_nil(by_id(shown.objects, "desktop"))
-            test.not_nil(by_id(shown.objects, "windows"))
-            test.eq(shown.objects[1].kind, "drive",
-                "диски идут первыми — как в настоящем «Моём компьютере»")
+            test.is_nil(by_id(shown.objects, "programs"))
+            test.is_nil(by_id(shown.objects, "desktop"))
+            test.is_nil(by_id(shown.objects, "windows"))
+            for _, object in ipairs(shown.objects) do
+                test.eq(object.kind, "drive")
+                test.is_true(object.open.path:sub(1, 6) == "drive/")
+            end
         end)
 
         test.it("читает содержимое диска модулем fs", function()
@@ -69,8 +134,14 @@ local function define_tests()
             local self_file = by_title(shown.objects, "sources_test.lua")
             test.not_nil(self_file, "файл, который это пишет, обязан быть виден")
             test.eq(self_file.kind, "file")
+            -- Файл открывает программа из реестра типов: .lua объявлен у
+            -- Блокнота, и заявка обязана нести его запись и аргумент с
+            -- диском и путём внутри диска — иначе окно откроется пустым.
             test.not_nil(self_file.open, "файл с объявленным расширением обязан открываться")
+            test.eq(self_file.open.action, "open_window")
             test.eq(self_file.open.entry, "butschster.windows.viewers:notepad")
+            test.is_true(tostring(self_file.open.args):find(PROBE, 1, true) ~= nil,
+                "аргумент обязан называть диск")
             test.is_true(tostring(self_file.open.args):find("/sources_test.lua", 1, true) ~= nil,
                 "аргумент обязан называть путь внутри диска")
             test.eq(self_file.image, "text_document", "значок файла — значок Блокнота")

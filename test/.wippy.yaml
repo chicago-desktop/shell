@@ -11,6 +11,8 @@ workspace:
     # вместе с заменой в корневом .wippy.yaml, когда основа опубликована.
     butschster/tui-desktop: ../../kickside-module
 override:
+  "butschster.tui_desktop:exec:default_env.HOME": "${env:HOME}"
+  "butschster.tui_desktop:exec:default_env.PATH": "${env:PATH}"
   "butschster.windows.security:user_security_scope:data.default": app:user
   # Основа приезжает транзитивно и просит ту же группу у приложения. Без
   # значения линковка падает на её требовании, и сообщение указывает на чужой

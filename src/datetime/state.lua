@@ -10,27 +10,18 @@
 -- «ОК» и «Отмена», и оба закрывают окно просьбой к композитору.
 
 local channel = require("channel")
-local process = require("process")
+local desktop_api = require("desktop")
 local time = require("time")
 
 local layout = require("layout")
 
-local function whole(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
-end
+local geometry = require("geometry")
+local whole = geometry.whole
 
 -- Полезная нагрузка сообщения. Копия того, как читает её поставщик в
 -- харнессе основы: `payload()` может отдать обёртку, а не таблицу, и поле,
 -- прочитанное с обёртки, — это nil без ошибки.
-local function body_of(message: any)
-    local body: any = message:payload()
-    if type(body) == "userdata" then
-        local ok, decoded = pcall(function() return body:data() end)
-        body = ok and decoded or {}
-    end
-    if type(body) == "table" and body[1] ~= nil and #body > 0 then body = body[1] end
-    return type(body) == "table" and body or {}
-end
+
 
 -- Снимок часов в том виде, в каком его рисует раскладка. Календарную
 -- арифметику считает модуль time: день 0 следующего месяца — это последний
@@ -53,12 +44,11 @@ local function snapshot(): any
 end
 
 local function main(desktop, window_id)
-    local inbox = process.inbox()
-    local target = tostring(desktop)
+    local inbox = assert(desktop_api.inputs())
     local id = tostring(window_id)
 
     local function push(state: any)
-        process.send(target, "desktop.state", {id = id, state = state})
+        assert(desktop_api.publish_state(id, state))
     end
 
     local shown = snapshot()
@@ -71,19 +61,20 @@ local function main(desktop, window_id)
         if picked.channel == inbox then
             local message = picked.value
             if message:topic() == "window.input" then
-                local event: any = body_of(message).event or {}
+                local event: any = desktop_api.input_event(message)
+                if event.type == "close" then break end
                 local pressed: any = nil
-                if event.type == "mouse" and event.action == "press" and event.button ~= "wheel_up"
-                    and event.button ~= "wheel_down" then
+                if event.type == "mouse" and event.action == "press" and event.button == "left" then
                     pressed = layout.button_at(event.x, event.y)
-                elseif event.type == "key" and (event.key_type == "esc" or event.key_type == "enter") then
+                elseif event.type == "key" and event.action ~= "release" and (event.key_type == "esc" or event.key_type == "enter") then
                     pressed = event.key_type == "esc" and "cancel" or "ok"
                 end
                 if pressed == "ok" or pressed == "cancel" then
                     -- Закрывает композитор, а не поставщик: у поставщика нет
                     -- окна, только его номер. Ответа не ждём — закрытое окно
                     -- гасит и этот процесс.
-                    process.send(target, "desktop.close", {id = id})
+                    assert(desktop_api.close(id))
+                    break
                 end
             end
         else

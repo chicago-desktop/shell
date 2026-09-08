@@ -10,6 +10,9 @@
 -- искать ошибку в своём приложении, где её нет.
 local test = require("test")
 local catalog = require("catalog")
+local view = require("view")
+local chrome = require("chrome")
+local model = require("model")
 
 local function record(id, meta)
     return {id = id, kind = "process.lua", meta = meta}
@@ -17,20 +20,83 @@ end
 
 local function define_tests()
     test.describe("butschster.windows catalog", function()
+    test.it("reads the host's exact clock entry", function()
+        local entry, err = catalog.taskbar_clock()
+        test.is_nil(err)
+        test.eq(entry, "app:grouped_probe")
+    end)
+
+        test.it("сохраняет meta.image до стола, меню и проводника", function()
+            for _, name in ipairs({"printer", "unknown_icon"}) do
+                -- `group = ""` держит программу на корне: проверка про значок,
+                -- а первая строка корня иначе была бы папкой по умолчанию.
+                local built = catalog.build({record("app:printer", {
+                    type = "tui_desktop.window", title = "Печать", image = name, group = "",
+                })})
+                local items = {{id = "print", kind = "shortcut", entry = "app:printer"}}
+                test.eq(built.programs[1].image, name)
+                test.eq(view.join(items, built)[1].image, name)
+                local menu = chrome.menu_layout(100, 30, catalog.menu_items(built.programs), nil, nil, 1, nil)
+                test.eq(menu.panels[1].lines[1].image, name)
+                test.eq(model.programs(built.programs)[1].image, name)
+                test.eq(model.desktop(items, built.programs)[1].image, name)
+            end
+        end)
+
+        test.it("объявление стенда даёт значок одному entry, сохраняя meta.image программы", function()
+            local built = catalog.build({
+                record("app:a", {title = "Одинаковое имя"}),
+                record("app:b", {title = "Одинаковое имя", image = "printer"}),
+            })
+            local ok, why = catalog.assign_images(built.programs, {{data = {images = {
+                ["app:a"] = "clock", ["app:b"] = "calculator",
+            }}}})
+            test.is_nil(why)
+            test.is_true(ok)
+            test.eq(catalog.find(built.programs, "app:a").image, "clock")
+            test.eq(catalog.find(built.programs, "app:b").image, "printer")
+            ok, why = catalog.assign_images(built.programs, {
+                {data = {images = {["app:a"] = "clock"}}},
+                {data = {images = {["app:a"] = "calculator"}}},
+            })
+            test.is_nil(ok)
+            test.not_nil(why)
+        end)
+
+        test.it("читает значки стенда из реестра и одинаково передаёт их столу и Пуску", function()
+            local found, why = catalog.list()
+            test.is_nil(why)
+            local probe = catalog.find(found.programs, "app:grouped_probe")
+            test.eq(probe.image, "clock")
+            local menu = catalog.menu_items(found.programs)
+            test.eq(catalog.find(menu, probe.entry).image, probe.image)
+            local joined = view.join({{id = "probe", kind = "shortcut", entry = probe.entry}}, found)
+            test.eq(joined[1].image, probe.image)
+            local computer = catalog.find(found.programs, "butschster.windows.explorer:window")
+            test.eq(computer.image, "my_computer")
+        end)
+
         test.it("собирает папки меню из meta.group", function()
             local built = catalog.build({
                 record("app:net", {type = "tui_desktop.window", title = "Сеть",
                     group = "Служебные/Связь"}),
                 record("app:disk", {type = "tui_desktop.window", title = "Диск",
                     group = "Служебные"}),
-                record("app:root", {type = "tui_desktop.window", title = "Корень"}),
+                record("app:root", {type = "tui_desktop.window", title = "Корень", group = ""}),
+                record("app:plain", {type = "tui_desktop.window", title = "Безымянная"}),
             })
 
-            test.eq(#built.tree.programs, 1, "программа без группы лежит в корне")
+            -- Корень — только по явному `group = ""`. Программа, не назвавшая
+            -- папку, ложится в DEFAULT_GROUP: иначе каждое окно из мастерской
+            -- (у него `meta.group` взяться неоткуда) росло бы корнем.
+            test.eq(#built.tree.programs, 1, "на корне только та, что попросила корень")
             test.eq(built.tree.programs[1].title, "Корень")
 
-            test.eq(#built.tree.folders, 1, "папка заводится тем, что в неё положили")
-            local service = built.tree.folders[1]
+            test.eq(#built.tree.folders, 2, "папка заводится тем, что в неё положили")
+            local default = built.tree.folders[1]
+            test.eq(default.title, catalog.DEFAULT_GROUP, "безымянная — в папке по умолчанию")
+            test.eq(default.programs[1].title, "Безымянная")
+            local service = built.tree.folders[2]
             test.eq(service.title, "Служебные")
             test.eq(#service.programs, 1)
             test.eq(service.programs[1].title, "Диск")
@@ -116,9 +182,9 @@ local function define_tests()
             -- из каталога — ярлык на столе стал бы битым, и человек прочитал
             -- бы это как «программы больше нет».
             local built = catalog.build({
-                {id = "app:visible", meta = {type = "tui_desktop.window", title = "Видимая"}},
+                {id = "app:visible", meta = {type = "tui_desktop.window", title = "Видимая", group = ""}},
                 {id = "app:hidden", meta = {type = "tui_desktop.window", title = "Скрытая",
-                                            in_menu = false}},
+                                            group = "", in_menu = false}},
             })
             test.eq(#built.programs, 2, "каталог держит обе")
             test.eq(#built.tree.programs, 1, "в меню только одна")
@@ -163,7 +229,8 @@ local function define_tests()
                 {id = "app:odd", meta = {type = "tui_desktop.window", window_type = "popup"}},
                 {id = "app:fine", meta = {type = "tui_desktop.window", window_type = "dialog"}},
             })
-            test.eq(#built.tree.programs, 2, "показываются обе")
+            test.eq(#built.tree.folders, 1, "обе без папки — в папке по умолчанию")
+            test.eq(#built.tree.folders[1].programs, 2, "показываются обе")
             test.eq(#built.warnings, 1)
             test.eq(built.warnings[1].entry, "app:odd")
             test.eq(built.warnings[1].window_type, "popup")

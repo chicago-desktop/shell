@@ -15,6 +15,8 @@
 -- строки файла три строки на экране, и номер строки в статусе врал бы.
 
 local channel = require("channel")
+local input = require("input")
+local scroll = require("scroll")
 local tty = require("tty")
 
 local files = require("files")
@@ -28,11 +30,11 @@ local styles = widgets.styles
 -- Разбить строку на символы UTF-8. Библиотеки `utf8` в Lua рантайма нет —
 -- окно с `utf8.codes` умирало на первом кадре, и снаружи это выглядело как
 -- «щёлкнул — ничего не открылось».
-local UTF8_CHAR = "[%z\1-\127\194-\244][\128-\191]*"
+local text_lib = require("text")
+local UTF8_CHAR = text_lib.RUNE
 
-local function whole(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
-end
+local geometry = require("geometry")
+local whole = geometry.whole
 
 -- Файл → строки. Табуляция раскрывается пробелами: терминал рисует её сам и
 -- по-своему, и колонка, посчитанная здесь, не совпала бы с экраном.
@@ -78,7 +80,7 @@ local function draw(out, canvas, width: any, height: any, doc: any)
     for row = 1, text_rows do canvas:put(1, row, blank, w) end
 
     if doc.failure then
-        canvas:put(2, 1, widgets.fit(styles.field, tostring(doc.failure), w - 2), w - 2)
+        if w > 2 then canvas:put(2, 1, widgets.fit(styles.field, tostring(doc.failure), w - 2), w - 2) end
     else
         for row = 1, text_rows do
             local line = doc.lines[doc.top + row]
@@ -109,8 +111,7 @@ local function main(argument)
 
     local width, height = tty.screen_size()
     width, height = whole(width), whole(height)
-    if width < 10 then width = 60 end
-    if height < 3 then height = 18 end
+    width, height = whole(math.max(1, width)), whole(math.max(1, height))
 
     local doc: any = {lines = {}, top = 0, left = 0, name = "", size = 0, failure = nil}
 
@@ -128,26 +129,27 @@ local function main(argument)
         end
     end
 
+    local longest = 0
+    for _, line in ipairs(doc.lines) do longest = math.max(longest, widgets.cells(line)) end
     local canvas = tty.canvas(width, height)
     draw(out, canvas, width, height, doc)
 
     local function page(): integer return whole(math.max(1, height - 1)) end
     local function scroll_to(wanted: any)
-        local max_top = math.max(0, #doc.lines - page())
-        doc.top = math.max(0, math.min(max_top, whole(wanted)))
+        doc.top = scroll.clamp(wanted, #doc.lines, page())
     end
 
     while true do
         local selected = channel.select({events:case_receive()})
         if not selected.ok then break end
-        local event = selected.value
+        local event = input.normalize(selected.value)
 
         if event.type == "close" then
             break
         elseif event.type == "resize" then
             local w, h = whole(event.width), whole(event.height)
-            if w >= 10 then width = w end
-            if h >= 3 then height = h end
+            width, height = whole(math.max(1, w)), whole(math.max(1, h))
+            doc.left = scroll.clamp(doc.left, longest, width - 1)
             canvas = tty.canvas(width, height)
             scroll_to(doc.top)
             draw(out, canvas, width, height, doc)
@@ -159,7 +161,7 @@ local function main(argument)
             elseif key == "pgup" then scroll_to(doc.top - page())
             elseif key == "home" then scroll_to(0); doc.left = 0
             elseif key == "end" then scroll_to(#doc.lines)
-            elseif key == "right" then doc.left = doc.left + 8
+            elseif key == "right" then doc.left = scroll.clamp(doc.left + 8, longest, width - 1)
             elseif key == "left" then doc.left = math.max(0, doc.left - 8)
             end
             draw(out, canvas, width, height, doc)

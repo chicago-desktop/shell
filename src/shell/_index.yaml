@@ -48,6 +48,8 @@ entries:
     modules:
       - tty
     imports:
+      text: butschster.tui_desktop.desktop:text
+      scroll: butschster.tui_desktop.desktop:scroll
       glyphs: butschster.windows.shell:glyphs
       palette: butschster.windows.shell:palette
 
@@ -62,6 +64,7 @@ entries:
     modules:
       - tty
     imports:
+      geometry: butschster.tui_desktop.desktop:geometry
       glyphs: butschster.windows.shell:glyphs
       palette: butschster.windows.shell:palette
 
@@ -77,8 +80,12 @@ entries:
     source: file://pixels.lua
     modules:
       - gfx
+      - logger
     imports:
+      text: butschster.tui_desktop.desktop:text
+      geometry: butschster.tui_desktop.desktop:geometry
       palette: butschster.windows.shell:palette
+      images: butschster.windows.shell:images
 
   # butschster.windows.shell:rasters
   #
@@ -91,6 +98,8 @@ entries:
     meta:
       comment: Хранилище растров между кадрами — отдаёт растр по имени и ключу состояния и говорит, надо ли в него рисовать; чего в кадре не назвали, то уходит с экрана.
     source: file://rasters.lua
+    imports:
+      geometry: butschster.tui_desktop.desktop:geometry
     modules:
       - gfx
 
@@ -107,6 +116,7 @@ entries:
     modules:
       - gfx
     imports:
+      geometry: butschster.tui_desktop.desktop:geometry
       # Состав кнопок заголовка берётся у темы в ячейках: одна таблица на оба
       # режима. Второй список разошёлся бы с первым, и у диалога в пикселях
       # оказалось бы три кнопки, а в ячейках две.
@@ -116,6 +126,14 @@ entries:
       pixels: butschster.windows.shell:pixels
       rasters: butschster.windows.shell:rasters
       widgets: butschster.windows.shell:widgets
+      explorer_layout: butschster.windows.explorer:render
+      explorer_pixels: butschster.windows.explorer:render_pixels
+      # Окна-виды. Композитор не умеет загрузить библиотеку по id из записи
+      # окна — require знает только imports, — поэтому каждый render
+      # импортирован сюда статически и назван в VIEWS темы.
+      datetime_render: butschster.windows.datetime:render
+      picture_render: butschster.windows.viewers:picture_render
+      sdk_render: butschster.windows.sdk:render
 
   # butschster.windows.shell:chrome
   #

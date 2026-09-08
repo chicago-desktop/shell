@@ -17,10 +17,12 @@ SRC = HERE.parent.parent / "src"
 # Порядок важен: каждый файл заворачивается на месте своей метки, а метки в
 # harness.lua идут в порядке зависимостей.
 MODULES = (
+    ("core", "scroll"),
     ("shell", "palette"),
     ("shell", "glyphs"),
     ("shell", "widgets"),
     ("shell", "icons"),
+    ("shell", "images"),
     ("shell", "pixels"),
     ("shell", "rasters"),
     ("shell", "chrome"),
@@ -31,7 +33,10 @@ MODULES = (
 
 
 def wrapped(folder: str, name: str) -> str:
-    source = (SRC / folder / f"{name}.lua").read_text(encoding="utf-8")
+    path = SRC / folder / f"{name}.lua"
+    if folder == "core":
+        path = SRC.parent.parent / "kickside-module" / "src" / "desktop" / f"{name}.lua"
+    source = path.read_text(encoding="utf-8")
     return "(function()\n" + source + "\nend)()"
 
 

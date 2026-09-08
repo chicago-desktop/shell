@@ -117,6 +117,19 @@ function chrome.buttons_for(window)
     local kind: any = spec.window_type
     local set: any = type(kind) == "string" and chrome.BUTTON_SETS[kind] or nil
     if not set then set = chrome.BUTTONS end
+    -- Окно с фиксированным размером (`meta.resizable: false`) не
+    -- разворачивается, и кнопки «развернуть» у него нет — как у калькулятора
+    -- Windows 95. Признак кладёт композитор основы из записи; фильтр здесь,
+    -- а не третий набор в BUTTON_SETS: размер фиксируют и обычные окна, и
+    -- служебные, и заводить по набору на каждое сочетание значило бы
+    -- размножить таблицу, которая обязана оставаться одной.
+    if spec.resizable == false then
+        local kept = {}
+        for _, button in ipairs(set) do
+            if button.id ~= "maximize" then kept[#kept + 1] = button end
+        end
+        set = kept
+    end
     return set, #set * chrome.BUTTON_STEP
 end
 
@@ -186,7 +199,10 @@ local MENU_MIN = 22
 -- всегда. Порог оставлен, но опущен до ширины, на которой панель ещё не
 -- выглядит стиснутой.
 local MENU_BANNER_AT = 18
-local MENU_BANNER = "WINDOWS 95"
+-- Надпись вдоль меню. Это НЕ Windows: оболочка рисует стенд wippy, и
+-- баннер называет его. Десять знаков, как у оригинала, — ровно столько
+-- строк отдаёт панель на низком экране.
+local MENU_BANNER = "WIPPY 2026"
 
 -- Надпись отдана наружу: пиксельная тема рисует её поворотом целой строки, а
 -- не по буквам, и своя копия текста разошлась бы с этой — тем же способом,
@@ -388,6 +404,14 @@ chrome.title_bar = title_bar
 --
 -- `rows` — массив строк, как его отдаёт viewport:snapshot(). Он общий и
 -- неизменяемый, поэтому кладётся как есть: put_rows сам обрежет по ширине.
+-- PTY windows need stable defaults through SGR 0/39/49, independent of the
+-- outer terminal theme. Explicit application colors remain authoritative.
+local console_colors = {foreground = color.console_text, background = color.console_bg}
+function chrome.content_colors(window)
+    if window.entry == "butschster.tui_desktop.desktop:window_pty" then return console_colors end
+    return nil
+end
+
 function chrome.window(canvas, window, focused)
     local hits = {}
     local x, y = whole(window.x), whole(window.y)
@@ -415,6 +439,14 @@ function chrome.window(canvas, window, focused)
     -- рамки, поэтому лишняя строка нарисовалась бы поверх нижней грани и за
     -- пределами окна. Читается это как сломанная рамка, а не как отставший
     -- кадр.
+    local defaults = chrome.content_colors(window)
+    if defaults then
+        local width = w - inset.left - inset.right
+        local blank = styles.console:render(string.rep(" ", width))
+        for row = inset.top, h - inset.bottom - 1 do
+            canvas:put(x + inset.left, y + row, blank, width)
+        end
+    end
     if window.rows then
         local room = h - inset.top - inset.bottom
         local body = window.rows
@@ -422,7 +454,7 @@ function chrome.window(canvas, window, focused)
             body = {}
             for row = 1, room do body[row] = window.rows[row] end
         end
-        canvas:put_rows(x + inset.left, y + inset.top, body, w - inset.left - inset.right)
+        canvas:put_rows(x + inset.left, y + inset.top, body, w - inset.left - inset.right, defaults)
     end
 
     return hits
@@ -460,7 +492,7 @@ function chrome.bars(canvas, width: any, height: any, state)
     end
     hits[#hits + 1] = {row = row, from = 1, to = used, action = "menu"}
 
-    -- Часы. Утопленное поле, а не кнопка: нажимать не на что.
+    -- Утопленное поле часов открывает окно, объявленное хостом.
     local clock = type(bar.clock) == "string" and bar.clock or ""
     local clock_render, clock_cells = "", 0
     if clock ~= "" then
@@ -529,7 +561,15 @@ function chrome.bars(canvas, width: any, height: any, state)
         parts[#parts + 1] = styles.face:render(string.rep(" ", rest))
         used = used + rest
     end
-    if clock_cells > 0 then parts[#parts + 1] = clock_render end
+    if clock_cells > 0 then
+        parts[#parts + 1] = clock_render
+        if chrome.clock_entry then
+            hits[#hits + 1] = {row = row, from = w - clock_cells + 1, to = w,
+                -- Заголовка здесь нет нарочно: окно называет его запись, и
+                -- «Часы» поверх «Дата и время» читалось бы как другое окно.
+                entry = chrome.clock_entry}
+        end
+    end
 
     canvas:put(1, row, table.concat(parts), w)
     return hits
@@ -548,7 +588,7 @@ local function order_of(item)
 end
 
 local function new_node()
-    return {names = {}, groups = {}, programs = {}}
+    return {names = {}, groups = {}, programs = {}, order = math.huge}
 end
 
 -- Папка меню задаётся путём в `meta.group`, а не отдельной записью: папка
@@ -574,6 +614,7 @@ end
 local function place(root, index, item)
     local node = root
     local path: any = type(item.group) == "table" and item.group or {}
+    local order = order_of(item)
     for _, part in ipairs(path) do
         local name = tostring(part)
         if name ~= "" then
@@ -583,32 +624,49 @@ local function place(root, index, item)
                 node.groups[name] = child
                 node.names[#node.names + 1] = name
             end
+            -- Папка встаёт туда, где её самая ранняя программа: «Программы»
+            -- выше «Настройки» потому, что так расставлены их пункты, а не
+            -- по алфавиту — алфавит ставил бы наоборот. То же правило, что
+            -- у `catalog.tree`: два порядка одного меню разъехались бы молча.
+            if order < child.order then child.order = order end
             node = child
         end
     end
     node.programs[#node.programs + 1] = {index = index, item = item}
 end
 
--- Строки одной панели: сперва папки, потом программы. Отступов нет
+-- Строки одной панели: папки и программы ВМЕСТЕ, по `order`; папка стоит
+-- там, где её самая ранняя программа. Раньше папки шли первыми всегда, и
+-- «Мой компьютер» нельзя было положить над «Программами», как в Windows.
+-- Между равными — папка раньше программы, дальше алфавит. Отступов нет
 -- НАРОЧНО: вложенность показывает отдельная панель, а не сдвиг вправо.
 -- Отступами дерево читается как список, и это была не мелочь — по списку
 -- не видно, что папка раскрывается.
 local function panel_lines(node)
     local lines = {}
-    table.sort(node.names)
     for _, name in ipairs(node.names) do
-        lines[#lines + 1] = {kind = "group", text = name}
+        lines[#lines + 1] = {kind = "group", text = name, order = node.groups[name].order}
     end
-    table.sort(node.programs, function(left, right)
-        local lo, ro = order_of(left.item), order_of(right.item)
-        if lo ~= ro then return lo < ro end
-        return title_of(left.item) < title_of(right.item)
-    end)
     for _, program in ipairs(node.programs) do
         lines[#lines + 1] = {
             kind = "item", index = program.index, item = program.item,
-            text = title_of(program.item),
+            text = title_of(program.item), order = order_of(program.item),
         }
+    end
+    table.sort(lines, function(left, right)
+        if left.order ~= right.order then return left.order < right.order end
+        if left.kind ~= right.kind then return left.kind == "group" end
+        return left.text < right.text
+    end)
+    -- Разделитель — свойство СТРОКИ, а не программы: его просит либо сама
+    -- программа (`separator_before`, так у «Завершения работы»), либо
+    -- предыдущая (`separator_after` — так «Мой компьютер» отделяется от
+    -- папок под ним). Папке просить нечем, поэтому считается здесь.
+    for index, line in ipairs(lines) do
+        local own = line.item and line.item.separator_before
+        local prev = lines[index - 1]
+        local after = prev and prev.item and prev.item.separator_after
+        line.separator_before = (own or after) and true or nil
     end
     return lines
 end
@@ -671,13 +729,18 @@ end
 --           ширина вертикальной надписи и строки с их видом
 --   hits    разметка попаданий, как раньше
 --   notice  панель отказа или пустого каталога, когда каскада нет вовсе
-function chrome.menu_layout(width: any, height: any, items, failure, open, cursor: any): any
+function chrome.menu_layout(width: any, height: any, items, failure, open, cursor: any, metrics: any): any
     local out: any = {panels = {}, hits = {}, notice = nil}
+    local sizing: any = type(metrics) == "table" and metrics or {}
+    local compact = sizing.compact == true
+    local minimum = compact and 12 or MENU_MIN
+    local padding = compact and 0 or 2
     local w, h = whole(width), whole(height)
     if w < 8 or h < 4 then return out end
 
     local catalog = type(items) == "table" and items or {}
-    local room = h - 1 - 2
+    local bottom = h - math.max(1, whole(sizing.bottom or 1))
+    local room = bottom - 2
     if room < 1 then return out end
 
     -- Отказ реестра и пустой каталог обязаны различаться на экране:
@@ -700,7 +763,7 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
         end
         if #body > room then for index = #body, room + 1, -1 do body[index] = nil end end
 
-        out.notice = {x = 1, y = h - 1 - (#body + 2) + 1, w = box_w, h = #body + 2,
+        out.notice = {x = 1, y = bottom - (#body + 2) + 1, w = box_w, h = #body + 2,
                       list_w = list_w, lines = body}
         return out
     end
@@ -739,36 +802,44 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
         for _, line in ipairs(lines) do
             local text, tail = line_text(line)
             local size = cells(text) + cells(tail) + 1
+            if type(sizing.measure) == "function" then
+                size = whole(sizing.measure(tostring(line.text or "")))
+            end
             if size > widest then widest = size end
         end
 
         local banner_w = 0
         if level == 1 and widest + 2 + 2 <= w and widest + 2 >= MENU_BANNER_AT then banner_w = 2 end
         local box_w = widest + banner_w + 2
-        if box_w < MENU_MIN then box_w = MENU_MIN end
+        if box_w < minimum then box_w = minimum end
         if box_w > w - left + 1 then box_w = w - left + 1 end
         if box_w > w then box_w = w end
         local list_w = box_w - 2 - banner_w
         if list_w < 4 then break end
 
-        if #lines > room then
-            local shown = 0
-            for index = 1, room - 1 do
-                if lines[index].kind == "item" then shown = shown + 1 end
+        local span = math.max(1, whole(level == 1 and sizing.root_rows or sizing.item_rows or 1))
+        local capacity = math.max(1, room // span)
+        if #lines > capacity then
+            local last: any = lines[#lines]
+            local footer = level == 1 and last.item and last.item.action == "quit" and last or nil
+            local keep = math.max(0, capacity - (footer and 2 or 1))
+            local hidden = #lines - keep - (footer and 1 or 0)
+            for index = #lines, keep + 1, -1 do lines[index] = nil end
+            if capacity > 1 or not footer then
+                lines[#lines + 1] = {kind = "hint", text = "…ещё " .. hidden}
             end
-            for index = #lines, room, -1 do lines[index] = nil end
-            lines[room] = {kind = "hint", text = "…ещё " .. (#node.programs - shown)}
+            if footer then lines[#lines + 1] = footer end
         end
 
-        local box_h = #lines + 2
+        local box_h = #lines * span + padding
         -- Корневая панель стоит над «Пуском»; подменю выравнивается своей
         -- первой строкой по строке той папки, которая его раскрыла.
         local top
         if level == 1 then
-            top = h - 1 - box_h + 1
+            top = bottom - box_h + 1
         else
-            top = parent_row - 1
-            if top + box_h - 1 > h - 1 then top = h - 1 - box_h + 1 end
+            top = parent_row - (compact and 0 or 1)
+            if top + box_h - 1 > bottom then top = bottom - box_h + 1 end
         end
         if top < 1 then top = 1 end
 
@@ -776,7 +847,7 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
                               list_w = list_w, banner = banner_w, level = level, lines = {}}
 
         for index, line in ipairs(lines) do
-            local row = top + index
+            local row = top + (index - 1) * span + (compact and 0 or 1)
             local text, tail = line_text(line)
             local selectable = line.kind == "item" or line.kind == "group"
             if selectable then slot = slot + 1 end
@@ -803,8 +874,10 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
             -- пустота — на первом же снимке меню это и вышло. Пиксельный
             -- бэкенд рисует значок примитивом и берёт `label`.
             painted.lines[#painted.lines + 1] = {
-                kind = line.kind, text = text, tail = tail, row = row,
+                kind = line.kind, text = text, tail = tail, row = row, rows = span,
                 label = tostring(line.text or ""),
+                entry = line.item and line.item.entry, image = line.item and line.item.image,
+                separator_before = line.separator_before,
                 arrow = line.kind == "group",
                 selected = under_cursor or expanded, bold = line.kind == "group",
                 dim = line.kind == "hint", banner_letter = letter,
@@ -812,7 +885,7 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
 
             if line.kind == "item" then
                 out.hits[#out.hits + 1] = {
-                    row = row, from = left + 1 + banner_w,
+                    row = row, bottom_row = span > 1 and row + span - 1 or nil, from = left + 1 + banner_w,
                     to = left + box_w - 2, index = line.index,
                     level = level, slot = slot, cursor = under_cursor or nil,
                 }
@@ -821,7 +894,7 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
                 for step = 1, level - 1 do target[step] = names[step] end
                 target[level] = line.text
                 out.hits[#out.hits + 1] = {
-                    row = row, from = left + 1 + banner_w,
+                    row = row, bottom_row = span > 1 and row + span - 1 or nil, from = left + 1 + banner_w,
                     to = left + box_w - 2, open = target,
                     level = level, slot = slot, cursor = under_cursor or nil,
                 }
@@ -840,7 +913,7 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
 end
 
 function chrome.menu(canvas, width: any, height: any, items, failure, open, cursor: any)
-    local shown = chrome.menu_layout(width, height, items, failure, open, cursor)
+    local shown = chrome.menu_layout(width, height, items, failure, open, cursor, nil)
 
     if shown.notice then
         local body = {}
@@ -882,6 +955,27 @@ end
 
 -- Подсказка на пустом столе — серая табличка посреди бирюзового: белый текст
 -- прямо на столе читается как обои, а не как сообщение.
+-- Экран прощания после «Завершения работы»: чёрный экран и надпись, которую
+-- Windows 95 показывала, когда уже можно выключать питание. Композитор
+-- держит его FAREWELL_HOLD секунд и только потом гасит приложение — так
+-- выключение выглядит выключением, а не обрывом.
+chrome.FAREWELL_HOLD = 5
+chrome.FAREWELL_TEXT = "Теперь питание компьютера можно отключить."
+
+function chrome.farewell(canvas, width: any, height: any)
+    canvas:clear(styles.farewell:render(" "))
+    local w, h = whole(width), whole(height)
+    if w < 4 or h < 1 then return nil end
+    local message = clip(chrome.FAREWELL_TEXT, w - 2)
+    local span = cells(message)
+    local left = (w - span) // 2 + 1
+    if left < 1 then left = 1 end
+    local row = h // 2
+    if row < 1 then row = 1 end
+    canvas:put(left, row, styles.farewell:render(message), span)
+    return nil
+end
+
 function chrome.empty_desktop(canvas, width: any, height: any, text)
     local w, h = whole(width), whole(height)
     if w < 6 or h < 3 then return end

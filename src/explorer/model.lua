@@ -8,7 +8,8 @@
 -- предметом, которого не существует, и первым вопросом было бы, почему он не
 -- открывается.
 --
--- Кроме дисков окно показывает три источника, и все три оболочка УЖЕ читает
+-- Корень показывает только диски. Для открытых напрямую папок стола и
+-- служебных путей остаются отдельные модели источников; оболочка их читает
 -- по другим поводам:
 --
 --   Программы      — каталог реестра, тот же, что наполняет меню «Пуск»
@@ -33,15 +34,11 @@ local model = {}
 
 model.ROOT = ""
 
--- Папки верхнего уровня. Порядок задан здесь и не сортируется: «Программы»
--- первыми, потому что за ними чаще всего и приходят. Стоят они ПОСЛЕ дисков,
--- как «Панель управления» в настоящем «Моём компьютере»: сначала то, из чего
--- стенд состоит, потом то, чем его настраивают.
-model.FOLDERS = {
-    {id = "programs", title = "Программы", icon = "▤"},
-    {id = "desktop", title = "Рабочий стол", icon = "▣"},
-    {id = "windows", title = "Открытые окна", icon = "◫"},
-}
+-- Filesystem kinds supported by the installed runtime. Discovery and object
+-- construction share this list, so non-filesystem registry entries stay out.
+model.DRIVE_KINDS = {"fs.directory", "fs.embed"}
+local drive_kinds = {}
+for _, kind in ipairs(model.DRIVE_KINDS) do drive_kinds[kind] = true end
 
 model.DEFAULT_ICON = "▢"
 model.BROKEN_ICON = "▨"
@@ -159,11 +156,9 @@ local function object(fields: any)
         kind = fields.kind,
         title = fields.title,
         icon = fields.icon,
+        image = fields.image, entry = fields.entry, broken = fields.broken,
         detail = fields.detail,
         open = fields.open,
-        -- Значок из реестра типов; без поля здесь он молча терялся бы —
-        -- список полей и есть контракт объекта.
-        image = fields.image,
     }
 end
 
@@ -196,7 +191,7 @@ function model.drives(records: any)
 
     for _, entry in ipairs(type(records) == "table" and records or {}) do
         local record: any = entry
-        if type(record.id) == "string" and record.id ~= "" then
+        if type(record.id) == "string" and record.id ~= "" and drive_kinds[record.kind] then
             local space, name = string.match(record.id, "^([^:]*):(.+)$")
             if not name then space, name = "", record.id end
             seen[name] = (seen[name] or 0) + 1
@@ -289,29 +284,10 @@ function model.files(entries: any, path: any, drive: any, sub: any, programs: an
     return out
 end
 
--- Корень: диски из реестра, за ними три папки со счётчиком объектов внутри.
--- Счётчик — не украшение: пустая папка и папка, которую не удалось прочитать,
--- обязаны отличаться, и `nil` здесь означает второе.
---
--- У дисков счётчика нет и не будет: чтобы его показать, пришлось бы открыть
--- и прочитать каждую из десятков файловых систем при каждом открытии окна.
-function model.root(counts: any, drives: any)
-    local out = {}
-    for _, drive in ipairs(type(drives) == "table" and drives or {}) do
-        out[#out + 1] = drive
-    end
-    for _, folder in ipairs(model.FOLDERS) do
-        local count = type(counts) == "table" and counts[folder.id] or nil
-        out[#out + 1] = object({
-            id = folder.id,
-            kind = "folder",
-            title = folder.title,
-            icon = folder.icon,
-            detail = count and (tostring(count) .. " объектов") or "не прочитано",
-            open = {action = "folder", path = folder.id},
-        })
-    end
-    return out
+-- My Computer contains filesystem entries only; other shell objects are
+-- reached through their own menu or desktop folder.
+function model.root(records: any)
+    return model.drives(records)
 end
 
 -- Программы каталога. Плоско, без папок меню: в окне проводника папки меню
@@ -325,6 +301,7 @@ function model.programs(programs: any)
             kind = "program",
             title = program.title,
             icon = program.icon or model.DEFAULT_ICON,
+            image = program.image, entry = program.entry,
             detail = program.entry,
             open = {
                 action = "open_window",
@@ -363,6 +340,8 @@ function model.desktop(items: any, programs: any)
                 kind = "shortcut",
                 title = item.title,
                 icon = program and (program.icon or model.DEFAULT_ICON) or model.BROKEN_ICON,
+                image = program and program.image, entry = item.entry,
+                broken = programs ~= nil and program == nil or nil,
                 detail = program and item.entry or ("нет программы: " .. tostring(item.entry)),
                 open = program and {
                     action = "open_window",

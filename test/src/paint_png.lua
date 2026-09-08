@@ -17,10 +17,22 @@ local fs = require("fs")
 local gfx = require("gfx")
 
 local pixels = require("pixels")
+local images = require("images")
+local catalog = require("catalog")
+local desktop_view = require("desktop_view")
+local model = require("model")
 local rasters = require("rasters")
 local chrome_pixels = require("chrome_pixels")
+local ui = require("ui")
+local run_window = require("run_window")
 local render = require("render")
 local render_pixels = require("render_pixels")
+local dt_render = require("dt_render")
+local calc_window = require("calc_window")
+local taskman_window = require("taskman_window")
+local sdk_render = require("sdk_render")
+local reg_model = require("reg_model")
+local regedit = require("regedit_window")
 
 -- Размер ячейки. У этой команды терминала НЕТ — она пишет файлы, а не рисует
 -- на экране, — поэтому `gfx.cell_size()` здесь честно молчит, и это измерено,
@@ -313,12 +325,14 @@ local function main(spec)
     -- `blit` собирает их в один растр по тем же координатам, по которым их
     -- положит поверхность, — то есть снимок врёт ровно настолько, насколько
     -- врут координаты, и ни на сколько больше.
-    local function screen_shot()
+    local function screen_shot(file, notice)
         chrome_pixels.use_fonts(font, bold)
 
         local cols, rows = 100, 28
+        chrome_pixels.use_cell_size(cell.w, cell.h)
+        local layout = chrome_pixels.layout(cols, rows)
         local state: any = {
-            width = cols, height = rows, top = 1, bottom = rows - 1,
+            width = cols, height = rows, top = 1, bottom = rows - layout.bottom,
             windows = {
                 {id = "w1", title = "Командная строка", x = 20, y = 4, w = 52, h = 14,
                  window_type = "app"},
@@ -327,10 +341,10 @@ local function main(spec)
             },
             focused_id = "w2",
             items = {
-                {id = "s1", kind = "shortcut", entry = "app:computer",
+                {id = "s1", kind = "shortcut", entry = "butschster.windows.explorer:window",
                  title = "Мой компьютер", x = 2, y = 1},
                 {id = "f1", kind = "folder", title = "Программы", x = 2, y = 5},
-                {id = "s2", kind = "shortcut", entry = "app:bin", title = "Корзина", x = 2, y = 9},
+                {id = "s2", kind = "shortcut", entry = "app:bin", image = "recycle_bin", title = "Корзина", x = 2, y = 9},
                 {id = "s3", kind = "shortcut", entry = "app:gone", title = "Старая программа",
                  x = 2, y = 13, broken = true},
             },
@@ -339,23 +353,32 @@ local function main(spec)
             status = "Свойства системы · 40x7 · окон: 2",
             menu = {open = {"Программы"}, cursor = 2, items = {
                 {entry = "app:calc", title = "Калькулятор", icon = "▣",
-                 group = "Программы"},
-                {entry = "app:notepad", title = "Блокнот", group = "Программы"},
-                {entry = "app:paint", title = "Графический редактор", group = "Программы"},
-                {entry = "app:ping", title = "Пинг", group = "Программы/Связь"},
+                 group = {"Программы"}},
+                {entry = "app:notepad", title = "Блокнот", group = {"Программы"}},
+                {entry = "app:paint", title = "Графический редактор", group = {"Программы"}},
+                {entry = "app:ping", title = "Пинг", group = {"Программы", "Связь"}},
                 {entry = "app:bash", title = "Сеанс MS-DOS"},
-                {entry = "app:docs", title = "Документы"},
-                {entry = "app:settings", title = "Настройка"},
-                {entry = "app:shutdown", title = "Завершение работы"},
+                {entry = "app:docs", image = "documents", title = "Документы"},
+                {entry = "app:settings", image = "settings", title = "Настройка"},
+                {entry = "app:shutdown", image = "shutdown", title = "Завершение работы"},
             }},
         }
 
+        if notice then
+            state.menu = {items = {}}
+            if notice == "failure" then state.menu.failure = "реестр временно недоступен" end
+        end
         local painted = chrome_pixels.paint(state, cell.w, cell.h)
         local screen = gfx.raster(cols * cell.w, rows * cell.h)
         -- Стол заливкой: в живом кадре это стили ЯЧЕЕК, а не картинка
         -- (FR-005 §3а). Здесь он закрашен, чтобы снимок показывал то же, что
         -- увидит человек, — но в кадр такой растр не попадает никогда.
         screen:fill(color_desktop)
+        for _, window in ipairs(state.windows) do
+            screen:rect((window.x - 1) * cell.w + 1, (window.y - 1) * cell.h + 1,
+                window.w * cell.w, window.h * cell.h,
+                window.window_type == "dialog" and "#c0c0c0" or "#ffffff")
+        end
 
         for _, item in ipairs(painted.placements) do
             screen:blit(item.raster, (item.x - 1) * cell.w + 1, (item.y - 1) * cell.h + 1)
@@ -363,18 +386,190 @@ local function main(spec)
 
         local bytes = screen:encode("png")
         if bytes then
-            store_shots:writefile("desktop.png", bytes)
-            say(string.format("экран: размещений %d, значков %d, кнопок панели %d, пунктов меню %d → desktop.png",
+            store_shots:writefile(file, bytes)
+            say(string.format("экран: размещений %d, значков %d, кнопок панели %d, пунктов меню %d → %s",
                 #painted.placements, #painted.hits.desktop, #painted.hits.bars,
-                #painted.hits.menu))
+                #painted.hits.menu, file))
         end
+    end
+
+    -- Same catalog adapter and desktop join as the live shell. This scene uses
+    -- the host's actual window identities, including runtime workshop windows.
+    local function menu_icons_shot()
+        chrome_pixels.use_fonts(font, bold)
+        chrome_pixels.use_cell_size(cell.w, cell.h)
+        local records = {
+            {id = "butschster.windows.explorer:window", meta = {title = "Мой компьютер", image = "my_computer", order = 10}},
+            {id = "app.desktop:window_calc", meta = {title = "Калькулятор", image = "calculator", group = "Стандартные"}},
+            {id = "butschster.tui_desktop.apps:commander", meta = {title = "Обозреватель стенда"}},
+            {id = "butschster.tui_desktop.apps:dataflows", meta = {title = "Прогоны"}},
+            {id = "butschster.tui_desktop.apps:bridge_runs", meta = {title = "Прогоны работы"}},
+            {id = "butschster.tui_desktop.apps:bridge_jobs", meta = {title = "Работы бриджа"}},
+            {id = "butschster.tui_desktop.apps:dataflow_detail", meta = {title = "Узлы прогона"}},
+            {id = "butschster.tui_desktop.apps:clock", meta = {title = "Часы"}},
+        }
+        local built = catalog.build(records)
+        assert(catalog.assign_images(built.programs, {{data = {images = {
+            ["butschster.tui_desktop.apps:commander"] = "network_neighborhood",
+            ["butschster.tui_desktop.apps:dataflows"] = "run",
+            ["butschster.tui_desktop.apps:bridge_runs"] = "documents_stack",
+            ["butschster.tui_desktop.apps:bridge_jobs"] = "system",
+            ["butschster.tui_desktop.apps:dataflow_detail"] = "program_settings",
+            ["butschster.tui_desktop.apps:clock"] = "clock",
+        }}}}))
+        local items = desktop_view.join({
+            {id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window", title = "Мой компьютер", x = 2, y = 1},
+            {id = "programs", kind = "folder", title = "Программы", x = 2, y = 6},
+        }, built)
+        local state = {width = 100, height = 36, top = 1, bottom = 36 - chrome_pixels.layout(100, 36).bottom,
+            items = items, windows = {}, clock = "12:00",
+            menu = {items = catalog.menu_items(built.programs), open = {"Стандартные"}, cursor = 1}}
+        local painted = chrome_pixels.paint(state, cell.w, cell.h)
+        local canvas = gfx.raster(state.width * cell.w, state.height * cell.h)
+        canvas:fill(color_desktop)
+        for _, placement in ipairs(painted.placements) do
+            canvas:blit(placement.raster, (placement.x - 1) * cell.w + 1, (placement.y - 1) * cell.h + 1)
+        end
+        store_shots:writefile("menu-icons.png", assert(canvas:encode("png")))
+        say("каталог → меню и стол: menu-icons.png")
+    end
+
+    -- Same native window path that the compositor now uses for Explorer.
+    local function explorer_native_shot()
+        chrome_pixels.use_fonts(font, bold)
+        chrome_pixels.use_cell_size(cell.w, cell.h)
+        local records = {}
+        for _, name in ipairs({"app.desktop:system_fonts", "app:app_fs", "app:codex_store", "app:data_dir",
+            "app:system_fonts", "app:tmp", "app:uploads", "app:uploads_store", "butschster.blog:ui_fs",
+            "butschster.bridge:ui_fs", "butschster.windows:assets", "kickside:ui_fs"}) do
+            records[#records + 1] = {id = name, kind = "fs.directory"}
+        end
+        local objects = model.drives(records)
+        for index = #objects + 1, 65 do objects[index] = {id = "fs" .. index, kind = "drive", title = "Файловая система " .. index} end
+        local state: any = {width = 110, height = 34, top = 1,
+            bottom = 34 - chrome_pixels.layout(110, 34).bottom,
+            items = {{id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window",
+                title = "Мой компьютер", x = 10, y = 2},
+                {id = "programs", kind = "folder", title = "Программы", x = 20, y = 10}},
+            windows = {{id = "explorer", entry = "butschster.windows.explorer:window", image = "my_computer",
+                title = "Мой компьютер", window_type = "app", content = "pixels",
+                render = "butschster.windows.explorer:render_pixels", x = 34, y = 8, w = 64, h = 20,
+                content_state = {title = "Мой компьютер", objects = objects, selected = 0, offset = 0}}},
+            focused_id = "explorer", clock = "12:00"}
+        local painted = chrome_pixels.paint(state, cell.w, cell.h)
+        local canvas = gfx.raster(state.width * cell.w, state.height * cell.h)
+        canvas:fill(color_desktop)
+        for _, placement in ipairs(painted.placements) do
+            canvas:blit(placement.raster, (placement.x - 1) * cell.w + 1, (placement.y - 1) * cell.h + 1)
+        end
+        store_shots:writefile("explorer-native.png", assert(canvas:encode("png")))
+        say("пиксельное окно проводника: explorer-native.png")
+    end
+
+    -- Fixture metadata mirrors the declarations; the dialog uses its live renderer.
+    local function run_shot()
+        chrome_pixels.use_fonts(font, bold)
+        chrome_pixels.use_cell_size(cell.w, cell.h)
+        local found = catalog.build({
+            {id = "butschster.windows.explorer:window", meta = {title = "Мой компьютер", image = "my_computer", order = 10}},
+            {id = "butschster.windows.calc:window", meta = {title = "Калькулятор", image = "calculator", group = "Стандартные", order = 20}},
+            {id = "butschster.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "program", group = "Стандартные"}},
+            {id = "butschster.windows.run:window", meta = {title = "Выполнить…", image = "run", order = 900}},
+        })
+        local items = found.programs
+        local state: any = {width = 100, height = 32, top = 1,
+            bottom = 32 - chrome_pixels.layout(100, 32).bottom,
+            items = {{id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window",
+                title = "Мой компьютер", x = 8, y = 2}},
+            windows = {{id = "run", entry = "butschster.windows.run:window", image = "run",
+                title = "Выполнить…", window_type = "dialog", content = "pixels", resizable = false,
+                render = "butschster.windows.sdk:render", x = 30, y = 7, w = 54, h = 12,
+                content_state = {sdk = 1, revision = 1, interaction = ui.interaction(),
+                    ui = run_window.definition.view({text = "claude --resume", pending = false}, {width = 52, height = 10})}}},
+            focused_id = "run", clock = "12:00",
+            menu = {items = catalog.menu_items(items), open = {"Стандартные"}, cursor = 1}}
+        local painted = chrome_pixels.paint(state, cell.w, cell.h)
+        local canvas = gfx.raster(state.width * cell.w, state.height * cell.h)
+        canvas:fill(color_desktop)
+        for _, placement in ipairs(painted.placements) do
+            canvas:blit(placement.raster, (placement.x - 1) * cell.w + 1, (placement.y - 1) * cell.h + 1)
+        end
+        store_shots:writefile("run-bash.png", assert(canvas:encode("png")))
+    end
+    run_shot()
+
+    -- Sample data goes through the same Task Manager renderer as live windows.
+    do
+        local MB = 1024 * 1024
+        local state: any = {tab = 3, selected = 0, offset = 0, heap_history = {}, goroutine_history = {},
+            snapshot = {taken = 1788858300, goroutines = 428, cpu_count = 8, max_procs = 8,
+                pid = "24680", hostname = "wippy-workstation", node_id = "local", node_role = "standalone",
+                memory = {alloc = 286 * MB, heap_in_use = 312 * MB, heap_sys = 384 * MB, heap_released = 46 * MB, num_gc = 128},
+                processes = {}, hosts = {{id = "app:processes", processes = 64}, {id = "wippy:processes", processes = 12}}, members = {{id = "local"}}},
+            windows = {{id = "w1", title = "Мой компьютер", ready = true, image = "my_computer"},
+                {id = "w2", title = "Блокнот — заметки.txt", ready = true, image = "text_document"},
+                {id = "w3", title = "Bash", ready = true, image = "program"},
+                {id = "w4", title = "Диспетчер задач", ready = true, image = "system"}}}
+        for index = 1, 150 do
+            state.goroutine_history[index] = math.floor(360 + math.sin(index / 8) * 24 + math.sin(index / 3) * 14 + index / 3)
+            state.heap_history[index] = (230 + (index % 45) * 1.8) * MB
+        end
+        for index = 1, 76 do
+            state.snapshot.processes[index] = {pid = "local:process-" .. string.format("%04d", index),
+                source = index == 1 and "butschster.windows:shell" or "app.workers:worker_" .. string.format("%02d", index),
+                state = index % 4 == 0 and "running" or "waiting", steps = index * 147, started = 1788850100}
+        end
+        local names = {"applications", "processes", "performance", "node"}
+        for tab = 1, 4 do
+            state.tab, state.selected_id = tab, tab == 1 and "w2" or (tab == 2 and "local:process-0002" or nil)
+            local client = {width = 76, height = 24}
+            local scene = {width = 110, height = 36, top = 1, bottom = 34, items = {}, clock = "12:00",
+                focused_id = "taskman", windows = {{id = "taskman", entry = "butschster.windows.taskman:window",
+                    title = "Диспетчер задач", image = "system", window_type = "app", content = "pixels",
+                    render = "butschster.windows.sdk:render", state_revision = tab, x = 17, y = 4, w = 78, h = 27,
+                    content_state = {sdk = 1, revision = tab, interaction = ui.interaction(),
+                        ui = taskman_window.definition.view(state, client)}}}}
+            local rendered = chrome_pixels.paint(scene, cell.w, cell.h)
+            local canvas = gfx.raster(scene.width * cell.w, scene.height * cell.h)
+            canvas:fill(color_desktop)
+            for _, placement in ipairs(rendered.placements) do
+                canvas:blit(placement.raster, (placement.x - 1) * cell.w + 1, (placement.y - 1) * cell.h + 1)
+            end
+            store_shots:writefile("taskman-" .. names[tab] .. ".png", assert(canvas:encode("png")))
+        end
+    end
+
+    -- Real shell chrome with a sample of the cell text layer represented in PNG.
+    do
+        local mono = assert(load_font("LiberationMono-Regular.ttf", 14))
+        local window = {id = "bash", entry = "butschster.tui_desktop.desktop:window_pty",
+            title = "Bash", image = "program", window_type = "app", x = 16, y = 6, w = 72, h = 20}
+        local state = {width = 100, height = 32, top = 1, bottom = 30, items = {},
+            windows = {window}, focused_id = "bash", clock = "12:00"}
+        local canvas = gfx.raster(state.width * cell.w, state.height * cell.h)
+        canvas:fill(color_desktop)
+        local defaults = chrome_pixels.content_colors(window)
+        canvas:rect((window.x - 1) * cell.w + 1, (window.y - 1) * cell.h + 1,
+            window.w * cell.w, window.h * cell.h, defaults.background)
+        local rows = {"user@wippy:~$ printf 'Hello, Wippy!\\n'", "Hello, Wippy!", "",
+            "user@wippy:~$ ls", "Desktop  Documents  Programs", "", "user@wippy:~$ "}
+        for index, row in ipairs(rows) do
+            canvas:text(window.x * cell.w + 1, (window.y + index - 1) * cell.h + 1,
+                row, {font = mono, color = index == 5 and "#55ffff" or defaults.foreground})
+        end
+        local painted = chrome_pixels.paint(state, cell.w, cell.h)
+        for _, placement in ipairs(painted.placements) do
+            canvas:blit(placement.raster, (placement.x - 1) * cell.w + 1, (placement.y - 1) * cell.h + 1)
+        end
+        store_shots:writefile("bash-black.png", assert(canvas:encode("png")))
     end
 
     -- Проверка поворота отдельно от темы: если надпись не видна на экране,
     -- надо знать, поворот ли это не работает или место посчитано мимо.
     do
-        local label = "WINDOWS 95"
-        local tw, th = bold:measure(label)
+        local label = "WIPPY 2026"
+        local tw = bold:measure(label)
+        local th = bold:height()
         local temp = gfx.raster(tw, th + 2)
         temp:fill("#000080")
         temp:text(1, 1, label, {font = bold, color = "#ffffff"})
@@ -396,11 +591,116 @@ local function main(spec)
         say("ОТКАЗ: растры не переживают кадр — экран будет правильным, а летать будет всё")
     end
 
-    screen_shot()
+    explorer_native_shot()
+    menu_icons_shot()
+    screen_shot("desktop.png", nil)
+    screen_shot("menu-empty.png", "empty")
+    screen_shot("menu-failure.png", "failure")
+
+    -- Native 32px and 16px assets side by side, rendered through the real gfx.
+    local atlas = gfx.raster(960, ((#images.NAMES + 4) // 5) * 80)
+    atlas:fill("#c0c0c0")
+    for index, name in ipairs(images.NAMES) do
+        local x = ((index - 1) % 5) * 192 + 12
+        local y = ((index - 1) // 5) * 80 + 8
+        for _, size in ipairs({32, 16}) do
+            local picture, why = images.get(name, size)
+            if not picture then error(tostring(why)) end
+            atlas:blit(picture, size == 32 and x or x + 52, size == 32 and y or y + 8)
+        end
+        atlas:text(x, y + 44, name, {font = font, color = "#000000"})
+    end
+    store_shots:writefile("stock-icons.png", assert(atlas:encode("png")))
 
     local explorer_ok = explorer_shots(rasters.store())
     if not explorer_ok then
         say("ОТКАЗ: проводник пересоздаёт растры — экран останется СТАРЫМ, не медленным")
+    end
+
+    -- Окна-виды целиком: куски собираются в один растр по тем же координатам,
+    -- по которым их положит поверхность. Смотреть глазами: календарь,
+    -- стрелки, цвета подписей калькулятора — этого не покажет ни один тест.
+    local function view_shot(name, lib: any, window: any, cols: any, rows: any)
+        local store = rasters.store()
+        local inner = {x = 1, y = 1, cols = cols, rows = rows}
+        store.begin()
+        local placed, why = lib.placement(window, inner, cell, {face = font, bold = bold}, store)
+        if not placed then
+            say("ОТКАЗ: " .. name .. " не нарисовался: " .. tostring(why))
+            return
+        end
+        -- Отрисовщик вправе отдать одно размещение, а не список (так делает SDK).
+        if placed.raster then placed = {placed} end
+        local cw = math.tointeger(cell.w) or 10
+        local ch = math.tointeger(cell.h) or 20
+        local whole_view = gfx.raster((math.tointeger(cols) or 1) * cw, (math.tointeger(rows) or 1) * ch)
+        whole_view:fill("#c0c0c0")
+        for _, item in ipairs(placed) do
+            local at: any = item
+            whole_view:blit(at.raster :: gfx.Raster, ((math.tointeger(at.x) or 1) - 1) * cw + 1,
+                ((math.tointeger(at.y) or 1) - 1) * ch + 1)
+        end
+        local bytes = whole_view:encode("png")
+        if bytes then
+            store_shots:writefile(name .. ".png", bytes)
+            say(string.format("%s: размещений %d → %s.png", name, #placed, name))
+        end
+    end
+    view_shot("datetime", dt_render, {id = "shot", content_state = {
+        year = 2026, month = 9, day = 8, hour = 21, minute = 47, second = 23,
+        first_weekday = 1, days = 30, zone = "UTC+04:00"}}, 40, 16)
+    -- Экран прощания: крупный шрифт считается от высоты ячейки, как в оболочке.
+    do
+        local big_size = math.max(20, math.min(64, (cell.h * 17) // 10))
+        local big, big_err = load_font(BOLD, big_size)
+        if not big then
+            say("ОТКАЗ: крупный шрифт не загрузился: " .. tostring(big_err))
+        else
+            chrome_pixels.use_fonts(font, bold, big)
+            chrome_pixels.use_cell_size(cell.w, cell.h)
+            local raster, col, row = chrome_pixels.farewell_raster(cell, 100, 28)
+            if raster then
+                local screen = gfx.raster(100 * cell.w, 28 * cell.h)
+                screen:fill("#000000")
+                local at_x = ((math.tointeger(col) or 1) - 1) * (math.tointeger(cell.w) or 10) + 1
+                local at_y = ((math.tointeger(row) or 1) - 1) * (math.tointeger(cell.h) or 20) + 1
+                screen:blit(raster :: gfx.Raster, at_x, at_y)
+                local png: any = screen:encode("png")
+                store_shots:writefile("farewell.png", png :: string)
+                say(string.format("прощание: шрифт %d px, растр в ячейке %d,%d → farewell.png", big_size, col, row))
+            else
+                say("ОТКАЗ: экран прощания не нарисовался")
+            end
+        end
+    end
+    do
+        -- Просмотрщик реестра: дерево с раскрытыми ветками и запись с полями.
+        local sample = {
+            {id = "app:db", kind = "db.sql.sqlite", meta = {comment = "База стенда"}, data = {file = ".wippy/app.db"}},
+            {id = "app:api", kind = "http.router", meta = {}, data = {prefix = "/api/v1"}},
+            {id = "app.desktop:window_calc", kind = "process.lua", meta = {type = "tui_desktop.window", title = "Калькулятор"}, data = {}},
+            {id = "butschster.windows.shell:chrome", kind = "library.lua", meta = {comment = "Тема в ячейках"}, data = {source = "file://chrome.lua", modules = {"tty"}}},
+            {id = "butschster.windows.shell:pixels", kind = "library.lua", meta = {comment = "Пиксельные примитивы"}, data = {source = "file://pixels.lua"}},
+            {id = "butschster.windows.shell:palette", kind = "library.lua", meta = {}, data = {}},
+            {id = "butschster.windows:shell", kind = "process.lua", meta = {title = "Оболочка Windows 95"}, data = {method = "main", modules = {"gfx", "tty"}}},
+            {id = "butschster.windows:terminal", kind = "terminal.host", meta = {}, data = {hide_logs = true}},
+            {id = "wippy.security:process", kind = "security.group", meta = {}, data = {}},
+        }
+        local session = regedit.session(sample)
+        for _, key in ipairs({"", "butschster", "butschster.windows", "butschster.windows.shell"}) do
+            session.expanded[key] = true
+        end
+        session.rows = reg_model.flatten(session.root, session.expanded)
+        session.selected = "butschster.windows.shell:chrome"
+        view_shot("regedit", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
+            interaction = ui.interaction(), ui = regedit.definition.view(session, {width = 78, height = 22})}}, 78, 22)
+    end
+    do
+        local calc_state = calc_window.definition.init(nil, {})
+        calc_state.calc.entry, calc_state.calc.memory, calc_state.calc.pressed = "1234.5", 1, "5"
+        view_shot("calc", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
+            interaction = ui.interaction(),
+            ui = calc_window.definition.view(calc_state, {width = 31, height = 13})}}, 31, 13)
     end
 
     for _, scene in ipairs(SCENES) do

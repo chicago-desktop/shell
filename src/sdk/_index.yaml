@@ -1,0 +1,66 @@
+version: "1.0"
+namespace: butschster.windows.sdk
+
+entries:
+  - name: ui
+    kind: library.lua
+    meta: {comment: "Window SDK ui. See docs/sdk.md."}
+    source: file://ui.lua
+    imports:
+      text: butschster.tui_desktop.desktop:text
+      geometry: butschster.tui_desktop.desktop:geometry
+      editor: butschster.windows.sdk:editor
+      scroll: butschster.tui_desktop.desktop:scroll
+      input: butschster.tui_desktop.desktop:input
+
+  - name: charts
+    kind: library.lua
+    meta: {comment: "Window SDK charts: block-glyph graph and round ceilings. See docs/sdk.md."}
+    source: file://charts.lua
+    imports:
+      geometry: butschster.tui_desktop.desktop:geometry
+
+  - name: cells
+    kind: library.lua
+    meta: {comment: "Window SDK cells. See docs/sdk.md."}
+    source: file://cells.lua
+    modules: [tty]
+    imports:
+      text: butschster.tui_desktop.desktop:text
+      ui: butschster.windows.sdk:ui
+      charts: butschster.windows.sdk:charts
+      geometry: butschster.tui_desktop.desktop:geometry
+      editor: butschster.windows.sdk:editor
+      widgets: butschster.windows.shell:widgets
+
+  - name: render
+    kind: library.lua
+    meta: {comment: "Window SDK render. See docs/sdk.md."}
+    source: file://render.lua
+    modules: [gfx]
+    imports:
+      text: butschster.tui_desktop.desktop:text
+      ui: butschster.windows.sdk:ui
+      charts: butschster.windows.sdk:charts
+      geometry: butschster.tui_desktop.desktop:geometry
+      editor: butschster.windows.sdk:editor
+      pixels: butschster.windows.shell:pixels
+      palette: butschster.windows.shell:palette
+
+  - name: app
+    kind: library.lua
+    meta: {comment: "Window SDK app. See docs/sdk.md."}
+    source: file://app.lua
+    modules: [channel, tty, time]
+    imports:
+      desktop: butschster.tui_desktop.desktop:window_api
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
+
+  - name: editor
+    kind: library.lua
+    meta: {comment: UTF-8 input editing for SDK controls.}
+    source: file://editor.lua
+    imports:
+      geometry: butschster.tui_desktop.desktop:geometry
+      text: butschster.tui_desktop.desktop:text

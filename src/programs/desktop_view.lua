@@ -38,6 +38,7 @@ function view.join(items: any, found: any)
             row.broken = program == nil
             if program then
                 row.icon = program.icon
+                row.image = program.image
                 row.program_title = program.title
                 row.w = program.width
                 row.h = program.height

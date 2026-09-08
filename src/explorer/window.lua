@@ -22,6 +22,8 @@ local tty = require("tty")
 local desktop = require("desktop")
 local model = require("model")
 local render = require("render")
+local scrolling = require("scrolling")
+local geometry = require("geometry")
 local sources = require("sources")
 
 -- Имени композитора здесь нет и быть не должно. Оно приезжает окну в
@@ -33,17 +35,22 @@ local sources = require("sources")
 -- местах одной оболочки — это не совпадение чисел, а одно поведение.
 local DOUBLE_CLICK_NS = 500000000
 
-local function whole(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
-end
+local whole = geometry.whole
 
-local function main()
-    -- Подписка до старта: start() эмитит первое событие, и подписчик должен
-    -- уже существовать.
-    local events = assert(tty.events())
-    assert(tty.start())
-
-    local out = assert(tty.surface({hide_cursor = true, synchronized_output = true}))
+local function main(service, window_id, args, viewport: any)
+    local pixel_view = type(viewport) == "table"
+    local events: any
+    local out: any
+    local metrics: any = nil
+    if pixel_view then
+        events = assert(desktop.inputs())
+        metrics = render.pixel_metrics(viewport.cell_w, viewport.cell_h)
+    else
+        -- Subscribe before start, which emits the first event.
+        events = assert(tty.events())
+        assert(tty.start())
+        out = assert(tty.surface({hide_cursor = true, synchronized_output = true}))
+    end
 
     -- Канал ответов композитора. Отдельная подписка на топик, а НЕ чтение
     -- общего inbox, и это не вкусовщина: цикл, читающий inbox ради ответа,
@@ -56,19 +63,19 @@ local function main()
     -- ответов не работает только папка «Открытые окна», и она скажет почему.
     local answers, answers_error = desktop.replies()
 
-    -- Inbox здесь не читается вовсе. Клавиши, мышь, изменение размера и
-    -- закрытие едут окну через viewport, а не сообщениями, а сообщение,
-    -- которому некому отдаться, ждёт в очереди процесса — рантайм его не
-    -- теряет. Читать его, чтобы выбросить, было бы хуже, чем не читать.
+    -- В режиме ячеек события приходят от viewport, в пиксельном — через
+    -- window_api.inputs. Оба транспорта приводятся к одному виду события.
 
-    local width, height = tty.screen_size()
+    local width, height
+    if pixel_view then width, height = viewport.width, viewport.height
+    else width, height = tty.screen_size() end
     width, height = whole(width), whole(height)
     -- Нулевой размер — не редкость: окно может подняться раньше, чем
     -- композитор сообщил геометрию. Нулевой холст роняет отрисовку на первой
     -- строке, поэтому размеры по умолчанию не «на всякий случай», а
     -- обязательны.
-    if width < 20 then width = 60 end
-    if height < 8 then height = 18 end
+    if width < (pixel_view and 1 or 20) then width = 60 end
+    if height < (pixel_view and 1 or 8) then height = 18 end
 
     local state: any = {
         path = model.ROOT,
@@ -103,10 +110,6 @@ local function main()
     local cells: any = {}
     local address_hits: any = {}
     local dropdown_hits: any = {}
-    -- Попадания панели инструментов возвращает та же функция, что её рисует.
-    -- Своя формула здесь дала бы кнопку, которая на ячейку левее, чем
-    -- выглядит, — и разъехались бы они молча.
-    local tools: any = {}
     -- Попадания панели инструментов возвращает та же функция, что её рисует.
     -- Своя формула здесь дала бы кнопку, которая на ячейку левее, чем
     -- выглядит, — и разъехались бы они молча.
@@ -226,19 +229,24 @@ local function main()
     -- Попадания приезжают оттуда же, где нарисованы, — посчитанные здесь
     -- своей формулой, они разъехались бы с рисунком молча.
     local function draw()
-        local canvas = tty.canvas(width, height)
-        local hits = render.window(canvas, state, width, height)
-        cells = hits.cells
-        tools = hits.tools
-        bar = hits.scroll or {}
+        local plan = render.layout(state, width, height, metrics)
+        local hits = render.hits(plan)
+        if pixel_view then
+            state.width, state.height = width, height
+            assert(desktop.publish_state(window_id, state))
+        else
+            local canvas = tty.canvas(width, height)
+            hits = render.cells(canvas, plan)
+            assert(out:present(canvas:rows()))
+        end
+        cells, tools, bar = hits.cells, hits.tools, hits.scroll or {}
         address_hits, dropdown_hits = hits.address or {}, hits.dropdown or {}
-        assert(out:present(canvas:rows()))
     end
 
     -- ─── ввод ────────────────────────────────────────────────────────────
 
     local function shape()
-        return render.shape(width, height, #state.objects, state.offset)
+        return render.shape(width, height, #state.objects, state.offset, metrics)
     end
 
     -- Прокрутка на `delta` рядов. Зажимает её `render.shape`, и намеренно:
@@ -292,12 +300,15 @@ local function main()
             move(shape().columns)
         elseif key == "up" then
             move(-shape().columns)
-        elseif key == "pgdn" or key == "page_down" then
+        elseif key == "pgdown" then
             scroll(shape().rows)
-        elseif key == "pgup" or key == "page_up" then
+        elseif key == "pgup" then
             scroll(-shape().rows)
         elseif key == "home" then
             state.selected, state.offset = 1, 0
+        elseif key == "end" then
+            state.selected = #state.objects
+            scroll(#state.objects)
         elseif event.key == "r" and event.ctrl then
             load()
         end
@@ -313,8 +324,23 @@ local function main()
         return nil
     end
 
+    local scroll_capture: any = nil
     local function handle_mouse(event: any)
-        if event.action ~= "press" then return end
+        local plan = render.layout(state, width, height, metrics)
+        if not state.address_open and plan.scroll then
+            local offset, capture, handled = scrolling.pointer(state.offset, plan.scroll.total, plan.scroll.visible,
+                plan.scroll, scroll_capture, event)
+            if handled then state.offset, scroll_capture = offset, capture; draw(); return end
+        elseif scroll_capture then scroll_capture = nil end
+        if event.action == "wheel" then
+            if not geometry.contains(plan.inner, event.x, event.y) or state.address_open then return end
+            if event.button == "wheel_up" then scroll(-1)
+            elseif event.button == "wheel_down" then scroll(1)
+            else return end
+            draw()
+            return
+        end
+        if event.action ~= "press" or event.button ~= "left" then return end
 
         -- Панель инструментов: «Вверх» — единственная кнопка, у которой есть
         -- что делать в первой версии. Кнопка, которая ничего не делает, —
@@ -322,14 +348,6 @@ local function main()
         -- поэтому их всего две.
         -- Полоса прокрутки проверяется раньше значков: она лежит на том же
         -- поле, и щелчок по стрелке иначе достался бы значку под ней.
-        for _, hit in ipairs(bar) do
-            local arrow: any = hit
-            if event.y == arrow.row and event.x >= arrow.from and event.x <= arrow.to then
-                scroll(arrow.id == "scroll_down" and 1 or -1)
-                draw()
-                return
-            end
-        end
 
         -- Выпадающий список адреса — поверх всего, поэтому первым.
         for _, hit in ipairs(dropdown_hits) do
@@ -447,15 +465,22 @@ local function main()
             draw()
         else
             local event: any = selected.value
+            if pixel_view then event = desktop.input_event(selected.value) end
+            event = desktop.normalize_event(event)
             if event.type == "close" then
                 break
             elseif event.type == "resize" then
-                local w, h = tty.screen_size()
+                local w, h
+                if pixel_view then
+                    w, h = event.width, event.height
+                    metrics = render.pixel_metrics(event.cell_w, event.cell_h)
+                else w, h = tty.screen_size() end
                 w, h = whole(w), whole(h)
-                if w >= 20 then width = w end
-                if h >= 8 then height = h end
+                if w > 0 then width = w end
+                if h > 0 then height = h end
+                state.offset = shape().first
                 draw()
-            elseif event.type == "key" then
+            elseif event.type == "key" and event.action ~= "release" then
                 handle_key(event)
             elseif event.type == "mouse" then
                 handle_mouse(event)
@@ -463,7 +488,7 @@ local function main()
         end
     end
 
-    tty.stop()
+    if not pixel_view then tty.stop() end
 end
 
 return {main = main}

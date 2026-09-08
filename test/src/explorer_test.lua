@@ -20,15 +20,8 @@ end
 
 local function define_tests()
     test.describe("butschster.windows explorer", function()
-        test.it("не показывает дисков, которых в реестре нет", function()
-            -- Нарисованный диск C: — предмет, которого не существует, и первым
-            -- вопросом было бы, почему он не открывается. Без записей корень
-            -- показывает только то, что оболочка знает и так.
-            local root = model.root({}, {})
-            test.eq(#root, 3, "три источника, и все три оболочка уже читает")
-            test.not_nil(by_id(root, "programs"))
-            test.not_nil(by_id(root, "desktop"))
-            test.not_nil(by_id(root, "windows"))
+        test.it("оставляет корень пустым, когда файловых систем нет", function()
+            test.eq(#model.root({}), 0)
         end)
 
         test.it("делает диском каждую запись fs, ничего не заводя сам", function()
@@ -68,13 +61,14 @@ local function define_tests()
                 "однозначное имя удлинять незачем")
         end)
 
-        test.it("ставит диски раньше папок оболочки", function()
-            local root = model.root({}, model.drives({
-                {id = "app:probe", kind = "fs.directory"},
-            }))
-            test.eq(#root, 4)
-            test.eq(root[1].kind, "drive", "сначала то, из чего стенд состоит")
-            test.eq(root[2].id, "programs")
+        test.it("в корне только FS, без папок оболочки", function()
+            local root = model.root({{id = "app:probe", kind = "fs.directory"}})
+            test.eq(#root, 1)
+            test.eq(root[1].id, "app:probe")
+            test.eq(root[1].kind, "drive")
+            for _, name in ipairs({"programs", "desktop", "windows"}) do
+                test.is_nil(by_id(root, name))
+            end
         end)
 
         test.it("читает путь одинаково для щелчка и для кнопки «Вверх»", function()
@@ -117,15 +111,17 @@ local function define_tests()
             test.is_nil(objects[3].open)
         end)
 
-        test.it("различает пустую папку и непрочитанную", function()
-            -- Ноль сказал бы «пусто» — утверждение, которого мы не делали.
-            local known = model.root({programs = 0, desktop = 4, windows = 1}, {})
-            test.eq(by_id(known, "programs").detail, "0 объектов")
-            test.eq(by_id(known, "desktop").detail, "4 объектов")
-
-            local unread = model.root({}, {})
-            test.eq(by_id(unread, "programs").detail, "не прочитано",
-                "источник без числа не выдаёт себя за пустой")
+        test.it("не превращает процессы и данные реестра в диски", function()
+            local root = model.root({
+                {id = "app:files", kind = "fs.directory"},
+                {id = "app:embedded", kind = "fs.embed"},
+                {id = "app:program", kind = "process.lua"},
+                {id = "app:settings", kind = "registry.entry"},
+                {id = "app:database", kind = "db.sql.sqlite"},
+            })
+            test.eq(#root, 2)
+            test.not_nil(by_id(root, "app:files"))
+            test.not_nil(by_id(root, "app:embedded"))
         end)
 
         test.it("описывает двойной щелчок намерением, а не действием", function()

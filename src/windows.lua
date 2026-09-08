@@ -73,6 +73,10 @@ local function read(name): (any, string)
     return nil, "не задана"
 end
 
+local function whole_cell(value: any): integer
+    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
+end
+
 local FONTS = read("BUTSCHSTER_WINDOWS_FONTS") or "app:system_fonts"
 local FONT_FACE = "LiberationSans-Regular.ttf"
 local FONT_BOLD = "LiberationSans-Bold.ttf"
@@ -94,7 +98,18 @@ end
 -- Шрифты для пиксельной темы. Отказ здесь — НЕ повод погасить оболочку:
 -- она поднимается в ячейках и говорит причину. Пустой экран вместо стола
 -- читается как сломанный стенд, а не как ненайденный файл.
-local function load_fonts(log)
+-- Крупный шрифт — для экрана прощания: в Windows 95 «Теперь питание
+-- компьютера можно отключить» набрано крупно, в две строки, на весь экран.
+-- Размер считается от высоты ячейки, а не константой: на терминале с другой
+-- ячейкой надпись в 34 пикселя была бы или мелкой, или шире экрана.
+local function display_size(cell_h: any): integer
+    local size = (whole_cell(cell_h) * 17) // 10
+    if size < 20 then size = 20 end
+    if size > 64 then size = 64 end
+    return math.tointeger(size) or 34
+end
+
+local function load_fonts(log, cell_h: any)
     local store, err = fs.get(FONTS)
     if err or not store then
         return nil, "шрифты не открылись (" .. FONTS .. "): " .. tostring(err)
@@ -110,7 +125,8 @@ local function load_fonts(log)
     end
 
     return {face = gfx.font(face_data, {size = FONT_SIZE}),
-            bold = gfx.font(bold_data, {size = FONT_SIZE})}, nil
+            bold = gfx.font(bold_data, {size = FONT_SIZE}),
+            display = gfx.font(bold_data, {size = display_size(cell_h)})}, nil
 end
 
 local function main()
@@ -138,32 +154,7 @@ local function main()
             })
         end
 
-        local items = {}
-        -- В меню — только то, что просило в меню. Программа с `in_menu:
-        -- false` остаётся в каталоге и открывается ярлыком: признак про
-        -- меню, а не про запуск.
-        for _, program in ipairs(catalog.listed(found.programs)) do
-            items[#items + 1] = {
-                entry = program.entry,
-                title = program.title,
-                -- Композитор основы открывает окно по `w`/`h`; тема читает
-                -- те же размеры под своими именами. Два имени одного числа
-                -- лучше, чем перевод на границе, который однажды забудут.
-                w = program.width,
-                h = program.height,
-                width = program.width,
-                height = program.height,
-                icon = program.icon,
-                group = program.group,
-                order = program.order,
-                args = program.args,
-                -- Тип едет композитору, чтобы тема выбрала состав кнопок
-                -- заголовка по нему. Не поедь он — диалог откроется с тремя
-                -- кнопками, из которых две ничего не делают.
-                window_type = program.window_type,
-            }
-        end
-        return items, nil
+        return catalog.menu_items(found.programs), nil
     end
 
     -- Что появляется на столе само. Мебель первого запуска заводится раньше
@@ -278,12 +269,13 @@ local function main()
             log:warn("пиксельный режим не включён: терминал не сказал размер ячейки",
                 {reason = tostring(height)})
         else
-            local fonts, ferr = load_fonts(log)
+            local fonts, ferr = load_fonts(log, height)
             if not fonts then
                 pixel_note = "пиксели выкл: нет шрифта (" .. tostring(ferr) .. ")"
                 log:warn("пиксельный режим не включён: нет шрифта", {error = tostring(ferr)})
             else
-                chrome_pixels.use_fonts(fonts.face, fonts.bold)
+                chrome_pixels.use_fonts(fonts.face, fonts.bold, fonts.display)
+                chrome_pixels.use_cell_size(width, height)
                 theme = chrome_pixels
                 cell_size = gfx.cell_size
                 pixel_note = "пиксели: " .. tostring(protocol) .. " " .. width .. "x" .. height
@@ -296,6 +288,10 @@ local function main()
     -- Голым `return library.run(...)` это писать нельзя: в go-lua v1.5.18
     -- хвостовой вызов yield-функции из базового фрейма корутины не
     -- выполняется вовсе — молча, за 0 мс.
+    local clock_entry, clock_error = catalog.taskbar_clock()
+    theme.clock_entry = clock_entry
+    if clock_error then log:warn("часы панели не настроены", {error = clock_error}) end
+
     local ok, err = library.run({
         chrome = theme,
         pixels = cell_size ~= nil,

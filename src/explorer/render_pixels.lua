@@ -1,3 +1,4 @@
+local scroll = require("scroll")
 -- Пиксельный бэкенд «Моего компьютера».
 --
 -- Раскладку не считает НИ ОДНОЙ строки: план приходит готовым из
@@ -32,65 +33,24 @@ local color = palette.exact
 
 local backend = {}
 
-local function whole(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
-end
+local geometry = require("geometry")
+local whole = geometry.whole
 
--- Значки рисуются примитивами: `gfx.image` пока нет, а растровых картинок
--- Windows 95 взять неоткуда. Формы намеренно простые — папка с язычком, диск
--- со щелью, лист с отогнутым углом: в шестнадцать пикселей больше и не
--- ложится, а узнаваемость даёт силуэт, а не детали.
-local ICON = 16
-
-local function icon_folder(raster, x, y)
-    raster:rect(x, y + 3, ICON, ICON - 5, "#c8a848")
-    raster:rect(x, y + 1, 7, 3, "#c8a848")
-    pixels.bevel(raster, x, y + 3, ICON, ICON - 5, true)
-end
-
-local function icon_drive(raster, x, y)
-    raster:rect(x, y + 2, ICON, ICON - 4, color.face)
-    pixels.bevel(raster, x, y + 2, ICON, ICON - 4, true)
-    -- Щель дисковода: вдавленная полоска, по ней диск и узнаётся.
-    raster:rect(x + 3, y + ICON - 6, ICON - 6, 3, "#404040")
-    raster:rect(x + 2, y + 4, 4, 2, "#008000")
-end
-
-local function icon_file(raster, x, y)
-    raster:rect(x + 2, y, ICON - 4, ICON, color.field)
-    pixels.bevel(raster, x + 2, y, ICON - 4, ICON, false)
-    -- Отогнутый угол — ступенькой, а не диагональю: диагоналей у нас нет.
-    raster:rect(x + ICON - 7, y + 1, 4, 1, color.shadow)
-    raster:rect(x + ICON - 6, y + 2, 3, 1, color.shadow)
-end
-
-local function icon_broken(raster, x, y)
-    raster:rect(x + 2, y, ICON - 4, ICON, color.field)
-    pixels.bevel(raster, x + 2, y, ICON - 4, ICON, false)
-    raster:rect(x + 4, y + 4, ICON - 8, 2, color.alert)
-    raster:rect(x + 4, y + 9, ICON - 8, 2, color.alert)
-end
-
-local function draw_icon(raster, x, y, object: any)
-    local kind = type(object) == "table" and object.kind or nil
-    if kind == "folder" then icon_folder(raster, x, y)
-    elseif kind == "drive" or kind == "directory" then
-        if kind == "directory" then icon_folder(raster, x, y) else icon_drive(raster, x, y) end
-    elseif kind == "shortcut" and object.icon == "▨" then icon_broken(raster, x, y)
-    else icon_file(raster, x, y) end
-end
 
 -- Отпечаток состояния поля. Ключ, забывший поле, даёт картинку, которая не
 -- обновляется; ключ, взявший лишнее, перерисовывает зря. Здесь названо ровно
 -- то, от чего картинка зависит.
 local function field_key(plan: any)
     local parts = {tostring(plan.width), tostring(plan.height),
-                   tostring(plan.failure or ""), tostring(plan.scroll and plan.scroll.first or 0)}
+                   tostring(plan.failure or ""), tostring(plan.scroll and plan.scroll.first or 0),
+                   tostring(plan.icon_size), tostring(plan.scroll and plan.scroll.total),
+                   tostring(plan.scroll and plan.scroll.visible)}
     for _, cell in ipairs(plan.cells or {}) do
         local object: any = cell.object or {}
         parts[#parts + 1] = table.concat({
             tostring(cell.index), tostring(object.kind or ""), tostring(object.title or ""),
-            tostring(object.icon or ""), cell.selected and "1" or "0",
+            tostring(object.icon or ""), tostring(object.image or ""), tostring(object.entry or ""),
+            object.broken and "!" or "", cell.selected and "1" or "0",
         }, "\30")
     end
     return table.concat(parts, "\31")
@@ -105,6 +65,7 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
     local face: any = type(fonts) == "table" and fonts.face or nil
     local name = tostring(prefix or "explorer")
     local w = plan.width
+    local icon_size = plan.icon_size or 16
 
     store.begin()
 
@@ -117,7 +78,7 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
         local at = 6
         for _, item in ipairs(plan.menu or {}) do
             local text = tostring((item :: any).text or "")
-            local advance = menu:text(at, (box.h - 15) // 2, text,
+            local advance = menu:text(at, math.max(1, (box.h - 15) // 2), text,
                 {font = face, color = color.face_text})
             at = at + advance + 12
         end
@@ -125,29 +86,79 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
     store.place(menu_id, 1, plan.rows.menu)
 
     -- ─── панель инструментов ─────────────────────────────────────────────
-    local tool_id = name .. ":tools"
-    local tool_key = tostring(w)
-    for _, button in ipairs(plan.tools or {}) do
-        tool_key = tool_key .. "|" .. tostring((button :: any).id)
-            .. ((button :: any).pressed and "!" or "")
-    end
-    local tools, tools_dirty = store.take(tool_id, w, 1, cell, tool_key)
-    if tools_dirty then
-        local box = pixels.box(1, 1, w, 1, cell)
-        tools:rect(1, 1, box.w, box.h, color.face)
-        for _, entry in ipairs(plan.tools or {}) do
-            local button: any = entry
-            -- Кнопка ставится по ЯЧЕЙКАМ плана, а не по своим пикселям:
-            -- иначе её зона попадания разъедется с планом, из которого окно
-            -- считает щелчок.
-            local span = button.to - button.from + 1
-            local area = pixels.box(button.from, 1, span, 1, cell)
-            pixels.panel(tools, area.x + 1, area.y + 2, area.w - 2, area.h - 4)
-            pixels.label(tools, area.x + 1, area.y + 2, area.w - 2, area.h - 4,
-                button.label, face, color.face_text)
+    if (plan.tool_rows or 1) > 0 then
+        local tool_id = name .. ":tools"
+        local tool_key = tostring(w)
+        for _, button in ipairs(plan.tools or {}) do
+            tool_key = tool_key .. "|" .. tostring((button :: any).id)
+                .. ((button :: any).pressed and "!" or "") .. ((button :: any).disabled and "-" or "")
         end
+        local tool_rows = plan.tool_rows or 1
+        local tools, tools_dirty = store.take(tool_id, w, tool_rows, cell, tool_key)
+        if tools_dirty then
+            local box = pixels.box(1, 1, w, tool_rows, cell)
+            tools:rect(1, 1, box.w, box.h, color.face)
+            for _, entry in ipairs(plan.tools or {}) do
+                local button: any = entry
+                -- Кнопка ставится по ЯЧЕЙКАМ плана, а не по своим пикселям:
+                -- иначе её зона попадания разъедется с планом, из которого окно
+                -- считает щелчок.
+                local span = button.to - button.from + 1
+                local area = pixels.box(button.from, 1, span, tool_rows, cell)
+                local bx, by, bw, bh = area.x + 1, area.y + 2, area.w - 2, area.h - 4
+                -- Та же кнопка, что у диалогов и хрома: двойная грань, нажатая
+                -- вдавлена. Знак рисуется сверху и сдвигается вместе с ней.
+                pixels.button(tools, bx, by, bw, bh,
+                    {label = "", pressed = button.pressed, disabled = button.disabled}, cell)
+                local mark = pixels.MARKS[button.id]
+                if type(mark) == "function" then
+                    local size = 16
+                    local mx = bx + (bw - size) // 2 + (button.pressed and 1 or 0)
+                    local my = by + (bh - size) // 2 + (button.pressed and 1 or 0)
+                    if button.disabled then
+                        pixels.mark_disabled(tools, mark, mx, my, size)
+                    else
+                        mark(tools, mx, my, size, color.face_text)
+                    end
+                else
+                    pixels.label(tools, bx, by, bw, bh, button.label ~= "" and button.label or button.icon,
+                        face, button.disabled and color.shadow or color.face_text)
+                end
+            end
+        end
+        store.place(tool_id, 1, plan.rows.tool)
     end
-    store.place(tool_id, 1, plan.rows.tool)
+
+    -- ─── адресная строка ─────────────────────────────────────────────────
+    -- Геометрия — из плана (widgets.address_hits), в ячейках; здесь только
+    -- перевод в пиксели и краска.
+    local address: any = plan.address
+    if address and address.hits and address.hits.field then
+        local address_id = name .. ":address"
+        local address_key = tostring(w) .. "|" .. tostring(address.text) .. "|" .. tostring(address.open)
+        local strip, strip_dirty = store.take(address_id, w, 1, cell, address_key)
+        if strip_dirty then
+            local box = pixels.box(1, 1, w, 1, cell)
+            strip:rect(1, 1, box.w, box.h, color.face)
+            local text_y = math.max(1, (whole(box.h) - 15) // 2)
+            strip:text(6, text_y, "Адрес", {font = face, color = color.face_text})
+            local fhit: any = address.hits.field
+            local fbox = pixels.box(fhit.from, 1, fhit.to - fhit.from + 1, 1, cell)
+            pixels.field(strip, fbox.x, fbox.y + 1, fbox.w, fbox.h - 2)
+            pixels.mark_folder(strip, fbox.x + 3, fbox.y + 2, 16, color.face_text)
+            strip:text(fbox.x + 22, text_y, pixels.ellipsize(face, address.text, fbox.w - 26),
+                {font = face, color = color.field_text})
+            local dhit: any = address.hits.drop
+            local dbox = pixels.box(dhit.from, 1, dhit.to - dhit.from + 1, 1, cell)
+            local open = address.open == true
+            pixels.button(strip, dbox.x + 1, dbox.y + 1, dbox.w - 2, dbox.h - 2,
+                {label = "", pressed = open}, cell)
+            local drop_shift = open and 1 or 0
+            pixels.mark_drop(strip, dbox.x + (dbox.w - 16) // 2 + drop_shift,
+                dbox.y + (dbox.h - 16) // 2 + drop_shift, 16, color.face_text)
+        end
+        store.place(address_id, 1, address.row)
+    end
 
     -- ─── поле со значками ────────────────────────────────────────────────
     local field_id = name .. ":field"
@@ -166,13 +177,13 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
                 -- переводится здесь, один раз.
                 local at = pixels.box(item.from - plan.field.x + 1,
                     item.top - plan.field.y + 1,
-                    item.to - item.from + 1, 3, cell)
+                    item.to - item.from + 1, item.bottom - item.top + 1, cell)
 
-                draw_icon(field, at.x + (at.w - ICON) // 2, at.y + 2, item.object)
+                pixels.icon(field, at.x + (at.w - icon_size) // 2, at.y + 5, item.object, icon_size)
 
                 local caption = tostring((item.object :: any).title or "")
                 local lines = pixels.wrap(face, caption, at.w - 4, 2)
-                local top = at.y + 2 + ICON + 2
+                local top = at.y + 5 + icon_size + 4
                 for index, line in ipairs(lines) do
                     local width = face and face:measure(line) or 0
                     local left = at.x + (at.w - width) // 2
@@ -188,18 +199,19 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
 
             if plan.scroll then
                 local at = pixels.box(plan.scroll.x - plan.field.x + 1,
-                    plan.scroll.y - plan.field.y + 1, 1, plan.scroll.h, cell)
-                pixels.panel(field, at.x, at.y, at.w, at.h)
-                local track = at.h - at.w * 2
-                local total = math.max(1, whole(plan.scroll.total))
-                local visible = whole(plan.scroll.visible)
-                local thumb = (track * visible) // total
-                if thumb < 8 then thumb = 8 end
-                if thumb > track then thumb = track end
-                local room = track - thumb
-                local last = math.max(1, total - visible)
-                local offset = room > 0 and (room * whole(plan.scroll.first)) // last or 0
-                pixels.panel(field, at.x, at.y + at.w + offset, at.w, thumb)
+                    plan.scroll.y - plan.field.y + 1, plan.scroll.w or 1, plan.scroll.h, cell)
+                local arrow_h = math.min(whole(plan.scroll.arrow_rows or 1) * whole(cell.h), whole(at.h) // 2)
+                field:rect(at.x, at.y, at.w, at.h, color.face)
+                pixels.panel(field, at.x, at.y, at.w, arrow_h)
+                pixels.panel(field, at.x, at.y + at.h - arrow_h, at.w, arrow_h)
+                local center = at.x + at.w // 2
+                for step = 0, 3 do
+                    field:rect(center - step, at.y + (arrow_h - 4) // 2 + step, step * 2 + 1, 1, color.face_text)
+                    field:rect(center - step, at.y + at.h - (arrow_h - 4) // 2 - step - 1, step * 2 + 1, 1, color.face_text)
+                end
+                local thumb = scroll.bar(plan.scroll.first, plan.scroll.total, plan.scroll.visible,
+                    plan.scroll.h, plan.scroll.arrow_rows)
+                if thumb.size > 0 then pixels.panel(field, at.x, at.y + thumb.start * cell.h, at.w, thumb.size * cell.h) end
             end
         end
     end
@@ -212,16 +224,42 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
     if status_dirty then
         local box = pixels.box(1, 1, w, 1, cell)
         status:rect(1, 1, box.w, box.h, color.face)
-        local left = pixels.box(1, 1, 16, 1, cell)
-        pixels.field(status, 2, 2, left.w - 2, box.h - 4)
-        status:text(6, (box.h - 15) // 2, plan.status.count,
+        local split = math.min(128, (whole(box.w) - 8) // 2)
+        pixels.bevel(status, 2, 2, split - 2, box.h - 3, false)
+        status:text(6, math.max(1, (box.h - 15) // 2), pixels.ellipsize(face, plan.status.count, split - 10),
             {font = face, color = color.face_text})
 
-        pixels.field(status, left.w + 2, 2, box.w - left.w - 4, box.h - 4)
-        status:text(left.w + 6, (box.h - 15) // 2, plan.status.detail,
+        pixels.bevel(status, split + 2, 2, box.w - split - 4, box.h - 3, false)
+        status:text(split + 6, math.max(1, (box.h - 15) // 2), pixels.ellipsize(face, plan.status.detail, box.w - split - 12),
             {font = face, color = color.face_text})
     end
     store.place(status_id, 1, plan.rows.status)
+
+    -- ─── раскрытый список адреса — поверх поля, поэтому последним ─────────
+    if address and address.dropdown and #address.dropdown > 0 then
+        local rows_n = #address.dropdown
+        local first: any = address.dropdown[1]
+        local cols_n = first.to - first.from + 1
+        local list_id = name .. ":dropdown"
+        local list_key = tostring(cols_n) .. "|" .. tostring(rows_n) .. "|" .. tostring(address.text)
+        local list, list_dirty = store.take(list_id, cols_n, rows_n, cell, list_key)
+        if list_dirty then
+            local box = pixels.box(1, 1, cols_n, rows_n, cell)
+            pixels.field(list, 1, 1, box.w, box.h)
+            local line_h = whole(cell.h)
+            for index, item in ipairs(address.items or {}) do
+                local record: any = item
+                local top = (index - 1) * line_h + 1
+                if index == #address.items then
+                    list:rect(2, top + 1, box.w - 2, line_h - 1, color.select_bg)
+                end
+                list:text(6, top + math.max(1, (line_h - 15) // 2),
+                    pixels.ellipsize(face, tostring(record.title or ""), box.w - 12),
+                    {font = face, color = index == #address.items and color.select_fg or color.field_text})
+            end
+        end
+        store.place(list_id, first.from, first.row)
+    end
 
     return store.frame(cell)
 end

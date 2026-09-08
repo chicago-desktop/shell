@@ -1,3 +1,4 @@
+local scroll = require("scroll")
 -- Как выглядит содержимое «Моего компьютера».
 --
 -- Отделено от процесса окна по той же границе, по которой тема отделена от
@@ -100,34 +101,52 @@ render.GAP = 1
 --
 -- Ни одного обращения к холсту и ни одной краски: план считается и когда
 -- рисовать некуда.
-function render.layout(view: any, width: any, height: any): any
+-- Shared by the pixel state provider and the painter. Hits remain cell-aligned.
+function render.pixel_metrics(cell_w: any, cell_h: any): any
+    local cw, ch = math.max(1, widgets.whole(cell_w)), math.max(1, widgets.whole(cell_h))
+    local tool_rows = math.max(1, (26 + ch - 1) // ch)
+    return {grid = {w = (88 + cw - 1) // cw, h = (72 + ch - 1) // ch,
+            drawn = (66 + ch - 1) // ch},
+        padding = 0, address_row = 2 + tool_rows, field_top = 3 + tool_rows, tool_rows = tool_rows,
+        scroll_cols = math.max(1, (16 + cw - 1) // cw),
+        arrow_rows = math.max(1, (16 + ch - 1) // ch), icon_size = 32}
+end
+
+function render.layout(view: any, width: any, height: any, metrics: any?): any
     local state: any = type(view) == "table" and view or {}
     local w = widgets.whole(width)
     local h = widgets.whole(height)
-    local grid = icons.grid()
+    local sizing: any = type(metrics) == "table" and metrics or {}
+    local grid = sizing.grid or icons.grid()
+    local padding = sizing.padding or 1
+    local field_top = math.min(widgets.whole(sizing.field_top or render.FIELD_TOP), math.max(2, widgets.whole(height) - 1))
+    local scroll_cols = sizing.scroll_cols or 1
     local objects: any = type(state.objects) == "table" and state.objects or {}
 
-    local field_h = (h - 1) - render.FIELD_TOP + 1
-    local inner_x, inner_y = 2, render.FIELD_TOP + 1
-    local inner_w, inner_h = w - 2, field_h - 2
+    local field_h = h - field_top
+    local inner_x, inner_y = padding + 1, field_top + padding
+    local inner_w, inner_h = w - padding * 2, field_h - padding * 2
 
     local plan: any = {
         width = w, height = h,
         rows = {menu = render.MENU_ROW, tool = render.TOOL_ROW,
-                field = render.FIELD_TOP, status = h},
-        field = {x = 1, y = render.FIELD_TOP, w = w, h = field_h},
+                field = field_top, status = h},
+        -- Высота панели — из метрик, а не «всё между меню и полем»: в ячейках
+        -- между ними лежит ещё адресная строка, и панель в две строки ловила
+        -- бы её щелчки.
+        tool_rows = widgets.whole(sizing.tool_rows or 1), icon_size = sizing.icon_size or 16,
+        field = {x = 1, y = field_top, w = w, h = field_h},
         inner = {x = inner_x, y = inner_y, w = inner_w, h = inner_h},
         menu = render.MENU,
         tools = {},
         cells = {},
         scroll = nil,
         failure = state.failure,
-        -- Адресная строка есть только у бэкенда ячеек: пиксельный держит
-        -- свою раскладку из метрик и пока её не рисует.
-        -- Адресная строка: попадания поля, кнопки ▾ и строк списка считаются
-        -- ЗДЕСЬ, одни на оба бэкенда.
+        -- Адресная строка: строка — из метрик у пикселей, константа у ячеек;
+        -- попадания поля, кнопки ▾ и строк списка считаются ЗДЕСЬ и одни на
+        -- оба бэкенда.
         address = {
-            row = render.ADDRESS_ROW,
+            row = widgets.whole(sizing.address_row or render.ADDRESS_ROW),
             text = tostring(state.address or state.title or ""),
             items = type(state.address_items) == "table" and state.address_items or {},
             open = state.address_open == true,
@@ -143,14 +162,16 @@ function render.layout(view: any, width: any, height: any): any
     -- Панель инструментов раскладывается той же функцией, что её рисует:
     -- ширина кнопки считается по подписи, и своя формула здесь дала бы
     -- кнопку на ячейку левее, чем выглядит.
-    plan.tools = widgets.toolbar_hits(1, render.TOOL_ROW, w, render.TOOLS)
+    if plan.tool_rows > 0 then plan.tools = widgets.toolbar_hits(1, render.TOOL_ROW, w, render.TOOLS) end
+    for _, button in ipairs(plan.tools) do button.bottom_row = button.row + plan.tool_rows - 1 end
 
     if not state.failure and inner_w > 0 and inner_h > 0 then
-        local shape = render.shape(width, height, #objects, state.offset)
+        local shape = render.shape(width, height, #objects, state.offset, metrics)
         plan.shape = shape
 
-        if shape.scrolling then
-            plan.scroll = {x = inner_x + inner_w - 1, y = inner_y, h = inner_h,
+        if shape.scrolling and shape.rows > 0 and inner_h >= 2 * (sizing.arrow_rows or 1) then
+            plan.scroll = {x = inner_x + inner_w - scroll_cols, y = inner_y, h = inner_h,
+                           w = scroll_cols, arrow_rows = sizing.arrow_rows or 1,
                            first = shape.first, visible = shape.rows, total = shape.total}
         end
 
@@ -163,7 +184,11 @@ function render.layout(view: any, width: any, height: any): any
                 local y = inner_y + row * grid.h
                 -- Прямоугольник — у `icons.box`, той же функции, которой
                 -- пользуется `icons.cell`, когда рисует.
-                local box = icons.box(x, y, grid.w - render.GAP)
+                local box: any = icons.box(x, y, grid.w - render.GAP)
+                if sizing.grid then
+                    box = {from = x, to = x + grid.w - render.GAP - 1,
+                        top = y, bottom = y + grid.drawn - 1}
+                end
                 if box then
                     plan.cells[#plan.cells + 1] = {
                         index = index, object = objects[index],
@@ -176,7 +201,7 @@ function render.layout(view: any, width: any, height: any): any
             end
         end
     else
-        plan.shape = render.shape(width, height, #objects, state.offset)
+        plan.shape = render.shape(width, height, #objects, state.offset, metrics)
     end
 
     -- Счётчик — содержимое окна, а не хрома: он пересчитывается на каждое
@@ -205,6 +230,17 @@ function render.hits(plan: any): any
     local address: any = plan.address or {}
     local out: any = {cells = {}, tools = plan.tools or {}, scroll = {},
         address = address.hits or {}, dropdown = address.dropdown or {}}
+    if plan.scroll then
+        local bar: any = plan.scroll
+        local rows = math.min(bar.arrow_rows or 1, math.max(1, bar.h // 2))
+        local width = bar.w or 1
+        out.scroll = {
+            {id = "scroll_up", row = bar.y, bottom_row = bar.y + rows - 1,
+                from = bar.x, to = bar.x + width - 1},
+            {id = "scroll_down", row = bar.y + bar.h - rows, bottom_row = bar.y + bar.h - 1,
+                from = bar.x, to = bar.x + width - 1},
+        }
+    end
     for _, cell in ipairs(plan.cells or {}) do
         out.cells[#out.cells + 1] = {
             index = cell.index, from = cell.from, to = cell.to,
@@ -298,14 +334,17 @@ end
 --
 -- `first` приходит в `state.offset` и здесь ЗАЖИМАЕТСЯ: окно, которое сузили
 -- после прокрутки, иначе показало бы пустоту ниже последнего ряда.
-function render.shape(width: any, height: any, count: any, offset: any): any
-    local grid = icons.grid()
+function render.shape(width: any, height: any, count: any, offset: any, metrics: any?): any
+    local sizing: any = type(metrics) == "table" and metrics or {}
+    local grid = sizing.grid or icons.grid()
+    local padding = sizing.padding or 1
+    local field_top = math.min(widgets.whole(sizing.field_top or render.FIELD_TOP), math.max(2, widgets.whole(height) - 1))
     local w = widgets.whole(width)
     local h = widgets.whole(height)
     local total_objects = widgets.whole(count)
 
-    local inner_w = w - 2
-    local inner_h = h - 1 - render.FIELD_TOP - 1
+    local inner_w = w - padding * 2
+    local inner_h = h - field_top - padding * 2
 
     -- ШАГ сетки и ВЫСОТА рисунка — разные числа, и здесь это стоит целого
     -- ряда: шаг четыре строки, рисунок три, и последнему ряду просвет под
@@ -332,16 +371,12 @@ function render.shape(width: any, height: any, count: any, offset: any): any
     -- больше. Второй проход это и учитывает; третьего не нужно: полоса уже
     -- есть, и уже, чем на одну колонку, поле не станет.
     if scrolling then
-        columns = columns_in(inner_w - 1)
+        columns = columns_in(inner_w - (sizing.scroll_cols or 1))
         total = (total_objects + columns - 1) // columns
         scrolling = total > rows
     end
 
-    local first = widgets.whole(offset)
-    local last = total - rows
-    if last < 0 then last = 0 end
-    if first > last then first = last end
-    if first < 0 then first = 0 end
+    local first = scroll.clamp(offset, total, rows)
 
     return {
         columns = columns, rows = rows, total = total,

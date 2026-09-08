@@ -9,6 +9,7 @@ local catalog = require("catalog")
 local chrome = require("chrome")
 local chrome_pixels = require("chrome_pixels")
 local tty = require("tty")
+local pixels = require("pixels")
 
 -- Что реально нарисовано в строке заголовка. Стиль вырезается: нас
 -- интересуют символы и их места, а цвет проверяет пробник.
@@ -62,7 +63,217 @@ local function drawn_buttons(window_type)
 end
 
 local function define_tests()
+    test.describe("Bash window colors", function()
+        test.it("applies terminal defaults by entry identity in both themes", function()
+            local bash = {entry = "butschster.tui_desktop.desktop:window_pty", title = "top"}
+            local defaults = chrome.content_colors(bash)
+            test.eq(defaults.background, "#000000")
+            test.eq(defaults.foreground, "#c0c0c0")
+            test.eq(chrome_pixels.content_colors(bash), defaults)
+            test.is_nil(chrome.content_colors({entry = "butschster.windows.explorer:window", title = "Bash"}))
+            test.is_nil(chrome.content_colors({entry = "butschster.windows.run:window"}))
+        end)
+
+        test.it("fills blank PTY rows and passes defaults through to ANSI parsing", function()
+            local body, fills, received = {"prompt\27[0m>"}, {}, nil
+            local canvas = {
+                put = function(_, x, y, row) fills[y] = row end,
+                put_rows = function(_, x, y, rows, width, defaults)
+                    test.eq(rows, body)
+                    received = defaults
+                end,
+            }
+            local window = {entry = "butschster.tui_desktop.desktop:window_pty", title = "Bash",
+                x = 1, y = 1, w = 40, h = 8, rows = body}
+            chrome.window(canvas, window, true)
+            test.eq(received.background, "#000000")
+            local inset = chrome.window_insets(window)
+            local blank = tty.style():foreground("#c0c0c0"):background("#000000")
+                :render(string.rep(" ", 40 - inset.left - inset.right))
+            test.eq(fills[8 - inset.bottom], blank)
+            fills = {}
+            chrome_pixels.window_background(canvas, window)
+            test.eq(fills[8], tty.style():foreground("#c0c0c0"):background("#000000"):render(string.rep(" ", 40)))
+        end)
+    end)
+    test.describe("native window proportions", function()
+        test.it("reserves the full 20px caption plus frame and maps every button pixel to its hit", function()
+            for _, ch in ipairs({12, 16, 18, 20, 22, 24, 32}) do
+                chrome_pixels.use_cell_size(8, ch)
+                local window = {x = 5, y = 4, w = 40, h = 20, window_type = "app"}
+                local top = chrome_pixels.window_insets(window).top
+                test.is_true(top * ch >= 24, "caption and top frame must fit")
+                test.is_true((top - 1) * ch < 24, "reserve only required rows")
+                for _, button in ipairs(chrome_pixels.title_buttons(window)) do
+                    test.eq(button.rect.w, 18)
+                    test.eq(button.rect.h, 16)
+                    for py = button.rect.y, button.rect.y + button.rect.h - 1 do
+                        local row = window.y + (py - 1) // ch
+                        test.is_true(row < window.y + top, "button must not enter client")
+                        for px = button.rect.x, button.rect.x + button.rect.w - 1 do
+                            local col = window.x + (px - 1) // 8
+                            test.eq(chrome_pixels.title_button_at(window, col, row), button.id)
+                        end
+                    end
+                    test.is_nil(chrome_pixels.title_button_at(window, button.from, window.y + top))
+                end
+            end
+            chrome_pixels.use_cell_size(10, 20)
+        end)
+
+        test.it("wraps long names without silently dropping the remaining characters", function()
+            local font = {measure = function(_, text)
+                local count = 0
+                for _ in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do count = count + 1 end
+                return count * 7
+            end}
+            local lines = pixels.wrap(font, "Программы", 35, 2)
+            test.eq(#lines, 2)
+            test.eq(table.concat(lines), "Программы")
+            local clipped = pixels.wrap(font, "оченьдлинноеимяфайловойсистемы", 49, 2)
+            test.eq(#clipped, 2)
+            test.eq(clipped[2]:sub(-3), "...")
+        end)
+    end)
+    test.describe("Start footer and taskbar clock", function()
+        test.it("keeps shutdown with its icon on a short screen", function()
+            local programs = {}
+            for index = 1, 30 do
+                programs[index] = {entry = "app:p" .. index, title = "Программа " .. index,
+                    in_menu = true, order = index}
+            end
+            local items = catalog.menu_items(programs)
+            test.eq(items[#items].action, "quit")
+            test.eq(items[#items].image, "shutdown")
+            local plan = chrome.menu_layout(80, 12, items, nil, {}, 1,
+                {compact = true, root_rows = 2, bottom = 2})
+            local footer = plan.panels[1].lines[#plan.panels[1].lines]
+            test.eq(footer.image, "shutdown")
+            test.is_true(footer.separator_before)
+            test.eq(plan.hits[#plan.hits].index, #items)
+        end)
+
+        test.it("clock hits cover both rows and the right edge", function()
+            chrome.clock_entry = "app:clock"
+            chrome_pixels.clock_entry = "app:clock"
+            for _, size in ipairs({{8, 18}, {10, 20}, {8, 16}}) do
+                chrome_pixels.use_cell_size(size[1], size[2])
+                local painted = chrome_pixels.paint({width = 80, height = 24, bottom = 22,
+                    clock = "12:30", windows = {}, items = {}}, size[1], size[2])
+                local last = painted.hits.bars[#painted.hits.bars]
+                test.eq(last.entry, "app:clock")
+                test.eq(last.from, 72)
+                test.eq(last.to, 80)
+                test.eq(last.row, 23)
+                test.eq(last.bottom_row, 24)
+            end
+            local canvas = tty.canvas(80, 24)
+            local hits = chrome.bars(canvas, 80, 24, {clock = "12:30", windows = {}})
+            test.eq(hits[#hits].entry, "app:clock")
+            test.eq(hits[#hits].to, 80)
+            chrome.clock_entry, chrome_pixels.clock_entry = nil, nil
+            chrome_pixels.use_cell_size(10, 20)
+        end)
+    end)
+
     test.describe("butschster.windows title buttons", function()
+        test.it("пиксельные кнопки имеют отдельные ячейки и выполняют объявленное действие", function()
+            for _, size in ipairs({{10, 20}, {8, 16}}) do
+                chrome_pixels.use_cell_size(size[1], size[2])
+                for _, kind in ipairs({"app", "dialog", "tool"}) do
+                    local window = {id = "buttons", x = 5, y = 3, w = 35, h = 12, window_type = kind}
+                    local occupied = {}
+                    local buttons = chrome_pixels.title_buttons(window)
+                    test.eq(#buttons, #chrome.buttons_for(window))
+                    for _, button in ipairs(buttons) do
+                        test.is_true(button.to - button.from + 1 >= 2)
+                        for x = button.from, button.to do
+                            test.is_nil(occupied[x], "две кнопки делят одну ячейку")
+                            occupied[x] = true
+                            test.eq(chrome_pixels.title_button_at(window, x, button.row), button.id)
+                        end
+                    end
+                    test.is_nil(chrome_pixels.title_button_at(window, window.x + 2, window.y))
+                end
+            end
+            chrome_pixels.use_cell_size(10, 20)
+        end)
+
+        test.it("пиксельная рамка и значок за передним окном обрезаются и не перерисовываются без изменений", function()
+            local state = {width = 80, height = 24, bottom = 23, clock = "12:00", items = {
+                {id = "icon", x = 2, y = 4, kind = "folder", title = "Папка"},
+            }, windows = {
+                {id = "back", x = 4, y = 3, w = 32, h = 14, title = "Сзади"},
+                {id = "front", x = 20, y = 4, w = 25, h = 12, title = "Спереди"},
+            }, focused_id = "front"}
+            local first = chrome_pixels.paint(state, 10, 20)
+            local stored = {}
+            local cropped = false
+            for _, item in ipairs(first.placements) do
+                stored[item.id] = {raster = item.raster, version = item.raster:version()}
+                if item.id:find(":crop:", 1, true) then cropped = true end
+                if item.id:find("win:back", 1, true) == 1 or item.id:find("desk:", 1, true) == 1 then
+                    test.is_true(item.x + item.cols <= 20 or item.x >= 45
+                        or item.y + item.rows <= 4 or item.y >= 16,
+                        "нижнее размещение накрыло переднее окно: " .. item.id)
+                end
+            end
+            test.is_true(cropped, "сцена должна проверить частичное перекрытие")
+            local again = chrome_pixels.paint(state, 10, 20)
+            test.eq(#again.placements, #first.placements)
+            for _, item in ipairs(again.placements) do
+                test.eq(item.raster, stored[item.id].raster)
+                test.eq(item.raster:version(), stored[item.id].version)
+            end
+        end)
+
+        test.it("панель и высокие пункты меню нажимаются по всей нарисованной высоте", function()
+            for _, cell in ipairs({{10, 20}, {12, 23}, {8, 16}}) do
+                chrome_pixels.use_cell_size(cell[1], cell[2])
+                local layout = chrome_pixels.layout(100, 30)
+                local state = {width = 100, height = 30, bottom = 30 - layout.bottom,
+                    clock = "12:00", windows = {}, items = {},
+                    menu = {items = {{entry = "app:test", title = "Программа", group = {"Программы"}}}, cursor = 1}}
+                local painted = chrome_pixels.paint(state, cell[1], cell[2])
+                local bar, menu = nil, nil
+                for _, image in ipairs(painted.placements) do
+                    if image.id == "bars" then bar = image end
+                    if image.id == "menu:1" then menu = image end
+                end
+                test.not_nil(bar)
+                test.not_nil(menu)
+                test.is_true(bar.rows * cell[2] >= 28, "панель не должна сжиматься в тонкую полоску")
+                test.eq(bar.y, state.bottom + 1)
+                test.eq(bar.y + bar.rows - 1, state.height)
+                test.eq(menu.y + menu.rows, bar.y, "меню стоит непосредственно над панелью")
+                local start = painted.hits.bars[1]
+                test.eq(start.row, bar.y)
+                test.eq(start.bottom_row, state.height)
+                test.eq(#painted.hits.menu, 1, "один пункт остаётся одним шагом клавиатуры")
+                local choice = painted.hits.menu[1]
+                test.eq(choice.row, menu.y)
+                test.eq(choice.bottom_row, menu.y + menu.rows - 1)
+                state.menu.open = {"Программы"}
+                local expanded = chrome_pixels.paint(state, cell[1], cell[2])
+                test.eq(#expanded.hits.menu, 2, "папка и программа — два логических попадания")
+                local child = expanded.hits.menu[2]
+                test.is_true((child.bottom_row - child.row + 1) * cell[2] >= 24,
+                    "подменю сохраняет отступы, а не возвращается к тесной строке")
+
+            end
+        end)
+
+        test.it("закрытый и открытый Пуск дают разные кадры панели задач", function()
+            local state = {width = 80, height = 24, bottom = 23, clock = "12:00", windows = {}, items = {}}
+            local first = chrome_pixels.paint(state, 10, 20)
+            local bar = first.placements[1].raster
+            local before = bar:version()
+            state.menu = {items = {{entry = "app:test", title = "Программа"}}, cursor = 1}
+            local after = chrome_pixels.paint(state, 10, 20)
+            test.is_true(bar:version() > before, "Пуск должен стать нажатым")
+            test.eq(after.hits.bars[1].action, "menu")
+        end)
+
         test.it("даёт каждому типу окна свой состав кнопок", function()
             -- Три типа объявлены основой; тема выбирает по ним состав, а не
             -- выводит его из чего-то ещё.
@@ -226,6 +437,26 @@ local function define_tests()
             end
         end)
 
+        test.it("строки корня идут по order, программа может стоять над папкой, separator_after отделяет следующую", function()
+            -- Как в Windows: «Мой компьютер» сверху, под ним черта, потом
+            -- папки. Папка стоит там, где её самая ранняя программа.
+            local items = {
+                {entry = "app:calc", title = "Калькулятор", group = {"Программы"}, order = 20},
+                {entry = "app:reg", title = "Реестр", group = {"Настройка"}, order = 110},
+                {entry = "app:mycomp", title = "Мой компьютер", group = {}, order = 5, separator_after = true},
+                {entry = "app:run", title = "Выполнить…", group = {}, order = 900},
+            }
+            local shown = chrome.menu_layout(90, 24, items, nil, {})
+            local lines = shown.panels[1].lines
+            test.eq(lines[1].label, "Мой компьютер")
+            test.eq(lines[2].label, "Программы")
+            test.eq(lines[3].label, "Настройка")
+            test.eq(lines[4].label, "Выполнить…")
+            test.is_true(lines[2].separator_before == true, "черта под «Моим компьютером» — у следующей строки")
+            test.is_nil(lines[1].separator_before)
+            test.is_nil(lines[3].separator_before)
+        end)
+
         test.it("доводит группу от записи реестра до папки в меню", function()
             -- ВЕСЬ ЭТОТ ПУТЬ БЫЛ ЗЕЛЁНЫМ И НИ РАЗУ НЕ ПРОЙДЕННЫМ. Каталог
             -- разбирал `meta.group` в ТАБЛИЦУ сегментов, а тема ждала СТРОКУ
@@ -239,12 +470,12 @@ local function define_tests()
                 {id = "app:calc", meta = {type = "tui_desktop.window",
                                           title = "Калькулятор", group = "Стандартные"}},
                 {id = "app:bash", meta = {type = "tui_desktop.window",
-                                          title = "Сеанс MS-DOS"}},
+                                          title = "Сеанс MS-DOS", group = ""}},
             })
 
             test.eq(#built.tree.folders, 1, "папка обязана появиться в дереве каталога")
             test.eq(built.tree.folders[1].title, "Стандартные")
-            test.eq(#built.tree.programs, 1, "на верхнем уровне остаётся только беcгруппная")
+            test.eq(#built.tree.programs, 1, "на верхнем уровне остаётся только та, что попросила корень")
 
             -- А теперь то же самое глазами темы: она получает пункты меню в
             -- том виде, в каком их кладёт оболочка.

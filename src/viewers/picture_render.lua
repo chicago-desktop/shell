@@ -27,9 +27,8 @@ picture_render.ID = "butschster.windows.viewers:picture_render"
 -- лежит по центру, как в Imaging.
 picture_render.BACKGROUND = "#c0c0c0"
 
-local function whole(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
-end
+local geometry = require("geometry")
+local whole = geometry.whole
 
 -- Декодированные исходники, по ключу файла. Ключ — диск, путь и размер в
 -- байтах: тот же файл, перезаписанный другим содержимым, меняет размер
@@ -38,7 +37,7 @@ local sources = {}
 local SOURCE_LIMIT = 8
 
 local function source_key(state: any): string
-    return tostring(state.drive) .. "|" .. tostring(state.path) .. "|" .. tostring(state.size)
+    return tostring(state.drive) .. "|" .. tostring(state.path) .. "|" .. tostring(state.data)
 end
 
 local function remember(key, entry)

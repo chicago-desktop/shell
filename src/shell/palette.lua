@@ -26,10 +26,12 @@
 local palette = {}
 
 palette.exact = {
-    -- Экран прощания: чёрный и оранжево-красная надпись, как на «Теперь
+    console_bg = "#000000",
+    console_text = "#c0c0c0",
+    -- Экран прощания: чёрный и оранжевая надпись, как на «Теперь
     -- питание компьютера можно отключить» в Windows 95.
     farewell_bg = "#000000",
-    farewell_text = "#ff5500",
+    farewell_text = "#ff8800",
     -- Рабочий стол.
     desktop = "#008080",
     desktop_text = "#ffffff",
@@ -74,8 +76,10 @@ palette.exact = {
 }
 
 palette.basic = {
+    console_bg = "0",
+    console_text = "7",
     farewell_bg = "0",
-    farewell_text = "202",
+    farewell_text = "208",
     desktop = "6",
     desktop_text = "15",
     desktop_broken = "11",

@@ -27,9 +27,8 @@ layout.WEEKDAYS = {"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
 
 layout.TABS = {"Дата и время", "Часовой пояс"}
 
-local function whole(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
-end
+local geometry = require("geometry")
+local whole = geometry.whole
 
 -- Области в ячейках содержимого, единичные. Каждая становится своим растром
 -- (FR-005 §3): часы меняются каждую секунду, и в отдельном растре они
@@ -60,14 +59,14 @@ function layout.buttons(): any
     local span = 8
     local out = {}
     local labels = {
-        {id = "ok", label = "ОК", enabled = true},
+        {id = "ok", label = "ОК", enabled = true, default = true},
         {id = "cancel", label = "Отмена", enabled = true},
         {id = "apply", label = "Применить", enabled = false},
     }
     for index, spec in ipairs(labels) do
         local from = layout.COLS - 1 - (#labels - index + 1) * (span + 1) + 2
         out[#out + 1] = {
-            id = spec.id, label = spec.label, enabled = spec.enabled,
+            id = spec.id, label = spec.label, enabled = spec.enabled, default = spec.default,
             from = from, to = from + span - 1, row = 15, bottom_row = 16,
         }
     end

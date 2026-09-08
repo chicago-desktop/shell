@@ -153,6 +153,24 @@ entries:
       resources: "*"
       effect: allow
 
+  # Поставщик просмотрщика реестра: то же, что у вида, плюс ЧТЕНИЕ реестра.
+  # `registry.apply` здесь нет и не будет (FR-004 §3.4): просмотрщик ничего
+  # не меняет, а правка записи — дело панели управления под своим актором.
+  - name: regedit_state
+    kind: security.policy
+    meta:
+      comment: Права поставщика просмотрщика реестра — контекст, отправка композитору и чтение реестра; записи в реестр нет намеренно.
+    policy:
+      actions:
+        - process.context
+        - process.registry
+        - process.send
+        - registry.get
+        - registry.find
+        - registry.entry
+      resources: "*"
+      effect: allow
+
   - name: shell_endpoint_access
     kind: security.policy
     meta:

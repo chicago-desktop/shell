@@ -42,12 +42,13 @@ images.SIZES = {32, 16}
 
 -- Всё, что есть в пакете. Порядок — как в SOURCE.md.
 images.NAMES = {
-    "my_computer", "folder", "folder_open", "recycle_bin", "recycle_bin_full",
+    "calculator", "clock", "my_computer", "folder", "folder_open", "recycle_bin", "recycle_bin_full",
     "programs", "settings", "documents", "find", "help", "run", "shutdown",
     "program", "document", "text_document",
     "drive", "floppy", "cdrom", "network_drive", "printer",
     "control_panel", "fonts", "desktop", "windows", "shortcut_overlay",
     "network", "network_neighborhood", "documents_stack", "program_settings", "system",
+    "regedit", "regedit_string", "regedit_binary",
 }
 
 local known = {}
@@ -69,6 +70,7 @@ local BY_KIND = {
     program = "program",
     window = "program",
     item = "document",
+    file = "document",
 }
 
 -- name_for(item) -> имя значка, имя накладки или nil
@@ -77,17 +79,16 @@ local BY_KIND = {
 -- `meta.image: printer`, получает принтер. Неизвестное имя не подменяется
 -- «чем-нибудь похожим» — отдаётся как есть, и `get` откажет с причиной.
 function images.name_for(item: any): (any, any)
-    if type(item) ~= "table" then return nil, nil end
+    if type(item) ~= "table" or item.broken then return nil, nil end
     local explicit: any = item.image
     if type(explicit) == "string" and explicit ~= "" then
         return explicit, nil
     end
+    if item.entry == EXPLORER then return "my_computer", nil end
     local kind: any = item.kind
     if kind == "shortcut" then
-        if item.entry == EXPLORER then return "my_computer", nil end
         return "program", "shortcut_overlay"
     end
-    if item.broken then return nil, nil end
     return BY_KIND[kind], nil
 end
 

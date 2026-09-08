@@ -13,26 +13,19 @@
 
 local base64 = require("base64")
 local channel = require("channel")
-local process = require("process")
+local desktop_api = require("desktop")
+local gfx = require("gfx")
+local scroll = require("scroll")
 
 local files = require("files")
 
 local ZOOMS = {0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4}
 local PAN_STEP = 48
 
-local function body_of(message: any): any
-    local body: any = message:payload()
-    if type(body) == "userdata" then
-        local ok, decoded = pcall(function() return body:data() end)
-        body = ok and decoded or {}
-    end
-    if type(body) == "table" and body[1] ~= nil and #body > 0 then body = body[1] end
-    return type(body) == "table" and body or {}
-end
 
-local function whole(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
-end
+
+local geometry = require("geometry")
+local whole = geometry.whole
 
 -- Подпись — то, что видно в любом режиме, включая ячейки, где картинку
 -- показать нечем. Поэтому она собирается здесь, а не в отрисовке.
@@ -53,8 +46,10 @@ local function zoom_index(zoom: any): integer
     return best
 end
 
-local function main(desktop, window_id, args)
-    local inbox = process.inbox()
+local function main(desktop, window_id, args, viewport: any)
+    local inbox = assert(desktop_api.inputs())
+    viewport = viewport or {width = 1, height = 1, cell_w = 8, cell_h = 18}
+    local source_w, source_h = 0, 0
 
     local state: any = {
         mode = "fit", zoom = 1, x = 0, y = 0,
@@ -72,16 +67,20 @@ local function main(desktop, window_id, args)
             state.failure = read_err
         else
             state.size = #bytes
-            state.data = base64.encode(bytes :: string)
+            local raster, decode_error = gfx.image(bytes :: string)
+            if raster then
+                source_w, source_h = raster:size()
+                state.data = base64.encode(bytes :: string)
+            else state.failure = "картинка не открылась: " .. tostring(decode_error) end
         end
     end
 
     local function push()
         state.caption = caption(state)
-        process.send(tostring(desktop), "desktop.state", {
-            id = tostring(window_id),
-            state = state,
-        })
+        local scale = state.mode == "zoom" and state.zoom or 0
+        state.x = scroll.clamp(state.x, math.floor(source_w * scale + 0.5), viewport.width * viewport.cell_w)
+        state.y = scroll.clamp(state.y, math.floor(source_h * scale + 0.5), viewport.height * viewport.cell_h)
+        assert(desktop_api.publish_state(window_id, state))
     end
 
     push()
@@ -133,8 +132,10 @@ local function main(desktop, window_id, args)
         if not picked.ok then break end
         local message = picked.value
         if message:topic() == "window.input" then
-            local body = body_of(message)
-            if handle(body.event) then push() end
+            local event = desktop_api.input_event(message)
+            if event.type == "close" then break end
+            if event.type == "resize" then viewport = {width = event.width, height = event.height, cell_w = event.cell_w, cell_h = event.cell_h}; push()
+            elseif handle(event) then push() end
         end
     end
 end

@@ -45,8 +45,6 @@ entries:
       # на машине. Что именно открывается, решает политика окна, а не этот
       # список.
       - fs
-      # `json` — аргумент открытия файла собирается и разбирается JSON-ом.
-      - json
       - registry
       - sql
       - env
@@ -71,6 +69,7 @@ entries:
     modules:
       - tty
     imports:
+      scroll: butschster.tui_desktop.desktop:scroll
       icons: butschster.windows.shell:icons
       widgets: butschster.windows.shell:widgets
 
@@ -91,6 +90,8 @@ entries:
     modules:
       - gfx
     imports:
+      geometry: butschster.tui_desktop.desktop:geometry
+      scroll: butschster.tui_desktop.desktop:scroll
       palette: butschster.windows.shell:palette
       pixels: butschster.windows.shell:pixels
 
@@ -108,22 +109,28 @@ entries:
     meta:
       type: tui_desktop.window
       title: Мой компьютер
+      image: my_computer
+      pixel_render: butschster.windows.explorer:render_pixels
+      pixel_state: butschster.windows.explorer:state
       icon: "▣"
       # Значков в ряд помещается ширина минус две ячейки, делённая на шаг
       # сетки в двенадцать. Шестьдесят четыре — это пять колонок, то есть
       # ряд дисков, а не колонка.
-      # Панель Windows 95 — двенадцать кнопок и четыре разделителя, 64 ячейки.
+      # Панель Windows 95 — тринадцать кнопок и четыре разделителя, 69 ячеек;
+      # в 64 не помещались «Список», «Таблица» и «Обновить».
       width: 72
       height: 22
-      order: 10
-      comment: Окно «Мой компьютер» — диски из реестра, программы, рабочий стол и открытые окна; рисует своё содержимое само, рамку вокруг него рисует тема.
+      # Корень «Пуска», самый верх, и разделитель под ним — как в Windows.
+      order: 5
+      group: ""
+      separator_after: true
+      comment: Окно «Мой компьютер» — файловые системы из реестра и их содержимое; общий контроллер для режима ячеек и пиксельного вида.
     source: file://window.lua
     method: main
     modules:
       - channel
       - env
       - fs
-      # `json` — аргумент открытия файла собирается и разбирается JSON-ом.
       - json
       - registry
       - sql
@@ -133,6 +140,38 @@ entries:
     security:
       policies: [butschster.windows.security:explorer_window]
     imports:
+      scrolling: butschster.tui_desktop.desktop:scroll
+      geometry: butschster.tui_desktop.desktop:geometry
+      # Просьбы к композитору — библиотекой основы, а не своим протоколом.
+      # Имя композитора она читает из контекста процесса; своя константа
+      # работала бы только под нашей оболочкой и молча промахивалась бы под
+      # любой другой.
+      desktop: butschster.tui_desktop.desktop:window_api
+      model: butschster.windows.explorer:model
+      render: butschster.windows.explorer:render
+      sources: butschster.windows.explorer:sources
+
+  - name: state
+    kind: process.lua
+    meta:
+      comment: Состояние пиксельного проводника; тот же контроллер и права, что у окна в ячейках.
+    source: file://window.lua
+    method: main
+    modules:
+      - channel
+      - env
+      - fs
+      - json
+      - registry
+      - sql
+      - time
+      - tty
+      - uuid
+    security:
+      policies: [butschster.windows.security:explorer_window]
+    imports:
+      scrolling: butschster.tui_desktop.desktop:scroll
+      geometry: butschster.tui_desktop.desktop:geometry
       # Просьбы к композитору — библиотекой основы, а не своим протоколом.
       # Имя композитора она читает из контекста процесса; своя константа
       # работала бы только под нашей оболочкой и молча промахивалась бы под

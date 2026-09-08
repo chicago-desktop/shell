@@ -25,6 +25,10 @@
 -- Своя копия значений разошлась бы с первой, и разошлась бы видом.
 
 local palette = require("palette")
+local images = require("images")
+local logger = require("logger")
+local log = logger:named("windows.icons")
+local reported = {}
 
 local color = palette.exact
 
@@ -35,9 +39,9 @@ local pixels = {}
 -- вторая грань крупных рамок — это уже другой цвет, а не другая толщина.
 pixels.EDGE = 1
 
-local function whole(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
-end
+local geometry = require("geometry")
+local text_lib = require("text")
+local whole = geometry.whole
 
 -- Прямоугольник в пикселях -> прямоугольник в ЯЧЕЙКАХ, единичных.
 --
@@ -120,11 +124,43 @@ function pixels.panel(raster, x: any, y: any, w: any, h: any)
     pixels.bevel(raster, x, y, w, h, true)
 end
 
+-- Win95 controls have two distinct edges. Keep the one-pixel bevel for
+-- separators and window trim; a pushbutton/edit field is a different detail.
+local function edge_pair(r: any, x: any, y: any, w: any, h: any, near: any, far: any)
+    x, y, w, h = whole(x), whole(y), whole(w), whole(h)
+    if w < 2 or h < 2 then return end
+    r:rect(x, y, w - 1, 1, near)
+    r:rect(x, y, 1, h - 1, near)
+    r:rect(x, y + h - 1, w, 1, far)
+    r:rect(x + w - 1, y, 1, h, far)
+end
+function pixels.edge(r: any, x: any, y: any, w: any, h: any, raised: any)
+    if raised then
+        edge_pair(r, x, y, w, h, color.light, color.frame)
+        edge_pair(r, whole(x) + 1, whole(y) + 1, whole(w) - 2, whole(h) - 2, color.face, color.shadow)
+    else
+        edge_pair(r, x, y, w, h, color.shadow, color.light)
+        edge_pair(r, whole(x) + 1, whole(y) + 1, whole(w) - 2, whole(h) - 2, color.frame, color.face)
+    end
+end
+function pixels.focus_rect(r: any, x: any, y: any, w: any, h: any)
+    x, y, w, h = whole(x), whole(y), whole(w), whole(h)
+    if w < 2 or h < 2 then return end
+    for at = 0, w - 1, 2 do
+        r:rect(x + at, y, 1, 1, color.frame)
+        r:rect(x + at, y + h - 1, 1, 1, color.frame)
+    end
+    for at = 2, h - 2, 2 do
+        r:rect(x, y + at, 1, 1, color.frame)
+        r:rect(x + w - 1, y + at, 1, 1, color.frame)
+    end
+end
+
 -- Поле списка: белое и вдавленное. Значки внутри окна лежат на нём, а не на
 -- лице панели — в проводнике Windows 95 это разные поверхности.
 function pixels.field(raster, x: any, y: any, w: any, h: any)
     raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
-    pixels.bevel(raster, x, y, w, h, false)
+    pixels.edge(raster, x, y, w, h, false)
 end
 
 -- Надпись по центру прямоугольника.
@@ -137,7 +173,8 @@ function pixels.label(raster, x: any, y: any, w: any, h: any, text, font, tint)
     local caption = tostring(text or "")
     if caption == "" then return 0 end
 
-    local width, height = font:measure(caption)
+    local width = font:measure(caption)
+    local height = font:height()
     local left = whole(x) + (whole(w) - whole(width)) // 2
     local top = whole(y) + (whole(h) - whole(height)) // 2
     return raster:text(left, top, caption, {font = font, color = tint or color.face_text})
@@ -149,8 +186,8 @@ end
 -- и «сколько символов влезет» — вопрос, у которого нет ответа. Посчитанная
 -- по символам подпись промахивается на разную величину в каждом языке.
 --
--- Слово, которое само шире строки, переносить некуда: оно обрезается, и
--- обрезка честная — по измеренной ширине, посимвольно с конца.
+-- Длинное имя переносится по символам; последняя строка отмечает
+-- многоточием часть, которой не хватило места.
 function pixels.wrap(font, text, room: any, limit: any): any
     local out = {}
     if not font then return out end
@@ -165,7 +202,7 @@ function pixels.wrap(font, text, room: any, limit: any): any
 
     local function clip(word)
         local kept = ""
-        for rune in tostring(word):gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+        for _, rune in ipairs(text_lib.runes(word)) do
             if not fits(kept .. rune) then break end
             kept = kept .. rune
         end
@@ -173,22 +210,33 @@ function pixels.wrap(font, text, room: any, limit: any): any
     end
 
     local line = ""
-    for word in tostring(text or ""):gmatch("%S+") do
+    local words = {}
+    for word in tostring(text or ""):gmatch("%S+") do words[#words + 1] = word end
+    for index, word in ipairs(words) do
         local candidate = line == "" and word or (line .. " " .. word)
         if fits(candidate) then
             line = candidate
         else
             if line ~= "" then
-                if #out >= max then return out end
+                if #out == max - 1 then
+                    out[#out + 1] = pixels.ellipsize(font, candidate, width)
+                    return out
+                end
                 out[#out + 1] = line
                 line = ""
             end
-            if fits(word) then
-                line = word
-            else
-                if #out >= max then return out end
-                out[#out + 1] = clip(word)
+            local rest = word
+            while not fits(rest) do
+                if #out == max - 1 then
+                    out[#out + 1] = pixels.ellipsize(font, rest, width)
+                    return out
+                end
+                local part = clip(rest)
+                if part == "" then return out end
+                out[#out + 1] = part
+                rest = rest:sub(#part + 1)
             end
+            line = rest
         end
     end
     if line ~= "" and #out < max then out[#out + 1] = line end
@@ -224,21 +272,60 @@ end
 -- `button_at`; для нажимаемого берут её.
 function pixels.button(raster, x: any, y: any, w: any, h: any, spec: any, cell: any): any
     local options: any = type(spec) == "table" and spec or {}
-    pixels.panel(raster, x, y, w, h)
-    if options.pressed then
-        -- Нажатая — та же деталь с переставленными гранями, и надпись
-        -- уезжает на пиксель вниз-вправо: в Windows 95 кнопка вдавливается
-        -- вместе с содержимым.
-        pixels.bevel(raster, x, y, w, h, false)
-        pixels.label(raster, whole(x) + 1, whole(y) + 1, w, h,
-            options.label, options.font, color.face_text)
+    local left, top, width, height = whole(x), whole(y), whole(w), whole(h)
+    local pressed = options.pressed and not options.disabled
+    raster:rect(left, top, width, height, color.face)
+    if options.default and not options.disabled then
+        edge_pair(raster, left, top, width, height, color.frame, color.frame)
+        left, top, width, height = left + 1, top + 1, width - 2, height - 2
+    end
+    if pressed then
+        edge_pair(raster, left, top, width, height, color.frame, color.frame)
+        edge_pair(raster, left + 1, top + 1, width - 2, height - 2, color.shadow, color.face)
     else
-        pixels.label(raster, x, y, w, h, options.label, options.font, color.face_text)
+        pixels.edge(raster, left, top, width, height, true)
+    end
+    local shift = pressed and 1 or 0
+    local label = options.font and pixels.ellipsize(options.font, tostring(options.label or ""), math.max(0, width - 10)) or ""
+    if options.disabled then
+        pixels.label(raster, whole(x) + 1, whole(y) + 1, w, h, label, options.font, color.light)
+        pixels.label(raster, x, y, w, h, label, options.font, color.shadow)
+    else
+        local tint = options.color or color.face_text
+        pixels.label(raster, whole(x) + shift, whole(y) + shift, w, h, label, options.font, tint)
+        -- Акселератор — подчёркнутая буква, как в ячейках у `widgets.accel`.
+        -- Считается той же арифметикой, что кладёт подпись `pixels.label`:
+        -- второй расчёт положения текста разъехался бы с первым.
+        local at = whole(options.accel)
+        if at > 0 and options.font and label ~= "" then
+            local runes = text_lib.runes(label)
+            if at <= #runes then
+                local font: any = options.font
+                local before = whole(font:measure(table.concat(runes, "", 1, at - 1)))
+                local glyph = math.max(1, whole(font:measure(runes[at])))
+                local text_left = whole(x) + shift + (whole(w) - whole(font:measure(label))) // 2
+                local text_top = whole(y) + shift + (whole(h) - whole(font:height())) // 2
+                raster:rect(text_left + before, text_top + whole(font:height()) - 2, glyph, 1, tint)
+            end
+        end
+        if options.focused then pixels.focus_rect(raster, left + 4, top + 4, width - 8, height - 8) end
     end
 
     local hit = pixels.cells(x, y, w, h, cell)
     hit.id = options.id
     return hit
+end
+
+-- Standard 13px checkbox, independent of font glyph coverage.
+function pixels.checkbox(r: any, x: any, y: any, checked: any, disabled: any)
+    x, y = whole(x), whole(y)
+    r:rect(x, y, 13, 13, disabled and color.face or color.field)
+    pixels.edge(r, x, y, 13, 13, false)
+    if checked then
+        local tint = disabled and color.shadow or color.face_text
+        for step = 0, 2 do r:rect(x + 3 + step, y + 5 + step, 1, 3, tint) end
+        for step = 0, 4 do r:rect(x + 5 + step, y + 7 - step, 1, 3, tint) end
+    end
 end
 
 -- ─── Знаки кнопок заголовка ──────────────────────────────────────────────
@@ -317,6 +404,184 @@ pixels.MARKS = {
     maximize = pixels.mark_maximize,
     close = pixels.mark_close,
 }
+
+-- Ряд кнопок ОДИНАКОВОЙ ширины — по самой широкой подписи.
+--
+-- В Windows 95 кнопки диалога были одной ширины, и разноширокие «ОК» и
+-- «Отмена» — первое, что выдаёт подделку. Ширина считается по ИЗМЕРЕННОМУ
+-- тексту, а потом округляется вверх до целых ячеек: место интерактивной
+-- детали называется в ячейках, иначе соседние кнопки делят ячейку.
+--
+-- Возвращает ширину в ячейках; рисует вызывающий, по ней же.
+function pixels.button_span(font, labels, cell: any, least: any): integer
+    local unit: any = type(cell) == "table" and cell or {}
+    local cw = math.max(1, whole(unit.w))
+
+    local widest = whole(least)
+    for _, label in ipairs(type(labels) == "table" and labels or {}) do
+        local measured = font and font:measure(tostring(label)) or 0
+        if whole(measured) > widest then widest = whole(measured) end
+    end
+    -- Поля по бокам подписи: без них текст упирается в грань.
+    local span = (widest + 16 + cw - 1) // cw
+    if span < 1 then span = 1 end
+    return math.tointeger(span) or 1
+end
+
+-- Полоса заголовка: тёмно-синяя при фокусе, серая без него. Разница по ФОНУ,
+-- а не по яркости текста — иначе на тёмной теме терминала оба заголовка
+-- сливаются. В пикселях терминальной темы нет вовсе, но правило остаётся: по
+-- фону разница видна и на снимке, и в глазах.
+function pixels.title(raster, x: any, y: any, w: any, h: any, spec: any, cell: any): any
+    local options: any = type(spec) == "table" and spec or {}
+    local focused = options.focused and true or false
+
+    local left, top = whole(x), whole(y)
+    local width, height = whole(w), whole(h)
+
+    raster:rect(left, top, width, height,
+        focused and color.title_active_bg or color.title_idle_bg)
+
+    local tint = focused and color.title_active_fg or color.title_idle_fg
+    -- Полужирный, а не обычный: в Windows 95 подпись заголовка набрана
+    -- полужирным, и это отдельный ФАЙЛ шрифта, а не опция — синтезировать его
+    -- размазыванием пикселей значит перестать быть похожим.
+    local font = options.bold or options.font
+    if font then
+        local _, text_h = font:measure(tostring(options.text or ""))
+        -- Текст прижат влево и центрирован по высоте полосы: заголовок в
+        -- эталоне начинается с отступа в пару пикселей, а не с середины.
+        raster:text(left + whole(options.pad or 4),
+            top + (height - whole(text_h)) // 2,
+            tostring(options.text or ""), {font = font, color = tint})
+    end
+
+    return pixels.cells(x, y, w, h, cell)
+end
+
+-- Clip captions using the actual font rather than character counts.
+function pixels.ellipsize(font, text, room: any)
+    local caption = tostring(text or "")
+    if not font or whole(room) <= 0 then return "" end
+    if whole(font:measure(caption)) <= whole(room) then return caption end
+    local ending = "..."
+    if whole(font:measure(ending)) > whole(room) then return "" end
+    local kept = ""
+    for _, rune in ipairs(text_lib.runes(caption)) do
+        if whole(font:measure(kept .. rune .. ending)) > whole(room) then break end
+        kept = kept .. rune
+    end
+    return kept .. ending
+end
+
+-- Native PNGs are cached by images for the lifetime of the process.
+-- Keep primitives for missing assets and broken shortcuts; report failures once.
+local function native_icon(raster, x: any, y: any, item: any, size: any)
+    local name = images.name_for(item)
+    if not name then return false end
+    local ok, why = images.icon(raster, whole(x), whole(y), item, size)
+    if ok then return true end
+    local key = tostring(name) .. "@" .. tostring(size)
+    if not reported[key] then
+        reported[key] = true
+        log:warn("значок не загружен", {icon = key, error = tostring(why)})
+    end
+    return false
+end
+
+function pixels.icon(raster, x: any, y: any, item: any, size: any)
+    local side = whole(size or 32)
+    if native_icon(raster, x, y, item, side) then return end
+    if side == 16 then
+        if item.kind == "folder" or item.kind == "directory" or item.kind == "group" then
+            pixels.mark_folder(raster, whole(x), whole(y), side, color.face_text)
+        else
+            pixels.mark_program(raster, whole(x), whole(y), side, color.face_text)
+        end
+        if item.broken then
+            for i = 0, 7 do
+                raster:set(whole(x) + 4 + i, whole(y) + 4 + i, color.alert)
+                raster:set(whole(x) + 11 - i, whole(y) + 4 + i, color.alert)
+            end
+        end
+        return
+    end
+    local left, top = whole(x), whole(y)
+    local function rect(dx, dy, w, h, ink)
+        raster:rect(left + dx, top + dy, w, h, ink)
+    end
+    local kind = item.kind
+    if kind == "folder" or kind == "directory" then
+        rect(2, 6, 12, 2, "#000000")
+        rect(1, 8, 28, 21, "#000000")
+        rect(3, 7, 10, 3, "#ffff80")
+        rect(2, 10, 26, 17, "#808000")
+        rect(3, 10, 24, 2, "#ffff80")
+        rect(4, 13, 27, 2, "#000000")
+        rect(3, 15, 27, 5, "#000000")
+        rect(2, 20, 27, 6, "#000000")
+        rect(1, 26, 27, 3, "#000000")
+        rect(5, 14, 25, 2, "#ffff80")
+        rect(4, 16, 25, 4, "#ffff00")
+        rect(3, 20, 25, 6, "#ffff00")
+        rect(2, 26, 25, 2, "#c0c000")
+    elseif item.entry == "butschster.windows.explorer:window" then
+        rect(4, 0, 24, 22, "#000000")
+        rect(5, 1, 22, 20, "#c0c0c0")
+        rect(5, 1, 22, 1, "#ffffff")
+        rect(5, 1, 1, 19, "#ffffff")
+        rect(7, 3, 18, 15, "#808080")
+        rect(8, 4, 16, 12, "#000000")
+        rect(9, 5, 14, 10, "#000080")
+        rect(10, 6, 12, 1, "#008080")
+        rect(10, 7, 11, 5, "#008080")
+        rect(10, 13, 12, 1, "#0080ff")
+        rect(21, 19, 3, 1, "#00ff00")
+        rect(12, 22, 8, 3, "#808080")
+        rect(10, 24, 12, 2, "#000000")
+        rect(1, 26, 29, 6, "#000000")
+        rect(2, 26, 27, 4, "#ffffff")
+        rect(3, 27, 25, 3, "#c0c0c0")
+        rect(4, 28, 16, 1, "#808080")
+        rect(23, 28, 3, 1, "#000000")
+    elseif kind == "drive" then
+        rect(3, 12, 26, 16, "#000000")
+        rect(4, 10, 23, 3, "#000000")
+        rect(5, 9, 21, 2, "#000000")
+        rect(6, 10, 19, 3, "#ffffff")
+        rect(5, 13, 22, 3, "#c0c0c0")
+        rect(4, 17, 24, 9, "#c0c0c0")
+        rect(4, 17, 24, 1, "#ffffff")
+        rect(4, 18, 1, 8, "#ffffff")
+        rect(7, 20, 14, 2, "#000000")
+        rect(7, 22, 14, 1, "#ffffff")
+        rect(24, 22, 2, 2, "#008000")
+        rect(4, 26, 24, 1, "#808080")
+    else
+        rect(4, 2, 24, 28, "#000000")
+        rect(5, 3, 22, 26, "#ffffff")
+        rect(6, 4, 20, 5, "#000080")
+        rect(7, 5, 3, 3, "#ffffff")
+        rect(23, 5, 2, 3, "#c0c0c0")
+        rect(8, 12, 15, 1, "#808080")
+        rect(8, 15, 12, 1, "#808080")
+        rect(8, 18, 15, 1, "#808080")
+        rect(8, 21, 9, 1, "#808080")
+        if item.broken then
+            for i = 0, 8 do
+                rect(12 + i, 13 + i, 2, 2, "#800000")
+                rect(20 - i, 13 + i, 2, 2, "#800000")
+            end
+        end
+    end
+    if kind == "shortcut" and item.entry ~= "butschster.windows.explorer:window" then
+        rect(0, 23, 10, 9, "#000000")
+        rect(1, 24, 8, 7, "#ffffff")
+        rect(3, 26, 4, 2, "#000000")
+        rect(5, 25, 2, 4, "#000000")
+        rect(2, 28, 2, 2, "#000000")
+    end
+end
 
 -- ─── знаки панели инструментов ──────────────────────────────────────────
 --
@@ -476,59 +741,29 @@ function pixels.mark_disabled(raster, mark, x: any, y: any, size: any)
     mark(raster, x, y, size, color.shadow)
 end
 
-
--- Ряд кнопок ОДИНАКОВОЙ ширины — по самой широкой подписи.
---
--- В Windows 95 кнопки диалога были одной ширины, и разноширокие «ОК» и
--- «Отмена» — первое, что выдаёт подделку. Ширина считается по ИЗМЕРЕННОМУ
--- тексту, а потом округляется вверх до целых ячеек: место интерактивной
--- детали называется в ячейках, иначе соседние кнопки делят ячейку.
---
--- Возвращает ширину в ячейках; рисует вызывающий, по ней же.
-function pixels.button_span(font, labels, cell: any, least: any): integer
-    local unit: any = type(cell) == "table" and cell or {}
-    local cw = math.max(1, whole(unit.w))
-
-    local widest = whole(least)
-    for _, label in ipairs(type(labels) == "table" and labels or {}) do
-        local measured = font and font:measure(tostring(label)) or 0
-        if whole(measured) > widest then widest = whole(measured) end
-    end
-    -- Поля по бокам подписи: без них текст упирается в грань.
-    local span = (widest + 16 + cw - 1) // cw
-    if span < 1 then span = 1 end
-    return math.tointeger(span) or 1
-end
-
--- Полоса заголовка: тёмно-синяя при фокусе, серая без него. Разница по ФОНУ,
--- а не по яркости текста — иначе на тёмной теме терминала оба заголовка
--- сливаются. В пикселях терминальной темы нет вовсе, но правило остаётся: по
--- фону разница видна и на снимке, и в глазах.
-function pixels.title(raster, x: any, y: any, w: any, h: any, spec: any, cell: any): any
-    local options: any = type(spec) == "table" and spec or {}
-    local focused = options.focused and true or false
-
+function pixels.mark_help(raster, x: any, y: any, size: any, tint)
     local left, top = whole(x), whole(y)
-    local width, height = whole(w), whole(h)
+    local ink = tint or color.face_text
+    raster:rect(left + 3, top + 1, 4, 1, ink)
+    raster:set(left + 2, top + 2, ink)
+    raster:rect(left + 7, top + 2, 1, 2, ink)
+    raster:rect(left + 5, top + 4, 2, 1, ink)
+    raster:rect(left + 4, top + 5, 1, 2, ink)
+    raster:set(left + 4, top + 8, ink)
+end
+pixels.MARKS.help = pixels.mark_help
 
-    raster:rect(left, top, width, height,
-        focused and color.title_active_bg or color.title_idle_bg)
-
-    local tint = focused and color.title_active_fg or color.title_idle_fg
-    -- Полужирный, а не обычный: в Windows 95 подпись заголовка набрана
-    -- полужирным, и это отдельный ФАЙЛ шрифта, а не опция — синтезировать его
-    -- размазыванием пикселей значит перестать быть похожим.
-    local font = options.bold or options.font
-    if font then
-        local _, text_h = font:measure(tostring(options.text or ""))
-        -- Текст прижат влево и центрирован по высоте полосы: заголовок в
-        -- эталоне начинается с отступа в пару пикселей, а не с середины.
-        raster:text(left + whole(options.pad or 4),
-            top + (height - whole(text_h)) // 2,
-            tostring(options.text or ""), {font = font, color = tint})
-    end
-
-    return pixels.cells(x, y, w, h, cell)
+function pixels.flag(raster, x: any, y: any)
+    if native_icon(raster, x, y, {image = "windows"}, 16) then return end
+    local left, top = whole(x), whole(y)
+    raster:rect(left + 3, top, 12, 13, "#000000")
+    raster:rect(left + 4, top + 1, 4, 4, "#ff0000")
+    raster:rect(left + 10, top + 2, 4, 4, "#00ff00")
+    raster:rect(left + 4, top + 7, 4, 4, "#0000ff")
+    raster:rect(left + 10, top + 8, 4, 4, "#ffff00")
+    raster:rect(left, top + 1, 2, 2, "#000000")
+    raster:rect(left + 1, top + 5, 2, 2, "#000000")
+    raster:rect(left, top + 9, 2, 2, "#000000")
 end
 
 return pixels

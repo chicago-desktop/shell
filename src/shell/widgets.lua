@@ -16,12 +16,14 @@
 -- здесь, а не по границе процессов.
 
 local tty = require("tty")
+local text_lib = require("text")
 
 local glyphs = require("glyphs")
 local palette = require("palette")
 
 local color = palette.active
 
+local scroll = require("scroll")
 local widgets = {}
 
 -- ─── Мерки ───────────────────────────────────────────────────────────────
@@ -76,13 +78,7 @@ end
 -- runes(text) — разбор на символы. Нужен там, где важен НОМЕР символа, а не
 -- его смещение в байтах: подчёркнутая буква акселератора — четвёртая буква,
 -- а не четвёртый байт, и на кириллице это разные места.
-local function runes(text)
-    local out = {}
-    for char in tostring(text):gmatch("[%z\1-\127\194-\244][\128-\191]*") do
-        out[#out + 1] = char
-    end
-    return out
-end
+local runes = text_lib.runes
 
 -- ─── Стили ───────────────────────────────────────────────────────────────
 --
@@ -114,6 +110,7 @@ widgets.styles = {
     shadow    = tty.style():foreground(color.shadow):background(color.face),
     frame     = tty.style():foreground(color.frame):background(color.face),
     etched    = tty.style():foreground(color.shadow):background(color.light),
+    console   = tty.style():foreground(color.console_text):background(color.console_bg),
     field     = tty.style():foreground(color.field_text):background(color.field),
     select    = tty.style():bold():foreground(color.select_fg):background(color.select_bg),
     alert     = tty.style():bold():foreground(color.alert):background(color.face),
@@ -216,13 +213,19 @@ end
 -- opts.pressed — нажата (грани меняются местами), opts.default — кнопка по
 -- умолчанию: в Windows 95 у неё сверх объёма ещё чёрный контур, и это не
 -- украшение, а единственный признак того, что сделает Enter.
--- opts.accel — номер подчёркиваемой буквы.
+-- opts.accel — номер подчёркиваемой буквы. opts.disabled — недоступная:
+-- подпись тусклая (белой тени в ячейках нет, этчед — только в пикселях).
+-- opts.focused — в фокусе: подпись инверсией, грани остаются; пунктирной
+-- рамки в ячейках нарисовать нечем, а инверсия всей кнопки читалась бы как
+-- выделенная строка списка.
 function widgets.button(label, opts)
     local options: any = type(opts) == "table" and opts or {}
     local text = " " .. tostring(label or "") .. " "
-    local body = options.accel
-        and widgets.accel(styles.face, text, whole(options.accel) + 1)
-        or styles.face:render(text)
+    local face = styles.face
+    if options.disabled then face = styles.face_dim elseif options.focused then face = styles.select end
+    local body = (options.accel and not options.disabled)
+        and widgets.accel(face, text, whole(options.accel) + 1)
+        or face:render(text)
     local out = bezel(body, options.pressed and true or false)
     if options.default then
         out = styles.frame:render(glyphs.bevel.left) .. out
@@ -482,13 +485,8 @@ function widgets.scrollbar(target, x: any, y: any, box_h: any, state)
     -- Ползунок ростом не меньше одной ячейки: выродившись в ноль, он исчезает
     -- ровно там, где прокручивать больше всего.
     local track = height - 2
-    local thumb = (track * visible) // total
-    if thumb < 1 then thumb = 1 end
-    if thumb > track then thumb = track end
-
-    local room = track - thumb
-    local offset = 0
-    if room > 0 and last > 0 then offset = (room * first) // last end
+    local thumb_data = scroll.bar(first, total, visible, height)
+    local thumb, offset = thumb_data.size, thumb_data.start - 1
 
     for row = 0, track - 1 do
         local inside = row >= offset and row < offset + thumb

@@ -5,17 +5,17 @@
 local test = require("test")
 local images = require("images")
 
-local function run()
+local function define_tests()
     test.describe("пакет значков", function()
         test.it("декодирует каждый значок в обоих размерах", function()
             images.forget()
             for _, name in ipairs(images.NAMES) do
                 for _, size in ipairs(images.SIZES) do
                     local raster, why = images.get(name, size)
-                    test.expect(raster, name .. "@" .. size .. ": " .. tostring(why)).to_be_truthy()
+                    test.not_nil(raster, name .. "@" .. size .. ": " .. tostring(why))
                     local w, h = raster:size()
-                    test.expect(w).to_equal(size)
-                    test.expect(h).to_equal(size)
+                    test.eq(w, size)
+                    test.eq(h, size)
                 end
             end
         end)
@@ -23,38 +23,43 @@ local function run()
         test.it("отдаёт один и тот же растр на повторный запрос", function()
             local first = images.get("folder", 32)
             local second = images.get("folder", 32)
-            test.expect(first == second).to_be_true()
+            test.not_nil(first)
+            test.is_true(first == second)
         end)
 
         test.it("отказывает по имени, а не молчит", function()
             local raster, why = images.get("no_such_icon", 32)
-            test.expect(raster).to_be_nil()
-            test.expect(tostring(why):find("нет такого значка", 1, true) ~= nil).to_be_true()
+            test.is_nil(raster)
+            test.is_true(tostring(why):find("нет такого значка", 1, true) ~= nil)
         end)
 
         test.it("отказывает на размер, которого в пакете нет", function()
             local raster, why = images.get("folder", 24)
-            test.expect(raster).to_be_nil()
-            test.expect(tostring(why):find("размера 24", 1, true) ~= nil).to_be_true()
+            test.is_nil(raster)
+            test.is_true(tostring(why):find("размера 24", 1, true) ~= nil)
         end)
 
         test.it("решает имя по виду и по явному image", function()
             local name, overlay = images.name_for({kind = "folder"})
-            test.expect(name).to_equal("folder")
-            test.expect(overlay).to_be_nil()
+            test.eq(name, "folder")
+            test.is_nil(overlay)
 
             name, overlay = images.name_for({kind = "shortcut", entry = "app:x"})
-            test.expect(name).to_equal("program")
-            test.expect(overlay).to_equal("shortcut_overlay")
+            test.eq(name, "program")
+            test.eq(overlay, "shortcut_overlay")
 
             name = images.name_for({kind = "shortcut", entry = "butschster.windows.explorer:window"})
-            test.expect(name).to_equal("my_computer")
+            test.eq(name, "my_computer")
+            for _, kind in ipairs({"program", "window"}) do
+                name = images.name_for({kind = kind, entry = "butschster.windows.explorer:window"})
+                test.eq(name, "my_computer")
+            end
 
             name = images.name_for({kind = "folder", image = "printer"})
-            test.expect(name).to_equal("printer")
+            test.eq(name, "printer")
 
             name = images.name_for({kind = "shortcut", entry = "app:x", broken = true})
-            test.expect(name).to_equal("program")
+            test.is_nil(name)
         end)
 
         test.it("кладёт значок и накладку ярлыка в растр", function()
@@ -63,10 +68,11 @@ local function run()
             target:fill("#008080")
             local before = target:version()
             local ok, why = images.icon(target, 5, 5, {kind = "shortcut", entry = "app:x"}, 32)
-            test.expect(ok, tostring(why)).to_be_truthy()
-            test.expect(target:version() > before).to_be_true()
+            test.is_true(ok, tostring(why))
+            test.is_true(target:version() > before)
         end)
     end)
 end
 
-return {run = run}
+local run_cases = test.run_cases(define_tests)
+return {run = function(options) return run_cases(options) end}

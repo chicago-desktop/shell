@@ -18,15 +18,8 @@
 -- отправляет стол заново. Сорок семь миллисекунд на нажатие — ровно то, ради
 -- ухода от чего мы и не рисуем весь экран.
 --
--- Поэтому у темы ДВА входа, и оба нужны:
---
---   `fill(canvas, w, h, state)` — заливка ячейками, как в режиме символов;
---   `paint(state, cell_w, cell_h)` — пиксельные размещения и попадания.
---
--- ВНИМАНИЕ ЧИТАТЕЛЮ КОНТРАКТА. Композитор основы в пиксельном режиме зовёт
--- только `paint`, а `fill` пропускает — и заливать фон теме нечем: в `paint`
--- холст не приезжает. Пока это не починено, стол остаётся цвета терминала.
--- Починка со стороны основы — одна строка: звать `fill` в обоих режимах.
+-- `fill` заливает стол ячейками; `window_background` заливает каждое окно
+-- перед его содержимым; `paint` возвращает растры и попадания.
 --
 -- ─── ЧТО НАРЕЗАНО ПО СТРОКАМ ────────────────────────────────────────────
 --
@@ -39,11 +32,22 @@
 local gfx = require("gfx")
 
 local chrome = require("chrome")
-local icons = require("icons")
 local palette = require("palette")
 local pixels = require("pixels")
 local rasters = require("rasters")
 local widgets = require("widgets")
+local explorer_layout = require("explorer_layout")
+local explorer_pixels = require("explorer_pixels")
+
+-- Окна-виды: содержимое рисует не процесс, а чистая библиотека `render`,
+-- названная в записи окна (FR-005 §4б). Композитор её позвать не может —
+-- `require` умеет только объявленные imports, а не произвольный id из
+-- реестра, — поэтому зовёт тема, и каждая такая библиотека импортирована
+-- здесь СТАТИЧЕСКИ и названа в VIEWS по id своей записи. Окно, назвавшее
+-- render, которого в VIEWS нет, получает не пустоту, а текст с причиной.
+local datetime_render = require("datetime_render")
+local picture_render = require("picture_render")
+local sdk_render = require("sdk_render")
 
 local color = palette.exact
 
@@ -53,26 +57,118 @@ local chrome_pixels = {}
 -- `paint` состояния не носит. Значит это состояние модуля, по одному на
 -- процесс — а процесс здесь один, оболочка.
 local store = rasters.store()
+local clients: any = {}
 
 -- Признак для композитора: по нему он решает, что тема умеет пиксели.
 chrome_pixels.pixel = true
+chrome_pixels.content_colors = chrome.content_colors
 
--- Геометрия та же, что у темы в ячейках: панель задач снизу, стол сверху.
--- Числа общие нарочно — раскладка не зависит от того, чем рисуют.
+-- Панель задач снизу, стол сверху. Пиксельная сетка учитывает размер ячейки.
+local geometry = require("geometry")
+local whole = geometry.whole
+
+-- Paint and input share these cell rectangles. Pixel decoration stays inside.
+local unit: any = {w = 10, h = 20}
+
+-- id записи render → библиотека. Контракт у всех один:
+--   lib.placement(window, inner, cell, fonts, store) -> размещение | список | nil, причина
+-- `inner` — прямоугольник ВНУТРИ рамки в ячейках, `cell` — размер ячейки,
+-- `fonts` — {face, bold} темы, `store` — хранилище растров темы (кто взял
+-- растр из него, того размещение и переживёт кадр без своего хранилища).
+-- Explorer shares layout with its controller and keeps four cached slices.
+local function explorer_placement(window: any, inner: any, cell: any, fonts: any)
+    local client = clients[window.id] or rasters.store()
+    clients[window.id] = client
+    local state: any = window.content_state or {title = "Мой компьютер", objects = {}}
+    local plan = explorer_layout.layout(state, inner.cols, inner.rows,
+        explorer_layout.pixel_metrics(cell.w, cell.h))
+    local placed = explorer_pixels.paint(client, plan, cell, fonts, "client:" .. window.id)
+    for _, placement in ipairs(placed) do
+        placement.x = placement.x + inner.x - 1
+        placement.y = placement.y + inner.y - 1
+    end
+    return placed
+end
+
+local VIEWS: any = {
+    ["butschster.windows.sdk:render"] = sdk_render,
+    ["butschster.windows.explorer:render_pixels"] = {placement = explorer_placement},
+    ["butschster.windows.datetime:render"] = datetime_render,
+    ["butschster.windows.viewers:picture_render"] = picture_render,
+}
+function chrome_pixels.forget(id)
+    picture_render.forget(id)
+end
+function chrome_pixels.renders(reference)
+    return VIEWS[tostring(reference)] ~= nil
+end
+
+-- Caption metrics are pixels; the reservation is rounded up to cells.
+-- Include the top frame so a short cell cannot crop the caption or its icon.
+local TITLE_TOP = 5
+local TITLE_HEIGHT = 20
+local TITLE_BUTTON_W = 18
+local TITLE_BUTTON_H = 16
+local function header_rows(): integer
+    return whole(math.max(1, (TITLE_TOP - 1 + TITLE_HEIGHT + whole(unit.h) - 1) // whole(unit.h)))
+end
+
+function chrome_pixels.use_cell_size(w: any, h: any)
+    unit = {w = math.max(1, whole(w)), h = math.max(1, whole(h))}
+end
+
+local function taskbar_rows(): integer
+    return whole(math.max(1, (28 + whole(unit.h) - 1) // whole(unit.h)))
+end
+
 function chrome_pixels.layout(width: any, height: any)
-    return {top = 0, bottom = 1}
+    return {top = 0, bottom = taskbar_rows()}
 end
 
 function chrome_pixels.window_insets(window)
-    return {top = 3, bottom = 2, left = 2, right = 2}
+    return {top = header_rows(), bottom = 1, left = 1, right = 1}
 end
 
 function chrome_pixels.icon_grid()
-    return icons.grid()
+    local drawn = math.max(3, (68 + whole(unit.h) - 1) // whole(unit.h))
+    return {w = math.max(6, (88 + whole(unit.w) - 1) // whole(unit.w)),
+            h = drawn, drawn = drawn, left = 2}
 end
 
-local function whole(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
+function chrome_pixels.title_buttons(window: any): any
+    local set = chrome.buttons_for(window)
+    local span = math.max(2, (TITLE_BUTTON_W + whole(unit.w) - 1) // whole(unit.w))
+    local from = whole(window.x) + whole(window.w) - 1 - #set * span
+    local out = {}
+    if from <= whole(window.x) + 3 then return out end
+    for index, button in ipairs(set) do
+        local left = from + (index - 1) * span
+        local rect = {x = (left - whole(window.x)) * whole(unit.w) + 1
+                + (span * whole(unit.w) - TITLE_BUTTON_W) // 2,
+            y = TITLE_TOP + (TITLE_HEIGHT - TITLE_BUTTON_H) // 2,
+            w = TITLE_BUTTON_W, h = TITLE_BUTTON_H}
+        out[#out + 1] = {id = button.id, from = left, to = left + span - 1, rect = rect,
+            row = whole(window.y) + (rect.y - 1) // whole(unit.h),
+            bottom_row = whole(window.y) + (rect.y + rect.h - 2) // whole(unit.h)}
+    end
+    return out
+end
+
+function chrome_pixels.title_button_at(window: any, x: any, y: any)
+    for _, button in ipairs(chrome_pixels.title_buttons(window)) do
+        if y >= button.row and y <= button.bottom_row and x >= button.from and x <= button.to then return button.id end
+    end
+    return nil
+end
+
+-- The compositor calls this immediately before each window's content, in z order.
+function chrome_pixels.window_background(canvas, window: any)
+    local style = chrome.content_colors(window) and widgets.styles.console
+        or (window.window_type == "dialog" and widgets.styles.face or widgets.styles.field)
+    local blank = style:render(string.rep(" ", math.max(0, whole(window.w))))
+    for row = 0, whole(window.h) - 1 do
+        canvas:put(whole(window.x), whole(window.y) + row, blank, whole(window.w))
+    end
 end
 
 -- ─── заливка ячейками ────────────────────────────────────────────────────
@@ -89,8 +185,63 @@ function chrome_pixels.fill(canvas, width: any, height: any, state)
     -- Лицо панели задач: под картинками всё равно будут пробелы, но строка,
     -- не закрашенная лицом, светится цветом терминала в промежутках между
     -- размещениями.
-    canvas:put(1, h, widgets.styles.face:render(string.rep(" ", w)), w)
+    for row = math.max(1, h - taskbar_rows() + 1), h do
+        canvas:put(1, row, widgets.styles.face:render(string.rep(" ", w)), w)
+    end
     return {}
+end
+
+-- Экран прощания пикселями: чёрная заливка ячейками, надпись — растром
+-- полужирным шрифтом темы. Без шрифта — надпись ячейками, как в теме
+-- символов; чёрный экран без слов читался бы как повисший терминал.
+chrome_pixels.FAREWELL_HOLD = chrome.FAREWELL_HOLD
+
+-- farewell_raster(cell, width, height) -> растр, колонка, строка | nil
+--
+-- Надпись крупным шрифтом в две-три строки по центру, как в оригинале. Отдельно
+-- от `farewell`, чтобы PNG-пробник мог нарисовать её без холста.
+function chrome_pixels.farewell_raster(cell: any, width: any, height: any): (any, any, any)
+    local fonts: any = chrome_pixels.fonts
+    local font: any = type(fonts) == "table" and (fonts.display or fonts.bold or fonts.face) or nil
+    if not font then return nil, nil, nil end
+    local w, h = whole(width), whole(height)
+    local cw, ch = whole(cell.w), whole(cell.h)
+
+    -- Строки ломаются по измеренной ширине, не шире двух третей экрана:
+    -- в оригинале надпись занимает середину, а не тянется от края до края.
+    local room = (w * cw) * 2 // 3
+    local lines = pixels.wrap(font, chrome.FAREWELL_TEXT, room, 4)
+    if #lines == 0 then return nil, nil, nil end
+    local line_h = whole(font:height())
+    local widest = 0
+    for _, line in ipairs(lines) do
+        widest = math.max(widest, whole(font:measure(line)))
+    end
+    local cols = (widest + cw - 1) // cw + 2
+    local rows = (line_h * #lines + ch - 1) // ch + 1
+    if cols > w or rows > h then return nil, nil, nil end
+
+    local key = chrome.FAREWELL_TEXT .. "\31" .. tostring(font:size()) .. "\31" .. tostring(cols)
+    local raster, dirty = store.take("farewell", cols, rows, cell, key)
+    if dirty then
+        raster:fill(color.farewell_bg)
+        local top = (rows * ch - line_h * #lines) // 2
+        for index, line in ipairs(lines) do
+            local tw = whole(font:measure(line))
+            raster:text((cols * cw - tw) // 2, top + (index - 1) * line_h, line,
+                {font = font, color = color.farewell_text})
+        end
+    end
+    return raster, (w - cols) // 2 + 1, math.max(1, (h - rows) // 2 + 1)
+end
+
+function chrome_pixels.farewell(canvas, width: any, height: any)
+    canvas:clear(widgets.styles.farewell:render(" "))
+    store.begin()
+    local raster, col, row = chrome_pixels.farewell_raster(unit, width, height)
+    if not raster then return chrome.farewell(canvas, width, height) end
+    store.place("farewell", col, row)
+    return {placements = store.frame(unit), hits = {desktop = {}, bars = {}, menu = {}}}
 end
 
 -- ─── значки стола ────────────────────────────────────────────────────────
@@ -98,7 +249,7 @@ end
 local function icon_key(item: any, selected)
     return table.concat({
         tostring(item.id), tostring(item.title or ""), tostring(item.kind or ""),
-        tostring(item.icon or ""), item.broken and "!" or "",
+        tostring(item.icon or ""), tostring(item.image or ""), tostring(item.entry or ""), item.broken and "!" or "",
         selected and "1" or "0",
     }, "\30")
 end
@@ -114,9 +265,8 @@ local function paint_icon(cell: any, item: any, selected, grid: any)
     local raster, dirty = store.take(id, cols, grid.drawn, cell, icon_key(item, selected))
     if dirty then
         local box = pixels.box(1, 1, cols, grid.drawn, cell)
-        -- Прозрачный фон: под значком бирюзовый стол, залитый ячейками, и
-        -- закрашивать его здесь значило бы нарисовать прямоугольник другого
-        -- оттенка вокруг каждой подписи.
+        -- Фон совпадает с заливкой стола; перекрытые окнами части растра
+        -- обрезаются перед размещением.
         raster:rect(1, 1, box.w, box.h, color.desktop)
         chrome_pixels.draw_icon(raster, box, item, selected)
     end
@@ -133,40 +283,21 @@ end
 -- Выделение — инверсией по ТЕКСТУ, а не по всей колонке: в Windows 95 синий
 -- прямоугольник обнимает подпись, и по нему видно, где она кончается.
 function chrome_pixels.draw_icon(raster, box: any, item: any, selected)
-    local side = 16
+    local side = 32
     local left = box.x + (box.w - side) // 2
     local top = box.y + 2
-
-    if item.kind == "folder" then
-        raster:rect(left, top + 3, side, side - 5, "#c8a848")
-        raster:rect(left, top + 1, 7, 3, "#c8a848")
-        pixels.bevel(raster, left, top + 3, side, side - 5, true)
-    elseif item.broken then
-        raster:rect(left + 2, top, side - 4, side, color.field)
-        pixels.bevel(raster, left + 2, top, side - 4, side, false)
-        raster:rect(left + 4, top + 4, side - 8, 2, color.alert)
-        raster:rect(left + 4, top + 9, side - 8, 2, color.alert)
-    else
-        raster:rect(left + 1, top + 1, side - 2, side - 4, color.face)
-        pixels.bevel(raster, left + 1, top + 1, side - 2, side - 4, true)
-        raster:rect(left + 4, top + side - 8, side - 8, 3, "#404040")
-    end
-
+    pixels.icon(raster, left, top, item, 32)
     local fonts: any = chrome_pixels.fonts
     local face: any = type(fonts) == "table" and fonts.face or nil
     if not face then return end
-
-    local lines = pixels.wrap(face, item.title, box.w - 2, 2)
-    local at = top + side + 2
+    local lines = pixels.wrap(face, item.title, box.w - 4, 2)
+    local at = top + side + 3
     for _, line in ipairs(lines) do
         local width = whole(face:measure(line))
         local from = box.x + (box.w - width) // 2
-        if selected then
-            raster:rect(from - 2, at - 1, width + 4, 16, color.select_bg)
-        end
-        local tint = color.desktop_text
-        if item.broken then tint = color.desktop_broken end
-        if selected then tint = color.select_fg end
+        if selected then raster:rect(from - 2, at - 1, width + 4, 15, color.select_bg) end
+        local tint = selected and color.select_fg or color.desktop_text
+        if item.broken and not selected then tint = color.desktop_broken end
         raster:text(from, at, line, {font = face, color = tint})
         at = at + 15
     end
@@ -174,141 +305,210 @@ end
 
 -- ─── рамка окна ──────────────────────────────────────────────────────────
 
-local function paint_window(cell: any, window: any, focused, fonts: any, out)
-    local id = "win:" .. tostring(window.id)
-    local w = whole(window.w)
-    local h = whole(window.h)
-    if w < 4 or h < 4 then return end
+-- Содержимое окна-вида. Отказ любой природы — нет библиотеки, вид ещё ждёт
+-- состояния, библиотека отказала — превращается в текст на лице окна, а не в
+-- пустоту: пустое окно неотличимо от «вид нарисован, но данных нет», и
+-- человек пойдёт искать поломку не там.
+local function paint_view(cell: any, window: any, fonts: any, out, inner: any)
+    local lib: any = VIEWS[tostring(window.render)]
+    local state: any = type(window.content_state) == "table" and window.content_state or {}
+    local placed: any, why: any = nil, nil
+    if not lib then
+        why = "нет отрисовки для " .. tostring(window.render)
+    elseif window.waiting then
+        why = type(state.caption) == "string" and state.caption ~= "" and state.caption
+            or "ожидание данных…"
+    else
+        placed, why = lib.placement(window, inner, cell, fonts, store)
+    end
+
+    if type(placed) == "table" then
+        if placed.raster then
+            out[#out + 1] = placed
+        else
+            for _, item in ipairs(placed) do out[#out + 1] = item end
+        end
+        return
+    end
 
     local face: any = type(fonts) == "table" and fonts.face or nil
-    local bold: any = type(fonts) == "table" and fonts.bold or face
-
-    -- Заголовок: свои строки, содержимым не задеваются. Ключ — всё, от чего
-    -- зависит картинка: имя, ширина, фокус, тип окна.
-    local head_id = id .. ":head"
-    local head_key = table.concat({tostring(window.title), tostring(w),
-        focused and "1" or "0", tostring(window.window_type or "app")}, "\30")
-    -- Состав кнопок берётся у темы в ячейках — ОДНА таблица на оба режима.
-    -- Второй список кнопок разошёлся бы с первым, и у диалога в пикселях
-    -- оказалось бы три кнопки, а в ячейках две.
-    local buttons, button_cells = chrome.buttons_for(window)
-
-    local head, head_dirty = store.take(head_id, w, 2, cell, head_key)
-    if head_dirty then
-        local box = pixels.box(1, 1, w, 2, cell)
-        pixels.panel(head, 1, 1, box.w, box.h)
-
-        -- Кнопки занимают целое число ячеек, и место под них отнимается у
-        -- полосы заголовка ДО того, как она нарисована: иначе имя окна
-        -- уезжает под кнопки, а обрезать его будет уже нечем.
-        local room = w - 3 - #buttons
-        pixels.title(head, 5, cell.h - 2, room * cell.w, cell.h,
-            {text = window.title, font = face, bold = bold, focused = focused}, cell)
-
-        for index, button in ipairs(buttons) do
-            local col = w - #buttons + index - 1
-            local area = pixels.box(col, 1, 1, 1, cell)
-            pixels.panel(head, area.x, area.y + cell.h - 4, area.w - 1, cell.h - 4)
-            local mark: any = pixels.MARKS[(button :: any).id]
-            if type(mark) == "function" then
-                local size = 10
-                mark(head, area.x + (area.w - 1 - size) // 2,
-                    area.y + cell.h - 4 + (cell.h - 4 - size) // 2, size, color.face_text)
+    local id = "win:" .. tostring(window.id) .. ":notice"
+    local text = tostring(why or "вид ничего не вернул")
+    local raster, dirty = store.take(id, inner.cols, inner.rows, cell,
+        text .. "\31" .. tostring(inner.cols) .. "x" .. tostring(inner.rows))
+    if dirty then
+        raster:fill(color.face)
+        if face then
+            local lines = pixels.wrap(face, text, inner.cols * cell.w - 16, 6)
+            local top = 8
+            for _, line in ipairs(lines) do
+                raster:text(8, top, line, {font = face, color = color.face_text})
+                top = top + 15
             end
         end
     end
-    out[#out + 1] = {id = head_id, raster = head, x = window.x, y = window.y, cols = w, rows = 2}
-
-    -- Боковые грани: они и только они делят строки с содержимым, поэтому
-    -- узкие. Нажатие клавиши в окне стоит ровно этих двух полосок.
-    local body = h - 3
-    if body > 0 then
-        for _, side in ipairs({{"left", window.x}, {"right", window.x + w - 1}}) do
-            local edge_id = id .. ":" .. side[1]
-            local edge, edge_dirty = store.take(edge_id, 1, body, cell, tostring(body))
-            if edge_dirty then
-                local box = pixels.box(1, 1, 1, body, cell)
-                edge:rect(1, 1, box.w, box.h, color.face)
-                if side[1] == "left" then
-                    edge:rect(1, 1, 1, box.h, color.light)
-                    edge:rect(box.w - 1, 1, 1, box.h, color.shadow)
-                else
-                    edge:rect(1, 1, 1, box.h, color.light)
-                    edge:rect(box.w - 1, 1, 1, box.h, color.frame)
-                end
-            end
-            out[#out + 1] = {id = edge_id, raster = edge, x = side[2],
-                             y = window.y + 2, cols = 1, rows = body}
-        end
-    end
-
-    local foot_id = id .. ":foot"
-    local foot, foot_dirty = store.take(foot_id, w, 1, cell, tostring(w))
-    if foot_dirty then
-        local box = pixels.box(1, 1, w, 1, cell)
-        pixels.panel(foot, 1, 1, box.w, box.h)
-    end
-    out[#out + 1] = {id = foot_id, raster = foot, x = window.x,
-                     y = window.y + h - 1, cols = w, rows = 1}
+    out[#out + 1] = {id = id, raster = raster, x = inner.x, y = inner.y,
+                     cols = inner.cols, rows = inner.rows}
 end
 
--- ─── панель задач ────────────────────────────────────────────────────────
-
-local function paint_bars(cell: any, state: any, fonts: any, out, hits)
-    local w = whole(state.width)
-    local h = whole(state.height)
+local function paint_window(cell: any, window: any, focused, fonts: any, out)
+    local id = "win:" .. tostring(window.id)
+    local w, h = whole(window.w), whole(window.h)
+    local head_rows = header_rows()
+    if w < 4 or h <= head_rows + 1 then return end
     local face: any = type(fonts) == "table" and fonts.face or nil
     local bold: any = type(fonts) == "table" and fonts.bold or face
-
-    local key = {tostring(w), tostring(state.clock or ""), tostring(state.focused_id or "")}
-    for _, window in ipairs(state.windows or {}) do
-        key[#key + 1] = tostring((window :: any).id) .. ":" .. tostring((window :: any).title)
-    end
-
-    local id = "bars"
-    local bar, dirty = store.take(id, w, 1, cell, table.concat(key, "\30"))
-    local box = pixels.box(1, 1, w, 1, cell)
-
-    -- Кнопка «Пуск» и кнопки окон: ширина в ЯЧЕЙКАХ, потому что по ним
-    -- щёлкают. Считается один раз и здесь — попадания уезжают из той же
-    -- таблицы, из которой рисуется.
-    local start_span = pixels.button_span(bold, {"Пуск"}, cell, 56)
+    local inside = chrome.content_colors(window) and color.console_bg
+        or ((window.window_type == "dialog" or window.content == "pixels") and color.face or color.field)
+    local buttons = chrome_pixels.title_buttons(window)
+    local key = table.concat({tostring(window.title), tostring(window.window_type), tostring(window.entry), tostring(window.image),
+        focused and "1" or "0", window.maximized and "1" or "0",
+        window.resizable == false and "fixed" or "free"}, "\30")
+    local head_id = id .. ":head"
+    local head, dirty = store.take(head_id, w, head_rows, cell, key)
     if dirty then
-        bar:rect(1, 1, box.w, box.h, color.face)
-        pixels.button_at(bar, 1, 1, start_span, 1,
-            {id = "menu", label = "Пуск", font = bold, inset = 2}, cell)
-    end
-    -- «Пуск» отдаёт `action`, а НЕ `id`, и это не стиль.
-    --
-    -- Композитор проверяет `spot.id` ПЕРВЫМ: увидев его, он ищет окно с таким
-    -- именем, не находит и молча ничего не делает. Ветка про меню при этом
-    -- недостижима. Снаружи это выглядит как «мышь не работает», и именно так
-    -- оно и выглядело в первый живой запуск пиксельного режима.
-    hits.bars[#hits.bars + 1] = {row = h, from = 1, to = start_span, action = "menu"}
-
-    local at = start_span + 2
-    for _, entry in ipairs(state.windows or {}) do
-        local window: any = entry
-        local span = 14
-        if at + span - 1 > w - 8 then break end
-        if dirty then
-            pixels.button_at(bar, at, 1, span, 1,
-                {id = window.id, label = window.title, font = face, inset = 2,
-                 pressed = window.id == state.focused_id}, cell)
+        local width, height = w * cell.w, head_rows * cell.h
+        head:fill(inside)
+        head:rect(1, 1, width, TITLE_TOP + TITLE_HEIGHT, color.face)
+        head:rect(1, 1, 3, height, color.face)
+        head:rect(width - 2, 1, 3, height, color.face)
+        head:rect(1, 1, width, 1, color.light)
+        head:rect(1, 1, 1, height, color.light)
+        head:rect(width, 1, 1, height, color.frame)
+        head:rect(width - 1, 2, 1, height - 1, color.shadow)
+        local title_top, title_h = TITLE_TOP, TITLE_HEIGHT
+        head:rect(4, title_top, width - 7, title_h,
+            focused and color.title_active_bg or color.title_idle_bg)
+        -- Reserve actual title-button rectangles before clipping text.
+        local text_right = #buttons > 0 and (buttons[1].from - window.x) * cell.w - 3 or width - 8
+        local caption_x = 7
+        if window.window_type == nil or window.window_type == "app" then
+            pixels.icon(head, 5, title_top + (title_h - 16) // 2, {kind = "window", image = window.image}, 16)
+            caption_x = 25
         end
-        -- А кнопка окна — наоборот, `id`: по нему композитор поднимает окно.
-        hits.bars[#hits.bars + 1] = {row = h, from = at, to = at + span - 1, id = window.id}
-        at = at + span + 1
+        if bold then
+            local caption = pixels.ellipsize(bold, window.title, text_right - caption_x)
+            head:text(caption_x, title_top + (title_h - whole(bold:height())) // 2, caption,
+                {font = bold, color = focused and color.title_active_fg or color.title_idle_fg})
+        end
+        for _, button in ipairs(buttons) do
+            local rect = button.rect
+            pixels.button(head, rect.x, rect.y, rect.w, rect.h, {}, cell)
+            local mark: any = pixels.MARKS[button.id]
+            if type(mark) == "function" then
+                mark(head, rect.x + (rect.w - 10) // 2, rect.y + (rect.h - 10) // 2, 10, color.face_text)
+            end
+        end
     end
+    out[#out + 1] = {id = head_id, raster = head, x = window.x, y = window.y, cols = w, rows = head_rows}
+    local body = h - head_rows - 1
+    for _, side in ipairs({"left", "right"}) do
+        local edge_id = id .. ":" .. side
+        local edge, edge_dirty = store.take(edge_id, 1, body, cell, inside)
+        if edge_dirty then
+            local width, height = cell.w, body * cell.h
+            edge:fill(inside)
+            if side == "left" then
+                edge:rect(1, 1, 3, height, color.face)
+                edge:rect(1, 1, 1, height, color.light)
+            else
+                edge:rect(width - 2, 1, 3, height, color.face)
+                edge:rect(width - 1, 1, 1, height, color.shadow)
+                edge:rect(width, 1, 1, height, color.frame)
+            end
+        end
+        out[#out + 1] = {id = edge_id, raster = edge,
+            x = side == "left" and window.x or window.x + w - 1,
+            y = window.y + head_rows, cols = 1, rows = body}
+    end
+    local foot_id = id .. ":foot"
+    local foot, foot_dirty = store.take(foot_id, w, 1, cell, inside)
+    if foot_dirty then
+        local width, height = w * cell.w, cell.h
+        foot:fill(inside)
+        foot:rect(1, 1, 3, height, color.face)
+        foot:rect(1, 1, 1, height, color.light)
+        foot:rect(width - 2, 1, 3, height, color.face)
+        foot:rect(width - 1, 1, 1, height, color.shadow)
+        foot:rect(width, 1, 1, height, color.frame)
+        foot:rect(1, height - 2, width, 1, color.face)
+        foot:rect(2, height - 1, width - 2, 1, color.shadow)
+        foot:rect(1, height, width, 1, color.frame)
+    end
+    out[#out + 1] = {id = foot_id, raster = foot, x = window.x, y = window.y + h - 1, cols = w, rows = 1}
 
+    -- Окно-вид: внутри рамки процесса нет, содержимое кладёт тема. Прямоугольник
+    -- тот же, что получил бы viewport обычного окна, — по инсетам темы.
+    if window.content == "pixels" and w > 2 and body > 0 then
+        paint_view(cell, window, fonts, out,
+            {x = window.x + 1, y = window.y + head_rows, cols = w - 2, rows = body})
+    end
+end
+
+local function paint_bars(cell: any, state: any, fonts: any, out, hits)
+    local w, h = whole(state.width), whole(state.height)
+    local rows = taskbar_rows()
+    local top = h - rows + 1
+    local face: any = type(fonts) == "table" and fonts.face or nil
+    local bold: any = type(fonts) == "table" and fonts.bold or face
+    local key = {tostring(w), tostring(state.clock or ""), tostring(state.focused_id or ""),
+                 state.menu and "open" or "closed"}
+    for _, window in ipairs(state.windows or {}) do
+        key[#key + 1] = tostring(window.id) .. ":" .. tostring(window.title)
+            .. ":" .. tostring(window.image) .. ":" .. tostring(window.minimized)
+    end
+    local bar, dirty = store.take("bars", w, rows, cell, table.concat(key, "\30"))
+    local width, height = w * whole(cell.w), rows * whole(cell.h)
+    local button_h = height - 6
+    local button_y = 1 + (height - button_h) // 2
+    local start_span = math.max(6, (whole(bold and bold:measure("Пуск") or 28) + 44 + whole(cell.w) - 1) // whole(cell.w))
     if dirty then
-        local clock_at = pixels.box(w - 7, 1, 7, 1, cell)
-        pixels.field(bar, clock_at.x - 1, 3, clock_at.w, box.h - 6)
-        pixels.label(bar, clock_at.x - 1, 3, clock_at.w, box.h - 6,
+        bar:fill(color.face)
+        bar:rect(1, 1, width, 1, color.light)
+        bar:rect(1, 2, width, 1, color.face)
+        -- Та же кнопка, что везде: нажата, пока меню открыто.
+        pixels.button(bar, 3, button_y, start_span * cell.w - 5, button_h,
+            {label = "", pressed = state.menu ~= nil}, cell)
+        local shift = state.menu and 1 or 0
+        pixels.flag(bar, 9 + shift, button_y + (button_h - 16) // 2 + shift)
+        if bold then bar:text(31 + shift, button_y + (button_h - 15) // 2 + shift,
+            "Пуск", {font = bold, color = color.face_text}) end
+    end
+    hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
+        from = 1, to = start_span, action = "menu"}
+    local at = start_span + 1
+    for _, window in ipairs(state.windows or {}) do
+        local span = 16
+        if at + span - 1 > w - 10 then break end
+        if dirty then
+            local left = (at - 1) * cell.w + 1
+            local pressed = window.id == state.focused_id and not window.minimized
+            local shift = pressed and 1 or 0
+            pixels.button(bar, left, button_y, span * cell.w - 2, button_h,
+                {id = window.id, label = "", font = face, pressed = pressed}, cell)
+            pixels.icon(bar, left + 6 + shift, button_y + (button_h - 16) // 2 + shift,
+                {kind = "window", image = window.image}, 16)
+            if face then
+                bar:text(left + 28 + shift, button_y + (button_h - 15) // 2 + shift,
+                    pixels.ellipsize(face, window.title, span * cell.w - 36),
+                    {font = face, color = color.face_text})
+            end
+        end
+        hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
+            from = at, to = at + span - 1, id = window.id}
+        at = at + span
+    end
+    if dirty then
+        local x, cw = (w - 9) * cell.w + 1, 9 * cell.w - 4
+        pixels.bevel(bar, x, button_y, cw, button_h, false)
+        pixels.label(bar, x, button_y, cw, button_h,
             tostring(state.clock or ""), face, color.face_text)
     end
-
-    out[#out + 1] = {id = id, raster = bar, x = 1, y = h, cols = w, rows = 1}
+    if chrome_pixels.clock_entry then
+        hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
+            from = w - 8, to = w, entry = chrome_pixels.clock_entry}
+    end
+    out[#out + 1] = {id = "bars", raster = bar, x = 1, y = top, cols = w, rows = rows}
 end
 
 -- ─── меню «Пуск» ─────────────────────────────────────────────────────────
@@ -332,7 +532,8 @@ local function menu_key(box: any)
     for _, entry in ipairs(box.lines) do
         local line: any = entry
         parts[#parts + 1] = table.concat({
-            tostring(line.kind), tostring(line.text), tostring(line.tail),
+            tostring(line.kind), tostring(line.text), tostring(line.tail), tostring(line.rows),
+            tostring(line.entry), tostring(line.image), tostring(line.separator_before),
             line.selected and "1" or "0", line.bold and "b" or "",
             line.dim and "d" or "", tostring(line.banner_letter),
         }, "\30")
@@ -372,16 +573,18 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
         -- повёрнутым на 270°: так он читается снизу вверх, как на эталоне.
         -- Временный растр не размещается на экране и живёт только внутри
         -- перерисовки — версия от него не двигается ни у кого.
-        if box.banner > 0 and bold then
+        if whole(box.banner) > 0 and bold then
             local strip = pixels.box(1, 1, box.banner, box.h, cell)
-            raster:rect(2, 2, strip.w - 2, strip.h - 4, color.select_bg)
+            raster:rect(2, 2, strip.w - 2, strip.h - 4, color.shadow)
 
-            local label = tostring(chrome.MENU_BANNER or "")
+            -- Тот же текст, что у темы в ячейках, только не капителью: в
+            -- пикселях надпись набирается шрифтом, а не по букве на строку.
+            local label = "Wippy 2026"
             local text_w = whole(bold:measure(label))
             local text_h = 16
             if label ~= "" and text_w > 0 then
                 local temp = gfx.raster(text_w, text_h)
-                temp:fill(color.select_bg)
+                temp:fill(color.shadow)
 
                 -- Перо вынесено в переменную с `any` НАРОЧНО и точечно.
                 --
@@ -405,48 +608,51 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
             end
         end
 
-        local text_left = pixels.box(box.banner + 1, 1, 1, 1, cell).x + 4
+        local text_left = pixels.box(whole(box.banner) + 1, 1, 1, 1, cell).x + 8
         for index, entry in ipairs(box.lines) do
             local line: any = entry
-            local at = pixels.box(1, index + 1, box.w, 1, cell)
-            local top = at.y - cell.h
+            local top = (whole(line.row or (box.y + index)) - box.y) * cell.h + 1
+            local line_h = math.max(1, whole(line.rows or 1)) * cell.h
+            local inset = line_h >= 28 and 4 or 2
 
             -- Выделение — полосой во всю ширину списка, как в Windows 95:
             -- в меню синий прямоугольник обнимает строку целиком, а не
             -- подпись, в отличие от значка на столе.
             local tint = color.face_text
             if line.selected then
-                local strip = pixels.box(box.banner + 1, index + 1, box.list_w, 1, cell)
-                raster:rect(strip.x, top, strip.w, cell.h, color.select_bg)
+                local strip = pixels.box(whole(box.banner) + 1, 1, box.list_w, 1, cell)
+                raster:rect(strip.x + 3, top + inset, strip.w - 2, line_h - inset * 2, color.select_bg)
                 tint = color.select_fg
             elseif line.dim then
                 tint = color.shadow
             end
 
-            -- Значок пункта — ПРИМИТИВОМ, а не символом. В `line.text` он
-            -- едет буквой `▢` или `▤`, и это верно для ячеек; в шрифте таких
-            -- рун нет, отсутствующая руна advance-ится пробелом, и на первом
-            -- же снимке меню на их месте вышла пустота.
-            local mark_size = 12
-            local mark_top = top + (cell.h - mark_size) // 2
+            -- Root entries use their native 32px frame; submenus use 16px.
+            local mark_size = whole(box.banner) > 0 and 32 or 16
+            local mark_top = top + (line_h - mark_size) // 2
             if line.kind == "group" then
-                pixels.mark_folder(raster, text_left, mark_top, mark_size, tint)
+                pixels.icon(raster, text_left, mark_top, {kind = "group", image = "programs"}, mark_size)
             elseif line.kind == "item" then
-                pixels.mark_program(raster, text_left, mark_top, mark_size, tint)
+                pixels.icon(raster, text_left, mark_top,
+                    {kind = "program", entry = line.entry, image = line.image}, mark_size)
             end
 
+            if line.separator_before then
+                raster:rect(text_left, top, area.w - text_left - 3, 1, color.shadow)
+                raster:rect(text_left, top + 1, area.w - text_left - 3, 1, color.light)
+            end
             local font = line.bold and bold or face
             if font then
                 local label_left = text_left
-                if line.kind ~= "hint" then label_left = text_left + mark_size + 6 end
-                raster:text(label_left, top + (cell.h - 15) // 2, line.label,
+                if line.kind ~= "hint" then label_left = text_left + mark_size + 10 end
+                raster:text(label_left, top + (line_h - 15) // 2, line.label or line.text,
                     {font = font, color = tint})
 
                 -- Стрелка подменю — тем же примитивом и по правому краю
                 -- списка, как в Windows 95.
                 if line.arrow then
-                    local right = pixels.box(box.banner + box.list_w, 1, 1, 1, cell)
-                    pixels.mark_submenu(raster, right.x - 8, mark_top + 2, 8, tint)
+                    local right = pixels.box(whole(box.banner) + whole(box.list_w), 1, 1, 1, cell)
+                    pixels.mark_submenu(raster, right.x - 8, top + (line_h - 8) // 2, 8, tint)
                 end
             end
         end
@@ -461,11 +667,64 @@ end
 -- Попадания приезжают ГРУППАМИ `{desktop, bars, menu}`, а не плоским списком:
 -- `id` в трёх списках значит разное, и плоский пришлось бы разбирать по
 -- догадке.
+-- Subtract higher windows in cell space before handing images to the surface.
+-- Otherwise a lower window's border or a desktop icon erases the foreground text.
+local function subtract(rect: any, cover: any): any
+    local x, y = whole(rect.x), whole(rect.y)
+    local right, bottom = x + whole(rect.cols), y + whole(rect.rows)
+    local cx, cy = whole(cover.x), whole(cover.y)
+    local left = math.max(x, cx)
+    local top = math.max(y, cy)
+    local far = math.min(right, cx + whole(cover.w))
+    local low = math.min(bottom, cy + whole(cover.h))
+    if left >= far or top >= low then return {rect} end
+    local pieces = {}
+    if top > y then pieces[#pieces + 1] = {x = x, y = y, cols = right - x, rows = top - y} end
+    if low < bottom then pieces[#pieces + 1] = {x = x, y = low, cols = right - x, rows = bottom - low} end
+    if left > x then pieces[#pieces + 1] = {x = x, y = top, cols = left - x, rows = low - top} end
+    if far < right then pieces[#pieces + 1] = {x = far, y = top, cols = right - far, rows = low - top} end
+    return pieces
+end
+
+local function visible_placements(placements: any, windows: any, cell: any): any
+    local out = {}
+    for _, source in ipairs(placements) do
+        local pieces = {source}
+        if source.layer ~= nil then
+            for index = whole(source.layer) + 1, #windows do
+                local cover = windows[index]
+                if not cover.minimized then
+                    local next_pieces = {}
+                    for _, piece in ipairs(pieces) do
+                        for _, kept in ipairs(subtract(piece, cover)) do next_pieces[#next_pieces + 1] = kept end
+                    end
+                    pieces = next_pieces
+                end
+            end
+        end
+        for _, piece in ipairs(pieces) do
+            if piece == source then
+                out[#out + 1] = source
+            else
+                local dx, dy = piece.x - source.x, piece.y - source.y
+                local id = source.id .. ":crop:" .. dx .. ":" .. dy .. ":" .. piece.cols .. ":" .. piece.rows
+                local key = tostring(source.cols) .. ":" .. source.rows .. ":" .. source.raster:version()
+                local raster, dirty = store.take(id, piece.cols, piece.rows, cell, key)
+                if dirty then raster:blit(source.raster, 1 - dx * cell.w, 1 - dy * cell.h) end
+                out[#out + 1] = {id = id, raster = raster, x = piece.x, y = piece.y,
+                    cols = piece.cols, rows = piece.rows}
+            end
+        end
+    end
+    return out
+end
+
 function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
-    local cell = {w = whole(cell_w), h = whole(cell_h)}
+    chrome_pixels.use_cell_size(cell_w, cell_h)
+    local cell = unit
     local view: any = type(state) == "table" and state or {}
     local fonts = chrome_pixels.fonts
-    local grid = icons.grid()
+    local grid = chrome_pixels.icon_grid()
 
     store.begin()
     local out = {}
@@ -482,7 +741,7 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
             local id, raster = paint_icon(cell, item, selected, grid)
             store.place(id, x, y)
             out[#out + 1] = {id = id, raster = raster, x = x, y = y,
-                             cols = grid.w - 1, rows = grid.drawn}
+                             cols = grid.w - 1, rows = grid.drawn, layer = 0}
             -- Попадание на КАЖДУЮ строку значка, а не одно на всю высоту.
             --
             -- Композитор сверяет `event.y == spot.row` — ровно одну строку, —
@@ -506,13 +765,19 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
         end
     end
 
-    for _, entry in ipairs(view.windows or {}) do
+    local live_clients: any = {}
+    for index, entry in ipairs(view.windows or {}) do
         local window: any = entry
+        if clients[window.id] then live_clients[window.id] = clients[window.id] end
         if not window.minimized then
+            local first = #out + 1
             paint_window(cell, window, view.focused_id == window.id, fonts, out)
+            if clients[window.id] then live_clients[window.id] = clients[window.id] end
+            for at = first, #out do out[at].layer = index end
         end
     end
 
+    clients = live_clients
     paint_bars(cell, view, fonts, out, hits)
 
     -- Меню поверх всего: оно и на экране поверх всего, а порядок списка и есть
@@ -520,7 +785,15 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     if view.menu then
         local menu: any = view.menu
         local shown = chrome.menu_layout(view.width, view.height,
-            menu.items, menu.failure, menu.open, menu.cursor)
+            menu.items, menu.failure, menu.open, menu.cursor, {
+                compact = true, bottom = taskbar_rows(),
+                root_rows = math.max(1, (32 + cell.h - 1) // cell.h),
+                item_rows = math.max(1, (24 + cell.h - 1) // cell.h),
+                measure = function(label)
+                    local font: any = fonts and fonts.face
+                    return (whole(font and font:measure(label) or 0) + 64 + cell.w - 1) // cell.w
+                end,
+            })
 
         if shown.notice then
             local id = "menu:notice"
@@ -545,6 +818,7 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     -- Размещения объявляются через хранилище, чтобы `sweep` выбросил то, чего
     -- в кадре не назвали: закрытое меню исчезает отсутствием в списке, а не
     -- рисованием поверх.
+    out = visible_placements(out, view.windows or {}, cell)
     for _, item in ipairs(out) do store.place(item.id, item.x, item.y) end
     store.frame(cell)
 
@@ -555,8 +829,10 @@ end
 -- модуля `fs`, и это не оплошность — шрифт приезжает БАЙТАМИ, потому что
 -- чтение файла управляется правами процесса, а модуль, открывающий пути сам,
 -- был бы дорогой мимо них.
-function chrome_pixels.use_fonts(face, bold)
-    chrome_pixels.fonts = {face = face, bold = bold or face}
+-- `display` — крупный полужирный для экрана прощания; без него надпись
+-- набирается обычным полужирным и выглядит подписью, а не экраном.
+function chrome_pixels.use_fonts(face, bold, display)
+    chrome_pixels.fonts = {face = face, bold = bold or face, display = display or bold or face}
 end
 
 return chrome_pixels

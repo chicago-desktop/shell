@@ -1,0 +1,72 @@
+version: "1.0"
+namespace: butschster.windows.appwiz
+
+# «Установка и удаление программ» — appwiz, как в Windows. Программа здесь —
+# модуль wippy; окно показывает объявленные и закэшированные модули и правит
+# файл объявлений приложения. Ставит и снимает их `wippy update` после
+# перезапуска — окно об этом говорит, а не притворяется.
+
+entries:
+  # butschster.windows.appwiz:model
+  - name: model
+    kind: library.lua
+    meta:
+      comment: Чистая модель панели установки — слияние объявлений с кэшем, правка текста объявлений, имя новой записи.
+    source: file://model.lua
+    imports:
+      geometry: butschster.tui_desktop.desktop:geometry
+
+  # Права: то же, что у поставщика вида (контекст, композитор в реестре
+  # процессов, отправка ему состояния), плюс прочитать реестр и кэш модулей,
+  # окружение (имя папки объявлений) и саму папку. Ни порождать процессы, ни
+  # менять реестр окно не может: снять модуль из работающего рантайма ему
+  # нечем, и права на это не дают.
+  - name: window_scope
+    kind: security.policy
+    meta:
+      comment: Права панели установки — реестр и кэш модулей читать, папку объявлений читать и писать, состояние публиковать композитору; процессов и реестра не трогать.
+    policy:
+      actions:
+        - process.context
+        - process.registry
+        - process.send
+        - registry.get
+        - registry.find
+        - registry.entry
+        - env.get
+        - fs.get
+        - hub.cache.list
+      resources: "*"
+      effect: allow
+
+  # butschster.windows.appwiz:window
+  - name: window
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: Установка и удаление программ
+      image: program_settings
+      icon: "▦"
+      group: Настройка
+      order: 100
+      width: 76
+      height: 22
+      window_type: app
+      resizable: true
+      pixel_render: butschster.windows.sdk:render
+      pixel_state: butschster.windows.appwiz:window
+      comment: Установка и удаление программ — модули wippy из объявлений приложения и кэша; снять и добавить объявление, вступает в силу после wippy update и перезапуска.
+    source: file://window.lua
+    method: main
+    modules:
+      - env
+      - fs
+      - hub
+      - registry
+      - time
+    security:
+      policies: [butschster.windows.appwiz:window_scope]
+    imports:
+      geometry: butschster.tui_desktop.desktop:geometry
+      app: butschster.windows.sdk:app
+      model: butschster.windows.appwiz:model

@@ -21,6 +21,8 @@ entries:
     meta:
       comment: Раскладка окна «Дата и время» без gfx — области, кнопки в ячейках, сетка месяца; читают и краски, и поставщик.
     source: file://layout.lua
+    imports:
+      geometry: butschster.tui_desktop.desktop:geometry
 
   # butschster.windows.datetime:render
   #
@@ -34,6 +36,7 @@ entries:
     modules:
       - gfx
     imports:
+      geometry: butschster.tui_desktop.desktop:geometry
       layout: butschster.windows.datetime:layout
       palette: butschster.windows.shell:palette
       pixels: butschster.windows.shell:pixels
@@ -56,6 +59,8 @@ entries:
     security:
       policies: [butschster.windows.security:view_state]
     imports:
+      geometry: butschster.tui_desktop.desktop:geometry
+      desktop: butschster.tui_desktop.desktop:window_api
       layout: butschster.windows.datetime:layout
 
   # butschster.windows.datetime:window
@@ -69,7 +74,7 @@ entries:
       title: Дата и время
       image: clock
       icon: "◷"
-      group: Стандартные
+      group: Программы
       order: 30
       window_type: dialog
       window_content: pixels

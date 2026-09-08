@@ -186,7 +186,14 @@ tty.text = {
 }
 
 -- ─── загрузка примитивов ─────────────────────────────────────────────────
-local modules = {gfx = gfx, tty = tty}
+-- Decoder double checks placement geometry only. Native PNG bytes, masks and
+-- colours are checked by images_test and the real paint-png renderer.
+gfx.image = function(data) return new_raster(tonumber(data), tonumber(data)) end
+local fs = {get = function()
+    return {readfile = function(_, path) return path:match("^(%d+)/") end}
+end}
+local logger = {named = function() return {warn = function() end} end}
+local modules = {gfx = gfx, tty = tty, fs = fs, logger = logger}
 local saved_require = require
 require = function(name)
     if modules[name] then return modules[name] end
@@ -194,18 +201,25 @@ require = function(name)
     error("нет модуля " .. tostring(name))
 end
 
+modules.scroll = dofile(BASE .. "core/scroll.lua")
+modules.sdk_render, modules.regedit_render = {}, {}
 modules.palette = dofile(BASE .. "shell/palette.lua")
 modules.glyphs = dofile(BASE .. "shell/glyphs.lua")
 modules.widgets = dofile(BASE .. "shell/widgets.lua")
 modules.icons = dofile(BASE .. "shell/icons.lua")
+modules.images = dofile(BASE .. "shell/images.lua")
 modules.pixels = dofile(BASE .. "shell/pixels.lua")
 modules.rasters = dofile(BASE .. "shell/rasters.lua")
 -- `chrome` тянется сюда не ради отрисовки в ячейки, а ради ОДНОЙ таблицы
 -- составов кнопок заголовка: второй список разошёлся бы с первым.
 modules.chrome = dofile(BASE .. "shell/chrome.lua")
-modules.chrome_pixels = dofile(BASE .. "shell/chrome_pixels.lua")
 modules.render = dofile(BASE .. "explorer/render.lua")
 modules.render_pixels = dofile(BASE .. "explorer/render_pixels.lua")
+modules.explorer_layout = modules.render
+modules.explorer_pixels = modules.render_pixels
+-- Other clients have runtime tests; this geometry probe does not open them.
+modules.datetime_render, modules.calc_render, modules.picture_render, modules.run_render, modules.taskman_render = {}, {}, {}, {}, {}
+modules.chrome_pixels = dofile(BASE .. "shell/chrome_pixels.lua")
 
 local pixels = modules.pixels
 local rasters = modules.rasters
@@ -720,7 +734,8 @@ do
     end
     check(bars ~= nil, "панели задач нет в кадре")
     if bars then
-        check(bars.y == 20 and bars.rows == 1, "панель задач заняла не свою строку")
+        check(bars.y + bars.rows - 1 == 20 and bars.rows == chrome_pixels.layout(60, 20).bottom,
+            "панель задач должна занимать объявленную темой нижнюю область")
     end
 
     -- Попадания приезжают ГРУППАМИ, а не плоским списком: `id` в трёх
@@ -733,16 +748,25 @@ do
     -- что отдаёт режим символов на том же состоянии.
     check(#painted.hits.bars >= 2, "«Пуск» и кнопка окна обязаны быть нажимаемы")
 
-    -- Попадание значка обязано лежать в его же размещении.
+    -- Every visible interactive cell belongs to an image. Covered cells belong
+    -- to the foreground window, so a cropped icon need not retain a whole placement.
+    local state = desktop_state()
     for _, hit in ipairs(painted.hits.desktop) do
-        local found: any = nil
-        for _, item in ipairs(placements) do
-            if item.id == "desk:" .. tostring(hit.id) then found = item end
-        end
-        check(found ~= nil, "у значка " .. tostring(hit.id) .. " нет размещения")
-        if found then
-            check(hit.from >= found.x and hit.to <= found.x + found.cols - 1,
-                "попадание значка " .. tostring(hit.id) .. " шире своего размещения")
+        for x = hit.from, hit.to do
+            local covered = false
+            for _, window in ipairs(state.windows) do
+                if not window.minimized and x >= window.x and x < window.x + window.w
+                    and hit.row >= window.y and hit.row < window.y + window.h then covered = true end
+            end
+            if not covered then
+                local found = false
+                for _, item in ipairs(placements) do
+                    if item.id:find("desk:" .. hit.id, 1, true) == 1
+                        and x >= item.x and x < item.x + item.cols
+                        and hit.row >= item.y and hit.row < item.y + item.rows then found = true end
+                end
+                check(found, "у видимой ячейки значка нет изображения")
+            end
         end
     end
 
@@ -754,7 +778,7 @@ do
     -- Так пропали два щелчка сразу. «Пуск» отдавал `id = "menu"` вместо
     -- `action = "menu"` — композитор проверяет `id` первым, искал окно с
     -- таким именем и не находил. А значки стола отдавали ОДНО попадание на
-    -- три строки с полем `bottom_row`, которого композитор не знает: значок
+    -- три строки с неподдержанным тогда `bottom_row`: значок
     -- нажимался бы по картинке и не нажимался по подписи.
     --
     -- Проверка не считает попадания, а сравнивает их с тем, что отдаёт РЕЖИМ
@@ -780,7 +804,7 @@ do
         local function shape_of(hit: any)
             local keys = {}
             for key, value in pairs(hit) do
-                if value ~= nil then keys[#keys + 1] = key end
+                if value ~= nil and key ~= "bottom_row" then keys[#keys + 1] = key end
             end
             table.sort(keys)
             return table.concat(keys, ",")
@@ -799,7 +823,7 @@ do
         local function compare(what, cells_list, pixels_list)
             local left = shapes(cells_list)
             local right = shapes(pixels_list)
-            check(#cells_list == #pixels_list,
+            check(what == "стол" or #cells_list == #pixels_list,
                 what .. ": в ячейках попаданий " .. #cells_list
                     .. ", в пикселях " .. #pixels_list)
             check(table.concat(left, " | ") == table.concat(right, " | "),
@@ -810,6 +834,8 @@ do
                 .. table.concat(right, " | "))
         end
 
+        check(#painted.hits.desktop == #state.items * chrome_pixels.icon_grid().drawn,
+            "значок должен нажиматься по всем строкам своей раскладки")
         compare("стол", cell_desk, painted.hits.desktop)
         compare("панель задач", cell_bars, painted.hits.bars)
     end
@@ -825,8 +851,8 @@ do
     -- курсора не имеет права нести подсветку, а с курсором обязан.
     do
         local menu_items = {
-            {entry = "app:calc", title = "Калькулятор", group = "Программы"},
-            {entry = "app:notepad", title = "Блокнот", group = "Программы"},
+            {entry = "app:calc", title = "Калькулятор", group = {"Программы"}},
+            {entry = "app:notepad", title = "Блокнот", group = {"Программы"}},
             {entry = "app:bash", title = "Сеанс MS-DOS"},
         }
 
@@ -861,7 +887,9 @@ do
             .. ", с курсором " .. with_cursor)
     end
 
-    local before = snapshot(placements)
+    -- The menu scenes above changed the pressed state of Start. Close it
+    -- before taking the baseline for an unchanged-frame assertion.
+    local before = snapshot(chrome_pixels.paint(desktop_state(), CELL.w, CELL.h).placements)
     local again = snapshot(chrome_pixels.paint(desktop_state(), CELL.w, CELL.h).placements)
     local still = moved(before, again)
     check(#still == 0, "кадр без изменений сдвинул: " .. table.concat(still, ", "))
@@ -875,9 +903,33 @@ do
     print("    сменились часы: перерисовано " .. table.concat(ticked, ", "))
 end
 
+-- Native client placements stay inside the viewport even after a small resize.
+for _, unit in ipairs({{w = 8, h = 16}, {w = 8, h = 18}, {w = 10, h = 20}}) do
+    for _, dimensions in ipairs({{12, 3}, {20, 8}, {32, 16}, {62, 18}}) do
+        local width, height = dimensions[1], dimensions[2]
+        local objects = {}
+        for index = 1, 65 do objects[index] = {id = tostring(index), kind = "drive", title = "Диск " .. index} end
+        local plan = render.layout({title = "Мой компьютер", objects = objects, offset = 0},
+            width, height, render.pixel_metrics(unit.w, unit.h))
+        local client = rasters.store()
+        local placements = render_pixels.paint(client, plan, unit, {face = font, bold = font}, "native")
+        for _, place in ipairs(placements) do
+            check(place.x >= 1 and place.y >= 1 and place.x + place.cols - 1 <= width
+                and place.y + place.rows - 1 <= height, "native client placement escaped its viewport: " .. place.id)
+        end
+        local hits = render.hits(plan)
+        check_overlap(hits.scroll)
+        for _, cell in ipairs(hits.cells) do
+            check(cell.from >= 1 and cell.to <= width and cell.top >= 1 and cell.bottom <= height,
+                "native icon hit escaped its viewport")
+        end
+    end
+end
+
 print("")
 if failures == 0 then
     print("проверок не нарушено")
 else
     print("НАРУШЕНО ПРОВЕРОК: " .. failures)
+    error("pixelprobe failed")
 end

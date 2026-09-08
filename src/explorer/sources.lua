@@ -36,7 +36,7 @@ local sources = {}
 -- `fs.directory` — каталог на диске, `fs.embed` — файлы, вмороженные в модуль
 -- при сборке. Третьего вида не изобретаем: диск, которого нет в реестре,
 -- рисовать нельзя.
-sources.DRIVE_KINDS = {"fs.directory", "fs.embed"}
+sources.DRIVE_KINDS = model.DRIVE_KINDS
 
 -- Потолок на одно чтение каталога. Каталог с десятью тысячами файлов собрал бы
 -- десять тысяч объектов ради трёх строк, которые влезут в окно. Обрезка НЕ
@@ -52,7 +52,7 @@ sources.FILE_LIMIT = 500
 function sources.drives()
     local out = {}
     for _, kind in ipairs(sources.DRIVE_KINDS) do
-        local found, err = registry.find({kind = kind})
+        local found, err = registry.find({[".kind"] = kind})
         if err then return nil, "реестр не прочитан: " .. tostring(err) end
         if type(found) ~= "table" then
             return nil, "реестр не прочитан: ответ не список"
@@ -106,25 +106,13 @@ end
 -- `notice` — третье состояние между ними: прочитали, но не всё. Замечание не
 -- прячет объекты и не выдаёт себя за отказ.
 --
--- `context.windows` — число открытых окон; его знает только процесс окна,
--- потому что приносит его ответ композитора.
 function sources.list(path, context: any)
     local where = model.parse(path)
-    local ask: any = type(context) == "table" and context or {}
 
     if where.view == "root" then
-        local counts = sources.counts()
-        if ask.windows then (counts :: any).windows = ask.windows end
-
-        -- Отказ реестра НЕ прячет остального: три папки оболочка знает и без
-        -- него. Сказать «не прочитано» про весь корень значило бы спрятать
-        -- источники, которые прочитались.
         local records, err = sources.drives()
-        return {
-            objects = model.root(counts, model.drives(records)),
-            title = "Мой компьютер",
-            notice = err and ("диски не прочитаны: " .. tostring(err)) or nil,
-        }, nil
+        if err or not records then return nil, err or "диски не прочитаны" end
+        return {objects = model.root(records), title = "Мой компьютер"}, nil
     end
 
     if where.view == "programs" then
@@ -204,32 +192,6 @@ function sources.list(path, context: any)
     end
 
     return nil, "неизвестная папка: " .. tostring(path)
-end
-
--- counts() -> (счётчики, nil)
---
--- Для корня. Источник, который не прочитался, остаётся БЕЗ числа, а не с
--- нулём: ноль сказал бы «пусто», то есть утверждение, которого мы не делали.
---
--- Стол считается по верхнему уровню — по тому же правилу, по которому он
--- показывается. Счётчик, считающий вложенные значки, обещал бы папку, в
--- которой их больше, чем видно.
-function sources.counts()
-    local out: any = {}
-
-    local found = catalog.list()
-    if found then out.programs = #found.programs end
-
-    local items = repo.list()
-    if items then
-        local top = 0
-        for _, entry in ipairs(items) do
-            if not (entry :: any).parent_id then top = top + 1 end
-        end
-        out.desktop = top
-    end
-
-    return out, nil
 end
 
 return sources

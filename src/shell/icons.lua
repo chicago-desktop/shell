@@ -56,9 +56,8 @@ local surfaces = {
     },
 }
 
-local function whole(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
-end
+local geometry = require("geometry")
+local whole = geometry.whole
 
 local function cells(text): integer
     return whole(tty.text.width(text))

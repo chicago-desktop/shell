@@ -45,6 +45,8 @@ entries:
     meta:
       comment: Просмотр картинок, отрисовка — вписать или показать в масштабе, один растр кадра на окно, переотправка только при изменении.
     source: file://picture_render.lua
+    imports:
+      geometry: butschster.tui_desktop.desktop:geometry
     modules:
       - base64
       - gfx
@@ -87,7 +89,8 @@ entries:
       title: Блокнот
       image: text_document
       icon: "▤"
-      group: Стандартные
+      group: Программы
+      order: 40
       width: 64
       height: 20
       # Что открывает. Проводник собирает по этому полю реестр типов.
@@ -103,6 +106,10 @@ entries:
     security:
       policies: [butschster.windows.viewers:viewer_scope]
     imports:
+      text: butschster.tui_desktop.desktop:text
+      geometry: butschster.tui_desktop.desktop:geometry
+      input: butschster.tui_desktop.desktop:input
+      scroll: butschster.tui_desktop.desktop:scroll
       files: butschster.windows.viewers:files
       widgets: butschster.windows.shell:widgets
 
@@ -116,9 +123,12 @@ entries:
     meta:
       type: tui_desktop.window
       title: Просмотр картинок
+      # В «Пуске» бесполезен: открывается только файлом из проводника.
+      in_menu: false
       image: document
       icon: "▦"
-      group: Стандартные
+      group: Программы
+      order: 50
       width: 70
       height: 22
       window_content: pixels
@@ -140,6 +150,7 @@ entries:
     source: file://picture_state.lua
     method: main
     modules:
+      - gfx
       - base64
       - channel
       - fs
@@ -148,4 +159,7 @@ entries:
     security:
       policies: [butschster.windows.viewers:provider_scope]
     imports:
+      geometry: butschster.tui_desktop.desktop:geometry
+      desktop: butschster.tui_desktop.desktop:window_api
+      scroll: butschster.tui_desktop.desktop:scroll
       files: butschster.windows.viewers:files

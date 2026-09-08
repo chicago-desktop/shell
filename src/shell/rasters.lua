@@ -42,9 +42,8 @@ local gfx = require("gfx")
 
 local rasters = {}
 
-local function whole(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
-end
+local geometry = require("geometry")
+local whole = geometry.whole
 
 -- store() -> хранилище
 function rasters.store(): any

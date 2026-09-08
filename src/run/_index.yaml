@@ -1,0 +1,40 @@
+version: "1.0"
+namespace: butschster.windows.run
+
+# «Выполнить» — диалог на SDK оболочки: поле команды, «ОК», «Отмена».
+# Собственных раскладки, отрисовщика и редактора у него больше нет — их
+# даёт `butschster.windows.sdk`; своя здесь только спецификация запуска.
+
+entries:
+  - name: model
+    kind: library.lua
+    meta:
+      comment: Спецификация запуска команды через штатное PTY-окно основы.
+    source: file://model.lua
+
+  - name: window
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: Выполнить…
+      image: run
+      icon: "▸"
+      order: 900
+      # Корень «Пуска» явно: без group программа ушла бы в «Программы».
+      group: ""
+      in_menu: true
+      window_type: dialog
+      resizable: false
+      width: 54
+      height: 12
+      pixel_render: butschster.windows.sdk:render
+      pixel_state: butschster.windows.run:window
+      comment: Ввод команды и запуск в отдельном окне Bash через композитор; диалог на SDK оболочки.
+    source: file://window.lua
+    method: main
+    imports:
+      app: butschster.windows.sdk:app
+      desktop: butschster.tui_desktop.desktop:window_api
+      model: butschster.windows.run:model
+    security:
+      policies: [butschster.windows.security:view_state]

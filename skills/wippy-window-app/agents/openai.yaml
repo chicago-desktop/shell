@@ -1,0 +1,6 @@
+interface:
+  display_name: "Wippy Window SDK"
+  short_description: "Add Wippy windows with one declarative SDK contract"
+  default_prompt: "Use $wippy-window-app to add a registry-discovered Wippy window with shared resize and scrolling."
+policy:
+  allow_implicit_invocation: true

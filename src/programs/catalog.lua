@@ -34,10 +34,27 @@ catalog.MAX_DEPTH = 3
 -- в каком виде реестр вернул список.
 local NO_ORDER = 1e9
 
+-- Папка для программы, которая папку не назвала. Корень «Пуска» — как в
+-- Windows: две папки, «Выполнить…» и «Завершение работы»; программа, которая
+-- хочет лежать на корне, говорит это явно — `group: ""`. Иначе каждое окно,
+-- собранное мастерской по HTTP (у него `meta.group` нет и взяться неоткуда),
+-- ложилось бы на корень, и корень рос с каждым таким окном.
+catalog.DEFAULT_GROUP = "Программы"
+
 -- "Служебные/Сеть" -> {"Служебные", "Сеть"}. Пустые сегменты выбрасываются:
 -- "Служебные//Сеть" — это опечатка, а не безымянная папка посередине.
+-- `nil` — папка не названа, и это `DEFAULT_GROUP`; пустая строка — названа
+-- пустой, то есть корень. Различие нарочно: «не сказал» и «сказал: никакой»
+-- — разные ответы.
 local function parse_group(value: any)
     local out = {}
+    if type(value) == "table" then
+        for _, segment in ipairs(value) do
+            if type(segment) == "string" and segment ~= "" and #out < catalog.MAX_DEPTH then out[#out + 1] = segment end
+        end
+        return out
+    end
+    if value == nil then return {catalog.DEFAULT_GROUP} end
     if type(value) ~= "string" then return out end
     for segment in string.gmatch(value, "[^/]+") do
         local trimmed = string.match(segment, "^%s*(.-)%s*$")
@@ -101,14 +118,16 @@ local function to_program(record: any)
         group = parse_group(meta.group),
         order = order or NO_ORDER,
         icon = type(meta.icon) == "string" and meta.icon ~= "" and meta.icon or catalog.DEFAULT_ICON,
+        image = type(meta.image) == "string" and meta.image ~= "" and meta.image or nil,
         width = tonumber(meta.width),
         height = tonumber(meta.height),
         args = type(meta.args) == "string" and meta.args or nil,
         -- Что программа открывает — реестр типов файлов собирается из этого
         -- поля проводником; таблица как есть, разбирает её associations.
         opens = type(meta.opens) == "table" and meta.opens or nil,
-        -- Значок программы — он же значок её файлов в проводнике.
-        image = type(meta.image) == "string" and meta.image ~= "" and meta.image or nil,
+        -- Разделитель меню после этой строки: так «Мой компьютер» на корне
+        -- отделён от папок под ним, как в Windows.
+        separator_after = meta.separator_after == true or nil,
         -- `desktop` в реестре — просьба ВЫНЕСТИ ярлык на стол при первом
         -- появлении, а не утверждение, что ярлык там есть. Есть он или нет,
         -- знает только раскладка.
@@ -190,6 +209,60 @@ function catalog.listed(programs: any)
     return out
 end
 
+-- The shell consumes this adapter directly: preserve metadata when translating
+-- width/height to the compositor's w/h names, including future image fields.
+function catalog.menu_items(programs: any)
+    local out = {}
+    for _, program in ipairs(catalog.listed(programs)) do
+        local item: any = {}
+        for key, value in pairs(program) do item[key] = value end
+        item.w, item.h = program.width, program.height
+        out[#out + 1] = item
+    end
+    out[#out + 1] = {action = "quit", title = "Завершение работы", image = "shutdown",
+        icon = "■", order = 1e12, group = {}, separator_before = true}
+    return out
+end
+
+-- Host-owned decoration for runtime-created windows which have no image field
+-- in their persistence schema. Keys are exact entry IDs, never display titles.
+catalog.IMAGES_TYPE = "windows.program_images"
+function catalog.assign_images(programs: any, declarations: any): (any, any)
+    local chosen: any = {}
+    for _, record in ipairs(declarations or {}) do
+        local data: any = record.data or {}
+        for entry, name in pairs(data.images or {}) do
+            if type(entry) ~= "string" or type(name) ~= "string" or name == "" then
+                return nil, "неверное объявление значка: " .. tostring(record.id)
+            end
+            if chosen[entry] and chosen[entry] ~= name then
+                return nil, "два значка для программы: " .. entry
+            end
+            chosen[entry] = name
+        end
+    end
+    for _, program in ipairs(programs) do
+        -- The program's own declaration remains authoritative.
+        if not program.image then program.image = chosen[program.entry] end
+    end
+    return true, nil
+end
+
+-- The host names the clock window; the theme never guesses an entry ID.
+catalog.CLOCK_TYPE = "windows.taskbar_clock"
+function catalog.taskbar_clock(): (any, any)
+    local found, err = registry.find({[".kind"] = "registry.entry", ["meta.type"] = catalog.CLOCK_TYPE})
+    if err then return nil, "часы панели не прочитаны: " .. tostring(err) end
+    if #found == 0 then return nil, nil end
+    if #found ~= 1 then return nil, "объявлено несколько часов панели" end
+    local record: any = found[1]
+    local data: any = record.data or {}
+    if type(data.entry) ~= "string" or data.entry == "" then
+        return nil, "не задано окно часов: " .. tostring(record.id)
+    end
+    return data.entry, nil
+end
+
 -- list() -> (каталог, nil) | (nil, причина)
 --
 -- Два исхода различимы по ПЕРВОМУ значению: пустой каталог — это таблица,
@@ -199,7 +272,12 @@ function catalog.list()
     local found, err = registry.find({ ["meta.type"] = catalog.WINDOW_TYPE })
     if err then return nil, "каталог не прочитан: " .. tostring(err) end
     if type(found) ~= "table" then return nil, "каталог не прочитан: реестр ответил не списком" end
-    return catalog.build(found), nil
+    local declarations, ierr = registry.find({[".kind"] = "registry.entry", ["meta.type"] = catalog.IMAGES_TYPE})
+    if ierr then return nil, "значки программ не прочитаны: " .. tostring(ierr) end
+    local built = catalog.build(found)
+    local ok, why = catalog.assign_images(built.programs, declarations)
+    if not ok then return nil, why end
+    return built, nil
 end
 
 -- Программа по идентификатору записи. Нужна ярлыку: он хранит ссылку, а имя,

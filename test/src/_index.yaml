@@ -45,6 +45,9 @@ entries:
     imports:
       test: wippy.test:test
       catalog: butschster.windows.programs:catalog
+      view: butschster.windows.programs:desktop_view
+      chrome: butschster.windows.shell:chrome
+      model: butschster.windows.explorer:model
     method: run
 
   - name: defaults_test
@@ -86,12 +89,13 @@ entries:
       group: Windows Shell
       suite: butschster_windows
     source: file://sources_test.lua
-    modules: [fs, registry, sql, env, time, uuid]
+    modules: [fs, registry, sql, env, time, uuid, tty, process, channel]
     imports:
       test: wippy.test:test
       model: butschster.windows.explorer:model
       repo: butschster.windows.persist:repo
       sources: butschster.windows.explorer:sources
+      render: butschster.windows.explorer:render
     method: run
 
   - name: render_test
@@ -124,6 +128,7 @@ entries:
       chrome: butschster.windows.shell:chrome
       chrome_pixels: butschster.windows.shell:chrome_pixels
       widgets: butschster.windows.shell:widgets
+      pixels: butschster.windows.shell:pixels
     method: run
 
   - name: images_test
@@ -240,8 +245,14 @@ entries:
       rasters: butschster.windows.shell:rasters
       render: butschster.windows.explorer:render
       render_pixels: butschster.windows.explorer:render_pixels
+      ui: butschster.windows.sdk:ui
+      run_window: butschster.windows.run:window
       dt_render: butschster.windows.datetime:render
-      calc_render: butschster.windows.calc:render
+      calc_window: butschster.windows.calc:window
+      sdk_render: butschster.windows.sdk:render
+      taskman_window: butschster.windows.taskman:window
+      reg_model: butschster.windows.regedit:model
+      regedit_window: butschster.windows.regedit:window
       images: butschster.windows.shell:images
       catalog: butschster.windows.programs:catalog
       desktop_view: butschster.windows.programs:desktop_view
@@ -379,6 +390,31 @@ entries:
     data:
       entry: app:grouped_probe
 
+  - name: explorer_pixels_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Живой проводник на пиксельном композиторе и сохранённый режим ячеек.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://explorer_pixels_test.lua
+    method: run
+    modules: [process, channel, tty, time]
+    imports:
+      test: wippy.test:test
+
+  - name: explorer_composer
+    kind: process.lua
+    meta:
+      comment: Настоящая пиксельная тема и композитор на viewport теста.
+    source: file://explorer_composer.lua
+    method: main
+    modules: [process, fs, gfx]
+    imports:
+      library: butschster.tui_desktop.desktop:library
+      chrome: butschster.windows.shell:chrome_pixels
+      cell_chrome: butschster.windows.shell:chrome
+      render: butschster.windows.explorer:render
   - name: viewers_test
     kind: function.lua
     meta:
@@ -403,7 +439,7 @@ entries:
       group: Windows Shell
       suite: butschster_windows
     source: file://views_test.lua
-    modules: [gfx, tty]
+    modules: [gfx, tty, registry]
     imports:
       test: wippy.test:test
       rasters: butschster.windows.shell:rasters
@@ -412,8 +448,23 @@ entries:
       dt_layout: butschster.windows.datetime:layout
       dt_render: butschster.windows.datetime:render
       engine: butschster.windows.calc:engine
-      calc_layout: butschster.windows.calc:layout
-      calc_render: butschster.windows.calc:render
+      calc_window: butschster.windows.calc:window
+      ui: butschster.windows.sdk:ui
+      reg_model: butschster.windows.regedit:model
+      regedit_window: butschster.windows.regedit:window
+    method: run
+
+  - name: appwiz_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Установка и удаление программ — слияние объявлений с кэшем, правка файла объявлений текстом, имя новой записи.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://appwiz_test.lua
+    imports:
+      test: wippy.test:test
+      model: butschster.windows.appwiz:model
     method: run
 
   - name: taskman_test
@@ -424,9 +475,13 @@ entries:
       group: Windows Shell
       suite: butschster_windows
     source: file://taskman_test.lua
+    modules: [fs, gfx, channel, process, tty, time]
     imports:
       test: wippy.test:test
       model: butschster.windows.taskman:model
+      ui: butschster.windows.sdk:ui
+      taskman_window: butschster.windows.taskman:window
+      rasters: butschster.windows.shell:rasters
     method: run
 
   - name: programs_live_test
@@ -455,3 +510,109 @@ entries:
     imports:
       test: wippy.test:test
     method: run
+
+  - name: run_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows Shell
+      suite: butschster_windows
+      comment: «Выполнить» — ввод, геометрия, меню и настоящий Bash под PTY.
+    source: file://run_test.lua
+    method: run
+    modules: [process, channel, time, tty, fs, gfx]
+    imports:
+      test: wippy.test:test
+      model: butschster.windows.run:model
+      ui: butschster.windows.sdk:ui
+      run_window: butschster.windows.run:window
+
+  - name: run_composer
+    kind: process.lua
+    meta:
+      comment: Реальный композитор и меню оболочки на тестовом viewport.
+    source: file://run_composer.lua
+    method: main
+    modules: [process, fs, gfx]
+    imports:
+      library: butschster.tui_desktop.desktop:library
+      chrome: butschster.windows.shell:chrome_pixels
+      cell_chrome: butschster.windows.shell:chrome
+      catalog: butschster.windows.programs:catalog
+
+  - name: taskman_composer
+    kind: process.lua
+    meta:
+      comment: Живой пиксельный композитор с наблюдением за состоянием диспетчера задач.
+    source: file://taskman_composer.lua
+    method: main
+    modules: [process, fs, gfx]
+    imports:
+      library: butschster.tui_desktop.desktop:library
+      chrome: butschster.windows.shell:chrome_pixels
+
+  - name: sdk_demo
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: Пример SDK
+      image: program
+      group: [SDK, Примеры]
+      width: 62
+      height: 23
+      pixel_render: butschster.windows.sdk:render
+      pixel_state: app:sdk_demo
+    source: file://sdk_demo.lua
+    method: main
+    modules: [time]
+    imports:
+      app: butschster.windows.sdk:app
+    security:
+      policies: [butschster.windows.security:view_state]
+
+  - name: sdk_fixture
+    kind: library.lua
+    meta: {comment: Declarative app fixture shared by the smoke test and screenshots.}
+    source: file://sdk_demo.lua
+    modules: [time]
+    imports:
+      app: butschster.windows.sdk:app
+
+  - name: sdk_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: Declarative discovery, shared geometry, scrolling, editing, pixels and live lifecycle.
+    source: file://sdk_test.lua
+    method: run
+    modules: [process, channel, time, tty, fs, gfx, registry]
+    imports:
+      chrome: butschster.windows.shell:chrome_pixels
+      test: wippy.test:test
+      ui: butschster.windows.sdk:ui
+      editor: butschster.windows.sdk:editor
+      cells: butschster.windows.sdk:cells
+      scroll: butschster.tui_desktop.desktop:scroll
+      input: butschster.tui_desktop.desktop:input
+      geometry: butschster.tui_desktop.desktop:geometry
+      render: butschster.windows.sdk:render
+      pixels: butschster.windows.shell:pixels
+      rasters: butschster.windows.shell:rasters
+      fixture: app:sdk_fixture
+      catalog: butschster.windows.programs:catalog
+
+  - name: sdk_composer
+    kind: process.lua
+    meta:
+      comment: Реальный композитор и меню оболочки на тестовом viewport.
+    source: file://sdk_composer.lua
+    method: main
+    modules: [process, fs, gfx]
+    imports:
+      library: butschster.tui_desktop.desktop:library
+      chrome: butschster.windows.shell:chrome_pixels
+      cell_chrome: butschster.windows.shell:chrome
+      catalog: butschster.windows.programs:catalog
+
