@@ -106,11 +106,9 @@ local function scene_window(raster, cell, font, bold)
         local hit = pixels.button_at(raster, 24 + (index - 1) * 2, 1, 2, 1,
             {id = id, label = "", font = font, inset = 2}, cell)
         local area = pixels.box(hit.from, hit.row, 2, 1, cell)
-        -- Знак кладётся по центру НАРИСОВАННОГО прямоугольника, а не ячейки:
+        -- Знак кладётся по НАРИСОВАННОМУ прямоугольнику, а не по ячейке:
         -- у кнопки есть отступ, и знак, посчитанный от ячейки, съехал бы.
-        local side = 10
-        pixels.MARKS[id](raster,
-            area.x + (area.w - side) // 2, area.y + (area.h - side) // 2, side)
+        pixels.caption_mark(raster, id, area.x + 2, area.y + 2, area.w - 4, area.h - 4)
     end
 
     pixels.field(raster, 4, cell.h + 4, w - 6, h - cell.h - 7)

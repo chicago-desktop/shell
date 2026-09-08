@@ -424,7 +424,8 @@ local function main(service, window_id, args, viewport: any)
         end
         for _, name in ipairs({"field", "drop"}) do
             local spot: any = address_hits[name]
-            if spot and event.y == spot.row and event.x >= spot.from and event.x <= spot.to then
+            if spot and event.y >= spot.row and event.y <= (spot.bottom_row or spot.row)
+                and event.x >= spot.from and event.x <= spot.to then
                 state.address_open = true
                 draw()
                 return

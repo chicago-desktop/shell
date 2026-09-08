@@ -292,10 +292,14 @@ end
 --
 -- Возвращает попадания и подписи: подпись нужна тому, кто будет рисовать,
 -- чтобы не собирать её заново по тем же правилам.
-function widgets.toolbar_hits(x: any, y: any, width: any, buttons): any
+-- `fixed` — ширина кнопки в ячейках, одна на все: пиксельная панель рисует
+-- кнопки 23×22 по образцу Windows 95 и называет им место в ячейках сама,
+-- а не по длине подписи, которой в пикселях нет.
+function widgets.toolbar_hits(x: any, y: any, width: any, buttons, fixed: any?): any
     local hits: any = {}
     local left, row, span = whole(x), whole(y), whole(width)
     if span < 3 then return hits end
+    local fixed_room = whole(fixed)
 
     local used = 0
     for _, entry in ipairs(type(buttons) == "table" and buttons or {}) do
@@ -307,7 +311,7 @@ function widgets.toolbar_hits(x: any, y: any, width: any, buttons): any
             local icon = type(button.icon) == "string" and button.icon or glyphs.icons.program
             local label = type(button.label) == "string" and button.label or ""
             local text = label ~= "" and (" " .. icon .. " " .. label .. " ") or (" " .. icon .. " ")
-            local room = cells(text) + 2
+            local room = fixed_room > 0 and fixed_room or cells(text) + 2
             if used + room > span then break end
             hits[#hits + 1] = {
                 row = row, from = left + used, to = left + used + room - 1,

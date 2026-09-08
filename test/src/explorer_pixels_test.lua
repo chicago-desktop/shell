@@ -57,6 +57,15 @@ local function define_tests()
             test.eq(shown.height, 11)
             test.eq(shown.offset, 0)
             test.is_true(#shown.hits.scroll == 2, "the test viewport must require scrolling")
+            -- The lower row of the taller address field is clickable too.
+            local address = shown.hits.address.field
+            test.is_true(address.bottom_row > address.row)
+            click(desk, address.from + shown.x, address.bottom_row + shown.y)
+            shown = receive(frames, function(value) return value.clients == 6 end)
+            test.is_true(shown.hits.dropdown[1].row > address.bottom_row)
+            local root = shown.hits.dropdown[1]
+            click(desk, root.from + shown.x, root.row + shown.y)
+            shown = receive(frames, function(value) return value.clients == 5 end)
             desk.view:send({type = "mouse", action = "wheel", button = "wheel_down", x = shown.hits.cells[1].from + shown.x, y = shown.hits.cells[1].top + shown.y})
             shown = receive(frames, function(value) return value.offset == 1 end)
             for _, arrow in ipairs(shown.hits.scroll) do

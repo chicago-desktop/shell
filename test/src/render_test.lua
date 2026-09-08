@@ -10,6 +10,25 @@ local tty = require("tty")
 
 local function define_tests()
     test.describe("butschster.windows explorer render", function()
+        test.it("reserves address height for its icon and borders and shares all rows with hits", function()
+            for _, ch in ipairs({12, 16, 18, 20, 22, 24, 32}) do
+                local metrics = render.pixel_metrics(8, ch)
+                local plan = render.layout({address_open = true, address_items = {{title = "Root"}}}, 50, 25, metrics)
+                local address = plan.address
+                test.is_true(address.rows * ch >= 24)
+                test.is_true((address.rows - 1) * ch < 24)
+                for _, hit in pairs(address.hits) do
+                    test.eq(hit.row, address.row)
+                    test.eq(hit.bottom_row, address.row + address.rows - 1)
+                    test.is_true(hit.bottom_row < plan.field.y)
+                end
+                test.eq(address.dropdown[1].row, address.row + address.rows + 1, "dropdown border precedes its first item")
+            end
+            local cells = render.layout({}, 50, 25)
+            test.eq(cells.address.rows, 1)
+            test.eq(cells.field.y, 4)
+        end)
+
         test.it("считает ряды по рисунку, а не по шагу сетки", function()
             -- Шаг сетки четыре строки, рисунок три: последнему ряду просвет
             -- под собой не нужен, под ним рамка поля. Считай по шагу — и

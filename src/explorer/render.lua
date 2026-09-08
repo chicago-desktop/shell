@@ -105,9 +105,13 @@ render.GAP = 1
 function render.pixel_metrics(cell_w: any, cell_h: any): any
     local cw, ch = math.max(1, widgets.whole(cell_w)), math.max(1, widgets.whole(cell_h))
     local tool_rows = math.max(1, (26 + ch - 1) // ch)
+    local address_rows = math.max(1, (24 + ch - 1) // ch)
     return {grid = {w = (88 + cw - 1) // cw, h = (72 + ch - 1) // ch,
             drawn = (66 + ch - 1) // ch},
-        padding = 0, address_row = 2 + tool_rows, field_top = 3 + tool_rows, tool_rows = tool_rows,
+        padding = 0, address_row = 2 + tool_rows, field_top = 2 + tool_rows + address_rows,
+        address_rows = address_rows, tool_rows = tool_rows,
+        -- Кнопка панели 23×22 px, как в Windows 95; место — целые ячейки.
+        tool_span = math.max(1, (24 + cw - 1) // cw),
         scroll_cols = math.max(1, (16 + cw - 1) // cw),
         arrow_rows = math.max(1, (16 + ch - 1) // ch), icon_size = 32}
 end
@@ -147,22 +151,26 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
         -- оба бэкенда.
         address = {
             row = widgets.whole(sizing.address_row or render.ADDRESS_ROW),
+            rows = widgets.whole(sizing.address_rows or 1),
             text = tostring(state.address or state.title or ""),
             items = type(state.address_items) == "table" and state.address_items or {},
             open = state.address_open == true,
         },
     }
     plan.address.hits = widgets.address_hits(1, plan.address.row, w)
+    for _, hit in pairs(plan.address.hits) do
+        hit.bottom_row = hit.row + plan.address.rows - 1
+    end
     if plan.address.open and plan.address.hits.field and #plan.address.items > 0 then
         local field: any = plan.address.hits.field
-        plan.address.dropdown = widgets.dropdown_hits(field.from, plan.address.row + 1,
+        plan.address.dropdown = widgets.dropdown_hits(field.from, plan.address.row + plan.address.rows,
             field.to - field.from + 1, #plan.address.items)
     end
 
     -- Панель инструментов раскладывается той же функцией, что её рисует:
     -- ширина кнопки считается по подписи, и своя формула здесь дала бы
     -- кнопку на ячейку левее, чем выглядит.
-    if plan.tool_rows > 0 then plan.tools = widgets.toolbar_hits(1, render.TOOL_ROW, w, render.TOOLS) end
+    if plan.tool_rows > 0 then plan.tools = widgets.toolbar_hits(1, render.TOOL_ROW, w, render.TOOLS, sizing.tool_span) end
     for _, button in ipairs(plan.tools) do
         button.bottom_row = button.row + plan.tool_rows - 1
         -- Взведённая мышью кнопка нарисована вдавленной до отпускания.

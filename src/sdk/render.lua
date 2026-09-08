@@ -27,16 +27,42 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             for _, span in ipairs(item.spans or {}) do
                 local sx, sw = x + span.x * cell.w, span.w * cell.w
                 if item.node.kind == "tabs" then
-                    local lift = span.index == current and 0 or 2
-                    pixels.button(raster, whole(sx), whole(y + lift), whole(sw), whole(cell.h - lift + (span.index == current and 1 or 0)),
-                        {label = span.title, font = font, accel = span.accel}, cell)
+                    -- Ярлык, а не кнопка: свет слева и сверху со скошенным
+                    -- углом, тень и чёрный справа, снизу грани нет — ярлык
+                    -- стоит на рамке страницы. Активный на два пикселя выше
+                    -- и сливается со страницей.
+                    local active = span.index == current
+                    local lift = active and 0 or 2
+                    local tx, ty, tw, th = whole(sx), whole(y + lift), whole(sw), whole(cell.h - lift + (active and 1 or 0))
+                    raster:rect(tx, ty, tw, th, color.face)
+                    raster:rect(tx, ty + 2, 1, th - 2, color.light)
+                    raster:rect(tx + 1, ty + 1, 1, 1, color.light)
+                    raster:rect(tx + 2, ty, tw - 4, 1, color.light)
+                    raster:rect(tx + tw - 2, ty + 1, 1, 1, color.frame)
+                    raster:rect(tx + tw - 2, ty + 2, 1, th - 2, color.shadow)
+                    raster:rect(tx + tw - 1, ty + 2, 1, th - 2, color.frame)
+                    pixels.label(raster, tx, ty, tw, th - (active and 1 or 0), span.title, font, color.face_text)
+                    if font and span.accel > 0 then
+                        local runes: any = text_lib.runes(span.title)
+                        if runes[span.accel] then
+                            local before = whole(font:measure(table.concat(runes, "", 1, span.accel - 1)))
+                            local left = tx + (tw - whole(font:measure(span.title))) // 2
+                            raster:rect(whole(left + before), whole(ty + (th - (active and 1 or 0) - whole(font:height())) // 2 + whole(font:height()) - 2),
+                                math.max(1, whole(font:measure(runes[span.accel]))), 1, color.face_text)
+                        end
+                    end
                 else
+                    -- Заголовок меню — по центру своих ячеек, подсветка на
+                    -- шесть пикселей шире текста с каждой стороны, как в
+                    -- оригинале; ячейки заголовка шире текста, потому что
+                    -- попадание считается в ячейках без шрифта.
                     local pressed = span.index == opened
-                    if pressed then raster:rect(whole(sx), whole(y), whole(sw), whole(cell.h), color.select_bg) end
                     if font then
                         local runes: any = text_lib.runes(span.title)
                         local tint = pressed and color.select_fg or color.face_text
-                        local tx = sx + cell.w
+                        local measured = whole(font:measure(span.title))
+                        local tx = sx + (sw - measured) // 2
+                        if pressed then raster:rect(whole(tx - 6), whole(y), whole(measured + 12), whole(cell.h), color.select_bg) end
                         raster:text(whole(tx), whole(y + (cell.h - 15) // 2), span.title, {font = font, color = tint})
                         if span.accel > 0 and runes[span.accel] then
                             local before = whole(font:measure(table.concat(runes, "", 1, span.accel - 1)))
@@ -179,7 +205,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 -- Рамка с заголовком: грань на полстроки ниже, чтобы подпись
                 -- сидела на ней, как в диалогах Windows.
                 local ty = y + (cell.h - 15) // 2
-                pixels.bevel(raster, whole(x), whole(y + cell.h // 2), whole(w), whole(h - cell.h // 2), false)
+                pixels.etched(raster, whole(x), whole(y + cell.h // 2), whole(w), whole(h - cell.h // 2))
                 if font then
                     local title = tostring(node.title or "")
                     local tw = whole(font:measure(title))
@@ -361,7 +387,6 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 local top = whole(y + (h - 13) // 2)
                 if w >= 13 and h >= 13 then pixels.checkbox(raster, x, top, node.checked, node.disabled) end
                 local tint = node.disabled and color.shadow or color.face_text
-                if node.disabled then text(x + 19, y + 1, w - 19, h, node.text, color.light) end
                 text(x + 18, y, w - 18, h, node.text, tint)
                 if focused and not node.disabled and font and w >= 22 and h >= 17 then
                     local tw = math.min(whole(w - 18), whole(font:measure(tostring(node.text or ""))))

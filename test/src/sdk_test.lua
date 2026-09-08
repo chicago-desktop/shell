@@ -336,19 +336,23 @@ local function define_tests()
             pixels.field(samples, 65, 102, 220, 22)
             samples:rect(69, 105, 76, 15, "#000080")
             samples:text(71, 105, "winword.exe", {font = font, color = "#ffffff"})
-            pixels.checkbox(samples, 65, 139, true, false)
-            samples:text(83, 137, "Включая вложенные папки", {font = font, color = "#000000"})
-            pixels.checkbox(samples, 65, 165, false, false)
-            samples:text(83, 163, "Учитывать регистр", {font = font, color = "#000000"})
-            pixels.checkbox(samples, 65, 191, true, true)
-            samples:text(84, 190, "Недоступный параметр", {font = font, color = "#ffffff"})
-            samples:text(83, 189, "Недоступный параметр", {font = font, color = "#808080"})
+            -- Use the SDK itself: a hand-painted label can retain an obsolete
+            -- shadow even after the production renderer has been fixed.
+            local labels = {id = "sdk-labels", state_revision = 1, content_state = {
+                sdk = 1, interaction = ui.interaction(), ui = {kind = "column", children = {
+                    {kind = "checkbox", id = "folders", text = "Включая вложенные папки", checked = true},
+                    {kind = "checkbox", id = "case", text = "Учитывать регистр"},
+                    {kind = "checkbox", id = "disabled", text = "Недоступный параметр", checked = true, disabled = true},
+                }}}}
+            local label_image = assert(render.placement(labels, {x = 1, y = 1, cols = 28, rows = 3},
+                {w = 8, h = 26}, {face = font}, store))
+            samples:blit(label_image.raster, 65, 133)
             pixels.field(samples, 315, 102, 229, 105)
             samples:rect(317, 104, 225, 18, "#000080")
             samples:text(322, 105, "Документы", {font = font, color = "#ffffff"})
             samples:text(322, 125, "Программы", {font = font, color = "#000000"})
             samples:text(322, 145, "Мой компьютер", {font = font, color = "#000000"})
-            samples:text(16, 237, "Двойные грани · пунктир фокуса · тиснёная подпись", {font = font, color = "#000000"})
+            samples:text(16, 237, "Двойные грани · пунктир фокуса · текст без белой тени", {font = font, color = "#000000"})
             assert(assert(fs.get("app:shots")):writefile("sdk-button-states.png", assert(samples:encode("png"))))
             local bold = assert(gfx.font(assert(font_files:readfile("LiberationSans-Bold.ttf")), {size = 13}))
             chrome.use_fonts(font, bold)

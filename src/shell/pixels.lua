@@ -288,7 +288,7 @@ function pixels.button(raster, x: any, y: any, w: any, h: any, spec: any, cell: 
     local shift = pressed and 1 or 0
     local label = options.font and pixels.ellipsize(options.font, tostring(options.label or ""), math.max(0, width - 10)) or ""
     if options.disabled then
-        pixels.label(raster, whole(x) + 1, whole(y) + 1, w, h, label, options.font, color.light)
+        -- One pass keeps small labels legible; a white offset looks doubled.
         pixels.label(raster, x, y, w, h, label, options.font, color.shadow)
     else
         local tint = options.color or color.face_text
@@ -397,6 +397,42 @@ function pixels.mark_folder(raster, x: any, y: any, size: any, tint)
     raster:rect(left, top + 2, side, side - 3, "#c8a848")
     raster:rect(left, top, side // 2, 2, "#c8a848")
     pixels.bevel(raster, left, top + 2, side, side - 3, true)
+end
+
+-- Знаки кнопок заголовка — как растры Windows 95 в кнопке 16×14: полоска
+-- «свернуть» 6×2 внизу слева, «развернуть» — рамка 9×9 с двойной верхней
+-- гранью, «закрыть» — крест 8×7 штрихом в два пикселя. Координаты считаются
+-- от УГЛА КНОПКИ, а не от центра квадрата: кнопка на два пикселя уже
+-- (см. `chrome_pixels.title_buttons`) сдвигает знак на один, и он остаётся
+-- по центру.
+local CAPTION_GLYPHS = {
+    minimize = function(raster, x: any, y: any, ink)
+        raster:rect(x + 4, y + 9, 6, 2, ink)
+    end,
+    maximize = function(raster, x: any, y: any, ink)
+        raster:rect(x + 3, y + 2, 9, 2, ink)
+        raster:rect(x + 3, y + 4, 1, 7, ink)
+        raster:rect(x + 11, y + 4, 1, 7, ink)
+        raster:rect(x + 3, y + 10, 9, 1, ink)
+    end,
+    close = function(raster, x: any, y: any, ink)
+        local rows = {{4, 5, 10, 11}, {5, 6, 9, 10}, {6, 7, 8, 9}, {7, 8}, {6, 7, 8, 9}, {5, 6, 9, 10}, {4, 5, 10, 11}}
+        for line, columns in ipairs(rows) do
+            for _, column in ipairs(columns) do raster:set(x + column, y + 2 + line, ink) end
+        end
+    end,
+}
+function pixels.caption_mark(raster, id, x: any, y: any, w: any, h: any, tint)
+    local glyph = CAPTION_GLYPHS[tostring(id)]
+    if type(glyph) ~= "function" then return end
+    glyph(raster, whole(x) + (whole(w) - 16) // 2, whole(y) + (whole(h) - 14) // 2, tint or color.face_text)
+end
+
+-- Гравированная рамка группы (EDGE_ETCHED): тень и сразу под ней свет —
+-- ровно по одному пикселю, как у рамок диалогов Windows 95.
+function pixels.etched(r: any, x: any, y: any, w: any, h: any)
+    edge_pair(r, x, y, w, h, color.shadow, color.light)
+    edge_pair(r, whole(x) + 1, whole(y) + 1, whole(w) - 2, whole(h) - 2, color.light, color.shadow)
 end
 
 pixels.MARKS = {

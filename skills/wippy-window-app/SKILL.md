@@ -54,7 +54,8 @@ when repairing an older custom window.
   panel under the cursor. Client motion/release can leave its bounds during capture.
 - Render controls through shared `pixels.button/field/checkbox/edge`: two-pixel
   Win95 borders, a dotted focus rectangle, a separate default-button outline
-  and embossed disabled labels. Do not substitute a single `bevel`.
+  and single-pass gray disabled labels (no white text shadow at small sizes).
+  Do not substitute a single `bevel`.
 - Handle close and release resources within the compositor's grace period.
   Read files through a declared `fs` resource under the app's own policy.
 

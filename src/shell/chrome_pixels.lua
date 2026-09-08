@@ -101,12 +101,20 @@ function chrome_pixels.renders(reference)
     return VIEWS[tostring(reference)] ~= nil
 end
 
--- Caption metrics are pixels; the reservation is rounded up to cells.
--- Include the top frame so a short cell cannot crop the caption or its icon.
-local TITLE_TOP = 5
-local TITLE_HEIGHT = 20
-local TITLE_BUTTON_W = 18
-local TITLE_BUTTON_H = 16
+-- Метрики заголовка — по Windows 95, в пикселях: над синей полосой две
+-- строки рамки (лицо и свет), сама полоса 18 px, кнопки 16×14 в двух
+-- пикселях от её краёв, рамка окна четыре пикселя. Резерв под всё это
+-- округляется вверх до целых строк терминала: при ячейке в 20 px это ровно
+-- одна строка, и строка меню окна ложится прямо под полосу — как в оригинале.
+-- Полоса в 20 px с рамкой в четыре не влезала в строку и брала две: под
+-- заголовком оставалась мёртвая серая лента в 18 px.
+local TITLE_TOP = 3
+local TITLE_HEIGHT = 18
+local TITLE_BUTTON_W = 16
+local TITLE_BUTTON_H = 14
+-- Синий зазор между кнопкой и рамкой; ширина рамки окна.
+local TITLE_MARGIN = 2
+local FRAME = 4
 local function header_rows(): integer
     return whole(math.max(1, (TITLE_TOP - 1 + TITLE_HEIGHT + whole(unit.h) - 1) // whole(unit.h)))
 end
@@ -133,19 +141,46 @@ function chrome_pixels.icon_grid()
             h = drawn, drawn = drawn, left = 2}
 end
 
+-- Кнопки заголовка: «свернуть» и «развернуть» стоят вплотную, «закрыть» —
+-- отдельно, в двух синих пикселях от рамки. Всё это в пикселях, а мышь ходит
+-- в ячейках, поэтому каждая кнопка получает СВОИ ячейки и рисуется только
+-- внутри них: пиксель одной кнопки в ячейке соседки нажимал бы соседку.
+--
+-- Отсюда единственное отступление от оригинала при ячейке в 10 px: слитная
+-- пара делится ровно по границе ячеек, а «закрыть» вместе с зазором и рамкой
+-- должна уместиться в свои две ячейки — она на два пикселя уже, и просвет
+-- перед ней четыре пикселя вместо двух. При ячейке в 8 px всё сходится
+-- пиксель в пиксель.
 function chrome_pixels.title_buttons(window: any): any
     local set = chrome.buttons_for(window)
-    local span = math.max(2, (TITLE_BUTTON_W + whole(unit.w) - 1) // whole(unit.w))
-    local from = whole(window.x) + whole(window.w) - 1 - #set * span
     local out = {}
+    if #set == 0 then return out end
+    local cw = whole(unit.w)
+    local span = math.max(1, (TITLE_BUTTON_W + cw - 1) // cw)
+    -- Последняя кнопка отдаёт ширину до 14 px прежде, чем возьмёт ещё ячейку.
+    local last_span = span
+    while last_span * cw - FRAME - TITLE_MARGIN < TITLE_BUTTON_W - 2 do last_span = last_span + 1 end
+    local last_w = math.min(TITLE_BUTTON_W, last_span * cw - FRAME - TITLE_MARGIN)
+    local total = (#set - 1) * span + last_span
+    local from = whole(window.x) + whole(window.w) - total
     if from <= whole(window.x) + 3 then return out end
+    local width = whole(window.w) * cw
+    local top = TITLE_TOP + (TITLE_HEIGHT - TITLE_BUTTON_H) // 2
     for index, button in ipairs(set) do
         local left = from + (index - 1) * span
-        local rect = {x = (left - whole(window.x)) * whole(unit.w) + 1
-                + (span * whole(unit.w) - TITLE_BUTTON_W) // 2,
-            y = TITLE_TOP + (TITLE_HEIGHT - TITLE_BUTTON_H) // 2,
-            w = TITLE_BUTTON_W, h = TITLE_BUTTON_H}
-        out[#out + 1] = {id = button.id, from = left, to = left + span - 1, rect = rect,
+        local cells = index == #set and last_span or span
+        local rect: any
+        if index == #set then
+            rect = {x = width - FRAME - TITLE_MARGIN - last_w + 1, y = top, w = last_w, h = TITLE_BUTTON_H}
+        else
+            local start = (left - whole(window.x)) * cw + 1
+            -- В слитной паре первая прижата к правому краю своих ячеек, вторая
+            -- к левому: так они смыкаются ровно на границе ячеек.
+            local joined = #set > 2 and index == #set - 1
+            rect = {x = joined and start or start + span * cw - TITLE_BUTTON_W,
+                y = top, w = TITLE_BUTTON_W, h = TITLE_BUTTON_H}
+        end
+        out[#out + 1] = {id = button.id, from = left, to = left + cells - 1, rect = rect,
             row = whole(window.y) + (rect.y - 1) // whole(unit.h),
             bottom_row = whole(window.y) + (rect.y + rect.h - 2) // whole(unit.h)}
     end
@@ -367,22 +402,24 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
     if dirty then
         local width, height = w * cell.w, head_rows * cell.h
         head:fill(inside)
-        head:rect(1, 1, width, TITLE_TOP + TITLE_HEIGHT, color.face)
-        head:rect(1, 1, 3, height, color.face)
-        head:rect(width - 2, 1, 3, height, color.face)
-        head:rect(1, 1, width, 1, color.light)
-        head:rect(1, 1, 1, height, color.light)
-        head:rect(width, 1, 1, height, color.frame)
+        -- Рамка Windows 95: снаружи лицо и чёрный, внутри свет и тень —
+        -- порядок обратный кнопке, у которой снаружи свет.
+        head:rect(1, 1, width, TITLE_TOP - 1 + TITLE_HEIGHT, color.face)
+        head:rect(1, 1, FRAME, height, color.face)
+        head:rect(width - FRAME + 1, 1, FRAME, height, color.face)
+        head:rect(2, 2, width - 2, 1, color.light)
+        head:rect(2, 2, 1, height - 1, color.light)
         head:rect(width - 1, 2, 1, height - 1, color.shadow)
+        head:rect(width, 1, 1, height, color.frame)
         local title_top, title_h = TITLE_TOP, TITLE_HEIGHT
-        head:rect(4, title_top, width - 7, title_h,
+        head:rect(FRAME + 1, title_top, width - FRAME * 2, title_h,
             focused and color.title_active_bg or color.title_idle_bg)
         -- Reserve actual title-button rectangles before clipping text.
-        local text_right = #buttons > 0 and (buttons[1].from - window.x) * cell.w - 3 or width - 8
-        local caption_x = 7
+        local text_right = #buttons > 0 and buttons[1].rect.x - 4 or width - FRAME - TITLE_MARGIN
+        local caption_x = FRAME + 5
         if window.window_type == nil or window.window_type == "app" then
-            pixels.icon(head, 5, title_top + (title_h - 16) // 2, {kind = "window", image = window.image}, 16)
-            caption_x = 25
+            pixels.icon(head, FRAME + 3, title_top + (title_h - 16) // 2, {kind = "window", image = window.image}, 16)
+            caption_x = FRAME + 3 + 16 + 4
         end
         if bold then
             local caption = pixels.ellipsize(bold, window.title, text_right - caption_x)
@@ -392,10 +429,7 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
         for _, button in ipairs(buttons) do
             local rect = button.rect
             pixels.button(head, rect.x, rect.y, rect.w, rect.h, {}, cell)
-            local mark: any = pixels.MARKS[button.id]
-            if type(mark) == "function" then
-                mark(head, rect.x + (rect.w - 10) // 2, rect.y + (rect.h - 10) // 2, 10, color.face_text)
-            end
+            pixels.caption_mark(head, button.id, rect.x, rect.y, rect.w, rect.h, color.face_text)
         end
     end
     out[#out + 1] = {id = head_id, raster = head, x = window.x, y = window.y, cols = w, rows = head_rows}
@@ -407,10 +441,10 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
             local width, height = cell.w, body * cell.h
             edge:fill(inside)
             if side == "left" then
-                edge:rect(1, 1, 3, height, color.face)
-                edge:rect(1, 1, 1, height, color.light)
+                edge:rect(1, 1, FRAME, height, color.face)
+                edge:rect(2, 1, 1, height, color.light)
             else
-                edge:rect(width - 2, 1, 3, height, color.face)
+                edge:rect(width - FRAME + 1, 1, FRAME, height, color.face)
                 edge:rect(width - 1, 1, 1, height, color.shadow)
                 edge:rect(width, 1, 1, height, color.frame)
             end
@@ -424,14 +458,14 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
     if foot_dirty then
         local width, height = w * cell.w, cell.h
         foot:fill(inside)
-        foot:rect(1, 1, 3, height, color.face)
-        foot:rect(1, 1, 1, height, color.light)
-        foot:rect(width - 2, 1, 3, height, color.face)
-        foot:rect(width - 1, 1, 1, height, color.shadow)
-        foot:rect(width, 1, 1, height, color.frame)
-        foot:rect(1, height - 2, width, 1, color.face)
+        foot:rect(1, 1, FRAME, height, color.face)
+        foot:rect(width - FRAME + 1, 1, FRAME, height, color.face)
+        foot:rect(1, height - FRAME + 1, width, FRAME, color.face)
+        foot:rect(2, 1, 1, height - 2, color.light)
         foot:rect(2, height - 1, width - 2, 1, color.shadow)
+        foot:rect(width - 1, 1, 1, height - 1, color.shadow)
         foot:rect(1, height, width, 1, color.frame)
+        foot:rect(width, 1, 1, height, color.frame)
     end
     out[#out + 1] = {id = foot_id, raster = foot, x = window.x, y = window.y + h - 1, cols = w, rows = 1}
 

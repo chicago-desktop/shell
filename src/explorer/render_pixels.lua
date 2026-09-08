@@ -105,7 +105,10 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
                 -- считает щелчок.
                 local span = button.to - button.from + 1
                 local area = pixels.box(button.from, 1, span, tool_rows, cell)
-                local bx, by, bw, bh = area.x + 1, area.y + 2, area.w - 2, area.h - 4
+                -- Кнопка 23×22 px по центру своих ячеек, как на панели
+                -- окна папки Windows 95; лишнее место остаётся лицом.
+                local bw, bh = math.min(23, whole(area.w) - 2), math.min(22, whole(area.h) - 2)
+                local bx, by = whole(area.x) + (whole(area.w) - bw) // 2, whole(area.y) + (whole(area.h) - bh) // 2
                 -- Та же кнопка, что у диалогов и хрома: двойная грань, нажатая
                 -- вдавлена. Знак рисуется сверху и сдвигается вместе с ней.
                 pixels.button(tools, bx, by, bw, bh,
@@ -136,26 +139,28 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
     if address and address.hits and address.hits.field then
         local address_id = name .. ":address"
         local address_key = tostring(w) .. "|" .. tostring(address.text) .. "|" .. tostring(address.open)
-        local strip, strip_dirty = store.take(address_id, w, 1, cell, address_key)
+        local strip, strip_dirty = store.take(address_id, w, address.rows, cell, address_key)
         if strip_dirty then
-            local box = pixels.box(1, 1, w, 1, cell)
+            local box = pixels.box(1, 1, w, address.rows, cell)
             strip:rect(1, 1, box.w, box.h, color.face)
-            local text_y = math.max(1, (whole(box.h) - 15) // 2)
+            local field_h = 24
+            local field_y = 1 + (box.h - field_h) // 2
+            local text_y = field_y + (field_h - whole(face:height())) // 2
             strip:text(6, text_y, "Адрес", {font = face, color = color.face_text})
             local fhit: any = address.hits.field
             local fbox = pixels.box(fhit.from, 1, fhit.to - fhit.from + 1, 1, cell)
-            pixels.field(strip, fbox.x, fbox.y + 1, fbox.w, fbox.h - 2)
-            pixels.mark_folder(strip, fbox.x + 3, fbox.y + 2, 16, color.face_text)
+            pixels.field(strip, fbox.x, field_y, fbox.w, field_h)
+            pixels.mark_folder(strip, fbox.x + 3, field_y + (field_h - 16) // 2, 16, color.face_text)
             strip:text(fbox.x + 22, text_y, pixels.ellipsize(face, address.text, fbox.w - 26),
                 {font = face, color = color.field_text})
             local dhit: any = address.hits.drop
             local dbox = pixels.box(dhit.from, 1, dhit.to - dhit.from + 1, 1, cell)
             local open = address.open == true
-            pixels.button(strip, dbox.x + 1, dbox.y + 1, dbox.w - 2, dbox.h - 2,
+            pixels.button(strip, dbox.x + 1, field_y, dbox.w - 2, field_h,
                 {label = "", pressed = open}, cell)
             local drop_shift = open and 1 or 0
             pixels.mark_drop(strip, dbox.x + (dbox.w - 16) // 2 + drop_shift,
-                dbox.y + (dbox.h - 16) // 2 + drop_shift, 16, color.face_text)
+                field_y + (field_h - 16) // 2 + drop_shift, 16, color.face_text)
         end
         store.place(address_id, 1, address.row)
     end

@@ -97,25 +97,42 @@ local function define_tests()
         end)
     end)
     test.describe("native window proportions", function()
-        test.it("reserves the full 20px caption plus frame and maps every button pixel to its hit", function()
-            for _, ch in ipairs({12, 16, 18, 20, 22, 24, 32}) do
-                chrome_pixels.use_cell_size(8, ch)
-                local window = {x = 5, y = 4, w = 40, h = 20, window_type = "app"}
-                local top = chrome_pixels.window_insets(window).top
-                test.is_true(top * ch >= 24, "caption and top frame must fit")
-                test.is_true((top - 1) * ch < 24, "reserve only required rows")
-                for _, button in ipairs(chrome_pixels.title_buttons(window)) do
-                    test.eq(button.rect.w, 18)
-                    test.eq(button.rect.h, 16)
-                    for py = button.rect.y, button.rect.y + button.rect.h - 1 do
-                        local row = window.y + (py - 1) // ch
-                        test.is_true(row < window.y + top, "button must not enter client")
-                        for px = button.rect.x, button.rect.x + button.rect.w - 1 do
-                            local col = window.x + (px - 1) // 8
-                            test.eq(chrome_pixels.title_button_at(window, col, row), button.id)
+        test.it("reserves the 18px caption plus frame and maps every button pixel to its hit", function()
+            for _, cw in ipairs({8, 10}) do
+                for _, ch in ipairs({12, 16, 18, 20, 22, 24, 32}) do
+                    chrome_pixels.use_cell_size(cw, ch)
+                    local window = {x = 5, y = 4, w = 40, h = 20, window_type = "app"}
+                    local top = chrome_pixels.window_insets(window).top
+                    test.is_true(top * ch >= 20, "caption and two-pixel top frame must fit")
+                    test.is_true((top - 1) * ch < 20, "reserve only required rows")
+                    local buttons = chrome_pixels.title_buttons(window)
+                    test.eq(#buttons, 3)
+                    for index, button in ipairs(buttons) do
+                        test.eq(button.rect.y, 5, "two pixels inside the caption")
+                        test.eq(button.rect.h, 14)
+                        test.is_true(button.rect.w >= 14 and button.rect.w <= 16)
+                        for py = button.rect.y, button.rect.y + button.rect.h - 1 do
+                            local row = window.y + (py - 1) // ch
+                            test.is_true(row < window.y + top, "button must not enter client")
+                            for px = button.rect.x, button.rect.x + button.rect.w - 1 do
+                                local col = window.x + (px - 1) // cw
+                                test.eq(chrome_pixels.title_button_at(window, col, row), button.id)
+                            end
                         end
+                        test.is_nil(chrome_pixels.title_button_at(window, button.from, window.y + top))
                     end
-                    test.is_nil(chrome_pixels.title_button_at(window, button.from, window.y + top))
+                    -- Слитная пара, отдельная «закрыть» в двух синих пикселях от рамки.
+                    test.eq(buttons[1].rect.w, 16)
+                    test.eq(buttons[2].rect.w, 16)
+                    test.eq(buttons[2].rect.x, buttons[1].rect.x + 16, "minimize and maximize touch")
+                    local gap = buttons[3].rect.x - buttons[2].rect.x - 16
+                    test.is_true(gap >= 2 and gap <= 4, "close stands apart by two to four pixels")
+                    local last = buttons[3].rect
+                    test.eq(window.w * cw - (last.x + last.w - 1), 6, "frame plus caption padding")
+                    if cw == 8 then
+                        test.eq(gap, 2, "eight-pixel cells reproduce Windows 95 exactly")
+                        test.eq(last.w, 16)
+                    end
                 end
             end
             chrome_pixels.use_cell_size(10, 20)
