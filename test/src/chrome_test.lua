@@ -97,20 +97,19 @@ local function define_tests()
         end)
     end)
     test.describe("native window proportions", function()
-        test.it("reserves the 18px caption plus frame and maps every button pixel to its hit", function()
+        test.it("keeps the caption in one row from 16px cells and maps every button pixel to its hit", function()
             for _, cw in ipairs({8, 10}) do
                 for _, ch in ipairs({12, 16, 18, 20, 22, 24, 32}) do
                     chrome_pixels.use_cell_size(cw, ch)
                     local window = {x = 5, y = 4, w = 40, h = 20, window_type = "app"}
                     local top = chrome_pixels.window_insets(window).top
-                    test.is_true(top * ch >= 20, "caption and two-pixel top frame must fit")
-                    test.is_true((top - 1) * ch < 20, "reserve only required rows")
+                    test.eq(top, ch >= 16 and 1 or 2, "one row from 16px, two below")
+                    local caption = math.max(14, math.min(18, top * ch - 2))
                     local buttons = chrome_pixels.title_buttons(window)
                     test.eq(#buttons, 3)
                     for index, button in ipairs(buttons) do
-                        test.eq(button.rect.y, 5, "two pixels inside the caption")
-                        test.eq(button.rect.h, 14)
-                        test.is_true(button.rect.w >= 14 and button.rect.w <= 16)
+                        test.eq(button.rect.h, caption - 4, "button four pixels shorter than the caption")
+                        test.eq(button.rect.y, 3 + 2, "two pixels inside the caption")
                         for py = button.rect.y, button.rect.y + button.rect.h - 1 do
                             local row = window.y + (py - 1) // ch
                             test.is_true(row < window.y + top, "button must not enter client")
@@ -122,14 +121,18 @@ local function define_tests()
                         test.is_nil(chrome_pixels.title_button_at(window, button.from, window.y + top))
                     end
                     -- Слитная пара, отдельная «закрыть» в двух синих пикселях от рамки.
-                    test.eq(buttons[1].rect.w, 16)
-                    test.eq(buttons[2].rect.w, 16)
-                    test.eq(buttons[2].rect.x, buttons[1].rect.x + 16, "minimize and maximize touch")
-                    local gap = buttons[3].rect.x - buttons[2].rect.x - 16
-                    test.is_true(gap >= 2 and gap <= 4, "close stands apart by two to four pixels")
+                    local bw = caption - 2
+                    test.eq(buttons[1].rect.w, bw)
+                    test.eq(buttons[2].rect.w, bw)
+                    test.eq(buttons[2].rect.x, buttons[1].rect.x + bw, "minimize and maximize touch")
+                    test.is_true(buttons[3].rect.w >= bw - 2 and buttons[3].rect.w <= bw)
+                    -- Просвет до «закрыть» — два пикселя плюс то, что пара не
+                    -- добрала до целых ячеек (12 px в двух ячейках по 10 — восемь).
+                    local gap = buttons[3].rect.x - buttons[2].rect.x - bw
+                    test.is_true(gap >= 2 and gap <= 2 + 2 * cw - bw + 2, "close stands apart by the cell slack")
                     local last = buttons[3].rect
                     test.eq(window.w * cw - (last.x + last.w - 1), 6, "frame plus caption padding")
-                    if cw == 8 then
+                    if cw == 8 and ch >= 20 then
                         test.eq(gap, 2, "eight-pixel cells reproduce Windows 95 exactly")
                         test.eq(last.w, 16)
                     end

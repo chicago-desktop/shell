@@ -103,20 +103,32 @@ end
 
 -- Метрики заголовка — по Windows 95, в пикселях: над синей полосой две
 -- строки рамки (лицо и свет), сама полоса 18 px, кнопки 16×14 в двух
--- пикселях от её краёв, рамка окна четыре пикселя. Резерв под всё это
--- округляется вверх до целых строк терминала: при ячейке в 20 px это ровно
--- одна строка, и строка меню окна ложится прямо под полосу — как в оригинале.
--- Полоса в 20 px с рамкой в четыре не влезала в строку и брала две: под
--- заголовком оставалась мёртвая серая лента в 18 px.
+-- пикселях от её краёв, рамка окна четыре пикселя.
+--
+-- Полоса живёт в ОДНОЙ строке терминала, пока строка не ниже 16 px, и
+-- ужимается под неё: при ячейке в 20 px это ровно 18 px оригинала, при 16 —
+-- 14 px с кнопками 12×10. Иначе заголовок брал бы две строки и оставлял под
+-- собой серую ленту, которую читают как ошибку; вторую строку полоса берёт
+-- только там, где в одну не входит и 14 px (ячейка ниже 16).
 local TITLE_TOP = 3
 local TITLE_HEIGHT = 18
-local TITLE_BUTTON_W = 16
+local TITLE_LEAST = 14
 local TITLE_BUTTON_H = 14
 -- Синий зазор между кнопкой и рамкой; ширина рамки окна.
 local TITLE_MARGIN = 2
 local FRAME = 4
 local function header_rows(): integer
-    return whole(math.max(1, (TITLE_TOP - 1 + TITLE_HEIGHT + whole(unit.h) - 1) // whole(unit.h)))
+    return whole(math.max(1, (TITLE_TOP - 1 + TITLE_LEAST + whole(unit.h) - 1) // whole(unit.h)))
+end
+local function title_height(): integer
+    local room = header_rows() * whole(unit.h) - (TITLE_TOP - 1)
+    return whole(math.max(TITLE_LEAST, math.min(TITLE_HEIGHT, room)))
+end
+-- Кнопка на четыре пикселя ниже полосы и на два шире своей высоты: 16×14
+-- при полосе в 18, 12×10 при 14.
+local function button_size(): (integer, integer)
+    local h = whole(title_height() - (TITLE_HEIGHT - TITLE_BUTTON_H))
+    return h + 2, h
 end
 
 function chrome_pixels.use_cell_size(w: any, h: any)
@@ -156,29 +168,30 @@ function chrome_pixels.title_buttons(window: any): any
     local out = {}
     if #set == 0 then return out end
     local cw = whole(unit.w)
-    local span = math.max(1, (TITLE_BUTTON_W + cw - 1) // cw)
-    -- Последняя кнопка отдаёт ширину до 14 px прежде, чем возьмёт ещё ячейку.
+    local bw, bh = button_size()
+    local span = math.max(1, (bw + cw - 1) // cw)
+    -- Последняя кнопка отдаёт до двух пикселей ширины прежде, чем возьмёт
+    -- ещё ячейку.
     local last_span = span
-    while last_span * cw - FRAME - TITLE_MARGIN < TITLE_BUTTON_W - 2 do last_span = last_span + 1 end
-    local last_w = math.min(TITLE_BUTTON_W, last_span * cw - FRAME - TITLE_MARGIN)
+    while last_span * cw - FRAME - TITLE_MARGIN < bw - 2 do last_span = last_span + 1 end
+    local last_w = math.min(bw, last_span * cw - FRAME - TITLE_MARGIN)
     local total = (#set - 1) * span + last_span
     local from = whole(window.x) + whole(window.w) - total
     if from <= whole(window.x) + 3 then return out end
     local width = whole(window.w) * cw
-    local top = TITLE_TOP + (TITLE_HEIGHT - TITLE_BUTTON_H) // 2
+    local top = TITLE_TOP + (title_height() - bh) // 2
     for index, button in ipairs(set) do
         local left = from + (index - 1) * span
         local cells = index == #set and last_span or span
         local rect: any
         if index == #set then
-            rect = {x = width - FRAME - TITLE_MARGIN - last_w + 1, y = top, w = last_w, h = TITLE_BUTTON_H}
+            rect = {x = width - FRAME - TITLE_MARGIN - last_w + 1, y = top, w = last_w, h = bh}
         else
             local start = (left - whole(window.x)) * cw + 1
             -- В слитной паре первая прижата к правому краю своих ячеек, вторая
             -- к левому: так они смыкаются ровно на границе ячеек.
             local joined = #set > 2 and index == #set - 1
-            rect = {x = joined and start or start + span * cw - TITLE_BUTTON_W,
-                y = top, w = TITLE_BUTTON_W, h = TITLE_BUTTON_H}
+            rect = {x = joined and start or start + span * cw - bw, y = top, w = bw, h = bh}
         end
         out[#out + 1] = {id = button.id, from = left, to = left + cells - 1, rect = rect,
             row = whole(window.y) + (rect.y - 1) // whole(unit.h),
@@ -404,20 +417,22 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
         head:fill(inside)
         -- Рамка Windows 95: снаружи лицо и чёрный, внутри свет и тень —
         -- порядок обратный кнопке, у которой снаружи свет.
-        head:rect(1, 1, width, TITLE_TOP - 1 + TITLE_HEIGHT, color.face)
+        head:rect(1, 1, width, TITLE_TOP - 1 + title_height(), color.face)
         head:rect(1, 1, FRAME, height, color.face)
         head:rect(width - FRAME + 1, 1, FRAME, height, color.face)
         head:rect(2, 2, width - 2, 1, color.light)
         head:rect(2, 2, 1, height - 1, color.light)
         head:rect(width - 1, 2, 1, height - 1, color.shadow)
         head:rect(width, 1, 1, height, color.frame)
-        local title_top, title_h = TITLE_TOP, TITLE_HEIGHT
+        local title_top, title_h = TITLE_TOP, title_height()
         head:rect(FRAME + 1, title_top, width - FRAME * 2, title_h,
             focused and color.title_active_bg or color.title_idle_bg)
         -- Reserve actual title-button rectangles before clipping text.
         local text_right = #buttons > 0 and buttons[1].rect.x - 4 or width - FRAME - TITLE_MARGIN
         local caption_x = FRAME + 5
-        if window.window_type == nil or window.window_type == "app" then
+        -- Значок 16 px есть только там, где входит в полосу: в 14 px он
+        -- лёг бы на рамку.
+        if (window.window_type == nil or window.window_type == "app") and title_h >= 16 then
             pixels.icon(head, FRAME + 3, title_top + (title_h - 16) // 2, {kind = "window", image = window.image}, 16)
             caption_x = FRAME + 3 + 16 + 4
         end

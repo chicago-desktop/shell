@@ -401,31 +401,41 @@ end
 
 -- Знаки кнопок заголовка — как растры Windows 95 в кнопке 16×14: полоска
 -- «свернуть» 6×2 внизу слева, «развернуть» — рамка 9×9 с двойной верхней
--- гранью, «закрыть» — крест 8×7 штрихом в два пикселя. Координаты считаются
--- от УГЛА КНОПКИ, а не от центра квадрата: кнопка на два пикселя уже
--- (см. `chrome_pixels.title_buttons`) сдвигает знак на один, и он остаётся
--- по центру.
+-- гранью, «закрыть» — крест 8×7 штрихом в два пикселя. Считаются от размера
+-- КНОПКИ, а не от центра квадрата: кнопка 12×10 на мелкой ячейке получает
+-- те же знаки на четыре пикселя меньше, кнопка на два пикселя уже — тот же
+-- знак на пиксель левее.
 local CAPTION_GLYPHS = {
-    minimize = function(raster, x: any, y: any, ink)
-        raster:rect(x + 4, y + 9, 6, 2, ink)
+    minimize = function(raster, x: any, y: any, w: any, h: any, ink)
+        local bar = math.max(2, whole(w) // 2 - 2)
+        raster:rect(whole(x) + 3 + (bar - 2) // 4, whole(y) + whole(h) - 5, bar, 2, ink)
     end,
-    maximize = function(raster, x: any, y: any, ink)
-        raster:rect(x + 3, y + 2, 9, 2, ink)
-        raster:rect(x + 3, y + 4, 1, 7, ink)
-        raster:rect(x + 11, y + 4, 1, 7, ink)
-        raster:rect(x + 3, y + 10, 9, 1, ink)
+    maximize = function(raster, x: any, y: any, w: any, h: any, ink)
+        local bw, bh = whole(w) - 7, whole(h) - 5
+        local lid = bh >= 7 and 2 or 1
+        raster:rect(whole(x) + 3, whole(y) + 2, bw, lid, ink)
+        raster:rect(whole(x) + 3, whole(y) + 2 + lid, 1, bh - lid, ink)
+        raster:rect(whole(x) + 3 + bw - 1, whole(y) + 2 + lid, 1, bh - lid, ink)
+        raster:rect(whole(x) + 3, whole(y) + 2 + bh - 1, bw, 1, ink)
     end,
-    close = function(raster, x: any, y: any, ink)
-        local rows = {{4, 5, 10, 11}, {5, 6, 9, 10}, {6, 7, 8, 9}, {7, 8}, {6, 7, 8, 9}, {5, 6, 9, 10}, {4, 5, 10, 11}}
-        for line, columns in ipairs(rows) do
-            for _, column in ipairs(columns) do raster:set(x + column, y + 2 + line, ink) end
+    close = function(raster, x: any, y: any, w: any, h: any, ink)
+        local size = math.max(4, whole(w) - 8)
+        local rows = size - 1
+        local left, top = whole(x) + 4, whole(y) + (whole(h) - rows) // 2
+        for line = 0, rows - 1 do
+            for _, column in ipairs({line, line + 1, size - 1 - line, size - line}) do
+                if column >= 0 and column < size then raster:set(left + column, top + line, ink) end
+            end
         end
     end,
 }
 function pixels.caption_mark(raster, id, x: any, y: any, w: any, h: any, tint)
     local glyph = CAPTION_GLYPHS[tostring(id)]
     if type(glyph) ~= "function" then return end
-    glyph(raster, whole(x) + (whole(w) - 16) // 2, whole(y) + (whole(h) - 14) // 2, tint or color.face_text)
+    local width, height = whole(w), whole(h)
+    -- Знак считается от полной ширины (высота + 2); кнопка уже — сдвиг влево.
+    local full = height + 2
+    glyph(raster, whole(x) + (width - full) // 2, whole(y), full, height, tint or color.face_text)
 end
 
 -- Гравированная рамка группы (EDGE_ETCHED): тень и сразу под ней свет —

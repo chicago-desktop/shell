@@ -54,7 +54,8 @@ local function define_tests()
             test.eq(shown.image, "my_computer")
             test.eq(shown.content, "pixels")
             test.eq(shown.width, 20)
-            test.eq(shown.height, 11)
+            -- Заголовок в одну строку: клиенту достаётся на строку больше.
+            test.eq(shown.height, 12)
             test.eq(shown.offset, 0)
             test.is_true(#shown.hits.scroll == 2, "the test viewport must require scrolling")
             -- The lower row of the taller address field is clickable too.
@@ -81,7 +82,7 @@ local function define_tests()
             end
             shown = receive(frames, function(value) return value.path == "" end)
             send(desk, "desktop.resize", {id = shown.id, w = 34, h = 18})
-            shown = receive(frames, function(value) return value.width == 32 and value.height == 15 end)
+            shown = receive(frames, function(value) return value.width == 32 and value.height == 16 end)
             desk.view:send({type = "key", action = "press", key_type = "down", key = "down"})
             shown = receive(frames, function(value) return value.selected > 0 end)
             test.is_true(shown.revision > 4)
