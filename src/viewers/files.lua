@@ -40,6 +40,8 @@ end
 -- снимается здесь, один раз: `Photo.PNG` и `photo.png` — один и тот же вид.
 function files.ext(name: any): string
     local text = files.name_of(name)
+    -- Точка в начале — скрытый файл, а не расширение: у `.bashrc` его нет.
+    if text:sub(1, 1) == "." and not text:sub(2):find(".", 1, true) then return "" end
     local ext = text:match("%.([^%.]+)$")
     if not ext or ext == text then return "" end
     return ext:lower()

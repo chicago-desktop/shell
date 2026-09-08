@@ -111,7 +111,9 @@ end
 function model.round_ceiling(value: any): number
     local v = tonumber(value) or 0
     if v <= 0 then return 0 end
-    local magnitude = 10.0 ^ math.floor(math.log(v, 10))
+    -- Не math.log(v, 10): второй аргумент эта VM молча игнорирует и
+    -- отдаёт натуральный логарифм — потолок для 1673 горутин выходил 10⁷.
+    local magnitude = 10.0 ^ math.floor(math.log(v) / math.log(10))
     local steps = {1.0, 2.0, 2.5, 5.0, 10.0}
     for _, step in ipairs(steps) do
         if magnitude * step >= v then return magnitude * step end
@@ -240,6 +242,12 @@ end
 
 -- tab_at(hits, x, y) -> номер вкладки или nil
 function model.tab_at(hits: any, x: any, y: any): any
+    for _, hit in ipairs(type(hits) == "table" and hits or {}) do
+        local spot: any = hit
+        if whole(y) == whole(spot.row) and whole(x) >= whole(spot.from) and whole(x) <= whole(spot.to) then
+            return whole(spot.index)
+        end
+    end
     return nil
 end
 
