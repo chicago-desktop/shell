@@ -88,7 +88,7 @@ Windows: взводится нажатием, срабатывает по отп
 | SDK ячейки | была «[ … ]» | ✔ теперь `widgets.button` |
 | SDK пиксели | `pixels.button` | акселератор |
 | заголовок окна, ячейки `chrome.lua:386` | своё `bezel` | нет нажатия |
-| заголовок окна, пиксели `chrome_pixels.lua:391` | `pixels.panel` — одинарная грань | не `pixels.button`, никогда не нажимается, своя геометрия (16 px против шага в 3 ячейки) |
+| заголовок окна, пиксели `chrome_pixels.lua` | `pixels.button` 16×14, знаки `pixels.caption_mark` | приведено к метрикам Windows 95 (полоса 18 px, рамка 4 px) — см. README «Пиксельная геометрия» |
 | «Пуск», пиксели `chrome_pixels.lua:463` | `pixels.panel` + `bevel` | не `pixels.button` |
 | панель проводника, пиксели `render_pixels.lua:102` | `pixels.panel/bevel` | не `pixels.button`; одинарная грань |
 | ▾ адресной строки (оба) | `bezel`/`panel` | не бывает нажатой |
