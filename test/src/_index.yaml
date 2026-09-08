@@ -421,3 +421,30 @@ entries:
       test: wippy.test:test
       model: butschster.windows.taskman:model
     method: run
+
+  - name: programs_live_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Новые программы — Диспетчер задач, Блокнот, просмотр картинок — открываются живой оболочкой и отвечают описанием окна; отказ называет причину, которую стенд прячет в лог.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://programs_live_test.lua
+    modules: [channel, process, registry, sql, env, time, tty, uuid]
+    imports:
+      test: wippy.test:test
+      control: butschster.windows.api:control
+    method: run
+
+  - name: window_life_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Окна-программы (Диспетчер задач, Блокнот) живут после запуска — событие выхода читается текстом, потому что стенд прячет его в лог.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://window_life_test.lua
+    modules: [channel, process, time, tty]
+    imports:
+      test: wippy.test:test
+    method: run

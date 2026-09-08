@@ -25,6 +25,11 @@ local LINE_CAP = 4000
 
 local styles = widgets.styles
 
+-- Разбить строку на символы UTF-8. Библиотеки `utf8` в Lua рантайма нет —
+-- окно с `utf8.codes` умирало на первом кадре, и снаружи это выглядело как
+-- «щёлкнул — ничего не открылось».
+local UTF8_CHAR = "[%z\1-\127\194-\244][\128-\191]*"
+
 local function whole(value: any): integer
     return math.tointeger(math.floor(tonumber(value) or 0)) or 0
 end
@@ -51,8 +56,7 @@ local function slice(text: any, skip_cells: any, room_cells: any): string
     local line, skip, room = tostring(text or ""), whole(skip_cells), whole(room_cells)
     if room < 1 then return "" end
     local out, used, passed = {}, 0, 0
-    for _, code in utf8.codes(line) do
-        local char = utf8.char(code)
+    for char in line:gmatch(UTF8_CHAR) do
         local w = widgets.cells(char)
         if passed < skip then
             passed = passed + w

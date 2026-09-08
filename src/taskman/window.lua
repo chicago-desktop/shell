@@ -24,6 +24,11 @@ local widgets = require("widgets")
 
 local styles = widgets.styles
 
+-- Разбить строку на символы UTF-8. Библиотеки `utf8` в Lua рантайма нет —
+-- окно с `utf8.codes` умирало на первом кадре, и снаружи это выглядело как
+-- «щёлкнул — ничего не открылось».
+local UTF8_CHAR = "[%z\1-\127\194-\244][\128-\191]*"
+
 local function whole(value: any): integer
     return math.tointeger(math.floor(tonumber(value) or 0)) or 0
 end
@@ -99,9 +104,8 @@ local function draw_graph(canvas, inner: any, history: any, unit: any)
         -- Сетка — точки там, где график пуст; график перекрывает сетку.
         local parts = {}
         local column = 0
-        for _, code in utf8.codes(row) do
+        for char in row:gmatch(UTF8_CHAR) do
             column = column + 1
-            local char = utf8.char(code)
             if char == " " then
                 parts[#parts + 1] = graph_styles.grid:render(column % 4 == 0 and "·" or " ")
             else
