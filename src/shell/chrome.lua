@@ -945,7 +945,8 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
                 entry = line.item and line.item.entry, image = line.item and line.item.image,
                 separator_before = line.separator_before,
                 arrow = line.kind == "group",
-                selected = under_cursor or expanded, bold = line.kind == "group",
+                -- Folder labels have the same weight as applications in Win95.
+                selected = under_cursor or expanded,
                 dim = line.kind == "hint", banner_letter = letter,
             }
 

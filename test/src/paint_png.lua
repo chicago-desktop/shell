@@ -85,7 +85,7 @@ local function load_font(file, size)
     if err or not store then return nil, "шрифты не открылись: " .. tostring(err) end
     local data, rerr = store:readfile(file)
     if rerr or not data then return nil, "шрифт не прочитан: " .. tostring(rerr) end
-    local face = gfx.font(data, {size = size})
+    local face = gfx.font(data, {size = size, smooth = true})
     return face, nil
 end
 
@@ -244,6 +244,47 @@ local function main(spec)
         say("ОТКАЗ: полужирный не загрузился: " .. tostring(berr))
         return false, berr
     end
+
+    local comparison = gfx.raster(615, 270)
+    comparison:fill("#c0c0c0")
+    for index, variant in ipairs({{size = 13, smooth = false, name = "Было: 13 px, без сглаживания"},
+        {size = 13, smooth = true, name = "Стало: 13 px, сглаживание"}}) do
+        local left = (index - 1) * 305 + 10
+        local regular = assert(load_font(FACE, variant.size))
+        local heavy = assert(load_font(BOLD, variant.size))
+        comparison:text(left, 8, variant.name, {font = font, color = "#000000", smooth = true})
+        for line, label in ipairs({"Мой компьютер", "Калькулятор", "Дата и время", "Блокнот", "Выполнить…", "Завершение работы"}) do
+            comparison:text(left, 24 + line * 26, label, {font = regular, color = "#000000", smooth = variant.smooth})
+        end
+        comparison:rect(left, 211, 284, 32, "#000080")
+        comparison:text(left + 8, 218, "Программы  ·  Контент-машина", {font = heavy, color = "#ffffff", smooth = variant.smooth})
+    end
+    assert(store_shots:writefile("font-comparison.png", assert(comparison:encode("png"))))
+
+    -- Fixed public labels reproduce the menu used to report unreadable text.
+    local font_menu = catalog.build({
+        {id = "butschster.windows.explorer:window", meta = {title = "Мой компьютер", image = "my_computer", group = "", order = 10}},
+        {id = "butschster.windows.calc:window", meta = {title = "Калькулятор", image = "calculator", order = 20}},
+        {id = "butschster.windows.datetime:window", meta = {title = "Дата и время", image = "clock", order = 30}},
+        {id = "butschster.windows.viewers:notepad", meta = {title = "Блокнот", image = "text_document", order = 40}},
+        {id = "example:bridge", meta = {title = "Работы", group = "Программы/Bridge", order = 50}},
+        {id = "example:content", meta = {title = "Статьи", group = "Программы/Контент-машина", order = 60}},
+        {id = "butschster.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "program", order = 70}},
+        {id = "example:settings", meta = {title = "Свойства", group = "Настройка", order = 80}},
+        {id = "butschster.windows.run:window", meta = {title = "Выполнить…", image = "run", group = "", order = 900}},
+    })
+    chrome_pixels.use_fonts(font, bold)
+    chrome_pixels.use_cell_size(cell.w, cell.h)
+    local menu_scene = {width = 64, height = 18, top = 1, bottom = 16,
+        items = {}, windows = {}, clock = "12:00",
+        menu = {items = catalog.menu_items(font_menu.programs), open = {"Программы"}, cursor = 6}}
+    local menu_frame = chrome_pixels.paint(menu_scene, cell.w, cell.h)
+    local menu_image = gfx.raster(menu_scene.width * cell.w, menu_scene.height * cell.h)
+    menu_image:fill(color_desktop)
+    for _, placement in ipairs(menu_frame.placements) do
+        menu_image:blit(placement.raster, (placement.x - 1) * cell.w + 1, (placement.y - 1) * cell.h + 1)
+    end
+    assert(store_shots:writefile("font-menu.png", assert(menu_image:encode("png"))))
 
     -- Метрики шрифта печатаются рядом со снимком: подставка их не знает и
     -- считает приближением, а расхождение между уровнями иначе обнаружится

@@ -7,8 +7,8 @@ local cell_chrome = require("cell_chrome")
 local catalog = require("catalog")
 local function main(service, observer, mode)
     local files = assert(fs.get("app:system_fonts"))
-    chrome.use_fonts(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13}),
-        gfx.font(assert(files:readfile("LiberationSans-Bold.ttf")), {size = 13}))
+    chrome.use_fonts(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}),
+        gfx.font(assert(files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
     chrome.use_cell_size(8, 18)
     local paint = chrome.paint
     chrome.paint = function(state, cw, ch)

@@ -124,9 +124,11 @@ local function load_fonts(log, cell_h: any)
         return nil, FONT_BOLD .. " не прочитан: " .. tostring(berr)
     end
 
-    return {face = gfx.font(face_data, {size = FONT_SIZE}),
-            bold = gfx.font(bold_data, {size = FONT_SIZE}),
-            display = gfx.font(bold_data, {size = display_size(cell_h)})}, nil
+    -- Thresholding small TrueType glyphs erases thin strokes. Set smoothing
+    -- once on each face so the shell and every client share readable text.
+    return {face = gfx.font(face_data, {size = FONT_SIZE, smooth = true}),
+            bold = gfx.font(bold_data, {size = FONT_SIZE, smooth = true}),
+            display = gfx.font(bold_data, {size = display_size(cell_h), smooth = true})}, nil
 end
 
 local function main()

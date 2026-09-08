@@ -8,8 +8,8 @@ local process = require("process")
 
 local function main(service, observer, mode)
     local font_store = assert(fs.get("app:system_fonts"))
-    chrome.use_fonts(gfx.font(assert(font_store:readfile("LiberationSans-Regular.ttf")), {size = 13}),
-        gfx.font(assert(font_store:readfile("LiberationSans-Bold.ttf")), {size = 13}))
+    chrome.use_fonts(gfx.font(assert(font_store:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}),
+        gfx.font(assert(font_store:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
     chrome.use_cell_size(8, 18)
     local paint = chrome.paint
     chrome.paint = function(state, cw, ch)

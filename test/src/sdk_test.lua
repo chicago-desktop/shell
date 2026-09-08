@@ -182,7 +182,7 @@ local function define_tests()
             test.is_true(cell_text:match("^%s+1000 КБ ?$") ~= nil, "размер у правого края: [" .. cell_text .. "]")
             -- Пиксели: рисуется и переиспользуется, снимок — в test/shots.
             local font_files = assert(fs.get("app:system_fonts"))
-            local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13}))
+            local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local state = {sdk = 1, revision = 1, ui = {kind = "column", padding = 1, children = {node}}, interaction = ui.interaction()}
             local window = {id = "sdk-table", state_revision = 1, content_state = state}
             local store = rasters.store()
@@ -269,7 +269,7 @@ local function define_tests()
             test.is_true(plain(lines[1]):find("Файл", 1, true) ~= nil, "строка меню сверху")
             -- Пиксели: с раскрытым меню, снимок в test/shots.
             local font_files = assert(fs.get("app:system_fonts"))
-            local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13}))
+            local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local shown = ui.interaction()
             shown.menus.bar = {index = 1, cursor = 1}
             shown.focus = "pages"
@@ -301,7 +301,7 @@ local function define_tests()
         end)
         test.it("reuses an unchanged raster and exports the real SDK controls", function()
             local font_files = assert(fs.get("app:system_fonts"))
-            local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13}))
+            local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local context = {width = 60, height = 20}
             local model = fixture.definition.init(nil, context)
             local state = {sdk = 1, revision = 1, ui = fixture.definition.view(model, context), interaction = ui.interaction()}
@@ -354,7 +354,7 @@ local function define_tests()
             samples:text(322, 145, "Мой компьютер", {font = font, color = "#000000"})
             samples:text(16, 237, "Двойные грани · пунктир фокуса · текст без белой тени", {font = font, color = "#000000"})
             assert(assert(fs.get("app:shots")):writefile("sdk-button-states.png", assert(samples:encode("png"))))
-            local bold = assert(gfx.font(assert(font_files:readfile("LiberationSans-Bold.ttf")), {size = 13}))
+            local bold = assert(gfx.font(assert(font_files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
             chrome.use_fonts(font, bold)
             chrome.use_cell_size(8, 18)
             local inset = chrome.window_insets()
