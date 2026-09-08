@@ -251,6 +251,8 @@ entries:
       calc_window: butschster.windows.calc:window
       sdk_render: butschster.windows.sdk:render
       taskman_window: butschster.windows.taskman:window
+      sysprops_window: butschster.windows.sysprops:window
+      sysprops_model: butschster.windows.sysprops:model
       reg_model: butschster.windows.regedit:model
       regedit_window: butschster.windows.regedit:window
       images: butschster.windows.shell:images
@@ -464,6 +466,22 @@ entries:
     imports:
       test: wippy.test:test
       model: butschster.windows.appwiz:model
+    method: run
+
+  - name: sysprops_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Свойства системы — дерево устройств по префиксу вида, пустые группы с пометкой, раскладка трёх вкладок без пересечений, раскрытие и выбор, ОК закрывает.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://sysprops_test.lua
+    modules: [system, registry]
+    imports:
+      test: wippy.test:test
+      model: butschster.windows.sysprops:model
+      ui: butschster.windows.sdk:ui
+      sysprops_window: butschster.windows.sysprops:window
     method: run
 
   - name: taskman_test

@@ -124,6 +124,8 @@ entries:
       order: 5
       group: ""
       separator_after: true
+      # «Свойства» в контекстном меню значка — «Свойства: Система».
+      properties: butschster.windows.sysprops:window
       comment: Окно «Мой компьютер» — файловые системы из реестра и их содержимое; общий контроллер для режима ячеек и пиксельного вида.
     source: file://window.lua
     method: main

@@ -28,6 +28,7 @@ local run_window = require("run_window")
 local render = require("render")
 local render_pixels = require("render_pixels")
 local datetime_window = require("datetime_window")
+local sysprops_window = require("sysprops_window")
 local calc_window = require("calc_window")
 local taskman_window = require("taskman_window")
 local sdk_render = require("sdk_render")
@@ -362,7 +363,15 @@ local function main(spec)
             }},
         }
 
-        if notice then
+        if notice == "context" then
+            -- Контекстное меню значка «Мой компьютер»: якорь у значка,
+            -- «Открыть» жирным, «Свойства» за чертой.
+            state.selected = "s1"
+            state.menu = {anchor = {x = 6, y = 2}, cursor = 2, open = {}, items = {
+                {label = "Открыть", bold = true, entry = "butschster.windows.explorer:window", title = "Мой компьютер"},
+                {label = "Свойства", entry = "butschster.windows.sysprops:window", separator_before = true},
+            }}
+        elseif notice then
             state.menu = {items = {}}
             if notice == "failure" then state.menu.failure = "реестр временно недоступен" end
         end
@@ -594,6 +603,7 @@ local function main(spec)
     screen_shot("desktop.png", nil)
     screen_shot("menu-empty.png", "empty")
     screen_shot("menu-failure.png", "failure")
+    screen_shot("menu-context.png", "context")
 
     -- Native 32px and 16px assets side by side, rendered through the real gfx.
     local atlas = gfx.raster(960, ((#images.NAMES + 4) // 5) * 80)
@@ -648,6 +658,27 @@ local function main(spec)
         interaction = ui.interaction(), ui = datetime_window.definition.view({tab = 1, clock = {
             year = 2026, month = 9, day = 8, hour = 21, minute = 47, second = 23,
             first_weekday = 1, days = 30, zone = "UTC+04:00"}}, {width = 42, height = 20})}}, 42, 20)
+    -- «Свойства: Система», три вкладки на одном снимке-состоянии.
+    do
+        local snap: any = {hostname = "kickside", pid = "964748", cwd = "/home/butschster/repos/wippy/kickside",
+            node_id = "node-1", node_role = "leader", goroutines = 428, cpu_count = 8, max_procs = 8,
+            memory = {alloc = 100 * 1024 * 1024, heap_in_use = 200 * 1024 * 1024, heap_sys = 300 * 1024 * 1024,
+                heap_released = 10 * 1024 * 1024, num_gc = 57, sys = 320 * 1024 * 1024},
+            hosts = {{id = "app:processes", workers = 4, processes = 64, executed = 1000},
+                {id = "app.workers:host", workers = 2, processes = 12, executed = 88}},
+            modules = {{name = "gfx"}, {name = "tty"}, {name = "sql"}, {name = "json"}}}
+        local records = {{id = "app:db", kind = "db.sql.sqlite"}, {id = "app:fs", kind = "fs.directory"},
+            {id = "app:system_fonts", kind = "fs.directory"}, {id = "app:api", kind = "http.service"},
+            {id = "wippy.terminal:host", kind = "terminal.host"}}
+        local sysprops_model = require("sysprops_model")
+        local tree = sysprops_model.tree(snap, records)
+        for tab = 1, 3 do
+            local state: any = {tab = tab, snapshot = snap, records = records, tree = tree,
+                expanded = sysprops_model.expanded_all(tree), selected = "host:app:processes"}
+            view_shot("sysprops-" .. tab, sdk_render, {id = "shot", state_revision = tab, content_state = {sdk = 1, revision = tab,
+                interaction = ui.interaction(), ui = sysprops_window.definition.view(state, {width = 58, height = 22})}}, 58, 22)
+        end
+    end
     -- Экран прощания: крупный шрифт считается от высоты ячейки, как в оболочке.
     do
         local big_size = math.max(20, math.min(64, (cell.h * 17) // 10))

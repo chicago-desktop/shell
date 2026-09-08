@@ -499,7 +499,7 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     local face: any = type(fonts) == "table" and fonts.face or nil
     local bold: any = type(fonts) == "table" and fonts.bold or face
     local key = {tostring(w), tostring(state.clock or ""), tostring(state.focused_id or ""),
-                 state.menu and "open" or "closed"}
+                 (state.menu and not state.menu.anchor) and "open" or "closed"}
     for _, window in ipairs(state.windows or {}) do
         key[#key + 1] = tostring(window.id) .. ":" .. tostring(window.title)
             .. ":" .. tostring(window.image) .. ":" .. tostring(window.minimized)
@@ -515,8 +515,8 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
         bar:rect(1, 2, width, 1, color.face)
         -- Та же кнопка, что везде: нажата, пока меню открыто.
         pixels.button(bar, 3, button_y, start_span * cell.w - 5, button_h,
-            {label = "", pressed = state.menu ~= nil}, cell)
-        local shift = state.menu and 1 or 0
+            {label = "", pressed = state.menu ~= nil and state.menu.anchor == nil}, cell)
+        local shift = (state.menu and not state.menu.anchor) and 1 or 0
         pixels.flag(bar, 9 + shift, button_y + (button_h - 16) // 2 + shift)
         if bold then bar:text(31 + shift, button_y + (button_h - 15) // 2 + shift,
             "Пуск", {font = bold, color = color.face_text}) end
@@ -575,7 +575,7 @@ end
 
 local function menu_key(box: any)
     local parts = {tostring(box.x), tostring(box.y), tostring(box.w), tostring(box.h),
-                   tostring(box.banner)}
+                   tostring(box.banner), box.context and "ctx" or ""}
     for _, entry in ipairs(box.lines) do
         local line: any = entry
         parts[#parts + 1] = table.concat({
@@ -677,7 +677,10 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
             -- Root entries use their native 32px frame; submenus use 16px.
             local mark_size = whole(box.banner) > 0 and 32 or 16
             local mark_top = top + (line_h - mark_size) // 2
-            if line.kind == "group" then
+            -- У контекстного меню значков нет, как в Windows 95.
+            if box.context then
+                mark_size = 0
+            elseif line.kind == "group" then
                 pixels.icon(raster, text_left, mark_top, {kind = "group", image = "programs"}, mark_size)
             elseif line.kind == "item" then
                 pixels.icon(raster, text_left, mark_top,
@@ -691,7 +694,7 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
             local font = line.bold and bold or face
             if font then
                 local label_left = text_left
-                if line.kind ~= "hint" then label_left = text_left + mark_size + 10 end
+                if line.kind ~= "hint" then label_left = text_left + mark_size + (box.context and 6 or 10) end
                 raster:text(label_left, top + (line_h - 15) // 2, line.label or line.text,
                     {font = font, color = tint})
 
@@ -807,6 +810,7 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
                     broken = item.broken and true or false,
                     entry = item.entry, title = item.title,
                     w = tonumber(item.w), h = tonumber(item.h), args = item.args,
+                    properties = item.properties,
                 }
             end
         end
@@ -834,6 +838,7 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
         local shown = chrome.menu_layout(view.width, view.height,
             menu.items, menu.failure, menu.open, menu.cursor, {
                 compact = true, bottom = taskbar_rows(),
+                anchor = menu.anchor, context_rows = 1,
                 root_rows = math.max(1, (32 + cell.h - 1) // cell.h),
                 item_rows = math.max(1, (24 + cell.h - 1) // cell.h),
                 measure = function(label)

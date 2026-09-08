@@ -1,0 +1,65 @@
+version: "1.0"
+namespace: butschster.windows.sysprops
+
+# «Свойства: Система» — окно свойств «Моего компьютера», как System
+# Properties в Windows 95. Открывается пунктом «Свойства» контекстного меню
+# значка (`meta.properties` у записи проводника) и из «Пуск → Настройка».
+
+entries:
+  # butschster.windows.sysprops:model
+  - name: model
+    kind: library.lua
+    meta:
+      comment: Чистая модель «Свойств системы» — дерево устройств стенда из снимка рантайма и записей реестра, видимые строки, подписи.
+    source: file://model.lua
+    imports:
+      geometry: butschster.tui_desktop.desktop:geometry
+
+  # Права: читать рантайм и реестр, спросить композитор и опубликовать ему
+  # состояние. Ни писать в реестр, ни порождать процессы окно не может — это
+  # окно свойств, а не панель управления.
+  - name: window_scope
+    kind: security.policy
+    meta:
+      comment: Права «Свойств системы» — прочитать рантайм и реестр, опубликовать состояние композитору; ничего не менять.
+    policy:
+      actions:
+        - process.context
+        - process.registry
+        - process.send
+        - system.read
+        - registry.get
+        - registry.find
+        - registry.entry
+      resources: "*"
+      effect: allow
+
+  # butschster.windows.sysprops:window
+  - name: window
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: "Свойства: Система"
+      image: system
+      icon: "▥"
+      group: Настройка
+      order: 130
+      window_type: dialog
+      resizable: false
+      width: 60
+      height: 24
+      pixel_render: butschster.windows.sdk:render
+      pixel_state: butschster.windows.sysprops:window
+      comment: Свойства системы — узел и модули рантайма, хосты, файловые системы, базы и HTTP из реестра, память и горутины; окно на SDK оболочки, только чтение.
+    source: file://window.lua
+    method: main
+    modules:
+      - system
+      - registry
+    security:
+      policies: [butschster.windows.sysprops:window_scope]
+    imports:
+      geometry: butschster.tui_desktop.desktop:geometry
+      app: butschster.windows.sdk:app
+      model: butschster.windows.sysprops:model
+      charts: butschster.windows.sdk:charts

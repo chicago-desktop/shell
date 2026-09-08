@@ -477,6 +477,43 @@ local function define_tests()
             test.is_nil(lines[3].separator_before)
         end)
 
+        test.it("контекстное меню значка — одна панель у якоря, без папок и банера, внутри экрана", function()
+            local items = {
+                {label = "Открыть", bold = true, entry = "app:mycomp", title = "Мой компьютер"},
+                {label = "Свойства", entry = "app:sysprops", separator_before = true},
+            }
+            local shown = chrome.menu_layout(90, 24, items, nil, {}, 2, {anchor = {x = 10, y = 5}})
+            test.eq(#shown.panels, 1)
+            local panel = shown.panels[1]
+            test.eq(panel.x, 10)
+            test.eq(panel.y, 5)
+            test.eq(panel.banner, 0, "у контекстного меню нет банера")
+            test.is_true(panel.context == true)
+            test.eq(#panel.lines, 2)
+            test.eq(panel.lines[1].label, "Открыть", "подпись — label, а не title окна")
+            test.is_true(panel.lines[1].bold == true, "действие по умолчанию жирное")
+            test.is_true(panel.lines[2].separator_before == true)
+            test.is_true(panel.lines[2].selected == true, "курсор 2 выделяет вторую строку")
+            test.eq(#shown.hits, 2)
+            test.eq(shown.hits[2].index, 2)
+            test.eq(shown.hits[2].slot, 2)
+            test.eq(shown.hits[2].cursor, true)
+            test.is_true(shown.hits[1].from > panel.x and shown.hits[1].to < panel.x + panel.w)
+
+            -- У края экрана панель сдвигается внутрь, а не режется.
+            local edge = chrome.menu_layout(90, 24, items, nil, {}, 1, {anchor = {x = 88, y = 23}})
+            local box = edge.panels[1]
+            test.is_true(box.x + box.w - 1 <= 90, "панель не выходит за правый край")
+            test.is_true(box.y + box.h - 1 <= 23, "панель не ложится на панель задач")
+
+            -- Пиксельная тема: одна строка на пункт и якорь — из того же меню.
+            local flat = chrome.menu_layout(90, 24, items, nil, {}, 1,
+                {anchor = {x = 10, y = 5}, compact = true, context_rows = 1, bottom = 2})
+            test.eq(flat.panels[1].h, 2, "в пикселях по строке на пункт и без рамки")
+            test.eq(chrome.menu_layout(90, 24, {}, nil, {}, 1, {anchor = {x = 1, y = 1}}).panels[1], nil,
+                "пустой список — панели нет")
+        end)
+
         test.it("доводит группу от записи реестра до папки в меню", function()
             -- ВЕСЬ ЭТОТ ПУТЬ БЫЛ ЗЕЛЁНЫМ И НИ РАЗУ НЕ ПРОЙДЕННЫМ. Каталог
             -- разбирал `meta.group` в ТАБЛИЦУ сегментов, а тема ждала СТРОКУ

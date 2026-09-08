@@ -350,6 +350,7 @@ function chrome.fill(canvas, width: any, height: any, state)
                     broken = item.broken and true or false,
                     entry = item.entry, title = item.title,
                     w = tonumber(item.w), h = tonumber(item.h), args = item.args,
+                    properties = item.properties,
                 }
             end
         end
@@ -743,6 +744,56 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
     local room = bottom - 2
     if room < 1 then return out end
 
+    -- Контекстное меню значка: одна панель у якоря, плоский список без
+    -- банера, папок и подсказок. Пункты — те же таблицы, что у каталога;
+    -- подпись — `label` (у «Открыть» `title` — заголовок окна). Панель не
+    -- выходит за экран: у правого и нижнего края она сдвигается внутрь.
+    local anchor: any = sizing.anchor
+    if type(anchor) == "table" then
+        local lines: any = {}
+        for index, item in ipairs(catalog) do
+            lines[#lines + 1] = {index = index, item = item,
+                text = tostring(item.label or item.title or ""),
+                separator_before = item.separator_before and true or nil,
+                bold = item.bold and true or nil}
+        end
+        if #lines == 0 then return out end
+        local widest = 0
+        for _, line in ipairs(lines) do
+            local size = cells(line.text) + 3
+            if type(sizing.measure) == "function" then
+                size = whole(sizing.measure(line.text))
+            end
+            if size > widest then widest = size end
+        end
+        local box_w = math.min(w, math.max(minimum, widest + 2))
+        local span = math.max(1, whole(sizing.context_rows or 1))
+        local box_h = #lines * span + padding
+        local left = math.max(1, math.min(whole(anchor.x), w - box_w + 1))
+        local top = whole(anchor.y)
+        if top + box_h - 1 > bottom then top = math.max(1, bottom - box_h + 1) end
+        local painted: any = {x = left, y = top, w = box_w, h = box_h, list_w = box_w - 2,
+            banner = 0, level = 1, context = true, lines = {}}
+        local at = whole(cursor)
+        for index, line in ipairs(lines) do
+            local row = top + (index - 1) * span + (compact and 0 or 1)
+            local under_cursor = at > 0 and index == at
+            painted.lines[#painted.lines + 1] = {
+                kind = "item", text = " " .. line.text, tail = "", row = row, rows = span,
+                label = line.text, entry = line.item.entry, image = line.item.image,
+                separator_before = line.separator_before, bold = line.bold,
+                selected = under_cursor, dim = false, banner_letter = " ",
+            }
+            out.hits[#out.hits + 1] = {
+                row = row, bottom_row = span > 1 and row + span - 1 or nil,
+                from = left + 1, to = left + box_w - 2, index = index,
+                level = 1, slot = index, cursor = under_cursor or nil,
+            }
+        end
+        out.panels[1] = painted
+        return out
+    end
+
     -- Отказ реестра и пустой каталог обязаны различаться на экране:
     -- одинаковый вид отправляет человека искать ошибку в своём приложении,
     -- где её нет. Обоим хватает одной панели — каскаду тут неоткуда взяться.
@@ -912,8 +963,9 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
     return out
 end
 
-function chrome.menu(canvas, width: any, height: any, items, failure, open, cursor: any)
-    local shown = chrome.menu_layout(width, height, items, failure, open, cursor, nil)
+function chrome.menu(canvas, width: any, height: any, items, failure, open, cursor: any, anchor: any)
+    local shown = chrome.menu_layout(width, height, items, failure, open, cursor,
+        type(anchor) == "table" and {anchor = anchor} or nil)
 
     if shown.notice then
         local body = {}

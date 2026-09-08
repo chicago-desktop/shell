@@ -132,6 +132,9 @@ local function to_program(record: any)
         -- появлении, а не утверждение, что ярлык там есть. Есть он или нет,
         -- знает только раскладка.
         desktop = meta.desktop == true or meta.desktop == "true",
+        -- Окно свойств программы: пункт «Свойства» в контекстном меню её
+        -- значка. Идентификатор записи, как `entry`; нет — нет и пункта.
+        properties = type(meta.properties) == "string" and meta.properties ~= "" and meta.properties or nil,
     }
 end
 

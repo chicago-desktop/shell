@@ -45,6 +45,7 @@ function view.join(items: any, found: any)
                 row.width = program.width
                 row.height = program.height
                 row.args = program.args
+                row.properties = program.properties
             end
             -- Как выглядит битый значок, решает тема: она рисует, она и знает,
             -- чем отличить. Раскладка утверждает только факт — записи нет.
