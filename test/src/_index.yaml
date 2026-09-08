@@ -388,3 +388,36 @@ entries:
       associations: butschster.windows.viewers:associations
       picture_render: butschster.windows.viewers:picture_render
     method: run
+
+  - name: views_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Окна-виды — сетка месяца, кнопки в ячейках без общих ячеек, секунда переотправляет только часы; калькулятор считает как кнопки, память переживает сброс, нажатие переотправляет табло и один ряд; у фиксированного окна нет «развернуть».
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://views_test.lua
+    modules: [gfx]
+    imports:
+      test: wippy.test:test
+      rasters: butschster.windows.shell:rasters
+      chrome: butschster.windows.shell:chrome
+      dt_layout: butschster.windows.datetime:layout
+      dt_render: butschster.windows.datetime:render
+      engine: butschster.windows.calc:engine
+      calc_layout: butschster.windows.calc:layout
+      calc_render: butschster.windows.calc:render
+    method: run
+
+  - name: taskman_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Диспетчер задач — история не длиннее потолка, график блочными символами снизу вверх и справа налево, форматы памяти и времени, раскладка вкладок и попадания.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://taskman_test.lua
+    imports:
+      test: wippy.test:test
+      model: butschster.windows.taskman:model
+    method: run

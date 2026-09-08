@@ -72,11 +72,16 @@ function associations.table(programs: any): (any, any)
         if id then
             for _, ext in ipairs(opens_of(item)) do
                 local list: any = claims[ext] or {}
+                local image = field(item, "image")
                 list[#list + 1] = {
                     entry = id,
                     title = tostring(field(item, "title") or id),
                     width = tonumber(field(item, "width")),
                     height = tonumber(field(item, "height")),
+                    -- Значок программы становится значком её файлов: в
+                    -- Windows тип файла несёт и программу, и картинку, и
+                    -- это одна запись, а не две.
+                    image = type(image) == "string" and image ~= "" and image or nil,
                 }
                 claims[ext] = list
             end
@@ -108,6 +113,17 @@ function associations.find(programs: any, name: any): (any, any)
         return nil, "файлы ." .. ext .. " нечем открыть: ни одна программа их не объявила"
     end
     return program, nil
+end
+
+-- image_for(programs, name) -> имя значка программы или nil
+--
+-- nil означает «файл нечем открыть» — и рисовать его надо значком
+-- неизвестного документа, а не пустотой и не значком соседа. Кто рисует,
+-- решает сам, какой значок у неизвестного; здесь только факт.
+function associations.image_for(programs: any, name: any): any
+    local program = associations.find(programs, name)
+    if not program then return nil end
+    return program.image
 end
 
 -- open(programs, drive, path) -> заявка на окно | nil, причина

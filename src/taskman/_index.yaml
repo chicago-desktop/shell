@@ -1,0 +1,62 @@
+version: "1.0"
+namespace: butschster.windows.taskman
+
+# Диспетчер задач — окно, показывающее сам рантайм: открытые окна, процессы,
+# память и горутины во времени, узел и кластер.
+#
+# Цифры снимает окно само, модулем `system`, под своими правами. Загрузки
+# процессора в процентах нет нарочно — рантайм её не считает, а читать
+# `/proc` окну нельзя. Честная нагрузка рантайма — горутины и куча.
+
+entries:
+  # butschster.windows.taskman:model
+  - name: model
+    kind: library.lua
+    meta:
+      comment: Диспетчер задач, чистая модель — история измерений, график блочными символами, форматы, раскладка вкладок и попадания по ним.
+    source: file://model.lua
+
+  # Права: читать рантайм (`system.read` — хосты, узел, кластер) и спросить
+  # композитор про открытые окна. Ни порождать, ни гасить чужие процессы
+  # окно не может — «Снять задачу» здесь нет, и это не пропуск: диспетчер,
+  # который может убить композитор, страшнее диспетчера без кнопки.
+  - name: window_scope
+    kind: security.policy
+    meta:
+      comment: Права диспетчера задач — прочитать состояние рантайма и спросить композитор; ничего не запускать и не гасить.
+    policy:
+      actions:
+        - process.context
+        - process.registry
+        - process.send
+        - system.read
+      resources: "*"
+      effect: allow
+
+  # butschster.windows.taskman:window
+  - name: window
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: Диспетчер задач
+      image: system
+      icon: "▥"
+      group: Стандартные
+      width: 72
+      height: 24
+      comment: Диспетчер задач — открытые окна, процессы рантайма, память и горутины во времени, узел; обновляется раз в секунду.
+    source: file://window.lua
+    method: main
+    modules:
+      - channel
+      - os
+      - process
+      - system
+      - time
+      - tty
+    security:
+      policies: [butschster.windows.taskman:window_scope]
+    imports:
+      desktop: butschster.tui_desktop.desktop:window_api
+      model: butschster.windows.taskman:model
+      widgets: butschster.windows.shell:widgets

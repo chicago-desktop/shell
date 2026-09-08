@@ -78,6 +78,18 @@ local function run()
             test.expect(tostring(why):find("нет расширения", 1, true) ~= nil).to_be_true()
         end)
 
+        test.it("значок файла — значок программы, которая его открывает", function()
+            local with_images = {
+                {entry = "app:notepad", title = "Блокнот", image = "text_document", opens = {"txt"}},
+                {entry = "app:viewer", meta = {title = "Картинки", image = "document", opens = {"png"}}},
+                {entry = "app:mute", title = "Без значка", opens = {"dat"}},
+            }
+            test.expect(associations.image_for(with_images, "readme.TXT")).to_equal("text_document")
+            test.expect(associations.image_for(with_images, "a.png")).to_equal("document")
+            test.expect(associations.image_for(with_images, "a.dat")).to_be_nil()
+            test.expect(associations.image_for(with_images, "a.pdf")).to_be_nil()
+        end)
+
         test.it("заявка на окно несёт запись, размер и аргумент, который разбирается обратно", function()
             local spec, why = associations.open(programs, "app:uploads_store", "/notes/todo.txt")
             test.expect(spec, tostring(why)).to_be_truthy()
