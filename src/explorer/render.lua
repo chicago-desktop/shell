@@ -39,20 +39,44 @@ render.MENU = {
     {text = "Справка", accel = 1},
 }
 
--- Кнопок две, и обе что-то делают. Кнопка-бутафория выглядит как рабочая
--- часть системы, и первое, что о ней спросят, — почему она не работает.
+-- Панель окна папки Windows 95: назад, вперёд, вверх · вырезать, копировать,
+-- вставить · отменить · удалить, свойства · четыре вида. Работают те, у
+-- которых есть действие: назад/вперёд по истории окна, вверх, обновить.
+-- Остальные объявлены `disabled` и рисуются выцветшими — как в Windows 95,
+-- где они серые, пока нечего вырезать. Бутафории здесь нет: недоступная
+-- кнопка на щелчок отвечает в статусной строке, почему она недоступна.
+-- Подписей нет — панель одна строка, и с подписями она не влезает в окно.
 render.TOOLS = {
-    {id = "up", icon = "↑", label = "Вверх"},
+    {id = "back", icon = "←", title = "Назад"},
+    {id = "forward", icon = "→", title = "Вперёд"},
+    {id = "up", icon = "↑", title = "Вверх"},
     {sep = true},
-    {id = "refresh", icon = "⟳", label = "Обновить"},
+    {id = "cut", icon = "✂", title = "Вырезать", disabled = true},
+    {id = "copy", icon = "⧉", title = "Копировать", disabled = true},
+    {id = "paste", icon = "⎘", title = "Вставить", disabled = true},
+    {sep = true},
+    {id = "undo", icon = "↶", title = "Отменить", disabled = true},
+    {sep = true},
+    {id = "delete", icon = "✕", title = "Удалить", disabled = true},
+    {id = "properties", icon = "▤", title = "Свойства", disabled = true},
+    {sep = true},
+    {id = "view_large", icon = "▦", title = "Крупные значки", pressed = true},
+    {id = "view_small", icon = "▩", title = "Мелкие значки", disabled = true},
+    {id = "view_list", icon = "≡", title = "Список", disabled = true},
+    {id = "view_details", icon = "☷", title = "Таблица", disabled = true},
 }
+-- «Обновить» на панели Windows 95 нет — оно в меню «Вид» и на F5; здесь
+-- Ctrl+R. Кнопка не поместилась бы: панель — 64 ячейки, окно — 70.
 
 -- Строки, занятые не содержимым: строка меню, панель инструментов, статусная
 -- строка. Объявлено числами, а не посчитано по месту, чтобы поле и попадания
 -- считались из одного источника.
 render.MENU_ROW = 1
 render.TOOL_ROW = 2
-render.FIELD_TOP = 3
+-- Адресная строка — своя строка под панелью (как в Windows 98; в 95 это
+-- выпадающий список на самой панели, но в ячейках он туда не помещается).
+render.ADDRESS_ROW = 3
+render.FIELD_TOP = 4
 
 -- Просвет между колонками значков. ШАГ сетки и ШИРИНА рисунка — разные числа,
 -- и здесь это видно глазом: подпись, занявшая колонку целиком, упирается в
@@ -98,6 +122,14 @@ function render.layout(view: any, width: any, height: any): any
         cells = {},
         scroll = nil,
         failure = state.failure,
+        -- Адресная строка есть только у бэкенда ячеек: пиксельный держит
+        -- свою раскладку из метрик и пока её не рисует.
+        address = {
+            row = render.ADDRESS_ROW,
+            text = tostring(state.address or state.title or ""),
+            items = type(state.address_items) == "table" and state.address_items or {},
+            open = state.address_open == true,
+        },
     }
 
     -- Панель инструментов раскладывается той же функцией, что её рисует:
@@ -162,7 +194,7 @@ end
 -- Попадания из плана. Собраны в одном месте, чтобы бэкенду не приходилось их
 -- пересобирать: пересоберёт — разойдётся.
 function render.hits(plan: any): any
-    local out: any = {cells = {}, tools = plan.tools or {}, scroll = {}}
+    local out: any = {cells = {}, tools = plan.tools or {}, scroll = {}, address = {}, dropdown = {}}
     for _, cell in ipairs(plan.cells or {}) do
         out.cells[#out.cells + 1] = {
             index = cell.index, from = cell.from, to = cell.to,
@@ -218,6 +250,19 @@ function render.cells(canvas, plan: any): any
         {text = plan.status.count, width = 16},
         {text = plan.status.detail},
     })
+
+    -- Адресная строка и её список рисуются последними: список ложится
+    -- поверх поля, и рисовать его раньше значило бы закрасить его значками.
+    if plan.address then
+        hits.address = widgets.address_bar(canvas, 1, plan.address.row, plan.width, plan.address.text)
+        if plan.address.open and #plan.address.items > 0 then
+            local field: any = hits.address.field
+            if field then
+                hits.dropdown = widgets.dropdown(canvas, field.from, plan.address.row + 1,
+                    field.to - field.from + 1, plan.address.items, #plan.address.items)
+            end
+        end
+    end
 
     return hits
 end

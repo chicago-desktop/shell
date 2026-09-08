@@ -310,6 +310,11 @@ function widgets.toolbar_hits(x: any, y: any, width: any, buttons): any
                 row = row, from = left + used, to = left + used + room - 1,
                 id = button.id, text = text, icon = icon, label = label,
                 pressed = button.pressed and true or false,
+                -- Недоступная кнопка рисуется выцветшей, а не прячется, как в
+                -- Windows 95: панель не меняет форму от того, что выделено.
+                -- Щелчок по ней — не действие, и попадание это говорит.
+                disabled = button.disabled and true or false,
+                title = type(button.title) == "string" and button.title or label,
             }
             used = used + room
         end
@@ -332,12 +337,62 @@ function widgets.toolbar(target, x: any, y: any, width: any, buttons)
             parts[#parts + 1] = styles.shadow:render(glyphs.bevel.left)
             used = used + 1
         end
-        parts[#parts + 1] = bezel(styles.face:render(button.text), button.pressed)
+        local face = button.disabled and styles.face_dim or styles.face
+        parts[#parts + 1] = bezel(face:render(button.text), button.pressed)
         used = used + (button.to - button.from + 1)
     end
     if used < span then parts[#parts + 1] = styles.face:render(string.rep(" ", span - used)) end
 
     target:put(left, row, table.concat(parts), span)
+    return hits
+end
+
+-- Адресная строка: подпись «Адрес», вдавленное поле со значком папки и
+-- путём, справа кнопка ▾, раскрывающая список. Как у окна папки Windows 95
+-- (там это выпадающий список на панели инструментов; в 98 — своя строка).
+--
+-- Возвращает попадания: `field` — само поле, `drop` — кнопка. Оба открывают
+-- список: в Windows щелчок по полю выделяет текст, но текст здесь не
+-- редактируется, и поле, которое ни на что не отвечает, хуже поля-кнопки.
+function widgets.address_bar(target, x: any, y: any, width: any, text: any, icon: any?): any
+    local left, row, span = whole(x), whole(y), whole(width)
+    local hits: any = {}
+    if span < 12 then return hits end
+    local label = " Адрес "
+    local label_w = cells(label)
+    local drop = " ▾ "
+    local drop_w = cells(drop) + 2
+    local field_w = span - label_w - drop_w
+    if field_w < 4 then return hits end
+
+    local mark = type(icon) == "string" and icon ~= "" and icon or glyphs.icons.folder
+    local body = fit(styles.field, " " .. mark .. " " .. tostring(text or ""), field_w - 2)
+    local line = styles.face:render(label) .. bezel(body, true) .. bezel(styles.face:render(drop), false)
+    target:put(left, row, line, span)
+
+    hits.field = {row = row, from = left + label_w, to = left + label_w + field_w - 1}
+    hits.drop = {row = row, from = left + label_w + field_w, to = left + span - 1}
+    return hits
+end
+
+-- Выпадающий список: белое поле с рамкой, строка на пункт, текущий выделен.
+-- Рисуется поверх того, что под ним, — как и положено списку.
+-- Возвращает попадания строк: {row, from, to, index}.
+function widgets.dropdown(target, x: any, y: any, width: any, items: any, current: any): any
+    local left, top, span = whole(x), whole(y), whole(width)
+    local hits: any = {}
+    local list: any = type(items) == "table" and items or {}
+    if span < 6 or #list == 0 then return hits end
+    local body = {}
+    local chosen = whole(current)
+    for index, item in ipairs(list) do
+        local record: any = item
+        local text = type(record) == "table" and tostring(record.title or "?") or tostring(record)
+        local style = index == chosen and styles.select or styles.field
+        body[#body + 1] = fit(style, " " .. text, span - 2)
+        hits[#hits + 1] = {row = top + index, from = left, to = left + span - 1, index = index}
+    end
+    widgets.panel(target, left, top, span, body, true)
     return hits
 end
 

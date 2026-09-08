@@ -90,8 +90,23 @@ local function main()
         -- срезанный список, непрочитанные диски, отказ на двойной щелчок.
         -- Оно не прячет объектов и не выдаёт себя за отказ.
         notice = nil,
+        -- Адресная строка: текст и список предков считаются моделью при
+        -- каждом переходе, а не в отрисовке, — кадр собирается на каждое
+        -- событие, а путь меняется только при переходе.
+        address = model.address(model.ROOT),
+        address_items = model.ancestors(model.ROOT),
+        address_open = false,
     }
+    -- История для «Назад» и «Вперёд». Переход из списка адреса, по папке и
+    -- по «Вверх» — всё это шаги вперёд; «Назад» снимает верх стопки.
+    local history: any = {back = {}, forward = {}}
     local cells: any = {}
+    local address_hits: any = {}
+    local dropdown_hits: any = {}
+    -- Попадания панели инструментов возвращает та же функция, что её рисует.
+    -- Своя формула здесь дала бы кнопку, которая на ячейку левее, чем
+    -- выглядит, — и разъехались бы они молча.
+    local tools: any = {}
     -- Попадания панели инструментов возвращает та же функция, что её рисует.
     -- Своя формула здесь дала бы кнопку, которая на ячейку левее, чем
     -- выглядит, — и разъехались бы они молча.
@@ -149,8 +164,15 @@ local function main()
         state.notice = shown.notice
     end
 
-    local function go(path: any)
+    local function go(path: any, how: any?)
+        if how ~= "back" and how ~= "forward" and state.path ~= path then
+            history.back[#history.back + 1] = state.path
+            history.forward = {}
+        end
         state.path = path
+        state.address = model.address(path)
+        state.address_items = model.ancestors(path)
+        state.address_open = false
         if path == "windows" then
             state.windows, state.windows_error = nil, nil
             -- `reply_to` подставляет библиотека: адрес ответа — это адрес
@@ -209,6 +231,7 @@ local function main()
         cells = hits.cells
         tools = hits.tools
         bar = hits.scroll or {}
+        address_hits, dropdown_hits = hits.address or {}, hits.dropdown or {}
         assert(out:present(canvas:rows()))
     end
 
@@ -253,6 +276,14 @@ local function main()
         elseif key == "backspace" then
             local up = model.parent(state.path)
             if up then go(up) end
+        elseif key == "esc" or key == "escape" then
+            state.address_open = false
+        elseif event.key == "left" and event.alt then
+            local previous = table.remove(history.back :: {any})
+            if previous then history.forward[#history.forward + 1] = state.path; go(previous, "back") end
+        elseif event.key == "right" and event.alt then
+            local next_path = table.remove(history.forward :: {any})
+            if next_path then history.back[#history.back + 1] = state.path; go(next_path, "forward") end
         elseif key == "right" then
             move(1)
         elseif key == "left" then
@@ -300,14 +331,61 @@ local function main()
             end
         end
 
+        -- Выпадающий список адреса — поверх всего, поэтому первым.
+        for _, hit in ipairs(dropdown_hits) do
+            local line: any = hit
+            if event.y == line.row and event.x >= line.from and event.x <= line.to then
+                local item: any = state.address_items[line.index]
+                state.address_open = false
+                if item and item.path ~= state.path then go(item.path) end
+                draw()
+                return
+            end
+        end
+        if state.address_open then
+            -- Щелчок мимо списка закрывает его и больше ничего не делает.
+            state.address_open = false
+            draw()
+            return
+        end
+        for _, name in ipairs({"field", "drop"}) do
+            local spot: any = address_hits[name]
+            if spot and event.y == spot.row and event.x >= spot.from and event.x <= spot.to then
+                state.address_open = true
+                draw()
+                return
+            end
+        end
+
         for _, hit in ipairs(tools) do
             local button: any = hit
-            if event.y == button.row and event.x >= button.from and event.x <= button.to then
-                if button.id == "up" then
+            if event.y >= button.row and event.y <= (button.bottom_row or button.row)
+                and event.x >= button.from and event.x <= button.to then
+                if button.disabled then
+                    state.notice = tostring(button.title) .. ": здесь недоступно, окно только читает"
+                elseif button.id == "back" then
+                    local previous = table.remove(history.back :: {any})
+                    if previous then
+                        history.forward[#history.forward + 1] = state.path
+                        go(previous, "back")
+                    else
+                        state.notice = "Назад: истории нет"
+                    end
+                elseif button.id == "forward" then
+                    local next_path = table.remove(history.forward :: {any})
+                    if next_path then
+                        history.back[#history.back + 1] = state.path
+                        go(next_path, "forward")
+                    else
+                        state.notice = "Вперёд: истории нет"
+                    end
+                elseif button.id == "up" then
                     local up = model.parent(state.path)
-                    if up then go(up) end
+                    if up then go(up) else state.notice = "Вверх: это корень" end
                 elseif button.id == "refresh" then
                     load()
+                elseif button.id == "view_large" then
+                    state.notice = "Крупные значки — единственный вид пока"
                 end
                 draw()
                 return

@@ -90,6 +90,46 @@ end
 --
 -- Тем же разбором, что и `parse`: кнопка «Вверх», считающая путь своей
 -- формулой, разъедется с двойным щелчком, и разойдутся они молча.
+-- address(path) -> строка адреса, как её показала бы Windows: `Мой компьютер`,
+-- `Мой компьютер\Программы`, `app:app_fs\src\app`. Диск называется своей
+-- записью реестра — другого имени у него нет, а придуманная буква обещала
+-- бы то, чего не существует.
+function model.address(path: any): string
+    local where: any = model.parse(path)
+    if where.view == "root" then return "Мой компьютер" end
+    if where.view == "programs" then return "Мой компьютер\\Программы" end
+    if where.view == "desktop" then return "Мой компьютер\\Рабочий стол" end
+    if where.view == "desktop_folder" then return "Мой компьютер\\Рабочий стол\\" .. tostring(where.id) end
+    if where.view == "windows" then return "Мой компьютер\\Открытые окна" end
+    if where.view == "drive" then
+        local text = tostring(where.id)
+        if where.sub then text = text .. "\\" .. tostring(where.sub):gsub("/", "\\") end
+        return text
+    end
+    return tostring(path or "")
+end
+
+-- ancestors(path) -> список {title, path} от корня до текущей папки.
+--
+-- Это содержимое выпадающего списка адресной строки: каждая строка — куда
+-- можно перейти одним щелчком. Последняя — сама папка.
+function model.ancestors(path: any): any
+    local chain: any = {}
+    local at: any = path
+    local guard = 0
+    while at ~= nil and guard < 64 do
+        guard = guard + 1
+        table.insert(chain, 1, {title = model.address(at), path = at})
+        if at == model.ROOT then break end
+        at = model.parent(at)
+        if at == nil then break end
+    end
+    if #chain == 0 or chain[1].path ~= model.ROOT then
+        table.insert(chain, 1, {title = "Мой компьютер", path = model.ROOT})
+    end
+    return chain
+end
+
 function model.parent(path: any)
     local where = model.parse(path)
 
