@@ -27,7 +27,7 @@ local ui = require("ui")
 local run_window = require("run_window")
 local render = require("render")
 local render_pixels = require("render_pixels")
-local dt_render = require("dt_render")
+local datetime_window = require("datetime_window")
 local calc_window = require("calc_window")
 local taskman_window = require("taskman_window")
 local sdk_render = require("sdk_render")
@@ -646,9 +646,10 @@ local function main(spec)
             say(string.format("%s: размещений %d → %s.png", name, #placed, name))
         end
     end
-    view_shot("datetime", dt_render, {id = "shot", content_state = {
-        year = 2026, month = 9, day = 8, hour = 21, minute = 47, second = 23,
-        first_weekday = 1, days = 30, zone = "UTC+04:00"}}, 40, 16)
+    view_shot("datetime", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
+        interaction = ui.interaction(), ui = datetime_window.definition.view({tab = 1, clock = {
+            year = 2026, month = 9, day = 8, hour = 21, minute = 47, second = 23,
+            first_weekday = 1, days = 30, zone = "UTC+04:00"}}, {width = 42, height = 17})}}, 42, 17)
     -- Экран прощания: крупный шрифт считается от высоты ячейки, как в оболочке.
     do
         local big_size = math.max(20, math.min(64, (cell.h * 17) // 10))

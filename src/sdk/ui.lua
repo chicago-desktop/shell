@@ -9,9 +9,41 @@ local ui = {}
 local containers = {row = true, column = true, split = true}
 local leaves = {label = true, button = true, input = true, list = true, table = true, checkbox = true,
     statusbar = true, tabs = true, menu = true, image = true, field = true,
-    group = true, graph = true, gauge = true, tree = true}
+    group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true}
 -- Без `id` живут только те, что не принимают ввод.
-local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true}
+local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
+    calendar = true, clock = true}
+-- Сетка месяца: шесть недель по семь дней, число или false. `first` — день
+-- недели первого числа, 0 = понедельник; `days` — сколько дней в месяце.
+-- Календарной арифметики здесь нет нарочно: високосность считает `time`.
+function ui.month_grid(first: any, days: any): any
+    local start = whole(first) % 7
+    local count = whole(days)
+    local rows = {}
+    local day = 1 - start
+    for _ = 1, 6 do
+        local row = {}
+        for column = 1, 7 do
+            if day >= 1 and day <= count then row[column] = day else row[column] = false end
+            day = day + 1
+        end
+        rows[#rows + 1] = row
+    end
+    return rows
+end
+-- Номер выбранной строки: `selected` — номер с 1 или ID предмета. Так
+-- приложение держит выбор за предметом, а не за строкой, которую сдвинул
+-- новый замер, — и не пересчитывает номер само.
+local function selected_index(node: any, rows: any): integer
+    local wanted: any = node.selected
+    if wanted == nil then return 0 end
+    if type(wanted) == "number" then return whole(wanted) end
+    for index, row in ipairs(rows) do
+        local record: any = row
+        if type(record) == "table" and record.id == wanted then return index end
+    end
+    return 0
+end
 local runes_of = text.runes
 -- Строки списка и таблицы — одно и то же для прокрутки и выбора: таблица
 -- лишь несёт ячейки вместо текста и строку заголовка сверху.
@@ -179,6 +211,7 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         item.header = (kind == "table" and node.header ~= false) and 1 or 0
         item.page = math.max(1, whole(rect.h) - whole(item.header))
         local total = #entries(node)
+        item.selected_index = selected_index(node, entries(node))
         item.offset = scroll.clamp(interaction.offsets[id], total, item.page)
         interaction.offsets[id] = item.offset
         item.bar = scroll.bar(item.offset, total, item.page, math.max(1, rect.h - item.header))
@@ -198,6 +231,19 @@ function ui.plan(tree: any, width: any, height: any, interaction: any): any
     if not interaction.focus or not plan.by_id[interaction.focus] or plan.by_id[interaction.focus].node.disabled then
         interaction.focus = plan.focusable[1]
     end
+    -- Записи исчезнувших контролов освобождаются: иначе другой контрол с тем
+    -- же `id` на следующем экране унаследует чужой сдвиг или каретку, а
+    -- захват ползунка пережил бы сворачивание окна.
+    for _, field in ipairs({"offsets", "editors", "menus"}) do
+        local map: any = interaction[field]
+        if type(map) == "table" then
+            local stale = {}
+            for key in pairs(map) do if plan.by_id[key] == nil then stale[#stale + 1] = key end end
+            for _, key in ipairs(stale) do map[key] = nil end
+        end
+    end
+    if interaction.capture and plan.by_id[interaction.capture.id] == nil then interaction.capture = nil end
+    if interaction.armed and plan.by_id[interaction.armed.id] == nil then interaction.armed = nil end
     -- Чёрный контур «по умолчанию» — у кнопки в фокусе, а когда фокус не на
     -- кнопке — у объявленной `default`. Так в Windows, и так Enter делает
     -- ровно то, что нарисовано. Решается здесь один раз для обоих отрисовщиков.
@@ -421,7 +467,7 @@ function ui.event(plan: any, state: any, original: any): any
         local rows = entries(node)
         local total = #rows
         if total == 0 then return nil end
-        local index = whole(node.selected or 1)
+        local index = whole(item.selected_index) > 0 and whole(item.selected_index) or 1
         if node.kind == "tree" then
             -- Клавиши дерева, как в regedit: Enter и → раскрывают, ← закрывает
             -- или уходит к родителю, → у раскрытой — к первому ребёнку.

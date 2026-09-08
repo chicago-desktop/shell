@@ -766,4 +766,56 @@ function pixels.flag(raster, x: any, y: any)
     raster:rect(left, top + 9, 2, 2, "#000000")
 end
 
+
+-- ─── Полоса прокрутки и статусная строка ─────────────────────────────────
+--
+-- Одна полоса на всех: списки, таблицы и дерево SDK, поле проводника.
+-- Шесть рисовалок над одним `scroll.bar` разъезжались по ширине ползунка и
+-- виду стрелок; теперь геометрия приходит готовой (`bar` из `scroll.bar`:
+-- start, size, limit — в строках), а вид у полосы один.
+--
+-- `row_h` — высота строки в пикселях, `arrow_h` — высота кнопки-стрелки.
+function pixels.scrollbar(raster, x: any, y: any, w: any, h: any, bar: any, row_h: any, arrow_h: any)
+    local left, top, width, height = whole(x), whole(y), whole(w), whole(h)
+    if width < 3 or height < 4 then return end
+    local arrow = math.min(math.max(4, whole(arrow_h)), height // 2)
+    raster:rect(left, top, width, height, color.face)
+    pixels.panel(raster, left, top, width, arrow)
+    pixels.panel(raster, left, top + height - arrow, width, arrow)
+    local center = left + width // 2
+    for step = 0, 3 do
+        raster:rect(center - step, top + (arrow - 4) // 2 + step, step * 2 + 1, 1, color.face_text)
+        raster:rect(center - step, top + height - (arrow - 4) // 2 - step - 1, step * 2 + 1, 1, color.face_text)
+    end
+    local thumb: any = type(bar) == "table" and bar or {}
+    if whole(thumb.limit) > 0 and whole(thumb.size) > 0 then
+        pixels.panel(raster, left, top + whole(thumb.start) * whole(row_h), width, whole(thumb.size) * whole(row_h))
+    end
+end
+
+-- Статусная строка: вдавленные поля, последнее растягивается; у поля своя
+-- ширина в пикселях (`width`) или по тексту.
+function pixels.statusbar(raster, x: any, y: any, w: any, h: any, fields: any, font: any)
+    local left, top, width, height = whole(x), whole(y), whole(w), whole(h)
+    raster:rect(left, top, width, height, color.face)
+    local list: any = type(fields) == "table" and fields or {}
+    local at = left + 2
+    local right = left + width - 2
+    for index, entry in ipairs(list) do
+        local field: any = type(entry) == "table" and entry or {text = tostring(entry)}
+        local text = tostring(field.text or "")
+        local text_w = font and whole(font:measure(text)) or 0
+        local want = whole(field.width) > 0 and whole(field.width) or text_w + 12
+        if index == #list then want = right - at end
+        want = math.min(want, right - at)
+        if want < 8 then break end
+        pixels.bevel(raster, at, top + 1, want, height - 2, false)
+        if font then
+            raster:text(at + 4, top + (height - 15) // 2, pixels.ellipsize(font, text, want - 8),
+                {font = font, color = color.face_text})
+        end
+        at = at + want + 2
+    end
+end
+
 return pixels

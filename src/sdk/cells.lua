@@ -77,6 +77,30 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                     line:render(string.rep("█", filled)) .. grid:render(string.rep("░", math.max(0, r.w - filled))), whole(r.w))
             end
             put(r.x, r.y, tostring(node.caption or node.value or ""), r.w, line)
+        elseif node.kind == "calendar" then
+            -- Заголовок дней недели, шесть строк чисел, сегодня — инверсией.
+            local names = {"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
+            local col = math.max(2, whole(r.w) // 7)
+            local head = {}
+            for _, name in ipairs(names) do head[#head + 1] = widgets.fit(styles.face_bold, name, col) end
+            canvas:put(whole(r.x), whole(r.y), table.concat(head), whole(math.min(r.w, col * 7)))
+            local grid = ui.month_grid(node.first_weekday, node.days)
+            for row_index, row in ipairs(grid) do
+                if row_index >= r.h then break end
+                local parts = {}
+                for column = 1, 7 do
+                    local day: any = row[column]
+                    local text = day and string.format("%2d", whole(day)) or ""
+                    local style = (day and whole(day) == whole(node.day)) and styles.select or styles.face
+                    parts[#parts + 1] = widgets.fit(style, text, col)
+                end
+                canvas:put(whole(r.x), whole(r.y + row_index), table.concat(parts), whole(math.min(r.w, col * 7)))
+            end
+        elseif node.kind == "clock" then
+            -- Стрелок в ячейках нет: цифровое время посередине поля.
+            local digital = string.format("%02d:%02d:%02d", whole(node.hour), whole(node.minute), whole(node.second))
+            for row = 0, r.h - 1 do canvas:put(whole(r.x), whole(r.y + row), styles.field:render(string.rep(" ", r.w)), whole(r.w)) end
+            put(r.x + math.max(0, (r.w - 8) // 2), r.y + r.h // 2, digital, math.min(r.w, 8), styles.field)
         elseif node.kind == "field" then
             -- Вдавленное поле только для чтения: табло калькулятора, окошко
             -- памяти. Текст вправо или влево, лишнее обрезается.
@@ -137,7 +161,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             for row = 0, r.h - 1 - header do
                 local index = item.offset + row + 1
                 local record: any = rows[index]
-                local style = node.selected == index and styles.select or styles.field
+                local style = item.selected_index == index and styles.select or styles.field
                 local y = r.y + header + row
                 put(r.x, y, "", r.w - 1, style)
                 if record then
@@ -181,7 +205,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                     local glyph = line.kind == "folder" and (line.expanded and "▥" or "▤") or "▢"
                     put(r.x + columns.icon, y, glyph, 1, styles.field)
                     local label = tostring(line.label or "")
-                    local style = node.selected == index and styles.select or styles.field
+                    local style = item.selected_index == index and styles.select or styles.field
                     put(r.x + columns.label, y, label, math.max(0, r.w - 1 - columns.label), style)
                 end
                 local symbol = " "
@@ -197,7 +221,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 local value: any = (node.items or {})[index]
                 local label = type(value) == "table" and value.text or value
                 put(r.x, r.y + row, label or "", r.w - 1,
-                    node.selected == index and widgets.styles.select or widgets.styles.field)
+                    item.selected_index == index and widgets.styles.select or widgets.styles.field)
                 local symbol = " "
                 if item.bar.limit > 0 then
                     symbol = row == 0 and "▲" or (row == r.h - 1 and "▼" or

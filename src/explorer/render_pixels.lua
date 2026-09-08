@@ -200,18 +200,11 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
             if plan.scroll then
                 local at = pixels.box(plan.scroll.x - plan.field.x + 1,
                     plan.scroll.y - plan.field.y + 1, plan.scroll.w or 1, plan.scroll.h, cell)
-                local arrow_h = math.min(whole(plan.scroll.arrow_rows or 1) * whole(cell.h), whole(at.h) // 2)
-                field:rect(at.x, at.y, at.w, at.h, color.face)
-                pixels.panel(field, at.x, at.y, at.w, arrow_h)
-                pixels.panel(field, at.x, at.y + at.h - arrow_h, at.w, arrow_h)
-                local center = at.x + at.w // 2
-                for step = 0, 3 do
-                    field:rect(center - step, at.y + (arrow_h - 4) // 2 + step, step * 2 + 1, 1, color.face_text)
-                    field:rect(center - step, at.y + at.h - (arrow_h - 4) // 2 - step - 1, step * 2 + 1, 1, color.face_text)
-                end
                 local thumb = scroll.bar(plan.scroll.first, plan.scroll.total, plan.scroll.visible,
                     plan.scroll.h, plan.scroll.arrow_rows)
-                if thumb.size > 0 then pixels.panel(field, at.x, at.y + thumb.start * cell.h, at.w, thumb.size * cell.h) end
+                -- Та же полоса, что у списков SDK: одна рисовалка на всех.
+                pixels.scrollbar(field, at.x, at.y, at.w, at.h, thumb, cell.h,
+                    whole(plan.scroll.arrow_rows or 1) * whole(cell.h))
             end
         end
     end
@@ -223,15 +216,11 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
         plan.status.count .. "\31" .. plan.status.detail)
     if status_dirty then
         local box = pixels.box(1, 1, w, 1, cell)
-        status:rect(1, 1, box.w, box.h, color.face)
-        local split = math.min(128, (whole(box.w) - 8) // 2)
-        pixels.bevel(status, 2, 2, split - 2, box.h - 3, false)
-        status:text(6, math.max(1, (box.h - 15) // 2), pixels.ellipsize(face, plan.status.count, split - 10),
-            {font = face, color = color.face_text})
-
-        pixels.bevel(status, split + 2, 2, box.w - split - 4, box.h - 3, false)
-        status:text(split + 6, math.max(1, (box.h - 15) // 2), pixels.ellipsize(face, plan.status.detail, box.w - split - 12),
-            {font = face, color = color.face_text})
+        -- Та же статусная строка, что у окон SDK.
+        pixels.statusbar(status, 1, 1, box.w, box.h, {
+            {text = plan.status.count, width = math.min(128, (whole(box.w) - 8) // 2)},
+            {text = plan.status.detail},
+        }, face)
     end
     store.place(status_id, 1, plan.rows.status)
 

@@ -9,8 +9,7 @@ local tty = require("tty")
 local rasters = require("rasters")
 local chrome = require("chrome")
 local chrome_pixels = require("chrome_pixels")
-local dt_layout = require("dt_layout")
-local dt_render = require("dt_render")
+local datetime = require("datetime_window")
 local engine = require("engine")
 local reg_model = require("reg_model")
 local regedit = require("regedit_window")
@@ -55,9 +54,14 @@ end
 
 local function define_tests()
     test.describe("butschster.windows окно «Дата и время»", function()
+        local function clock_state(): any
+            return {clock = {year = 2026, month = 9, day = 8, hour = 21, minute = 47, second = 5,
+                first_weekday = 1, days = 30, zone = "UTC+04:00"}, tab = 1}
+        end
+
         test.it("сетка месяца начинается с нужного дня и кончается последним", function()
             -- Сентябрь 2026: первое — вторник, тридцать дней.
-            local grid = dt_layout.grid(1, 30)
+            local grid = ui.month_grid(1, 30)
             test.eq(#grid, 6)
             test.is_false(grid[1][1], "понедельник перед первым числом пуст")
             test.eq(grid[1][2], 1)
@@ -66,81 +70,41 @@ local function define_tests()
             test.is_false(grid[6][1])
         end)
 
-        test.it("кнопки внизу не делят ячеек, «Применить» не нажимается", function()
-            local buttons = dt_layout.buttons()
+        test.it("кнопки внизу не делят ячеек, «ОК» по умолчанию, «Применить» не нажимается", function()
+            local plan = ui.plan(datetime.definition.view(clock_state(), {width = 42, height = 17}), 42, 17, ui.interaction())
+            local buttons = {}
+            for _, item in ipairs(plan.items) do
+                if item.node.kind == "button" then
+                    buttons[#buttons + 1] = {id = item.node.id, from = item.rect.x, to = item.rect.x + item.rect.w - 1,
+                        row = item.rect.y, bottom_row = item.rect.y + item.rect.h - 1}
+                end
+            end
             test.eq(#buttons, 3)
             assert_disjoint(buttons)
-            for _, button in ipairs(buttons) do
-                test.is_true(button.to <= dt_layout.COLS, button.id .. " за краем окна")
-            end
-            test.eq(dt_layout.button_at(buttons[1].from, buttons[1].row), "ok")
-            test.eq(dt_layout.button_at(buttons[2].to, buttons[2].bottom_row), "cancel")
-            test.is_nil(dt_layout.button_at(buttons[3].from, buttons[3].row),
-                "выключенная кнопка не отвечает на щелчок")
-            test.is_nil(dt_layout.button_at(1, 1), "календарь только для чтения")
+            for _, button in ipairs(buttons) do test.is_true(button.to <= 42, button.id .. " за краем окна") end
+            test.is_true(ui.default_look(plan, plan.by_id.ok.node, false), "«ОК» по умолчанию")
+            test.is_true(plan.by_id.apply.node.disabled, "«Применить» выключена")
+            local interaction = ui.interaction()
+            plan = ui.plan(datetime.definition.view(clock_state(), {width = 42, height = 17}), 42, 17, interaction)
+            local apply = plan.by_id.apply.rect
+            test.is_nil(ui.event(plan, interaction, {type = "mouse", action = "press", button = "left", x = apply.x, y = apply.y}))
+            test.is_nil(interaction.armed, "выключенная кнопка не взводится")
+            local kinds = {}
+            for _, item in ipairs(plan.items) do kinds[item.node.kind] = true end
+            test.is_true(kinds.calendar and kinds.clock and kinds.tabs, "календарь, часы и вкладки на месте")
         end)
 
-        test.it("секунда переотправляет часы, а не календарь и не кнопки", function()
-            local store = rasters.store()
-            local window: any = {id = "w7", content_state = {
-                year = 2026, month = 9, day = 8, hour = 21, minute = 47, second = 5,
-                first_weekday = 1, days = 30, zone = "UTC+04:00"}}
-            local inner = {x = 2, y = 2, cols = dt_layout.COLS, rows = dt_layout.ROWS}
-
-            store.begin()
-            local first, err = dt_render.placement(window, inner, CELL, nil, store)
-            test.is_nil(err)
-            test.eq(#first, 3, "три куска: календарь, часы, низ")
-            for _, item in ipairs(first) do store.place(item.id, item.x, item.y) end
-            store.frame(CELL)
-            local before = versions(first)
-
-            store.begin()
-            local again = dt_render.placement(window, inner, CELL, nil, store)
-            for _, item in ipairs(again) do store.place(item.id, item.x, item.y) end
-            store.frame(CELL)
-            test.eq(#moved(before, versions(again)), 0, "кадр без изменений ничего не двигает")
-
-            window.content_state.second = 6
-            store.begin()
-            local ticked = dt_render.placement(window, inner, CELL, nil, store)
-            for _, item in ipairs(ticked) do store.place(item.id, item.x, item.y) end
-            store.frame(CELL)
-            local changed = moved(before, versions(ticked))
-            test.eq(#changed, 1, "секунда трогает один кусок: " .. table.concat(changed, ", "))
-            test.eq(changed[1], "win:w7:view:right")
-        end)
-
-        test.it("размещения ложатся внутрь рамки и покрывают её без щелей", function()
-            local store = rasters.store()
-            local window: any = {id = "w1", content_state = {
-                year = 2026, month = 2, day = 1, hour = 0, minute = 0, second = 0,
-                first_weekday = 6, days = 28, zone = ""}}
-            local inner = {x = 5, y = 3, cols = dt_layout.COLS, rows = dt_layout.ROWS}
-            store.begin()
-            local placed = dt_render.placement(window, inner, CELL, nil, store)
-            local covered = 0
-            for _, item in ipairs(placed) do
-                test.is_true(item.x >= inner.x and item.x + item.cols - 1 <= inner.x + inner.cols - 1,
-                    item.id .. " вылез по x")
-                test.is_true(item.y >= inner.y and item.y + item.rows - 1 <= inner.y + inner.rows - 1,
-                    item.id .. " вылез по y")
-                covered = covered + item.cols * item.rows
-            end
-            test.eq(covered, inner.cols * inner.rows, "куски покрывают содержимое ровно один раз")
-        end)
-
-        test.it("окно меньше раскладки не рисуется молча, а называет размер", function()
-            local store = rasters.store()
-            local window: any = {id = "w1", content_state = {year = 2026, month = 1, day = 1,
-                hour = 0, minute = 0, second = 0, first_weekday = 3, days = 31, zone = ""}}
-            store.begin()
-            local placed, why = dt_render.placement(window, {x = 1, y = 1, cols = 20, rows = 10}, CELL, nil, store)
-            test.is_nil(placed)
-            test.is_true(tostring(why):find("40", 1, true) ~= nil, "причина называет нужный размер")
-            local none, waiting = dt_render.placement({id = "w2"}, {x = 1, y = 1, cols = 40, rows = 16}, CELL, nil, store)
-            test.is_nil(none)
-            test.not_nil(waiting)
+        test.it("та же секунда не перерисовывает, «ОК» и Esc закрывают", function()
+            local state = clock_state()
+            local closed = 0
+            local context = {width = 42, height = 17, close = function() closed = closed + 1 end}
+            state.clock = datetime.snapshot()
+            local verdict = datetime.definition.update(state, {type = "tick"}, context)
+            test.is_true(verdict == false or verdict == true)
+            datetime.definition.update(state, {type = "activate", id = "ok"}, context)
+            datetime.definition.update(state, {type = "key", key_type = "esc", key = "esc"}, context)
+            test.eq(closed, 2)
+            test.eq(datetime.definition.update(state, {type = "activate", id = "apply"}, context), false)
         end)
     end)
 

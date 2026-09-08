@@ -131,7 +131,6 @@ entries:
       # Окна-виды. Композитор не умеет загрузить библиотеку по id из записи
       # окна — require знает только imports, — поэтому каждый render
       # импортирован сюда статически и назван в VIEWS темы.
-      datetime_render: butschster.windows.datetime:render
       picture_render: butschster.windows.viewers:picture_render
       sdk_render: butschster.windows.sdk:render
 

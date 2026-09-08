@@ -52,7 +52,77 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             local x, y = (rect.x - 1) * cell.w + 1, (rect.y - 1) * cell.h + 1
             local w, h = rect.w * cell.w, rect.h * cell.h
             local focused = state.interaction.focus == node.id
-            if node.kind == "tree" then
+            if node.kind == "calendar" then
+                -- Календарь: дни недели, сетка месяца, сегодня синим.
+                if font then
+                    local names = {"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
+                    local column = whole(w // 7)
+                    local head_h = 18
+                    local row_h = whole(math.max(1, (h - head_h) // 6))
+                    for index, name in ipairs(names) do
+                        local tw = whole(font:measure(name))
+                        raster:text(whole(x + (index - 1) * column + (column - tw) // 2), whole(y + 1), name, {font = font, color = color.face_text})
+                    end
+                    raster:rect(whole(x), whole(y + head_h - 2), whole(column * 7), 1, color.shadow)
+                    for row_index, row in ipairs(ui.month_grid(node.first_weekday, node.days)) do
+                        for column_index = 1, 7 do
+                            local day: any = row[column_index]
+                            if day then
+                                local label = tostring(day)
+                                local tw = whole(font:measure(label))
+                                local cx = x + (column_index - 1) * column
+                                local cy = y + head_h + (row_index - 1) * row_h
+                                local today = whole(day) == whole(node.day)
+                                if today then raster:rect(whole(cx), whole(cy), whole(column), whole(row_h), color.select_bg) end
+                                raster:text(whole(cx + (column - tw) // 2), whole(cy + (row_h - 15) // 2), label,
+                                    {font = font, color = today and color.select_fg or color.face_text})
+                            end
+                        end
+                    end
+                end
+            elseif node.kind == "clock" then
+                -- Циферблат: белое вдавленное поле, двенадцать делений, три стрелки.
+                local side = whole(math.min(w, h))
+                local left, top = whole(x + (w - side) // 2), whole(y + (h - side) // 2)
+                pixels.field(raster, left, top, side, side)
+                local cx, cy = left + side // 2, top + side // 2
+                local radius = side // 2 - 8
+                for tick = 0, 11 do
+                    local radians = math.rad(tick * 30)
+                    local px = cx + math.floor(math.sin(radians) * radius + 0.5)
+                    local py = cy - math.floor(math.cos(radians) * radius + 0.5)
+                    local dot = tick % 3 == 0 and 4 or 2
+                    raster:rect(whole(px - dot // 2), whole(py - dot // 2), dot, dot, color.face_text)
+                end
+                local function line(x0: any, y0: any, x1: any, y1: any, tint: any)
+                    local ax, ay, bx, by = whole(x0), whole(y0), whole(x1), whole(y1)
+                    local dx, dy = math.abs(bx - ax), -math.abs(by - ay)
+                    local sx, sy = ax < bx and 1 or -1, ay < by and 1 or -1
+                    local err = dx + dy
+                    while true do
+                        raster:set(ax, ay, tint)
+                        if ax == bx and ay == by then break end
+                        local twice = err * 2
+                        if twice >= dy then err = err + dy; ax = ax + sx end
+                        if twice <= dx then err = err + dx; ay = ay + sy end
+                    end
+                end
+                local function hand(angle: any, length: any, width: any, tint: any)
+                    local radians = math.rad(tonumber(angle) or 0)
+                    local ex = cx + math.floor(math.sin(radians) * whole(length) + 0.5)
+                    local ey = cy - math.floor(math.cos(radians) * whole(length) + 0.5)
+                    for step = 0, whole(width) - 1 do
+                        local shift = step - whole(width) // 2
+                        if math.abs(math.sin(radians)) < 0.7071 then line(cx + shift, cy, ex + shift, ey, tint)
+                        else line(cx, cy + shift, ex, ey + shift, tint) end
+                    end
+                end
+                local hour, minute, second = whole(node.hour) % 12, whole(node.minute), whole(node.second)
+                hand(hour * 30 + minute / 2, radius - 16, 3, color.face_text)
+                hand(minute * 6 + second / 10, radius - 6, 2, color.face_text)
+                hand(second * 6, radius - 4, 1, color.shadow)
+                raster:rect(whole(cx - 2), whole(cy - 2), 5, 5, color.face_text)
+            elseif node.kind == "tree" then
                 -- Дерево, как в regedit: пунктирные линии предков, крестики,
                 -- значки папок и записей, выделение только на подписи.
                 local rows = ui.entries(node)
@@ -97,22 +167,13 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                         local label_x = x + columns.label * cell.w
                         local room = x + w - cell.w - label_x - 4
                         local caption = pixels.ellipsize(font, tostring(line.label or ""), whole(math.max(0, room)))
-                        local selected = node.selected == index
+                        local selected = item.selected_index == index
                         if selected then raster:rect(whole(label_x - 2), whole(top + 2), whole(font:measure(caption)) + 4, whole(cell.h - 4), color.select_bg) end
                         raster:text(whole(label_x), whole(top + (cell.h - 15) // 2), caption,
                             {font = font, color = selected and color.select_fg or color.field_text})
                     end
                 end
-                local bx = x + w - cell.w
-                raster:rect(whole(bx), whole(y), whole(cell.w), whole(h), color.face)
-                if item.bar.limit > 0 then
-                    local mid = whole(bx + cell.w // 2)
-                    for step = 0, 2 do
-                        raster:rect(mid - step, whole(y + cell.h // 2 - 1 + step), step * 2 + 1, 1, color.face_text)
-                        raster:rect(mid - step, whole(y + h - cell.h // 2 + 1 - step), step * 2 + 1, 1, color.face_text)
-                    end
-                    pixels.edge(raster, whole(bx), whole(y + item.bar.start * cell.h), whole(cell.w), whole(item.bar.size * cell.h), true)
-                end
+                pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "group" then
                 -- Рамка с заголовком: грань на полстроки ниже, чтобы подпись
@@ -196,21 +257,13 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             elseif node.kind == "statusbar" then
                 -- Вдавленные поля в одну строку, как у проводника: последний
                 -- растягивается, у остальных ширина своя или по тексту.
-                local fields: any = node.fields or {}
-                local row_y = y + h - cell.h
-                local left = x + 2
-                local right = x + w - 2
-                for index, entry in ipairs(fields) do
+                -- Ширина поля объявлена в ячейках — в пиксели здесь.
+                local fields: any = {}
+                for _, entry in ipairs(node.fields or {}) do
                     local field: any = type(entry) == "table" and entry or {text = tostring(entry)}
-                    local text_w = font and whole(font:measure(tostring(field.text or ""))) or 0
-                    local want = whole(field.width) > 0 and whole(field.width) * cell.w or text_w + 12
-                    if index == #fields then want = right - left end
-                    want = math.min(want, right - left)
-                    if want < 8 then break end
-                    pixels.bevel(raster, whole(left), whole(row_y + 1), whole(want), whole(cell.h - 2), false)
-                    text(left + 4, row_y, want - 8, cell.h, field.text)
-                    left = left + want + 2
+                    fields[#fields + 1] = {text = field.text, width = whole(field.width) > 0 and whole(field.width) * cell.w or 0}
                 end
+                pixels.statusbar(raster, x, y + h - cell.h, w, cell.h, fields, font)
             elseif node.kind == "tabs" then
                 local frame = item.frame
                 if frame and frame.h >= 1 then
@@ -253,7 +306,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 for row = 0, rect.h - 1 - header do
                     local index = item.offset + row + 1
                     local record: any = rows[index]
-                    local selected = node.selected == index
+                    local selected = item.selected_index == index
                     local row_y = y + (row + header) * cell.h
                     if selected then raster:rect(whole(x), whole(row_y), whole(w - cell.w), whole(cell.h), color.select_bg) end
                     if record then
@@ -270,39 +323,20 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                         end
                     end
                 end
-                local bx = x + w - cell.w
-                local by = y + header * cell.h
-                raster:rect(whole(bx), whole(by), whole(cell.w), whole(h - header * cell.h), color.face)
-                if item.bar.limit > 0 then
-                    local mid = whole(bx + cell.w // 2)
-                    for step = 0, 2 do
-                        raster:rect(mid - step, whole(by + cell.h // 2 - 1 + step), step * 2 + 1, 1, color.face_text)
-                        raster:rect(mid - step, whole(y + h - cell.h // 2 + 1 - step), step * 2 + 1, 1, color.face_text)
-                    end
-                    pixels.edge(raster, whole(bx), whole(by + item.bar.start * cell.h), whole(cell.w), whole(item.bar.size * cell.h), true)
-                end
+                pixels.scrollbar(raster, x + w - cell.w, y + header * cell.h, cell.w, h - header * cell.h, item.bar, cell.h, cell.h)
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "list" then
                 raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
                 for row = 0, rect.h - 1 do
                     local index = item.offset + row + 1
-                    local selected = node.selected == index
+                    local selected = item.selected_index == index
                     local value: any = (node.items or {})[index]
                     local label = type(value) == "table" and value.text or value
                     local row_y = y + row * cell.h
                     if selected then raster:rect(whole(x), whole(row_y), whole(w - cell.w), whole(cell.h), color.select_bg) end
                     text(x + 3, row_y, w - cell.w - 6, cell.h, label, selected and color.select_fg or color.field_text)
                 end
-                local bx = x + w - cell.w
-                raster:rect(whole(bx), whole(y), whole(cell.w), whole(h), color.face)
-                if item.bar.limit > 0 then
-                    local mid = whole(bx + cell.w // 2)
-                    for step = 0, 2 do
-                        raster:rect(mid - step, whole(y + cell.h // 2 - 1 + step), step * 2 + 1, 1, color.face_text)
-                        raster:rect(mid - step, whole(y + h - cell.h // 2 + 1 - step), step * 2 + 1, 1, color.face_text)
-                    end
-                    pixels.edge(raster, whole(bx + 1), whole(y + item.bar.start * cell.h), whole(cell.w - 2), whole(item.bar.size * cell.h), true)
-                end
+                pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "button" then
                 local bh = math.min(23, whole(h))

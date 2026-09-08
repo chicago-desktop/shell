@@ -247,7 +247,7 @@ entries:
       render_pixels: butschster.windows.explorer:render_pixels
       ui: butschster.windows.sdk:ui
       run_window: butschster.windows.run:window
-      dt_render: butschster.windows.datetime:render
+      datetime_window: butschster.windows.datetime:window
       calc_window: butschster.windows.calc:window
       sdk_render: butschster.windows.sdk:render
       taskman_window: butschster.windows.taskman:window
@@ -445,8 +445,7 @@ entries:
       rasters: butschster.windows.shell:rasters
       chrome: butschster.windows.shell:chrome
       chrome_pixels: butschster.windows.shell:chrome_pixels
-      dt_layout: butschster.windows.datetime:layout
-      dt_render: butschster.windows.datetime:render
+      datetime_window: butschster.windows.datetime:window
       engine: butschster.windows.calc:engine
       calc_window: butschster.windows.calc:window
       ui: butschster.windows.sdk:ui

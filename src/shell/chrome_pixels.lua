@@ -45,7 +45,6 @@ local explorer_pixels = require("explorer_pixels")
 -- реестра, — поэтому зовёт тема, и каждая такая библиотека импортирована
 -- здесь СТАТИЧЕСКИ и названа в VIEWS по id своей записи. Окно, назвавшее
 -- render, которого в VIEWS нет, получает не пустоту, а текст с причиной.
-local datetime_render = require("datetime_render")
 local picture_render = require("picture_render")
 local sdk_render = require("sdk_render")
 
@@ -93,7 +92,6 @@ end
 local VIEWS: any = {
     ["butschster.windows.sdk:render"] = sdk_render,
     ["butschster.windows.explorer:render_pixels"] = {placement = explorer_placement},
-    ["butschster.windows.datetime:render"] = datetime_render,
     ["butschster.windows.viewers:picture_render"] = picture_render,
 }
 function chrome_pixels.forget(id)
