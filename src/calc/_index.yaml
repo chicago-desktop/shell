@@ -1,0 +1,83 @@
+version: "1.0"
+namespace: butschster.windows.calc
+
+# Калькулятор в обычном виде Windows 95: табло, Back/CE/C, память, цифры
+# синим и операции красным. Считает как настольный — операция применяется
+# сразу.
+#
+# Окно-вид (FR-005 §4б): процесса внутри нет. Рисует `render` в композиторе,
+# считает `state` под своим актором; кнопки в ячейках объявляет `layout`,
+# общий у обоих. Арифметика в `engine` — чистая, проверяется без экрана.
+#
+# ЛОВУШКА ЭТОГО ФАЙЛА. Двоеточие с пробелом внутри незакавыченного значения
+# YAML читает как начало новой пары.
+
+entries:
+  # butschster.windows.calc:engine
+  - name: engine
+    kind: library.lua
+    meta:
+      comment: Арифметика калькулятора — настольная, операция применяется сразу; табло с точкой у целого, отказы фразой; клавиши в те же кнопки, что и мышь.
+    source: file://engine.lua
+
+  # butschster.windows.calc:layout
+  - name: layout
+    kind: library.lua
+    meta:
+      comment: Кнопки калькулятора в ячейках и нарезка кадра по рядам — одна таблица для красок и для попадания щелчка.
+    source: file://layout.lua
+
+  # butschster.windows.calc:render
+  - name: render
+    kind: library.lua
+    meta:
+      comment: Краски калькулятора — меню, табло, память, кнопки цветом оригинала; нажатие переотправляет табло и один ряд.
+    source: file://render.lua
+    modules:
+      - gfx
+    imports:
+      layout: butschster.windows.calc:layout
+      palette: butschster.windows.shell:palette
+      pixels: butschster.windows.shell:pixels
+
+  # butschster.windows.calc:state
+  - name: state
+    kind: process.lua
+    meta:
+      comment: Поставщик состояния калькулятора — ввод в кнопки по раскладке, счёт движком, табло композитору.
+    source: file://state.lua
+    method: main
+    modules:
+      - channel
+      - process
+      - time
+    security:
+      policies: [butschster.windows.security:view_state]
+    imports:
+      engine: butschster.windows.calc:engine
+      layout: butschster.windows.calc:layout
+
+  # butschster.windows.calc:window
+  #
+  # Размер фиксирован, как у оригинала: раскладка посчитана под 31×13 ячеек
+  # содержимого, кнопки «развернуть» нет, угол не тянется.
+  - name: window
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: Калькулятор
+      image: calculator
+      icon: "▦"
+      group: Стандартные
+      order: 20
+      window_content: pixels
+      render: butschster.windows.calc:render
+      state: butschster.windows.calc:state
+      resizable: false
+      width: 33
+      height: 15
+      comment: Калькулятор в виде Windows 95 — обычный вид с памятью, считает как настольный.
+    source: file://window.lua
+    method: main
+    modules:
+      - channel

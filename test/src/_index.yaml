@@ -240,6 +240,12 @@ entries:
       rasters: butschster.windows.shell:rasters
       render: butschster.windows.explorer:render
       render_pixels: butschster.windows.explorer:render_pixels
+      dt_render: butschster.windows.datetime:render
+      calc_render: butschster.windows.calc:render
+      images: butschster.windows.shell:images
+      catalog: butschster.windows.programs:catalog
+      desktop_view: butschster.windows.programs:desktop_view
+      model: butschster.windows.explorer:model
 
   # Права пробника названы, а не взяты у общей разрешительной политики
   # харнесса: `fs.get` — это доступ к файловой системе по записи реестра, и
@@ -397,11 +403,12 @@ entries:
       group: Windows Shell
       suite: butschster_windows
     source: file://views_test.lua
-    modules: [gfx]
+    modules: [gfx, tty]
     imports:
       test: wippy.test:test
       rasters: butschster.windows.shell:rasters
       chrome: butschster.windows.shell:chrome
+      chrome_pixels: butschster.windows.shell:chrome_pixels
       dt_layout: butschster.windows.datetime:layout
       dt_render: butschster.windows.datetime:render
       engine: butschster.windows.calc:engine

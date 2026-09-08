@@ -136,6 +136,23 @@ entries:
       effect: allow
 
   # butschster.windows.security:shell_endpoint_access
+  # Поставщик состояния окна-вида (FR-005 §4б): свой узкий актор, отдельный
+  # от композитора. Ему нужно прочитать контекст, найти композитор по имени и
+  # послать ему состояние — и ничего больше: ни реестра, ни базы, ни файлов.
+  # Поставщик, которому нужен диск, объявляет свою политику, а не расширяет
+  # эту: её носят все виды, и часы не должны уметь читать файлы.
+  - name: view_state
+    kind: security.policy
+    meta:
+      comment: Права поставщика состояния окна-вида — контекст процесса, имя композитора в реестре процессов и отправка ему состояния.
+    policy:
+      actions:
+        - process.context
+        - process.registry
+        - process.send
+      resources: "*"
+      effect: allow
+
   - name: shell_endpoint_access
     kind: security.policy
     meta:

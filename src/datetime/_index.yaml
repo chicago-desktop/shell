@@ -1,0 +1,85 @@
+version: "1.0"
+namespace: butschster.windows.datetime
+
+# «Дата и время» — диалог свойств из панели управления Windows 95, только
+# для чтения: календарь текущего месяца с сегодняшним числом, аналоговые часы
+# со стрелками, цифровое время и часовой пояс. Крутить ничего нельзя —
+# окно показывает часы машины, а не правит их.
+#
+# Окно-вид (FR-005 §4б): процесса внутри нет. Рисует чистая библиотека
+# `render` в композиторе, данные приносит `state` под своим узким актором.
+# Раскладка в `layout` общая у обоих — по ней и рисуется, и считается
+# попадание щелчка.
+#
+# ЛОВУШКА ЭТОГО ФАЙЛА. Двоеточие с пробелом внутри незакавыченного значения
+# YAML читает как начало новой пары.
+
+entries:
+  # butschster.windows.datetime:layout
+  - name: layout
+    kind: library.lua
+    meta:
+      comment: Раскладка окна «Дата и время» без gfx — области, кнопки в ячейках, сетка месяца; читают и краски, и поставщик.
+    source: file://layout.lua
+
+  # butschster.windows.datetime:render
+  #
+  # Единственная запись окна с `gfx` — краски. На рантайме без графики не
+  # загрузится, и это правильно — раскладка и поставщик от неё не зависят.
+  - name: render
+    kind: library.lua
+    meta:
+      comment: Краски окна «Дата и время» — вкладки, календарь, циферблат со стрелками, кнопки; три растра, секунды переотправляют только часы.
+    source: file://render.lua
+    modules:
+      - gfx
+    imports:
+      layout: butschster.windows.datetime:layout
+      palette: butschster.windows.shell:palette
+      pixels: butschster.windows.shell:pixels
+
+  # butschster.windows.datetime:state
+  #
+  # Поставщик: часы машины раз в секунду, щелчок по «ОК» и «Отмена» —
+  # просьба к композитору закрыть окно. Права — контекст, отправить
+  # сообщение композитору, и больше ничего.
+  - name: state
+    kind: process.lua
+    meta:
+      comment: Поставщик состояния окна «Дата и время» — снимок часов раз в секунду, ввод читает только как «закрыть».
+    source: file://state.lua
+    method: main
+    modules:
+      - channel
+      - process
+      - time
+    security:
+      policies: [butschster.windows.security:view_state]
+    imports:
+      layout: butschster.windows.datetime:layout
+
+  # butschster.windows.datetime:window
+  #
+  # Сама программа. Размер фиксирован: раскладка посчитана под 40×16 ячеек
+  # содержимого, и растянутое окно показало бы серое поле вокруг диалога.
+  - name: window
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: Дата и время
+      image: clock
+      icon: "◷"
+      group: Стандартные
+      order: 30
+      window_type: dialog
+      window_content: pixels
+      render: butschster.windows.datetime:render
+      state: butschster.windows.datetime:state
+      resizable: false
+      width: 42
+      height: 18
+      comment: Свойства даты и времени в виде Windows 95, только для чтения — календарь, стрелочные часы, часовой пояс.
+    source: file://window.lua
+    method: main
+    modules:
+      - channel

@@ -117,6 +117,7 @@ widgets.styles = {
     field     = tty.style():foreground(color.field_text):background(color.field),
     select    = tty.style():bold():foreground(color.select_fg):background(color.select_bg),
     alert     = tty.style():bold():foreground(color.alert):background(color.face),
+    farewell  = tty.style():bold():foreground(color.farewell_text):background(color.farewell_bg),
 }
 
 local styles = widgets.styles
