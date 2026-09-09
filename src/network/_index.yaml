@@ -1,0 +1,67 @@
+version: "1.0"
+namespace: butschster.windows.network
+
+# Network Neighborhood — the Wippy mesh seen from inside the shell: which
+# nodes gossip currently shows, which one this runtime is, and which one Raft
+# elected. Read-only: the window joins nothing and evicts nobody.
+#
+# A single-node runtime is a normal picture here, not an empty one — the local
+# node is always in the list, and the status bar says "standalone node".
+
+entries:
+  # butschster.windows.network:model
+  - name: model
+    kind: library.lua
+    meta:
+      comment: Чистая модель сетевого окружения — снимок членства в строки таблицы, роли, подписи и статусную строку.
+    source: file://model.lua
+
+  # Права: прочитать узел и членство и опубликовать состояние композитору.
+  # `system.read` проверяется ПОИМЁННО по ресурсу, поэтому названы все три
+  # имени: политика с одним `cluster` оставила бы `node` отвечать «permission
+  # denied», а снаружи это неотличимо от «кластера нет».
+  - name: window_scope
+    kind: security.policy
+    meta:
+      comment: Права сетевого окружения — прочитать узел, членство и raft, опубликовать состояние композитору; ничего не менять.
+    policy:
+      actions:
+        - process.context
+        - process.registry
+        - process.send
+        - system.read
+      resources: "*"
+      effect: allow
+
+  # butschster.windows.network:window
+  - name: window
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: Network Neighborhood
+      image: network_neighborhood
+      icon: "▩"
+      # Настройка, а не «Программы»: окно показывает устройство системы, как
+      # «Реестр» и «Диспетчер задач», и стоит в том же ряду.
+      group: Settings
+      order: 40
+      # Просьба самой программы вынести ярлык на стол при первом запуске —
+      # в Windows 95 «Сетевое окружение» жило на столе, а не в меню. Отметка
+      # о предложении не снимается: выброшенный значок не возвращается.
+      desktop: true
+      window_type: app
+      resizable: true
+      width: 64
+      height: 18
+      pixel_render: butschster.windows.sdk:render
+      pixel_state: butschster.windows.network:window
+      comment: Сетевое окружение — узлы меша, их адреса, роль и лидер; обновляется раз в две секунды, только чтение.
+    source: file://window.lua
+    method: main
+    modules:
+      - system
+    security:
+      policies: [butschster.windows.network:window_scope]
+    imports:
+      app: butschster.windows.sdk:app
+      model: butschster.windows.network:model

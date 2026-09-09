@@ -1,0 +1,151 @@
+-- Network Neighborhood: membership turned into rows, the local node first,
+-- the leader named, and a status line that tells three states apart —
+-- a mesh with peers, a lone node, and membership that refused to answer.
+--
+-- The model takes a snapshot as plain data, so the whole thing is checked
+-- without a cluster: a two-node mesh in a test harness would prove the
+-- runtime works, not that this window shapes it correctly.
+local test = require("test")
+local model = require("model")
+local ui = require("ui")
+local network = require("network_window")
+
+local function mesh(): any
+    return {
+        node_id = "kickside", node_addr = "127.0.0.1:7946", node_role = "voter",
+        leader = "mesh-node",
+        members = {
+            {id = "mesh-node", is_local = false, addr = "127.0.0.1:7947"},
+            {id = "kickside", is_local = true, addr = "127.0.0.1:7946"},
+        },
+    }
+end
+
+local function alone(): any
+    return {node_id = "kickside", node_addr = "", node_role = "",
+        leader = "", members = {{id = "kickside", is_local = true, addr = ""}}}
+end
+
+local function define_tests()
+    test.describe("Network Neighborhood model", function()
+        test.it("puts this computer first and names the elected leader", function()
+            local rows = model.rows(mesh())
+            test.eq(#rows, 2)
+            test.eq(rows[1].id, "kickside", "the local node opens the list")
+            test.is_true(rows[1].is_local)
+            test.eq(rows[2].id, "mesh-node")
+            test.is_true(rows[2].is_leader, "the leader is marked on the row, not guessed by the view")
+            test.eq(model.role_text(rows[2], mesh()), "Leader")
+            test.eq(model.role_text(rows[1], mesh()), "Voter", "the local node falls back to its own runtime role")
+            test.eq(model.status_text(rows[1]), "This computer")
+            test.eq(model.status_text(rows[2]), "Online")
+        end)
+
+        test.it("fills the table with the address, and writes a dash where there is none", function()
+            local rows = model.table_rows(mesh())
+            test.eq(#rows, 2)
+            test.eq(rows[1].cells[1], "kickside")
+            test.eq(rows[1].cells[2], "127.0.0.1:7946")
+            test.eq(rows[2].cells[3], "Leader")
+            test.eq(#model.COLUMNS, 4)
+            local lonely = model.table_rows(alone())
+            test.eq(lonely[1].cells[2], "—", "no address is a dash, not an empty column")
+        end)
+
+        test.it("tells a lone node from a refusal in the status line", function()
+            test.eq(model.summary(mesh()), "2 object(s)")
+            test.is_true(model.summary(alone()):find("standalone node", 1, true) ~= nil,
+                "one member is the whole cluster, not a missing peer")
+            local refused = {members = {}, failure = "cluster membership not available"}
+            local said = model.summary(refused)
+            test.is_true(said:find("0 object(s)", 1, true) ~= nil)
+            test.is_true(said:find("not available", 1, true) ~= nil,
+                "a refusal is named, not shown as an empty workgroup")
+        end)
+
+        test.it("names the selected node, and the leader when nothing is selected", function()
+            local snap = mesh()
+            test.is_true(model.detail(snap, "mesh-node"):find("127.0.0.1:7947", 1, true) ~= nil)
+            test.is_true(model.detail(snap, nil):find("Leader: mesh-node", 1, true) ~= nil)
+            test.eq(model.detail(alone(), nil), "No leader elected yet")
+        end)
+    end)
+
+    test.describe("Network Neighborhood objects", function()
+        test.it("opens with Entire Network and gives every node the host icon", function()
+            local objects = model.objects(mesh())
+            test.eq(#objects, 3, "the globe plus two computers")
+            test.eq(objects[1].id, model.ENTIRE_NETWORK)
+            test.eq(objects[1].image, "network", "the globe belongs to Entire Network alone")
+            test.eq(objects[2].id, "kickside", "this computer comes first among the nodes")
+            test.eq(objects[2].image, "my_computer")
+            test.eq(objects[3].image, "my_computer")
+            test.not_nil(objects[2].title, "the caption is the node name")
+        end)
+
+        test.it("counts objects, and says when one is picked", function()
+            test.eq(model.objects_status(mesh(), nil), "3 object(s)")
+            test.eq(model.objects_status(mesh(), "mesh-node"), "1 object(s) selected")
+            test.eq(model.objects_status(alone(), nil), "2 object(s)")
+        end)
+    end)
+
+    test.describe("Network Neighborhood window", function()
+        -- The window itself is checked through the same plan the renderers and
+        -- the hit tests use: a table that does not fit its window is a defect
+        -- no screenshot of the model would show.
+        test.it("lays out the menu, the icon grid and the status bar without overlaps", function()
+            local state: any = {snapshot = mesh(), selected = "kickside", sheet = nil, about = false}
+            local tree = network.definition.view(state, {width = 60, height = 14})
+            local plan = ui.plan(tree, 60, 14, ui.interaction())
+            test.not_nil(plan.by_id.objects, "the icon grid is planned")
+            test.not_nil(plan.by_id.bar, "the window has a menu bar")
+            local grid = plan.by_id.objects
+            test.eq(#grid.cells, 3, "every object gets a cell in the grid")
+            test.is_true(grid.cells[2].selected, "the selected node is marked on its cell")
+            for _, item in ipairs(plan.items) do
+                local rect = item.rect
+                test.is_true(rect.x >= 1 and rect.y >= 1, "nothing is planned outside the client")
+                test.is_true(rect.x + rect.w - 1 <= 60 and rect.y + rect.h - 1 <= 14,
+                    "nothing is planned past the client edge")
+            end
+        end)
+
+        test.it("opens a node on the second click and closes the sheet with Escape", function()
+            local state: any = {snapshot = mesh(), selected = nil, sheet = nil, about = false}
+            local node: any = model.objects(mesh())[3]
+            network.definition.update(state, {type = "select", id = "objects", index = 3,
+                value = node, pointer = true}, {})
+            test.eq(state.selected, node.id, "the first click selects")
+            test.is_nil(state.sheet, "and opens nothing")
+            network.definition.update(state, {type = "select", id = "objects", index = 3,
+                value = node, pointer = true}, {})
+            test.eq(state.sheet, node.id, "the second click on the same icon opens it")
+            local tree = network.definition.view(state, {width = 60, height = 14})
+            local plan = ui.plan(tree, 60, 14, ui.interaction())
+            test.not_nil(plan.by_id.sheet_ok, "the sheet has a way out")
+            network.definition.update(state, {type = "key", key_type = "esc"}, {})
+            test.is_nil(state.sheet, "Escape leaves the sheet instead of closing the window")
+        end)
+
+        test.it("switches to About and back, and Escape closes the window", function()
+            local state: any = network.definition.init(nil, {})
+            state.snapshot = mesh()
+            state.sheet = nil
+            network.definition.update(state, {type = "activate", id = "about"}, {})
+            test.is_true(state.about)
+            local tree = network.definition.view(state, {width = 60, height = 14})
+            local plan = ui.plan(tree, 60, 14, ui.interaction())
+            test.not_nil(plan.by_id.sheet_ok, "About has a way out")
+            network.definition.update(state, {type = "key", key_type = "esc"}, {})
+            test.is_false(state.about, "Escape leaves About instead of closing the window")
+            local closed = false
+            network.definition.update(state, {type = "key", key_type = "esc"},
+                {close = function() closed = true end})
+            test.is_true(closed, "the second Escape closes")
+        end)
+    end)
+end
+
+local run_cases = test.run_cases(define_tests)
+return {run = function(options) return run_cases(options) end}
