@@ -74,7 +74,7 @@ function definition.view(state: any, context: any): any
             {kind = "label", text = "The time zone is set by the system; it is only shown here."},
         }}
     end
-    return {kind = "column", padding = 1, gap = 0, children = {
+    return {kind = "column", padding = 1, padding_bottom = 0, gap = 0, children = {
         {kind = "tabs", id = "pages", labels = {"Date & Time", "Time Zone"}, active = state.tab, children = {page}},
         {kind = "row", size = 2, gap = 1, children = {
             {kind = "label", text = ""},

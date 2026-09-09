@@ -87,7 +87,10 @@ entries:
     meta:
       type: tui_desktop.window
       title: Notepad
-      image: text_document
+      # Сама программа — блокнот с карандашом (w98_notepad); её файлы в
+      # проводнике — текстовый документ, как в Windows.
+      image: notepad
+      file_image: text_document
       icon: "▤"
       group: Programs
       order: 40

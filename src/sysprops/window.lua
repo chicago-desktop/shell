@@ -139,7 +139,7 @@ function definition.view(state: any, context: any): any
     if state.tab == 2 then page = devices(state)
     elseif state.tab == 3 then page = performance(state)
     else page = general(state) end
-    return {kind = "column", padding = 1, gap = 0, children = {
+    return {kind = "column", padding = 1, padding_bottom = 0, gap = 0, children = {
         {kind = "tabs", id = "pages", labels = labels, active = state.tab, padding = 1, children = {page}},
         {kind = "row", size = 2, gap = 1, children = {
             {kind = "label", text = ""},

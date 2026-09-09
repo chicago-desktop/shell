@@ -1,5 +1,6 @@
 local tty = require("tty")
 local widgets = require("widgets")
+local icon_cells = require("icons")
 local ui = require("ui")
 local charts = require("charts")
 local text = require("text")
@@ -227,6 +228,25 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 end
                 put(r.x + r.w - 1, y, symbol, 1, styles.face)
             end
+        elseif node.kind == "icons" then
+            -- Значок с подписью рисует общая библиотека оболочки — та же, что
+            -- на столе и в проводнике. Своя копия здесь означала бы третий
+            -- вид одного значка, расходящийся на подписи в две строки.
+            for row = 0, r.h - 1 do
+                put(r.x, r.y + row, "", r.w - 1, widgets.styles.field)
+            end
+            for _, cell in ipairs(item.cells or {}) do
+                icon_cells.cell(canvas, cell.x, cell.y, cell.item,
+                    {room = cell.room, surface = "panel", selected = cell.selected})
+            end
+            for row = 0, r.h - 1 do
+                local symbol = " "
+                if item.bar.limit > 0 then
+                    symbol = row == 0 and "▲" or (row == r.h - 1 and "▼" or
+                        (row >= item.bar.start and row < item.bar.start + item.bar.size and "█" or "░"))
+                end
+                put(r.x + r.w - 1, r.y + row, symbol, 1, widgets.styles.face)
+            end
         elseif node.kind == "list" then
             for row = 0, r.h - 1 do
                 local index = item.offset + row + 1
@@ -265,10 +285,20 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 style = focused and editing and editing.selected and widgets.styles.select or widgets.styles.field
             end
             if node.disabled and node.kind ~= "button" then style = widgets.styles.face_dim end
+            -- Многострочная метка (`\n`): строки подряд, блок по центру
+            -- прямоугольника; однострочная — в средней строке, как раньше.
+            local lines: any = {}
+            if node.kind == "label" and label:find("\n", 1, true) then
+                local value: string = label .. "\n"
+                for piece in string.gmatch(value, "(.-)\n") do lines[#lines + 1] = piece end
+            end
+            local first = #lines > 0 and math.max(0, (r.h - #lines) // 2) or r.h // 2
             for row = 0, r.h - 1 do
                 if node.kind == "button" and row == r.h // 2 then
                     -- Уже отрисованная строка: `fit` перекрасил бы грани.
                     canvas:put(whole(r.x), whole(r.y + row), tostring(label), whole(r.w))
+                elseif #lines > 0 then
+                    put(r.x, r.y + row, lines[row - first + 1] or "", r.w, style)
                 else put(r.x, r.y + row, row == r.h // 2 and label or "", r.w, style) end
             end
             if node.kind == "input" and focused then

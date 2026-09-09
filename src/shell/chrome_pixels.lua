@@ -670,8 +670,10 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
             -- подпись, в отличие от значка на столе.
             local tint = color.face_text
             if line.selected then
-                local strip = pixels.box(whole(box.banner) + 1, 1, box.list_w, 1, cell)
-                raster:rect(strip.x + 3, top + inset, strip.w - 2, line_h - inset * 2, color.select_bg)
+                -- Полоса — до правой грани панели, а не до конца «списка» в
+                -- ячейках: ширина списка считалась с ячейкой рамки справа.
+                local list_x = pixels.box(whole(box.banner) + 1, 1, 1, 1, cell).x
+                raster:rect(list_x + 2, top + inset, area.w - list_x - 4, line_h - inset * 2, color.select_bg)
                 tint = color.select_fg
             elseif line.dim then
                 tint = color.shadow
@@ -688,6 +690,8 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
             elseif line.kind == "item" then
                 pixels.icon(raster, text_left, mark_top,
                     {kind = "program", entry = line.entry, image = line.image}, mark_size)
+            elseif line.kind == "user" then
+                pixels.icon(raster, text_left, mark_top, {kind = "program", image = line.image or "user"}, mark_size)
             end
 
             if line.separator_before then
@@ -704,8 +708,8 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
                 -- Стрелка подменю — тем же примитивом и по правому краю
                 -- списка, как в Windows 95.
                 if line.arrow then
-                    local right = pixels.box(whole(box.banner) + whole(box.list_w), 1, 1, 1, cell)
-                    pixels.mark_submenu(raster, right.x - 8, top + (line_h - 8) // 2, 8, tint)
+                    -- У правой грани панели, как в Windows 95: 4 px до грани.
+                    pixels.mark_submenu(raster, area.w - 3 - 4 - 8, top + (line_h - 8) // 2, 8, tint)
                 end
             end
         end
@@ -844,11 +848,26 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
             menu.items, menu.failure, menu.open, menu.cursor, {
                 compact = true, bottom = taskbar_rows(),
                 anchor = menu.anchor, context_rows = 1,
+                user = chrome.session.user,
                 root_rows = math.max(1, (32 + cell.h - 1) // cell.h),
                 item_rows = math.max(1, (24 + cell.h - 1) // cell.h),
-                measure = function(label)
+                -- Ширина строки в ячейках, МИНУС две ячейки, которые
+                -- `menu_layout` добавит на рамку: в ячейках рамка — по
+                -- ячейке с каждого края, в пикселях — три пикселя, и без
+                -- вычета они ложились пустотой у правого края панели.
+                -- Слагаемые — те же, что у рисовальщика: 8 px до значка,
+                -- значок (32 на корне, 16 в подменю, 0 у контекстного),
+                -- зазор до подписи, подпись, хвост (стрелка папки 20, иначе 8),
+                -- две грани по 3 px.
+                measure = function(label, level, kind)
                     local font: any = fonts and fonts.face
-                    return (whole(font and font:measure(label) or 0) + 64 + cell.w - 1) // cell.w
+                    local text_w = whole(font and font:measure(label) or 0)
+                    local depth = whole(level or 1)
+                    local mark = depth == 1 and 32 or (depth == 0 and 0 or 16)
+                    local gap = depth == 0 and 6 or 10
+                    local tail = kind == "group" and 20 or 8
+                    local px = 8 + mark + gap + text_w + tail + 6
+                    return math.max(1, whole((px + cell.w - 1) // cell.w) - 2)
                 end,
             })
 

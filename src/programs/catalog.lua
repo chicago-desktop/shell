@@ -119,6 +119,9 @@ local function to_program(record: any)
         order = order or NO_ORDER,
         icon = type(meta.icon) == "string" and meta.icon ~= "" and meta.icon or catalog.DEFAULT_ICON,
         image = type(meta.image) == "string" and meta.image ~= "" and meta.image or nil,
+        -- Значок ФАЙЛОВ программы, если он не её собственный (Блокнот —
+        -- блокнот, его файлы — текстовый документ). Читает associations.
+        file_image = type(meta.file_image) == "string" and meta.file_image ~= "" and meta.file_image or nil,
         width = tonumber(meta.width),
         height = tonumber(meta.height),
         args = type(meta.args) == "string" and meta.args or nil,

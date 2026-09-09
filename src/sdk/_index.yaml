@@ -32,6 +32,7 @@ entries:
       geometry: butschster.tui_desktop.desktop:geometry
       editor: butschster.windows.sdk:editor
       widgets: butschster.windows.shell:widgets
+      icons: butschster.windows.shell:icons
 
   - name: render
     kind: library.lua

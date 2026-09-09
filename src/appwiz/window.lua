@@ -257,7 +257,7 @@ function definition.view(state: any, context: any): any
         else status = state.load_note or ("Changes take effect after wippy update and a restart") end
     end
 
-    return {kind = "column", padding = 1, gap = 0, children = {
+    return {kind = "column", padding = 1, padding_bottom = 0, gap = 0, children = {
         {kind = "label", size = 1, text = string.format("Installed programs:  (modules: %d)", #state.rows)},
         {kind = "table", id = "modules", columns = COLUMNS, rows = rows, selected = state.selected},
         {kind = "label", size = 1, text = ""},

@@ -38,8 +38,70 @@ local function ask(service: any, replies: any, topic: any, value: any): any
     assert(process.send(service, topic, value))
     return receive(replies, function(reply) return reply.command == topic end)
 end
+local shell_icons = require("shell_icons")
+
 local function define_tests()
+    test.describe("Window SDK icon grid", function()
+        test.it("keeps the same step as the shell icon library", function()
+            -- Две таблицы одного и того же расходятся ровно на тех ключах,
+            -- которые редко нужны обеим. Здесь они обязаны совпадать: SDK
+            -- раскладывает, `shell:icons` рисует, и разъехавшись на ячейку
+            -- они поставили бы попадание не под рисунком.
+            local sdk_grid = ui.icon_grid()
+            local shell_grid = shell_icons.grid()
+            test.eq(sdk_grid.w, shell_grid.w)
+            test.eq(sdk_grid.h, shell_grid.h)
+            test.eq(sdk_grid.drawn, shell_grid.drawn)
+            test.eq(sdk_grid.caption, shell_grid.caption)
+        end)
+
+        test.it("wraps items into rows, scrolls by row and walks the grid with arrows", function()
+            local items = {}
+            for index = 1, 13 do items[#items + 1] = {id = "n" .. index, title = "node " .. index} end
+            local tree: any = {kind = "icons", id = "grid", items = items, selected = 1}
+            local state = ui.interaction()
+            -- Три колонки по 12 ячеек и две видимых строки по четыре.
+            local plan = ui.plan(tree, 38, 8, state)
+            local grid = plan.by_id.grid
+            test.eq(grid.columns, 3, "ширина делится на шаг колонки")
+            test.eq(grid.rows_total, 5, "тринадцать предметов — пять рядов")
+            test.eq(grid.page, 2, "страница считается в РЯДАХ, а не в предметах")
+            test.eq(#grid.cells, 6, "рисуются только видимые ряды")
+
+            local first: any = grid.cells[1]
+            local picked = ui.event(plan, state, {type = "mouse", action = "press", button = "left",
+                x = first.box.from, y = first.box.top})
+            test.eq(picked.type, "select")
+            test.eq(picked.index, 1)
+            test.is_true(picked.pointer, "щелчок мышью помечен, чтобы окно узнало двойной")
+
+            -- Стрелка вниз идёт через ряд, а не к соседнему предмету.
+            state.focus = "grid"
+            local moved = ui.event(plan, state, {type = "key", action = "press", key_type = "down"})
+            test.eq(moved.index, 4, "вниз — на ширину колонок")
+
+            local scrolled = ui.plan({kind = "icons", id = "grid", items = items, selected = 13}, 38, 8, state)
+            test.is_true(scrolled.by_id.grid.offset > 0, "выбранный в конце подводится показом")
+        end)
+    end)
+
     test.describe("Window SDK", function()
+        test.it("padding_bottom = 0 puts the last row against the frame while the other sides keep padding", function()
+            local tree = {kind = "column", padding = 1, padding_bottom = 0, gap = 0, children = {
+                {kind = "label", text = "top"},
+                {kind = "row", size = 2, gap = 1, children = {
+                    {kind = "label", text = ""},
+                    {kind = "button", id = "ok", size = 10, text = "OK"},
+                }},
+            }}
+            local plan = ui.plan(tree, 40, 6, ui.interaction())
+            local ok = plan.by_id.ok.rect
+            test.eq(ok.y + ok.h - 1, 6, "кнопки доходят до последней строки клиента")
+            test.eq(ok.x + ok.w - 1, 39, "справа отступ остаётся")
+            local same = ui.plan({kind = "column", padding = 1, gap = 0, children = tree.children}, 40, 6, ui.interaction())
+            test.eq(same.by_id.ok.rect.y + same.by_id.ok.rect.h - 1, 5, "без переопределения снизу ячейка отступа")
+        end)
+
         test.it("lays out disjoint controls at actual client sizes and clamps after data shrink", function()
             for _, size in ipairs({{60, 20}, {37, 12}, {10, 4}, {1, 1}}) do
                 local context = {width = size[1], height = size[2]}

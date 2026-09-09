@@ -72,15 +72,19 @@ function associations.table(programs: any): (any, any)
         if id then
             for _, ext in ipairs(opens_of(item)) do
                 local list: any = claims[ext] or {}
-                local image = field(item, "image")
+                -- Значок программы становится значком её файлов: в Windows
+                -- тип файла несёт и программу, и картинку, и это одна
+                -- запись, а не две. Но у Блокнота свой значок (блокнот с
+                -- карандашом), а у его файлов — текстовый документ; на это
+                -- есть `meta.file_image`, и оно приоритетнее `image` ДЛЯ
+                -- ФАЙЛОВ. Программа в меню и на столе остаётся с `image`.
+                local image = field(item, "file_image")
+                if type(image) ~= "string" or image == "" then image = field(item, "image") end
                 list[#list + 1] = {
                     entry = id,
                     title = tostring(field(item, "title") or id),
                     width = tonumber(field(item, "width")),
                     height = tonumber(field(item, "height")),
-                    -- Значок программы становится значком её файлов: в
-                    -- Windows тип файла несёт и программу, и картинку, и
-                    -- это одна запись, а не две.
                     image = type(image) == "string" and image ~= "" and image or nil,
                 }
                 claims[ext] = list

@@ -50,6 +50,7 @@ images.NAMES = {
     "network", "network_neighborhood", "documents_stack", "program_settings", "system",
     "regedit", "regedit_string", "regedit_binary",
     "key",
+    "appwizard", "taskmgr", "console", "user", "display_properties", "notepad",
 }
 
 local known = {}

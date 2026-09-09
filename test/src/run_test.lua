@@ -81,21 +81,54 @@ local function define_tests()
         end)
         test.it("lays out the dialog on the SDK: input, OK by default, Cancel, no overlaps", function()
             local state = run_window.definition.init(nil, {})
-            local tree = run_window.definition.view(state, {width = 52, height = 10})
+            local tree = run_window.definition.view(state, {width = 48, height = 7})
             local interaction = ui.interaction()
-            local plan = ui.plan(tree, 52, 10, interaction)
+            local plan = ui.plan(tree, 48, 7, interaction)
             test.not_nil(plan.by_id.command)
             test.not_nil(plan.by_id.ok)
             test.not_nil(plan.by_id.cancel)
+            test.not_nil(plan.by_id.browse, "«Обзор…» — третья кнопка, как в Windows 95")
             test.eq(interaction.focus, "command", "фокус — в поле команды")
             test.is_true(ui.default_look(plan, plan.by_id.ok.node, false), "«ОК» по умолчанию, пока фокус в поле")
             interaction.focus = "cancel"
-            plan = ui.plan(tree, 52, 10, interaction)
+            plan = ui.plan(tree, 48, 7, interaction)
             test.is_false(ui.default_look(plan, plan.by_id.ok.node, false), "фокус на «Отмене» забирает контур у «ОК»")
             test.is_true(ui.default_look(plan, plan.by_id.cancel.node, true))
-            -- Пустая команда — причина в дереве, а не в никуда.
+            -- Подсказка — две строки одной меткой, пока отказа нет.
+            test.not_nil(find_text(tree, "Windows will open it for you"))
+            -- Пустая команда — причина в дереве, а не в никуда: отказ встаёт
+            -- на место подсказки, а не отдельной строкой под кнопками.
             run_window.definition.update(state, {type = "activate", id = "ok"}, {close = function() end})
-            test.not_nil(find_text(run_window.definition.view(state, {width = 52, height = 10}), "Type the name"))
+            local failed = run_window.definition.view(state, {width = 48, height = 7})
+            test.not_nil(find_text(failed, "Type the name of a program or command."))
+            test.is_nil(find_text(failed, "Windows will open it for you"), "отказ занимает место подсказки")
+            test.eq(run_window.definition.title, "Run", "заголовок окна — без многоточия, оно у пункта меню")
+        end)
+        test.it("Browse… asks for My Computer and does not close the dialog on the reply", function()
+            local asked: any = nil
+            local closed = false
+            local state: any = {text = "", pending = false, browsing = false, answers = "replies"}
+            local context: any = {close = function() closed = true end}
+            -- Подмена запроса: проверяется форма просьбы и разбор ответа, а
+            -- не композитор — его проверяет живой прогон ниже.
+            local real_request = run_window.definition.request
+            run_window.definition.request = function(command, body) asked = {command = command, body = body}; return true, nil end
+            run_window.definition.update(state, {type = "activate", id = "browse"}, context)
+            test.not_nil(asked)
+            test.eq(asked.command, "desktop.open")
+            test.eq(asked.body.entry, "butschster.windows.explorer:window")
+            test.is_true(state.browsing)
+            run_window.definition.update(state, {type = "channel", channel = "replies", ok = true,
+                value = {command = "desktop.open", ok = true}}, context)
+            test.is_false(state.browsing)
+            test.is_false(closed, "ответ на проводник не закрывает «Выполнить»")
+            test.is_nil(state.failure)
+            -- Отказ проводника называется в диалоге.
+            run_window.definition.update(state, {type = "activate", id = "browse"}, context)
+            run_window.definition.update(state, {type = "channel", channel = "replies", ok = true,
+                value = {command = "desktop.open", ok = false, error = "no such window"}}, context)
+            test.eq(state.failure, "no such window")
+            run_window.definition.request = real_request
         end)
         test.it("opens Bash and Run from Start and keeps the launched shell after Run closes", function()
             local menus = process.listen("run.menu", {message = true})
@@ -121,7 +154,7 @@ local function define_tests()
             click(desk, menu.spots[RUN].from, menu.spots[RUN].row)
             local frame = receive(frames, function() return true end)
             key(desk, "enter")
-            frame = receive(frames, function(value) return find_text(value.state.ui, "Type the name of a program or command.") ~= nil end)
+            frame = receive(frames, function(value) return find_text(value.state.ui, "Type the name of a program") ~= nil end)
             local command = "printf 'RUN_RESULT:%s\\n' \"it's ready\""
             ask(desk, replies, "desktop.type", {id = frame.id, text = command})
             frame = receive(frames, function(value)

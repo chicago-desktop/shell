@@ -37,7 +37,7 @@ entries:
     meta:
       type: tui_desktop.window
       title: "Display Properties"
-      image: desktop
+      image: display_properties
       icon: "▭"
       group: Settings
       order: 140

@@ -240,6 +240,7 @@ entries:
     security:
       policies: [app:probe_scope]
     imports:
+      chrome: butschster.windows.shell:chrome
       chrome_pixels: butschster.windows.shell:chrome_pixels
       pixels: butschster.windows.shell:pixels
       rasters: butschster.windows.shell:rasters
@@ -253,6 +254,7 @@ entries:
       taskman_window: butschster.windows.taskman:window
       sysprops_window: butschster.windows.sysprops:window
       sysprops_model: butschster.windows.sysprops:model
+      network_window: butschster.windows.network:window
       display_window: butschster.windows.display:window
       reg_model: butschster.windows.regedit:model
       regedit_window: butschster.windows.regedit:window
@@ -489,6 +491,22 @@ entries:
       palette: butschster.windows.shell:palette
     method: run
 
+  - name: network_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Сетевое окружение — местный узел первым, лидер помечен, одинокий узел отличается от отказа членства, раскладка окна без пересечений.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://network_test.lua
+    modules: [system]
+    imports:
+      test: wippy.test:test
+      model: butschster.windows.network:model
+      ui: butschster.windows.sdk:ui
+      network_window: butschster.windows.network:window
+    method: run
+
   - name: sysprops_test
     kind: function.lua
     meta:
@@ -638,6 +656,7 @@ entries:
       render: butschster.windows.sdk:render
       pixels: butschster.windows.shell:pixels
       rasters: butschster.windows.shell:rasters
+      shell_icons: butschster.windows.shell:icons
       fixture: app:sdk_fixture
       catalog: butschster.windows.programs:catalog
 

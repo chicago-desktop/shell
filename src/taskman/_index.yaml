@@ -41,7 +41,7 @@ entries:
     meta:
       type: tui_desktop.window
       title: Task Manager
-      image: system
+      image: taskmgr
       icon: "▥"
       group: Settings
       order: 120

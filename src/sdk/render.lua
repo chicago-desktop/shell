@@ -430,6 +430,36 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 end
                 pixels.scrollbar(raster, x + w - cell.w, y + header * cell.h, cell.w, h - header * cell.h, item.bar, cell.h, cell.h)
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
+            elseif node.kind == "icons" then
+                -- Сетка значков в пикселях: настоящий растр 32×32 из пакета
+                -- (`pixels.icon` сам откатывается на примитивы), подпись в две
+                -- строки под ним, синий прямоугольник ОБНИМАЕТ подпись, а не
+                -- колонку — по нему в Windows и видно, где кончается имя.
+                raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
+                local side = 32
+                for _, spot in ipairs(item.cells or {}) do
+                    local box: any = spot.box
+                    local bx = x + (box.from - rect.x) * cell.w
+                    local by = y + (box.top - rect.y) * cell.h
+                    local bw = (box.to - box.from + 1) * cell.w
+                    pixels.icon(raster, whole(bx + (bw - side) // 2), whole(by + 2), spot.item, side)
+                    local caption = tostring((spot.item :: any).title or (spot.item :: any).text or "")
+                    local lines = pixels.wrap(font, caption, whole(bw - 4), 2)
+                    local top = by + 2 + side + 3
+                    for line_index, line in ipairs(lines) do
+                        local measured = font and whole(font:measure(line)) or 0
+                        local left = bx + (bw - measured) // 2
+                        if spot.selected then
+                            raster:rect(whole(left - 1), whole(top - 1), whole(measured + 2), 16, color.select_bg)
+                        end
+                        raster:text(whole(left), whole(top), line, {font = font,
+                            color = spot.selected and color.select_fg or color.field_text})
+                        top = top + 15
+                        if line_index >= 2 then break end
+                    end
+                end
+                pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)
+                pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "list" then
                 raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
                 for row = 0, rect.h - 1 do
@@ -485,6 +515,18 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     local cx = math.min(whole(x + w - 3), whole(x + 4) + whole(font:measure(before)))
                     raster:rect(whole(cx), whole(y + math.max(2, (h - 15) // 2)), 1, whole(math.min(15, h - 4)), color.field_text)
                 end
+            elseif node.kind == "label" and tostring(node.text or ""):find("\n", 1, true) then
+                -- Многострочная метка: строки через `\n`, шаг 15 px — как у
+                -- шрифта, а не по ячейке (20 px): две строки подсказки в
+                -- соседних ячейках читались как два абзаца.
+                local lines: any = {}
+                local value: string = tostring(node.text or "") .. "\n"
+                for piece in string.gmatch(value, "(.-)\n") do lines[#lines + 1] = piece end
+                local block = #lines * 15
+                local top = y + math.max(0, (h - block) // 2)
+                for index, piece in ipairs(lines) do
+                    text(x + 2, top + (index - 1) * 15, w - 4, 15, piece, node.alert and color.alert or nil)
+                end
             else text(x + 2, y, w - 4, h, node.text, node.alert and color.alert or nil) end
         end
     end
@@ -495,8 +537,16 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             local popup: any = item.popup
             local open: any = state.interaction.menus[item.node.id]
             local px, py = (popup.rect.x - 1) * cell.w + 1, (popup.rect.y - 1) * cell.h + 1
-            local pw, ph = popup.rect.w * cell.w, popup.rect.h * cell.h
-            pixels.panel(raster, whole(px), whole(py), whole(pw), whole(ph))
+            local pw = popup.rect.w * cell.w
+            -- Поля панели — В ПИКСЕЛЯХ, а не в ячейках. Прямоугольник меню
+            -- остаётся прежним (по нему считаются попадания, а мышь знает
+            -- только ячейки), но рамка рисуется вплотную к пунктам: целая
+            -- ячейка сверху и снизу — это два десятка пикселей пустоты,
+            -- которых у выпадающего меню Windows 95 никогда не было.
+            local pad = 4
+            local top = py + cell.h - pad
+            local body = #popup.rows * cell.h + pad * 2
+            pixels.panel(raster, whole(px), whole(top), whole(pw), whole(body))
             for position, row in ipairs(popup.rows) do
                 local line: any = row
                 local ry = py + position * cell.h

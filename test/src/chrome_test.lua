@@ -477,6 +477,91 @@ local function define_tests()
             test.is_nil(lines[3].separator_before)
         end)
 
+        test.it("вошедший пользователь — первой строкой корня, со значком, без попадания и без slot", function()
+            local items = {
+                {entry = "app:mycomp", title = "My Computer", group = {}, order = 5, separator_after = true},
+                {entry = "app:calc", title = "Calculator", group = {"Programs"}, order = 20},
+                {entry = "app:run", title = "Run…", group = {}, order = 900},
+            }
+            local shown = chrome.menu_layout(90, 24, items, nil, {}, 1, {user = {id = "u1", name = "butschster"}})
+            local lines = shown.panels[1].lines
+            test.eq(lines[1].kind, "user")
+            test.eq(lines[1].label, "butschster")
+            test.eq(lines[1].image, "user")
+            test.is_true(lines[1].bold == true, "имя набрано жирным, как заголовок")
+            test.is_true(not lines[1].dim, "имя не приглушено")
+            test.is_true(lines[2].separator_before == true, "черта под именем — у следующей строки")
+            test.eq(lines[2].label, "My Computer")
+            -- Строка не выбирается: попаданий на её ряду нет, а курсор 1 —
+            -- это по-прежнему первая ПРОГРАММА.
+            for _, hit in ipairs(shown.hits) do
+                test.is_true(hit.row ~= lines[1].row, "на строке пользователя не должно быть попадания")
+            end
+            test.eq(shown.hits[1].row, lines[2].row)
+            test.is_true(shown.hits[1].cursor == true)
+            test.eq(shown.hits[1].slot, 1)
+            -- В подменю имени нет.
+            local opened = chrome.menu_layout(90, 24, items, nil, {"Programs"}, 1, {user = {name = "butschster"}})
+            test.eq(opened.panels[2].lines[1].kind, "item")
+            -- Без пользователя строки нет вовсе; пустое имя — то же самое.
+            test.eq(chrome.menu_layout(90, 24, items, nil, {}).panels[1].lines[1].label, "My Computer")
+            test.eq(chrome.menu_layout(90, 24, items, nil, {}, 1, {user = {name = ""}}).panels[1].lines[1].label, "My Computer")
+            -- Контекстное меню у якоря имени не показывает.
+            local context = chrome.menu_layout(90, 24, {{entry = "app:x", label = "Open"}}, nil, {}, 1,
+                {anchor = {x = 5, y = 5}, user = {name = "butschster"}})
+            test.eq(context.panels[1].lines[1].label, "Open")
+        end)
+
+        test.it("chrome.use_user поднимает имя в общую сессию и снимает его", function()
+            local items = {{entry = "app:run", title = "Run…", group = {}, order = 900}}
+            chrome.use_user({id = "u1", name = "butschster"})
+            test.eq(chrome.session.user.name, "butschster")
+            test.eq(chrome.session.user.id, "u1")
+            -- Обе темы передают в раскладку ровно эту таблицу.
+            local shown = chrome.menu_layout(90, 24, items, nil, {}, 1, {user = chrome.session.user})
+            test.eq(shown.panels[1].lines[1].kind, "user")
+            chrome.use_user(nil)
+            test.is_nil(chrome.session.user)
+            chrome.use_user({name = 42})
+            test.is_nil(chrome.session.user)
+            chrome.use_user({name = ""})
+            test.is_nil(chrome.session.user)
+        end)
+
+        test.it("в пикселях мерка получает уровень и вид, а попадания покрывают панель целиком", function()
+            local items = {
+                {entry = "app:calc", title = "Calculator", group = {"Programs"}, order = 20},
+                {entry = "app:run", title = "Run…", group = {}, order = 900},
+            }
+            local seen = {}
+            local measure = function(label, level, kind)
+                seen[#seen + 1] = {label = label, level = level, kind = kind}
+                return 10
+            end
+            local shown = chrome.menu_layout(90, 24, items, nil, {"Programs"}, 1,
+                {compact = true, bottom = 2, measure = measure})
+            local levels, kinds = {}, {}
+            for _, call in ipairs(seen) do levels[call.level] = true; kinds[call.kind] = true end
+            test.is_true(levels[1] and levels[2], "мерка видела корень и подменю")
+            test.is_true(kinds.group and kinds.item, "мерка видела папку и программу")
+            for _, hit in ipairs(shown.hits) do
+                local panel = shown.panels[hit.level]
+                test.eq(hit.from, panel.x + panel.banner, "попадание от первой ячейки списка")
+                test.eq(hit.to, panel.x + panel.w - 1, "попадание до последней ячейки панели")
+            end
+            -- В ячейках крайние ячейки — рамка, и они не попадание.
+            local cells_mode = chrome.menu_layout(90, 24, items, nil, {})
+            local first = cells_mode.hits[1]
+            test.eq(first.from, cells_mode.panels[1].x + 1 + cells_mode.panels[1].banner)
+            test.eq(first.to, cells_mode.panels[1].x + cells_mode.panels[1].w - 2)
+            -- Контекстное меню меряется уровнем 0.
+            seen = {}
+            chrome.menu_layout(90, 24, {{entry = "app:x", label = "Open"}}, nil, {}, 1,
+                {anchor = {x = 5, y = 5}, compact = true, measure = measure})
+            test.eq(seen[1].level, 0)
+            test.eq(seen[1].kind, "context")
+        end)
+
         test.it("контекстное меню значка — одна панель у якоря, без папок и банера, внутри экрана", function()
             local items = {
                 {label = "Открыть", bold = true, entry = "app:mycomp", title = "My Computer"},

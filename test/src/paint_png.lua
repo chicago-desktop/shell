@@ -22,6 +22,7 @@ local catalog = require("catalog")
 local desktop_view = require("desktop_view")
 local model = require("model")
 local rasters = require("rasters")
+local chrome = require("chrome")
 local chrome_pixels = require("chrome_pixels")
 local ui = require("ui")
 local run_window = require("run_window")
@@ -445,10 +446,11 @@ local function main(spec)
     -- Same catalog adapter and desktop join as the live shell. This scene uses
     -- the host's actual window identities, including runtime workshop windows.
     local function menu_icons_shot()
+        chrome.use_user({id = "u1", name = "butschster"})
         chrome_pixels.use_fonts(font, bold)
         chrome_pixels.use_cell_size(cell.w, cell.h)
         local records = {
-            {id = "butschster.windows.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10}},
+            {id = "butschster.windows.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10, in_menu = false}},
             {id = "app.desktop:window_calc", meta = {title = "Calculator", image = "calculator", group = "Accessories"}},
             {id = "butschster.tui_desktop.apps:commander", meta = {title = "Stand Explorer"}},
             {id = "butschster.tui_desktop.apps:dataflows", meta = {title = "Runs"}},
@@ -468,7 +470,6 @@ local function main(spec)
         }}}}))
         local items = desktop_view.join({
             {id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window", title = "My Computer", x = 2, y = 1},
-            {id = "programs", kind = "folder", title = "Programs", x = 2, y = 6},
         }, built)
         local state = {width = 100, height = 36, top = 1, bottom = 36 - chrome_pixels.layout(100, 36).bottom,
             items = items, windows = {}, clock = "12:00",
@@ -517,12 +518,14 @@ local function main(spec)
 
     -- Fixture metadata mirrors the declarations; the dialog uses its live renderer.
     local function run_shot()
+        -- Вошедший пользователь — первой строкой «Пуска», как на живом стенде.
+        chrome.use_user({id = "u1", name = "butschster"})
         chrome_pixels.use_fonts(font, bold)
         chrome_pixels.use_cell_size(cell.w, cell.h)
         local found = catalog.build({
-            {id = "butschster.windows.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10}},
+            {id = "butschster.windows.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10, in_menu = false}},
             {id = "butschster.windows.calc:window", meta = {title = "Calculator", image = "calculator", group = "Accessories", order = 20}},
-            {id = "butschster.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "program", group = "Accessories"}},
+            {id = "butschster.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "console", group = "Accessories"}},
             {id = "butschster.windows.run:window", meta = {title = "Run…", image = "run", order = 900}},
         })
         local items = found.programs
@@ -530,11 +533,13 @@ local function main(spec)
             bottom = 32 - chrome_pixels.layout(100, 32).bottom,
             items = {{id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window",
                 title = "My Computer", x = 8, y = 2}},
+            -- Заголовок — тот, что окно называет само (`definition.title`):
+            -- «Run» без многоточия, многоточие остаётся у пункта меню.
             windows = {{id = "run", entry = "butschster.windows.run:window", image = "run",
-                title = "Run…", window_type = "dialog", content = "pixels", resizable = false,
-                render = "butschster.windows.sdk:render", x = 30, y = 7, w = 54, h = 12,
+                title = run_window.definition.title, window_type = "dialog", content = "pixels", resizable = false,
+                render = "butschster.windows.sdk:render", x = 30, y = 7, w = 50, h = 10,
                 content_state = {sdk = 1, revision = 1, interaction = ui.interaction(),
-                    ui = run_window.definition.view({text = "claude --resume", pending = false}, {width = 52, height = 10})}}},
+                    ui = run_window.definition.view({text = "claude --resume", pending = false}, {width = 48, height = 7})}}},
             focused_id = "run", clock = "12:00",
             menu = {items = catalog.menu_items(items), open = {"Accessories"}, cursor = 1}}
         local painted = chrome_pixels.paint(state, cell.w, cell.h)
@@ -720,6 +725,19 @@ local function main(spec)
             view_shot("sysprops-" .. tab, sdk_render, {id = "shot", state_revision = tab, content_state = {sdk = 1, revision = tab,
                 interaction = ui.interaction(), ui = sysprops_window.definition.view(state, {width = 58, height = 22})}}, 58, 22)
         end
+    end
+    do
+        -- Сетевое окружение: меш из двух узлов, лидер — сосед. Снимок делается
+        -- с ПРИДУМАННОГО членства нарочно: живой кластер здесь одноузловой, и
+        -- картинка «один компьютер» не показала бы ни лидера, ни адресов.
+        local network_window = require("network_window")
+        local snap: any = {node_id = "kickside", node_addr = "127.0.0.1:7946", node_role = "voter",
+            leader = "mesh-node",
+            members = {{id = "mesh-node", is_local = false, addr = "127.0.0.1:7947"},
+                {id = "kickside", is_local = true, addr = "127.0.0.1:7946"}}}
+        local state: any = {snapshot = snap, selected = "kickside", about = false}
+        view_shot("network", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
+            interaction = ui.interaction(), ui = network_window.definition.view(state, {width = 60, height = 14})}}, 60, 14)
     end
     -- «Свойства: Экран»: фон с выбранным цветом и настройка.
     for tab = 1, 2 do

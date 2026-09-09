@@ -59,3 +59,19 @@ entries:
       - registry
     imports:
       catalog: butschster.windows.programs:catalog
+
+  # butschster.windows.programs:base_images
+  #
+  # Значки окон ОСНОВЫ. Основа своих значков не знает — у неё нет пакета, —
+  # а называть их в её записях значило бы привязать публичный модуль к именам
+  # из этого, приватного. Поэтому оболочка объявляет их у себя той же
+  # записью, что и приложение для окон мастерской (`windows.program_images`);
+  # своё `meta.image` у программы, если есть, по-прежнему приоритетнее.
+  - name: base_images
+    kind: registry.entry
+    meta:
+      type: windows.program_images
+      comment: Значки окон основы tui-desktop — окно Bash получает консоль.
+    data:
+      images:
+        "butschster.tui_desktop.desktop:window_pty": console

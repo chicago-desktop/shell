@@ -9,7 +9,8 @@ local ui = {}
 local containers = {row = true, column = true, split = true}
 local leaves = {label = true, button = true, input = true, list = true, table = true, checkbox = true,
     statusbar = true, tabs = true, menu = true, image = true, field = true,
-    group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true, monitor = true}
+    group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true, monitor = true,
+    icons = true}
 -- Без `id` живут только те, что не принимают ввод.
 local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
     calendar = true, clock = true, monitor = true}
@@ -31,6 +32,30 @@ function ui.month_grid(first: any, days: any): any
     end
     return rows
 end
+-- Сетка значков: шаг колонки и ряда в ячейках, сколько строк занимает сам
+-- рисунок и сколько отдано подписи. Числа те же, что у `shell:icons`, и это
+-- проверяется тестом: разъехавшись, они поставили бы попадание на ячейку от
+-- рисунка — ровно тот дефект, ради которого SDK и заведён.
+--
+-- Держать их здесь, а не звать `shell:icons`, приходится по правам: тот
+-- модуль тянет `tty`, а раскладка нужна и пиксельному отрисовщику, у
+-- которого терминала нет вовсе.
+local ICON_GRID = {w = 12, h = 4, drawn = 3, caption = 2}
+
+function ui.icon_grid(): any
+    return {w = ICON_GRID.w, h = ICON_GRID.h, drawn = ICON_GRID.drawn, caption = ICON_GRID.caption}
+end
+
+-- Сколько колонок помещается в ширину и сколько рядов занимают предметы.
+-- Одна арифметика на раскладку, попадания и прокрутку.
+function ui.icon_shape(width: any, count: any): (integer, integer)
+    local columns = whole(width) // ICON_GRID.w
+    if columns < 1 then columns = 1 end
+    local total = math.max(0, whole(count))
+    local rows = (total + columns - 1) // columns
+    return columns, whole(rows)
+end
+
 -- Номер выбранной строки: `selected` — номер с 1 или ID предмета. Так
 -- приложение держит выбор за предметом, а не за строкой, которую сдвинул
 -- новый замер, — и не пересчитывает номер само.
@@ -133,13 +158,32 @@ function ui.columns(node: any, width: any): any
     end
     return out
 end
+-- Отступ контейнера: `padding` — на все четыре стороны, `padding_top`,
+-- `padding_right`, `padding_bottom`, `padding_left` — переопределяют свою.
+-- Нужно диалогам: у пиксельной темы под нижней рамкой и так целая строка
+-- ячеек (рамка — три пикселя, а резерв — строка), и ещё ячейка отступа
+-- снизу отодвигала кнопки от рамки вдвое дальше, чем в Windows 95.
+local function padded(rect: any, node: any): any
+    local all = whole(math.max(0, whole(node.padding or 0)))
+    local function side(name: string): integer
+        local value: any = node[name]
+        if value == nil then return all end
+        return whole(math.max(0, whole(value)))
+    end
+    local top, right, bottom, left = side("padding_top"), side("padding_right"), side("padding_bottom"), side("padding_left")
+    if top + bottom + right + left == 0 then return rect end
+    local x = rect.x + math.min(left, rect.w)
+    local y = rect.y + math.min(top, rect.h)
+    return geometry.rect(x, y, math.max(0, rect.w - left - right), math.max(0, rect.h - top - bottom))
+end
+
 local function add(node: any, rect: any, plan: any, interaction: any)
     assert(type(node) == "table", "SDK node must be a table")
     local kind = node.kind
     assert(containers[kind] or leaves[kind], "unknown SDK control: " .. tostring(kind))
     if rect.w < 1 or rect.h < 1 then return end
     if containers[kind] then
-        rect = geometry.inset(rect, node.padding or 0)
+        rect = padded(rect, node)
         local children = node.children or {}
         local horizontal = kind == "row" or kind == "split"
         local length = whole(horizontal and rect.w or rect.h)
@@ -179,7 +223,9 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         plan.items[#plan.items + 1] = item
         if id then plan.by_id[id] = item end
         if rect.h >= 3 and rect.w >= 3 then
-            add({kind = "column", children = node.children or {}, padding = node.padding, gap = node.gap},
+            add({kind = "column", children = node.children or {}, padding = node.padding, gap = node.gap,
+                padding_top = node.padding_top, padding_right = node.padding_right,
+                padding_bottom = node.padding_bottom, padding_left = node.padding_left},
                 geometry.rect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2), plan, interaction)
         end
         return
@@ -194,7 +240,9 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         plan.by_id[id] = item
         if not node.disabled then plan.focusable[#plan.focusable + 1] = id end
         if rect.h >= 4 and rect.w >= 3 then
-            add({kind = "column", children = node.children or {}, padding = node.padding, gap = node.gap},
+            add({kind = "column", children = node.children or {}, padding = node.padding, gap = node.gap,
+                padding_top = node.padding_top, padding_right = node.padding_right,
+                padding_bottom = node.padding_bottom, padding_left = node.padding_left},
                 geometry.rect(rect.x + 1, rect.y + 2, rect.w - 2, rect.h - 3), plan, interaction)
         end
         return
@@ -208,6 +256,42 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         if open and open.index then
             item.popup = ui.popup(item, open.index)
             if item.popup then plan.overlays[#plan.overlays + 1] = item else interaction.menus[id] = nil end
+        end
+    end
+    if kind == "icons" then
+        -- Сетка значков, как в Проводнике: единица прокрутки — РЯД, а не
+        -- предмет и не строка текста. Ряд объявлен здесь один раз, и по нему
+        -- считают и полоса, и колесо, и клавиши.
+        local items = node.items or {}
+        local columns, rows_total = ui.icon_shape(rect.w, #items)
+        local page = whole(rect.h) // ICON_GRID.h
+        if page < 1 then page = 1 end
+        item.columns, item.rows_total, item.page = columns, rows_total, page
+        item.selected_index = selected_index(node, items)
+        item.offset = scroll.clamp(interaction.offsets[id], rows_total, page)
+        if item.selected_index > 0 then
+            local row = (item.selected_index - 1) // columns + 1
+            item.offset = scroll.reveal(item.offset, row, rows_total, page)
+        end
+        interaction.offsets[id] = item.offset
+        item.bar = scroll.bar(item.offset, rows_total, page, rect.h)
+        -- Клетки считаются ОДИН раз и едут в план: рисование, попадание и
+        -- выделение читают их, а не пересчитывают каждое по-своему.
+        item.cells = {}
+        local room = ICON_GRID.w - 1
+        for index, entry in ipairs(items) do
+            local row = (index - 1) // columns
+            local column = (index - 1) % columns
+            local visible_row = row - item.offset
+            if visible_row >= 0 and visible_row < page then
+                local x = rect.x + column * ICON_GRID.w
+                local y = rect.y + visible_row * ICON_GRID.h
+                item.cells[#item.cells + 1] = {
+                    index = index, item = entry, x = x, y = y, room = room,
+                    box = {from = x, to = x + room - 1, top = y, bottom = y + ICON_GRID.drawn - 1},
+                    selected = index == item.selected_index,
+                }
+            end
         end
     end
     if kind == "list" or kind == "table" or kind == "tree" then
@@ -397,6 +481,31 @@ local function list_event(item: any, state: any, event: any): any
     end
     return nil
 end
+-- Сетка значков: щелчок по клетке выбирает, повторный щелчок по уже
+-- выбранной приложение вправе считать двойным (`pointer = true`), щелчок по
+-- пустому месту снимает выбор — как в Проводнике, где пустота отменяет.
+local function icons_event(item: any, state: any, event: any): any
+    local node, rect = item.node, item.rect
+    local items = node.items or {}
+    local total = #items
+    local offset = scroll.clamp(state.offsets[node.id] or item.offset, whole(item.rows_total), whole(item.page))
+    if event.action == "wheel" then
+        state.offsets[node.id] = scroll.wheel(offset, event.button, whole(item.rows_total), whole(item.page),
+            node.wheel_step or 1)
+        return nil
+    end
+    if not input.pressed(event) then return nil end
+    for _, cell in ipairs(item.cells or {}) do
+        local box: any = cell.box
+        if event.x >= box.from and event.x <= box.to and event.y >= box.top and event.y <= box.bottom then
+            return {type = "select", id = node.id, index = cell.index, value = items[cell.index], pointer = true}
+        end
+    end
+    if geometry.contains(rect, event.x, event.y) and total > 0 then
+        return {type = "select", id = node.id, index = 0, value = nil, pointer = true}
+    end
+    return nil
+end
 local function activate(node: any): any
     if node.kind == "checkbox" then return {type = "change", id = node.id, value = not node.checked} end
     return {type = "activate", id = node.id}
@@ -457,6 +566,7 @@ function ui.event(plan: any, state: any, original: any): any
         -- забирала фокус, и Tab переставал находить, откуда шагать.
         if input.pressed(event) and item.node.id and item.node.kind ~= "label" then state.focus = item.node.id end
         if item.node.kind == "list" or item.node.kind == "table" or item.node.kind == "tree" then return list_event(item, state, event) end
+        if item.node.kind == "icons" then return icons_event(item, state, event) end
         if (item.node.kind == "button" or item.node.kind == "checkbox") and input.pressed(event) then
             state.armed = {id = item.node.id, inside = true}
         end
@@ -512,6 +622,29 @@ function ui.event(plan: any, state: any, original: any): any
         index = whole(math.max(1, math.min(total, index)))
         state.offsets[node.id] = scroll.reveal(item.offset, index, total, item.page)
         return {type = "select", id = node.id, index = index, value = rows[index]}
+    elseif node.kind == "icons" and key then
+        -- Клавиши сетки: вправо-влево идут по предметам, вверх-вниз — через
+        -- ряд, страницы — через страницу рядов. Одна ширина колонок с
+        -- раскладкой, иначе стрелка вниз уводила бы не под тот значок.
+        local items = node.items or {}
+        local total = #items
+        if total == 0 then return nil end
+        local columns = math.max(1, whole(item.columns))
+        local index = whole(item.selected_index) > 0 and whole(item.selected_index) or 1
+        if key == "home" then index = 1
+        elseif key == "end" then index = total
+        elseif key == "left" then index = index - 1
+        elseif key == "right" then index = index + 1
+        elseif key == "up" then index = index - columns
+        elseif key == "down" then index = index + columns
+        elseif key == "pgup" then index = index - columns * math.max(1, whole(item.page))
+        elseif key == "pgdown" then index = index + columns * math.max(1, whole(item.page))
+        elseif key == "enter" then return {type = "activate", id = node.id, index = index, value = items[index]}
+        else return nil end
+        index = whole(math.max(1, math.min(total, index)))
+        local row = (index - 1) // columns + 1
+        state.offsets[node.id] = scroll.reveal(item.offset, row, whole(item.rows_total), math.max(1, whole(item.page)))
+        return {type = "select", id = node.id, index = index, value = items[index]}
     elseif node.kind == "input" then
         local editing = state.editors[node.id] or {cursor = #editor.runes(node.text), selected = false}
         state.editors[node.id] = editing

@@ -328,9 +328,16 @@ local function main()
         log:warn("logon not enabled", {reason = tostring(logon_error)})
     elseif logon_config then
         logon = function(screen)
-            return logon_screen.run(screen, function(login, password)
+            local identity, why = logon_screen.run(screen, function(login, password)
                 return logon_provider.authenticate(logon_config, login, password)
             end)
+            -- Имя вошедшего — в «Пуск», обеим темам сразу: раскладку меню
+            -- они считают одной функцией и читают одну таблицу.
+            if type(identity) == "table" then
+                local context: any = type(identity.context) == "table" and identity.context or {}
+                chrome.use_user({id = context.user_id, name = context.user_name})
+            end
+            return identity, why
         end
         log:info("logon enabled", {func = logon_config.func, store = logon_config.store})
     end

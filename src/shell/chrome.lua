@@ -215,6 +215,23 @@ local MENU_BANNER = "WIPPY 2026"
 -- же класс.
 chrome.MENU_BANNER = MENU_BANNER
 
+-- Кто вошёл в систему — для верхней строки «Пуска». Одна таблица на обе темы:
+-- пиксельная считает раскладку той же `menu_layout` и читает отсюда же, а
+-- значение поднимается один раз, при входе (`use_user`), и живёт столько же,
+-- сколько сама сессия оболочки — личность фиксируется при входе. Без входа
+-- (оболочка поднята под своим актором) строки нет вовсе: стол под служебным
+-- актором, подписанный чьим-то именем, выглядел бы как чужой вход.
+chrome.session = {user = nil}
+
+-- use_user(user) — user = {id, name} или nil, чтобы снять.
+function chrome.use_user(user: any)
+    if type(user) == "table" and type(user.name) == "string" and user.name ~= "" then
+        chrome.session.user = {id = user.id, name = user.name}
+    else
+        chrome.session.user = nil
+    end
+end
+
 local START_LABEL = " " .. glyphs.icons.start .. " Start "
 
 -- Стили общие с `widgets`, а не свои. Своя копия здесь БЫЛА и разошлась: в
@@ -705,6 +722,9 @@ local function line_text(line)
     if line.kind == "group" then
         return " " .. glyphs.icons.folder .. " " .. line.text, glyphs.icons.submenu .. " "
     end
+    if line.kind == "user" then
+        return " " .. glyphs.icons.user .. " " .. tostring(line.text or ""), ""
+    end
     return " " .. tostring(line.text or ""), ""
 end
 
@@ -777,7 +797,8 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
         for _, line in ipairs(lines) do
             local size = cells(line.text) + 3
             if type(sizing.measure) == "function" then
-                size = whole(sizing.measure(line.text))
+                -- Уровень 0 — контекстное меню: без значка, подпись ближе.
+                size = whole(sizing.measure(line.text, 0, "context"))
             end
             if size > widest then widest = size end
         end
@@ -801,7 +822,11 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
             }
             out.hits[#out.hits + 1] = {
                 row = row, bottom_row = span > 1 and row + span - 1 or nil,
-                from = left + 1, to = left + box_w - 2, index = index,
+                -- В пикселях (`compact`) рамка — три пикселя, а не ячейка, и
+                -- крайние ячейки почти целиком содержимое: попадание на всю
+                -- ширину панели. В ячейках крайние ячейки — рамка.
+                from = compact and left or left + 1,
+                to = compact and left + box_w - 1 or left + box_w - 2, index = index,
                 level = 1, slot = index, cursor = under_cursor or nil,
             }
         end
@@ -861,6 +886,18 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
         local slot = 0
         local lines: any = panel_lines(node)
 
+        -- Вошедший пользователь — первой строкой корня, со значком и
+        -- разделителем под ним. Строка НЕ выбирается: у неё нет ни попадания,
+        -- ни номера `slot`, курсор её перешагивает, и Enter на «первой строке»
+        -- по-прежнему открывает первую программу. Подсказки и обрезка на
+        -- низком экране считаются по той же `#lines`, так что место она
+        -- занимает честно; при обрезке остаётся — режется хвост.
+        local user: any = sizing.user
+        if level == 1 and type(user) == "table" and type(user.name) == "string" and user.name ~= "" then
+            table.insert(lines, 1, {kind = "user", text = user.name, image = "user"})
+            if lines[2] then lines[2].separator_before = true end
+        end
+
         -- Ширина панели — по самой длинной подписи, не по константе:
         -- каскад из трёх панелей одинаковой ширины съедает экран, а узкая
         -- панель обрезает имена, которые в ней одни и есть.
@@ -869,7 +906,10 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
             local text, tail = line_text(line)
             local size = cells(text) + cells(tail) + 1
             if type(sizing.measure) == "function" then
-                size = whole(sizing.measure(tostring(line.text or "")))
+                -- Мерке нужны уровень и вид строки: на корне значок 32 px, в
+                -- подменю 16, у папки справа ещё стрелка. Без них панель
+                -- считалась по худшему случаю и справа оставался пустой край.
+                size = whole(sizing.measure(tostring(line.text or ""), level, line.kind))
             end
             if size > widest then widest = size end
         end
@@ -942,18 +982,25 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
             painted.lines[#painted.lines + 1] = {
                 kind = line.kind, text = text, tail = tail, row = row, rows = span,
                 label = tostring(line.text or ""),
-                entry = line.item and line.item.entry, image = line.item and line.item.image,
+                entry = line.item and line.item.entry,
+                image = line.item and line.item.image or line.image,
                 separator_before = line.separator_before,
                 arrow = line.kind == "group",
-                -- Folder labels have the same weight as applications in Win95.
+                -- Folder labels have the same weight as applications in Win95;
+                -- the user name at the top is bold, like a caption.
+                bold = line.kind == "user" or nil,
                 selected = under_cursor or expanded,
                 dim = line.kind == "hint", banner_letter = letter,
             }
 
+            -- В пикселях рамка — три пикселя, не ячейка: попадание на всю
+            -- ширину списка, включая крайние ячейки (см. контекстное меню).
+            local hit_from = compact and left + banner_w or left + 1 + banner_w
+            local hit_to = compact and left + box_w - 1 or left + box_w - 2
             if line.kind == "item" then
                 out.hits[#out.hits + 1] = {
-                    row = row, bottom_row = span > 1 and row + span - 1 or nil, from = left + 1 + banner_w,
-                    to = left + box_w - 2, index = line.index,
+                    row = row, bottom_row = span > 1 and row + span - 1 or nil, from = hit_from,
+                    to = hit_to, index = line.index,
                     level = level, slot = slot, cursor = under_cursor or nil,
                 }
             elseif line.kind == "group" then
@@ -961,8 +1008,8 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
                 for step = 1, level - 1 do target[step] = names[step] end
                 target[level] = line.text
                 out.hits[#out.hits + 1] = {
-                    row = row, bottom_row = span > 1 and row + span - 1 or nil, from = left + 1 + banner_w,
-                    to = left + box_w - 2, open = target,
+                    row = row, bottom_row = span > 1 and row + span - 1 or nil, from = hit_from,
+                    to = hit_to, open = target,
                     level = level, slot = slot, cursor = under_cursor or nil,
                 }
                 if expanded then parent_row = row end
@@ -981,7 +1028,7 @@ end
 
 function chrome.menu(canvas, width: any, height: any, items, failure, open, cursor: any, anchor: any)
     local shown = chrome.menu_layout(width, height, items, failure, open, cursor,
-        type(anchor) == "table" and {anchor = anchor} or nil)
+        {anchor = type(anchor) == "table" and anchor or nil, user = chrome.session.user})
 
     if shown.notice then
         local body = {}

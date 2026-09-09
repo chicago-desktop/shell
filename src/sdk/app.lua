@@ -93,7 +93,13 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
         end
         loop.revision = loop.revision + 1
         if native then
-            desktop.publish_state(window_id, {sdk = 1, revision = loop.revision, ui = tree, interaction = interaction})
+            -- `definition.title` — заголовок окна, если он не тот, что у пункта
+            -- меню («Run…» в «Пуске», «Run» на окне). Строка или функция от
+            -- модели; пусто — заголовок записи, как раньше.
+            local title: any = definition.title
+            if type(title) == "function" then title = guarded("title", title, model, context) end
+            desktop.publish_state(window_id, {sdk = 1, revision = loop.revision, ui = tree, interaction = interaction,
+                title = type(title) == "string" and title ~= "" and title or nil})
         else
             surface:present(cells.rows(loop.plan, interaction, context.width, context.height),
                 {cursor = {x = 1, y = 1, visible = false}})

@@ -79,7 +79,7 @@ function definition.view(state: any, context: any): any
     local labels = {}
     for index, tab in ipairs(model.TABS) do labels[index] = tab.text end
     local page: any = state.tab == 2 and settings(state) or background(state)
-    return {kind = "column", padding = 1, gap = 0, children = {
+    return {kind = "column", padding = 1, padding_bottom = 0, gap = 0, children = {
         {kind = "tabs", id = "pages", labels = labels, active = state.tab, padding = 1, children = {page}},
         {kind = "row", size = 2, gap = 1, children = {
             {kind = "label", text = ""},

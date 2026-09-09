@@ -86,6 +86,15 @@ local function define_tests()
             }
             test.eq(associations.image_for(with_images, "readme.TXT"), "text_document")
             test.eq(associations.image_for(with_images, "a.png"), "document")
+            -- `file_image` — значок файлов, отдельный от значка программы:
+            -- Блокнот в меню — блокнот, его .txt в проводнике — документ.
+            local split = {
+                {entry = "app:notepad", title = "Блокнот", image = "notepad", file_image = "text_document", opens = {"txt"}},
+                {entry = "app:viewer", meta = {title = "Картинки", image = "document", file_image = "", opens = {"png"}}},
+            }
+            test.eq(associations.image_for(split, "a.txt"), "text_document")
+            test.eq(associations.image_for(split, "a.png"), "document", "пустой file_image — как отсутствующий")
+            test.eq(associations.table(split).txt.image, "text_document")
             test.is_nil(associations.image_for(with_images, "a.dat"))
             test.is_nil(associations.image_for(with_images, "a.pdf"))
         end)

@@ -31,30 +31,36 @@ screen_lib.PROMPT = "Type a user name and password to log on to Windows."
 screen_lib.ENTRY = "butschster.windows.logon:screen"
 screen_lib.RENDER = "butschster.windows.sdk:render"
 
--- Размер клиента, в ячейках: отступ, подсказка, два поля по две строки,
--- строка отказа, отступ — восемь строк. Рамка сверху и снизу — по инсетам
--- темы, поэтому высота окна считается, а не приколочена.
-local CLIENT_W, CLIENT_H = 66, 8
+-- Размер клиента, в ячейках — по эталону Windows 95: значок 32 px слева,
+-- подсказка и два поля посередине, «ОК» и «Отмена» столбиком справа, без
+-- пустой строки между ними. Ширина — сумма колонок: отступ, значок (4),
+-- зазор, середина (подпись 11 + зазор + поле 22), зазор, кнопки (10), отступ.
+-- Высота: отступ, подсказка, два поля по две строки, строка отказа; снизу
+-- отступа нет — под рамкой темы и так строка.
+-- Рамка сверху и снизу — по инсетам темы, поэтому высота окна считается,
+-- а не приколочена.
+local CLIENT_W, CLIENT_H = 52, 7
 
 -- Дерево компонентов. Чистые данные: без функций и растров, как требует SDK.
 function screen_lib.tree(model: any): any
-    return {kind = "row", padding = 1, gap = 1, children = {
-        {kind = "column", size = 7, children = {
-            {kind = "image", size = 3, image = "key", icon = "⚿"},
+    return {kind = "row", padding = 1, padding_bottom = 0, gap = 1, children = {
+        {kind = "column", size = 4, children = {
+            -- 32 px, как ключ с флагом в оригинале; 16 px терялся в колонке.
+            {kind = "image", size = 2, image = "key", icon = "⚿", size_px = 32},
         }},
         {kind = "column", children = {
             {kind = "label", size = 1, text = screen_lib.PROMPT},
             {kind = "row", size = 2, gap = 1, children = {
-                {kind = "label", size = 18, text = "User name:"},
+                {kind = "label", size = 11, text = "User name:"},
                 {kind = "input", id = "user", text = model.user, disabled = model.busy},
             }},
             {kind = "row", size = 2, gap = 1, children = {
-                {kind = "label", size = 18, text = "Password:"},
+                {kind = "label", size = 11, text = "Password:"},
                 {kind = "input", id = "password", text = model.password, password = true, disabled = model.busy},
             }},
             {kind = "label", size = 1, text = model.busy and "Checking…" or (model.error or ""), alert = model.error ~= nil},
         }},
-        {kind = "column", size = 12, gap = 1, children = {
+        {kind = "column", size = 10, gap = 0, children = {
             {kind = "button", id = "ok", size = 2, text = "OK", default = true, disabled = model.busy},
             {kind = "button", id = "cancel", size = 2, text = "Cancel", disabled = model.busy},
         }},

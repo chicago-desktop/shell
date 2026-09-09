@@ -25,8 +25,12 @@ entries:
       in_menu: true
       window_type: dialog
       resizable: false
-      width: 54
-      height: 13
+      # По эталону Windows 95: значок 32 px, две строки подсказки шагом
+      # шрифта, поле, три кнопки у правого края. Клиент 48×7 ячеек: подсказка
+      # шрифтом 13 px — 310 px, а ячейка бывает 8 px (терминал владельца),
+      # и в 41 ячейке подсказка едва помещается; в 35 обрезалась многоточием.
+      width: 50
+      height: 10
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.run:window
       comment: Ввод команды и запуск в отдельном окне Bash через композитор; диалог на SDK оболочки.

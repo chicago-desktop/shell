@@ -45,7 +45,7 @@ entries:
     meta:
       type: tui_desktop.window
       title: Add/Remove Programs
-      image: program_settings
+      image: appwizard
       icon: "▦"
       group: Settings
       order: 100
