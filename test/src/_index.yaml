@@ -641,6 +641,50 @@ entries:
       fixture: app:sdk_fixture
       catalog: butschster.windows.programs:catalog
 
+  - name: workshop_sdk_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: Окно на SDK, собранное мастерской — проверка описания, применение в реестр, запуск процесса.
+    source: file://workshop_sdk_test.lua
+    method: run
+    modules: [channel, process, registry, time, tty]
+    imports:
+      test: wippy.test:test
+      apps: butschster.tui_desktop.persist:apps
+
+  - name: list_reveal_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: Список SDK — reveal подводит к строке один раз на значение.
+    source: file://list_reveal_test.lua
+    method: run
+    imports:
+      test: wippy.test:test
+      ui: butschster.windows.sdk:ui
+
+  - name: logon_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: Экран входа — маска пароля, порядок Enter, отказ и повтор, отмена, кадр в ячейках и пикселях.
+    source: file://logon_test.lua
+    method: run
+    modules: [channel, tty, fs, gfx]
+    imports:
+      test: wippy.test:test
+      screen: butschster.windows.logon:screen
+      chrome_pixels: butschster.windows.shell:chrome_pixels
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
+
   - name: sdk_composer
     kind: process.lua
     meta:

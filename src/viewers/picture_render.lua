@@ -58,7 +58,7 @@ local tick = 0
 
 -- source(state) -> растр исходника | nil, причина
 function picture_render.source(state: any): (any, any)
-    if type(state) ~= "table" then return nil, "состояния ещё нет" end
+    if type(state) ~= "table" then return nil, "no state yet" end
     if state.failure then return nil, tostring(state.failure) end
     local key = source_key(state)
     local kept = sources[key]
@@ -68,15 +68,15 @@ function picture_render.source(state: any): (any, any)
         return kept.raster, nil
     end
     if type(state.data) ~= "string" or state.data == "" then
-        return nil, "картинка ещё не доехала"
+        return nil, "the picture has not arrived yet"
     end
     local bytes, err = base64.decode(state.data)
     if err or type(bytes) ~= "string" then
-        return nil, "картинка не раскодирована: " .. tostring(err)
+        return nil, "picture not decoded: " .. tostring(err)
     end
     local raster, why = gfx.image(bytes :: string)
     if not raster then
-        return nil, "картинка не открылась: " .. tostring(why)
+        return nil, "picture not opened: " .. tostring(why)
     end
     local w, h = raster:size()
     remember(key, {raster = raster, w = w, h = h, at = tick})
@@ -138,15 +138,15 @@ end
 -- сдвигается версия, и поверхность его не переотправляет.
 function picture_render.frame(window_id: any, state: any, px_w: any, px_h: any): (any, any)
     local fw, fh = whole(px_w), whole(px_h)
-    if fw < 1 or fh < 1 then return nil, "окну не хватает места под картинку" end
+    if fw < 1 or fh < 1 then return nil, "the window has no room for the picture" end
 
     local source, why = picture_render.source(state)
     if not source then return nil, why end
     local kept: any = sources[source_key(state)]
-    if not kept then return nil, "исходник не удержался в кэше" end
+    if not kept then return nil, "the source did not stay in the cache" end
 
     local box = picture_render.geometry(state, kept.w, kept.h, fw, fh)
-    if not box then return nil, "картинка без размера" end
+    if not box then return nil, "picture with no size" end
 
     local signature = table.concat({source_key(state), tostring(box.scale),
         tostring(box.x), tostring(box.y), tostring(box.w), tostring(box.h)}, "|")
@@ -176,14 +176,14 @@ end
 -- inner, и композитор стирает под ним символы сам.
 function picture_render.placement(window: any, inner: any, cell: any): (any, any)
     if type(window) ~= "table" or type(inner) ~= "table" or type(cell) ~= "table" then
-        return nil, "placement ждёт окно, прямоугольник и размер ячейки"
+        return nil, "placement needs a window, a rectangle and a cell size"
     end
     local cols, rows = whole(inner.cols), whole(inner.rows)
     local cw, ch = whole(cell.w), whole(cell.h)
     if cols < 1 or rows < 1 or cw < 1 or ch < 1 then
-        return nil, "окну не хватает места под картинку"
+        return nil, "the window has no room for the picture"
     end
-    if window.waiting then return nil, "картинка ещё не доехала" end
+    if window.waiting then return nil, "the picture has not arrived yet" end
     local raster, why = picture_render.frame(window.id, window.content_state, cols * cw, rows * ch)
     if not raster then return nil, why end
     return {

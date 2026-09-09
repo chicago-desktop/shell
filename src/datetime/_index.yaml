@@ -10,10 +10,10 @@ entries:
     kind: process.lua
     meta:
       type: tui_desktop.window
-      title: Дата и время
+      title: Date/Time
       image: clock
       icon: "◷"
-      group: Программы
+      group: Programs
       order: 30
       window_type: dialog
       resizable: false

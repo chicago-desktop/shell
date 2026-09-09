@@ -53,7 +53,7 @@ local function snapshot(): any
         end
     end
     out.processes = model.processes(all)
-    if #failures > 0 then out.processes_error = "не прочитано: " .. table.concat(failures, "; ") end
+    if #failures > 0 then out.processes_error = "not read: " .. table.concat(failures, "; ") end
     local ok_node, node_id = pcall(function() return system.node.id() end)
     out.node_id = ok_node and tostring(node_id) or nil
     local ok_role, role = pcall(function() return system.node.role() end)
@@ -100,7 +100,7 @@ local function rows_of(state: any): (any, any)
     if state.tab == 1 then
         for index, window in ipairs(state.windows or {}) do
             local record: any = window
-            local status = record.minimized and "Свёрнуто" or (record.ready and "Работает" or "Запускается")
+            local status = record.minimized and "Minimized" or (record.ready and "Running" or "Starting")
             out[#out + 1] = {id = record.id, cells = {tostring(record.title or ""), status}}
             if record.id == state.selected_id then selected = index end
         end
@@ -130,11 +130,11 @@ local function page(state: any, context: any): any
         local rows, selected = rows_of(state)
         local failure = tab == 1 and state.windows_error or snap.processes_error
         local columns = tab == 1
-            and {{title = "Задача", weight = 3}, {title = "Состояние", width = 14}}
-            or {{title = "Запись", weight = 3}, {title = "PID", width = 14}, {title = "Состояние", width = 11}, {title = "Шагов", width = 8, align = "right"}}
+            and {{title = "Task", weight = 3}, {title = "Status", width = 14}}
+            or {{title = "Entry", weight = 3}, {title = "PID", width = 14}, {title = "Status", width = 11}, {title = "Steps", width = 8, align = "right"}}
         local children: any = {{kind = "table", id = tab == 1 and "apps" or "procs", columns = columns, rows = rows, selected = selected}}
         if failure then children[#children + 1] = {kind = "label", size = 1, text = tostring(failure), alert = true}
-        elseif #rows == 0 then children[#children + 1] = {kind = "label", size = 1, text = tab == 1 and "Нет открытых задач" or "Процессов нет"} end
+        elseif #rows == 0 then children[#children + 1] = {kind = "label", size = 1, text = tab == 1 and "No tasks running" or "No processes"} end
         return {kind = "column", gap = 0, children = children}
     elseif tab == 3 then
         local heap = tonumber(mem.heap_in_use) or 0
@@ -145,26 +145,26 @@ local function page(state: any, context: any): any
         local started = model.oldest_start(snap.processes)
         local uptime = started and model.uptime((tonumber(snap.taken) or 0) - started) or "—"
         if context.width < 40 or context.height < 14 then
-            return {kind = "label", text = "Увеличьте окно для просмотра графиков."}
+            return {kind = "label", text = "Enlarge the window to see the graphs."}
         end
         return {kind = "column", gap = 0, children = {
             {kind = "row", gap = 1, children = {
-                {kind = "group", size = 16, title = "Горутины", children = {{kind = "gauge", value = snap.goroutines, ceiling = go_top, caption = tostring(snap.goroutines or 0)}}},
-                {kind = "group", title = "История горутин", children = {{kind = "graph", values = state.goroutine_history, ceiling = go_top}}},
+                {kind = "group", size = 16, title = "Goroutines", children = {{kind = "gauge", value = snap.goroutines, ceiling = go_top, caption = tostring(snap.goroutines or 0)}}},
+                {kind = "group", title = "Goroutine history", children = {{kind = "graph", values = state.goroutine_history, ceiling = go_top}}},
             }},
             {kind = "row", gap = 1, children = {
-                {kind = "group", size = 16, title = "Память", children = {{kind = "gauge", value = heap, ceiling = heap_top, caption = model.megabytes(heap)}}},
-                {kind = "group", title = "История памяти", children = {{kind = "graph", values = heap_mb, ceiling = heap_top / (1024 * 1024), unit = " МБ"}}},
+                {kind = "group", size = 16, title = "Memory", children = {{kind = "gauge", value = heap, ceiling = heap_top, caption = model.megabytes(heap)}}},
+                {kind = "group", title = "Memory history", children = {{kind = "graph", values = heap_mb, ceiling = heap_top / (1024 * 1024), unit = " MB"}}},
             }},
             {kind = "row", size = 7, gap = 1, children = {
-                {kind = "group", title = "Память", children = {pairs_table({
-                    {"Занято", model.megabytes(mem.alloc)}, {"Куча в работе", model.megabytes(mem.heap_in_use)},
-                    {"Куча у системы", model.megabytes(mem.heap_sys)}, {"Отдано системе", model.megabytes(mem.heap_released)},
-                    {"Сборок мусора", tostring(whole(mem.num_gc))}})}},
-                {kind = "group", title = "Система", children = {pairs_table({
-                    {"Процессов", tostring(#(snap.processes or {}))}, {"Хостов", tostring(#(snap.hosts or {}))},
-                    {"Горутин", tostring(snap.goroutines or 0)}, {"Ядер / потоков", tostring(snap.cpu_count or 0) .. " / " .. tostring(snap.max_procs or 0)},
-                    {"Работает", uptime}})}},
+                {kind = "group", title = "Memory", children = {pairs_table({
+                    {"In use", model.megabytes(mem.alloc)}, {"Heap in use", model.megabytes(mem.heap_in_use)},
+                    {"Heap from system", model.megabytes(mem.heap_sys)}, {"Released to system", model.megabytes(mem.heap_released)},
+                    {"GC cycles", tostring(whole(mem.num_gc))}})}},
+                {kind = "group", title = "System", children = {pairs_table({
+                    {"Processes", tostring(#(snap.processes or {}))}, {"Hosts", tostring(#(snap.hosts or {}))},
+                    {"Goroutines", tostring(snap.goroutines or 0)}, {"Cores / threads", tostring(snap.cpu_count or 0) .. " / " .. tostring(snap.max_procs or 0)},
+                    {"Running", uptime}})}},
             }},
         }}
     end
@@ -175,14 +175,14 @@ local function page(state: any, context: any): any
             tostring(whole(record.processes)), tostring(whole(record.executed))}}
     end
     return {kind = "column", gap = 0, children = {
-        {kind = "group", size = 9, title = "Узел рантайма", children = {pairs_table({
-            {"Узел", snap.node_id or "недоступно"}, {"Роль", snap.node_role or "недоступно"},
-            {"Лидер", snap.leader or "—"}, {"Raft", snap.raft_role or "—"},
-            {"Участников", snap.members and tostring(#snap.members) or "—"},
-            {"Хост", tostring(snap.hostname or "")}, {"PID рантайма", tostring(snap.pid or "")}})}},
-        {kind = "group", title = "Хосты процессов", children = {
-            {kind = "table", id = "hosts", columns = {{title = "Хост", weight = 3}, {title = "Раб.", width = 6, align = "right"},
-                {title = "Проц.", width = 7, align = "right"}, {title = "Вып.", width = 9, align = "right"}}, rows = hosts},
+        {kind = "group", size = 9, title = "Runtime node", children = {pairs_table({
+            {"Node", snap.node_id or "unavailable"}, {"Role", snap.node_role or "unavailable"},
+            {"Leader", snap.leader or "—"}, {"Raft", snap.raft_role or "—"},
+            {"Members", snap.members and tostring(#snap.members) or "—"},
+            {"Host", tostring(snap.hostname or "")}, {"Runtime PID", tostring(snap.pid or "")}})}},
+        {kind = "group", title = "Process hosts", children = {
+            {kind = "table", id = "hosts", columns = {{title = "Host", weight = 3}, {title = "Wrk", width = 6, align = "right"},
+                {title = "Proc", width = 7, align = "right"}, {title = "Done", width = 9, align = "right"}}, rows = hosts},
         }},
     }}
 end
@@ -196,12 +196,12 @@ function definition.view(state: any, context: any): any
         {kind = "tabs", id = "pages", labels = labels, active = state.tab, padding = 1, children = {page(state, context)}},
         {kind = "row", size = 2, gap = 1, children = {
             {kind = "label", text = ""},
-            {kind = "button", id = "refresh", size = 12, text = "Обновить"},
+            {kind = "button", id = "refresh", size = 12, text = "Refresh"},
         }},
         {kind = "statusbar", size = 1, fields = {
-            {text = string.format("Процессов: %d", #(snap.processes or {})), width = 16},
-            {text = string.format("Горутин: %d", snap.goroutines or 0), width = 14},
-            {text = "Память: " .. model.megabytes(mem.alloc)},
+            {text = string.format("Processes: %d", #(snap.processes or {})), width = 16},
+            {text = string.format("Goroutines: %d", snap.goroutines or 0), width = 14},
+            {text = "Memory: " .. model.megabytes(mem.alloc)},
         }},
     }}
 end

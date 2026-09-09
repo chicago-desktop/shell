@@ -93,7 +93,7 @@ function rasters.store(): any
     -- Куда лечь. Координаты в ЯЧЕЙКАХ, единичные, как везде здесь.
     function self.place(id, col: any, row: any)
         local slot: any = used[id]
-        if not slot then return false, "растр не взят в этом кадре: " .. tostring(id) end
+        if not slot then return false, "raster not taken in this frame: " .. tostring(id) end
         slot.col = whole(col)
         slot.row = whole(row)
         order[#order + 1] = id

@@ -50,15 +50,15 @@ end
 -- parse(args) -> {drive, path, name, ext} | nil, причина
 function files.parse(args: any): (any, any)
     if type(args) ~= "string" or args == "" then
-        return nil, "окну не сказали, какой файл открыть"
+        return nil, "the window was not told which file to open"
     end
     local decoded: any = json.decode(args)
     if type(decoded) ~= "table" then
-        return nil, "аргумент окна не разобран: " .. args
+        return nil, "window argument not parsed: " .. args
     end
     local drive, path = decoded.drive, decoded.path
     if type(drive) ~= "string" or drive == "" or type(path) ~= "string" or path == "" then
-        return nil, "в аргументе окна нет диска или пути"
+        return nil, "the window argument has no drive or path"
     end
     if path:sub(1, 1) ~= "/" then path = "/" .. path end
     return {drive = drive, path = path, name = files.name_of(path), ext = files.ext(path)}, nil
@@ -71,26 +71,26 @@ end
 function files.read(drive: any, path: any, limit: any): (any, any)
     local handle, err = fs.get(tostring(drive))
     if err or not handle then
-        return nil, "диск " .. tostring(drive) .. " не открылся: " .. tostring(err or "нет такой записи")
+        return nil, "drive " .. tostring(drive) .. " not opened: " .. tostring(err or "no such entry")
     end
     local data, read_err = handle:readfile(tostring(path))
     if read_err or type(data) ~= "string" then
-        return nil, "файл " .. tostring(path) .. " не прочитан: " .. tostring(read_err)
+        return nil, "file " .. tostring(path) .. " not read: " .. tostring(read_err)
     end
     local cap = math.tointeger(tonumber(limit) or 0) or 0
     if cap > 0 and #data > cap then
-        return nil, string.format("файл %s слишком велик: %d байт при потолке %d",
+        return nil, string.format("file %s is too large: %d bytes against a limit of %d",
             tostring(path), #data, cap)
     end
     return data, nil
 end
 
--- human_size(bytes) -> "12 КБ"
+-- human_size(bytes) -> "12 KB"
 function files.human_size(bytes: any): string
     local n = tonumber(bytes) or 0
-    if n < 1024 then return string.format("%d байт", n) end
-    if n < 1024 * 1024 then return string.format("%d КБ", n // 1024) end
-    return string.format("%.1f МБ", n / (1024 * 1024))
+    if n < 1024 then return string.format("%d bytes", n) end
+    if n < 1024 * 1024 then return string.format("%d KB", n // 1024) end
+    return string.format("%.1f MB", n / (1024 * 1024))
 end
 
 return files

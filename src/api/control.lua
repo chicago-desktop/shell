@@ -47,10 +47,10 @@ local function await(budget)
     while true do
         local result = channel.select({inbox:case_receive(), expiry:case_receive()})
         if result.channel == expiry then
-            return nil, "оболочка не ответила за " .. budget
+            return nil, "the shell did not answer within " .. budget
         end
         if not result.ok then
-            return nil, "inbox вызова закрылся, пока ждали оболочку"
+            return nil, "the call inbox closed while waiting for the shell"
         end
         local message = result.value
         if message:topic() == REPLY_TOPIC then
@@ -73,8 +73,8 @@ end
 function control.call(topic, body)
     local pid, lerr = process.registry.lookup(control.SERVICE_NAME)
     if not pid then
-        return nil, "оболочка не запущена (" .. tostring(lerr)
-            .. "): запустите `wippy run --host butschster.windows:terminal windows`", false
+        return nil, "the shell is not running (" .. tostring(lerr)
+            .. "): run `wippy run --host butschster.windows:terminal windows`", false
     end
 
     body = type(body) == "table" and body or {}
@@ -82,13 +82,13 @@ function control.call(topic, body)
 
     local sent, serr = process.send(pid, topic, body)
     if not sent then
-        return nil, "не удалось передать команду оболочке: " .. tostring(serr), true
+        return nil, "could not deliver the command to the shell: " .. tostring(serr), true
     end
 
     local answer, aerr = await(BUDGET)
     if not answer then return nil, aerr, true end
     if answer.ok == false then
-        return nil, tostring(answer.error or "оболочка отказала без причины"), true
+        return nil, tostring(answer.error or "the shell refused without a reason"), true
     end
     return answer, nil, true
 end
@@ -101,7 +101,7 @@ end
 function control.refresh()
     local answer, err, running = control.call("desktop.refresh", {})
     if answer then return {refreshed = true} end
-    if not running then return {refreshed = false, reason = "оболочка не запущена"} end
+    if not running then return {refreshed = false, reason = "the shell is not running"} end
     return {refreshed = false, reason = tostring(err)}
 end
 

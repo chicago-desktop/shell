@@ -57,3 +57,11 @@ RGBA PNG, потому что `gfx.image` читает PNG/GIF/JPEG, а `.ico` �
 Пересобрать из источника: клонировать репозиторий, для каждого `w95_N.ico`
 открыть PIL-ом, выставить `im.size = (32, 32)` (и `(16, 16)`), `convert("RGBA")`,
 сохранить PNG с тем же именем в `32/` и `16/`.
+
+## Ключ входа в систему
+
+- Файл: key; Источник: `key_win-0.png` (32) и `key_win-1.png` (16) из
+  <https://win98icons.alexmeub.com/> — набор Windows 98, тот же артворк
+  Microsoft, что и выше; в `shell32.dll` Windows 95 (w95_1…w95_72) этого
+  значка нет; Что на нём: ключ с флагом Windows — значок диалога «Вход в
+  Windows» (`butschster.windows.logon`).

@@ -1,0 +1,47 @@
+version: "1.0"
+namespace: butschster.windows.logon
+
+# Вход в систему — «Welcome to Windows» до первого кадра стола.
+#
+# Оболочка отдаёт композитору основы функцию `options.logon`; та рисует диалог
+# на том же терминале и возвращает личность пользователя, под которой
+# композитор порождает каждое окно. Кто проверяет пароль, оболочка не знает:
+# приложение называет функцию окружением (BUTSCHSTER_WINDOWS_LOGON_FUNC), и
+# та отвечает токеном сессии, а хранилище токенов (BUTSCHSTER_WINDOWS_TOKEN_STORE)
+# превращает токен обратно в актора и скоуп. Без этих двух имён оболочка
+# поднимается без входа, как раньше: окна под её собственным актором.
+
+entries:
+  # butschster.windows.logon:screen
+  #
+  # Сам диалог: дерево компонентов SDK внутри окна-диалога темы, оба режима
+  # кадра. Своего отрисовщика нет — рамку рисует тема, поля и кнопки —
+  # общий отрисовщик SDK, тот же, что у «Выполнить…».
+  - name: screen
+    kind: library.lua
+    meta:
+      comment: Диалог входа на терминале композитора — SDK-дерево в окне-диалоге темы; возвращает личность или причину отказа.
+    source: file://screen.lua
+    modules:
+      - channel
+    imports:
+      chrome: butschster.windows.shell:chrome
+      chrome_pixels: butschster.windows.shell:chrome_pixels
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
+      input: butschster.tui_desktop.desktop:input
+
+  # butschster.windows.logon:provider
+  #
+  # Личность из логина и пароля. Библиотека получает СВОИ модули, но права —
+  # у процесса оболочки: funcs.call на функцию входа, token_store.get и
+  # token.validate на хранилище — см. security:shell_runtime.
+  - name: provider
+    kind: library.lua
+    meta:
+      comment: Логин и пароль → функция входа приложения → токен → актор и скоуп из хранилища токенов.
+    source: file://provider.lua
+    modules:
+      - env
+      - funcs
+      - security

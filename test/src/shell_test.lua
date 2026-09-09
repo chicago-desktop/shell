@@ -113,7 +113,7 @@ local function define_tests()
 
             local reported = control.refresh()
             test.is_false(reported.refreshed)
-            test.is_true(reported.reason:find("не запущена", 1, true) ~= nil,
+            test.is_true(reported.reason:find("is not running", 1, true) ~= nil,
                 "причина обязана отличать погашенную оболочку от отказа")
         end)
     end)

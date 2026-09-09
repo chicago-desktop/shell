@@ -215,7 +215,7 @@ local MENU_BANNER = "WIPPY 2026"
 -- же класс.
 chrome.MENU_BANNER = MENU_BANNER
 
-local START_LABEL = " " .. glyphs.icons.start .. " Пуск "
+local START_LABEL = " " .. glyphs.icons.start .. " Start "
 
 -- Стили общие с `widgets`, а не свои. Своя копия здесь БЫЛА и разошлась: в
 -- ней жил бирюзовый стол, которого не было у соседей, и пиксельная тема упала
@@ -326,7 +326,7 @@ function chrome.fill(canvas, width: any, height: any, state)
     if desk.failure then
         local box_w = math.min(48, w - 4)
         if box_w >= 12 then
-            local body = {fit(styles.alert, " раскладка не прочитана:", box_w - 2)}
+            local body = {fit(styles.alert, " layout not read:", box_w - 2)}
             local reason = wrap(tostring(desk.failure), box_w - 4, 3)
             for _, piece in ipairs(reason) do
                 body[#body + 1] = fit(styles.face, " " .. piece, box_w - 2)
@@ -820,12 +820,12 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
 
         local body = {}
         if failure then
-            body[#body + 1] = {text = " каталог не прочитан:", alert = true}
+            body[#body + 1] = {text = " catalog not read:", alert = true}
             for _, piece in ipairs(wrap(tostring(failure), list_w - 2, 3)) do
                 body[#body + 1] = {text = " " .. piece, alert = true}
             end
         else
-            body[#body + 1] = {text = " приложения не зарегистрированы", dim = true}
+            body[#body + 1] = {text = " no applications registered", dim = true}
         end
         if #body > room then for index = #body, room + 1, -1 do body[index] = nil end end
 
@@ -892,7 +892,7 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
             local hidden = #lines - keep - (footer and 1 or 0)
             for index = #lines, keep + 1, -1 do lines[index] = nil end
             if capacity > 1 or not footer then
-                lines[#lines + 1] = {kind = "hint", text = "…ещё " .. hidden}
+                lines[#lines + 1] = {kind = "hint", text = "…" .. hidden .. " more"}
             end
             if footer then lines[#lines + 1] = footer end
         end
@@ -1028,7 +1028,7 @@ end
 -- держит его FAREWELL_HOLD секунд и только потом гасит приложение — так
 -- выключение выглядит выключением, а не обрывом.
 chrome.FAREWELL_HOLD = 5
-chrome.FAREWELL_TEXT = "Теперь питание компьютера можно отключить."
+chrome.FAREWELL_TEXT = "It's now safe to turn off your computer."
 
 function chrome.farewell(canvas, width: any, height: any)
     canvas:clear(styles.farewell:render(" "))

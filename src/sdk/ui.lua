@@ -217,6 +217,14 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         local total = #entries(node)
         item.selected_index = selected_index(node, entries(node))
         item.offset = scroll.clamp(interaction.offsets[id], total, item.page)
+        -- `reveal` подводит к строке ОДИН раз на значение: чат показывает
+        -- новую реплику, а прокрутка человека между репликами остаётся его.
+        -- Постоянное «всегда вниз» сбивало бы колесо на каждом кадре.
+        local wanted: any = node.reveal
+        if wanted ~= nil and interaction.revealed[id] ~= wanted then
+            interaction.revealed[id] = wanted
+            item.offset = scroll.reveal(item.offset, whole(wanted), total, item.page)
+        end
         interaction.offsets[id] = item.offset
         item.bar = scroll.bar(item.offset, total, item.page, math.max(1, rect.h - item.header))
     end
@@ -226,11 +234,12 @@ local function add(node: any, rect: any, plan: any, interaction: any)
     if id and not passive[kind] and kind ~= "menu" and not node.disabled then plan.focusable[#plan.focusable + 1] = id end
 end
 function ui.interaction(): any
-    return {focus = nil, offsets = {}, capture = nil, editors = {}, armed = nil, menus = {}}
+    return {focus = nil, offsets = {}, capture = nil, editors = {}, armed = nil, menus = {}, revealed = {}}
 end
 function ui.plan(tree: any, width: any, height: any, interaction: any): any
     local plan: any = {items = {}, by_id = {}, focusable = {}, overlays = {}}
     if interaction.menus == nil then interaction.menus = {} end
+    if interaction.revealed == nil then interaction.revealed = {} end
     add(tree, geometry.rect(1, 1, width, height), plan, interaction)
     if not interaction.focus or not plan.by_id[interaction.focus] or plan.by_id[interaction.focus].node.disabled then
         interaction.focus = plan.focusable[1]
@@ -238,7 +247,7 @@ function ui.plan(tree: any, width: any, height: any, interaction: any): any
     -- Записи исчезнувших контролов освобождаются: иначе другой контрол с тем
     -- же `id` на следующем экране унаследует чужой сдвиг или каретку, а
     -- захват ползунка пережил бы сворачивание окна.
-    for _, field in ipairs({"offsets", "editors", "menus"}) do
+    for _, field in ipairs({"offsets", "editors", "menus", "revealed"}) do
         local map: any = interaction[field]
         if type(map) == "table" then
             local stale = {}
@@ -381,7 +390,9 @@ local function list_event(item: any, state: any, event: any): any
             state.capture = capture and {id = node.id, grab = capture.grab} or nil
         else
             local index = offset + row + 1
-            if index <= total then return {type = "select", id = node.id, index = index, value = rows[index]} end
+            -- `pointer` отличает щелчок от стрелок: повторный щелчок по уже
+            -- выбранному приложение вправе считать двойным.
+            if index <= total then return {type = "select", id = node.id, index = index, value = rows[index], pointer = true} end
         end
     end
     return nil

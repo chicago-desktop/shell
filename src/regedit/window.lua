@@ -23,7 +23,7 @@ end
 local function read_all(): (any, any)
     local found, err = registry.find({})
     if err then return nil, tostring(err) end
-    if type(found) ~= "table" then return nil, "реестр ответил не списком" end
+    if type(found) ~= "table" then return nil, "the registry answered with something other than a list" end
     return found, nil
 end
 
@@ -54,7 +54,7 @@ local definition: any = {}
 
 function definition.init(args: any, context: any): any
     local records, err = read_all()
-    return window.session(records or {}, not records and ("реестр не прочитан: " .. tostring(err)) or nil)
+    return window.session(records or {}, not records and ("registry not read: " .. tostring(err)) or nil)
 end
 
 function definition.view(state: any, context: any): any
@@ -69,17 +69,17 @@ function definition.view(state: any, context: any): any
         values[#values + 1] = {id = value.name, cells = {tostring(value.name), tostring(value.data)}}
     end
     local right: any = {kind = "column", gap = 0, children = {
-        {kind = "table", id = "values", columns = {{title = "Имя", weight = 2}, {title = "Данные", weight = 3}}, rows = values},
+        {kind = "table", id = "values", columns = {{title = "Name", weight = 2}, {title = "Data", weight = 3}}, rows = values},
     }}
     if state.failure then
         right.children[#right.children + 1] = {kind = "label", size = 1, text = tostring(state.failure), alert = true}
     end
     return {kind = "column", gap = 0, children = {
         {kind = "menu", id = "bar", size = 1, entries = {
-            {title = "Реестр", accel = 1, items = {{id = "refresh", text = "Обновить"}, {separator = true}, {id = "exit", text = "Выход"}}},
-            {title = "Правка", accel = 1, items = {{id = "copy_path", text = "Копировать путь", disabled = true}}},
-            {title = "Вид", accel = 1, items = {{id = "refresh", text = "Обновить"}}},
-            {title = "Справка", accel = 1, items = {{id = "about", text = "О программе"}}},
+            {title = "Registry", accel = 1, items = {{id = "refresh", text = "Refresh"}, {separator = true}, {id = "exit", text = "Exit"}}},
+            {title = "Edit", accel = 1, items = {{id = "copy_path", text = "Copy Path", disabled = true}}},
+            {title = "View", accel = 1, items = {{id = "refresh", text = "Refresh"}}},
+            {title = "Help", accel = 1, items = {{id = "about", text = "About"}}},
         }},
         {kind = "split", gap = 1, children = {
             {kind = "tree", id = "tree", weight = 2, rows = rows, selected = selected_index(state)},
@@ -101,7 +101,7 @@ function definition.update(state: any, action: any, context: any)
         end
     elseif action.id == "refresh" or (action.type == "key" and action.key_type == "f5") then
         local records, err = read_all()
-        local fresh = window.session(records or {}, not records and ("реестр не прочитан: " .. tostring(err)) or nil)
+        local fresh = window.session(records or {}, not records and ("registry not read: " .. tostring(err)) or nil)
         fresh.expanded = state.expanded
         fresh.selected = state.selected
         fresh.rows = model.flatten(fresh.root, fresh.expanded)

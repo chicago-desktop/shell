@@ -44,9 +44,9 @@ end
 function definition.view(state: any, context: any): any
     local rows: any = {
         {kind = "menu", id = "bar", size = 1, entries = {
-            {title = "Правка", accel = 1, items = {{id = "copy", text = "Копировать"}, {id = "paste", text = "Вставить", disabled = true}}},
-            {title = "Вид", accel = 1, items = {{id = "normal", text = "Обычный"}}},
-            {title = "Справка", accel = 1, items = {{id = "about", text = "О программе"}}},
+            {title = "Edit", accel = 1, items = {{id = "copy", text = "Copy"}, {id = "paste", text = "Paste", disabled = true}}},
+            {title = "View", accel = 1, items = {{id = "normal", text = "Standard"}}},
+            {title = "Help", accel = 1, items = {{id = "about", text = "About"}}},
         }},
         -- Табло: две строки ячеек, чтобы у числа был отступ сверху и снизу.
         {kind = "row", size = 2, children = {spacer(1), {kind = "field", text = engine.display(state.calc), align = "right"}, spacer(1)}},

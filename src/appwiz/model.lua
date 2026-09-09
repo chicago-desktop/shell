@@ -16,13 +16,13 @@ local model = {}
 local geometry = require("geometry")
 local whole = geometry.whole
 
--- Размер, как в Windows: «3,19 МБ», «412 КБ».
+-- Size, the way Windows writes it: "3.19 MB", "412 KB".
 function model.human_size(bytes: any): string
     local n = tonumber(bytes) or 0
     if n <= 0 then return "—" end
-    if n < 1024 then return string.format("%d байт", n) end
-    if n < 1024 * 1024 then return string.format("%d КБ", n // 1024) end
-    return (string.format("%.2f МБ", n / (1024 * 1024)):gsub("%.", ","))
+    if n < 1024 then return string.format("%d bytes", n) end
+    if n < 1024 * 1024 then return string.format("%d KB", n // 1024) end
+    return string.format("%.2f MB", n / (1024 * 1024))
 end
 
 -- Модуль называется `org/name`, строчными; ничего другого `wippy update`
@@ -107,9 +107,9 @@ end
 
 -- Кто установил — одной строкой для человека.
 function model.owner_text(line: any): string
-    if line.owner == "app" then return "объявлено приложением (" .. tostring(line.entry) .. ")" end
-    if line.owner == "module" then return "нужно модулю " .. tostring(line.declared_by) end
-    return "только в кэше — никем не объявлено"
+    if line.owner == "app" then return "declared by the application (" .. tostring(line.entry) .. ")" end
+    if line.owner == "module" then return "required by module " .. tostring(line.declared_by) end
+    return "cache only — declared by no one"
 end
 
 -- ─── Правка `_index.yaml` объявлений ─────────────────────────────────────
@@ -176,7 +176,7 @@ function model.remove_declaration(text: any, name: any): (any, any)
     local lines = lines_of(text)
     local first, last = find_item(lines, name)
     if not first then
-        return nil, "объявление " .. tostring(name) .. " не найдено в файле"
+        return nil, "declaration " .. tostring(name) .. " not found in the file"
     end
     local from: integer = math.tointeger(first) or 1
     while from > 1 and tostring(lines[from - 1]):match("^%s*#") do from = from - 1 end
@@ -205,7 +205,7 @@ function model.append_declaration(text: any, component: any, name: any, namespac
     return body .. table.concat({
         "",
         "  # " .. ns .. ":" .. tostring(name),
-        "  # Установлено из «Установка и удаление программ» " .. tostring(stamp or "") .. ".",
+        "  # Installed from Add/Remove Programs " .. tostring(stamp or "") .. ".",
         "  - version: '>=v0.0.0'",
         "    name: " .. tostring(name),
         "    kind: ns.dependency",

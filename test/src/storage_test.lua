@@ -62,7 +62,7 @@ local function define_tests()
         end)
 
         test.it("выносит содержимое удалённой папки на стол, а не удаляет следом", function()
-            local folder = repo.create({kind = repo.KIND_FOLDER, title = "Папка", x = 0, y = 0})
+            local folder = repo.create({kind = repo.KIND_FOLDER, title = "Folder", x = 0, y = 0})
             local inside = repo.create({
                 kind = repo.KIND_SHORTCUT,
                 entry = "butschster.windows.test:inside",

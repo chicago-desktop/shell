@@ -53,9 +53,9 @@ function sources.drives()
     local out = {}
     for _, kind in ipairs(sources.DRIVE_KINDS) do
         local found, err = registry.find({[".kind"] = kind})
-        if err then return nil, "реестр не прочитан: " .. tostring(err) end
+        if err then return nil, "registry not read: " .. tostring(err) end
         if type(found) ~= "table" then
-            return nil, "реестр не прочитан: ответ не список"
+            return nil, "registry not read: the answer is not a list"
         end
         for _, record in ipairs(found) do out[#out + 1] = record end
     end
@@ -72,7 +72,7 @@ end
 local function read_drive(id: any, sub: any)
     local handle, err = fs.get(tostring(id))
     if err or not handle then
-        return nil, "диск не открылся: " .. tostring(err or "нет такой записи")
+        return nil, "drive not opened: " .. tostring(err or "no such entry")
     end
 
     local path = "/"
@@ -80,7 +80,7 @@ local function read_drive(id: any, sub: any)
 
     local iterator, state = handle:readdir(path)
     if type(iterator) ~= "function" then
-        return nil, "каталог не прочитан: " .. tostring(state)
+        return nil, "catalog not read: " .. tostring(state)
     end
 
     local entries, cut = {}, false
@@ -111,24 +111,24 @@ function sources.list(path, context: any)
 
     if where.view == "root" then
         local records, err = sources.drives()
-        if err or not records then return nil, err or "диски не прочитаны" end
-        return {objects = model.root(records), title = "Мой компьютер"}, nil
+        if err or not records then return nil, err or "drives not read" end
+        return {objects = model.root(records), title = "My Computer"}, nil
     end
 
     if where.view == "programs" then
         local found, err = catalog.list()
-        if err or not found then return nil, err or "каталог не прочитан" end
+        if err or not found then return nil, err or "catalog not read" end
         -- Та же папка, что и меню «Пуск», только в другом виде: здесь человек
         -- ВЫБИРАЕТ программу, а не ищет её по ссылке. Программа, попросившая
         -- не показывать себя в меню, спрятана и тут — иначе признак не значит
         -- ничего, кроме «в одном из двух списков меня нет».
         return {objects = model.programs(catalog.listed(found.programs)),
-                title = "Программы"}, nil
+                title = "Programs"}, nil
     end
 
     if where.view == "desktop" then
         local items, err = repo.list()
-        if err then return nil, "раскладка не прочитана: " .. tostring(err) end
+        if err then return nil, "layout not read: " .. tostring(err) end
         -- Каталог нужен, чтобы отличить битый ярлык от исправного. Его отказ
         -- НЕ прячет стол: объекты отдаются, просто все без признака битости —
         -- обвинить исправную программу хуже, чем промолчать.
@@ -142,13 +142,13 @@ function sources.list(path, context: any)
         end
         return {
             objects = model.desktop(top, found and found.programs or nil),
-            title = "Рабочий стол",
+            title = "Desktop",
         }, nil
     end
 
     if where.view == "desktop_folder" then
         local items, err = repo.list()
-        if err then return nil, "раскладка не прочитана: " .. tostring(err) end
+        if err then return nil, "layout not read: " .. tostring(err) end
 
         local folder: any = nil
         local inside = {}
@@ -160,21 +160,21 @@ function sources.list(path, context: any)
 
         -- Папки нет — это отказ, а не пустая папка: молчание превратило бы
         -- опечатку в пути в успешно открытую пустоту.
-        if not folder then return nil, "папки нет: " .. tostring(where.id) end
+        if not folder then return nil, "no such folder: " .. tostring(where.id) end
         if folder.kind ~= "folder" then
-            return nil, "это не папка: " .. tostring(where.id)
+            return nil, "not a folder: " .. tostring(where.id)
         end
 
         local found = catalog.list()
         return {
             objects = model.desktop(inside, found and found.programs or nil),
-            title = tostring(folder.title or "Папка"),
+            title = tostring(folder.title or "Folder"),
         }, nil
     end
 
     if where.view == "drive" then
         local entries, err, cut = read_drive(where.id, where.sub)
-        if err or not entries then return nil, err or "диск не прочитан" end
+        if err or not entries then return nil, err or "drive not read" end
 
         local title = tostring(where.id)
         if where.sub then title = title .. "/" .. tostring(where.sub) end
@@ -187,11 +187,11 @@ function sources.list(path, context: any)
         return {
             objects = model.files(entries, path, where.id, where.sub, found and found.programs or nil),
             title = title,
-            notice = cut and ("показаны первые " .. tostring(sources.FILE_LIMIT)) or nil,
+            notice = cut and ("showing the first " .. tostring(sources.FILE_LIMIT)) or nil,
         }, nil
     end
 
-    return nil, "неизвестная папка: " .. tostring(path)
+    return nil, "unknown folder: " .. tostring(path)
 end
 
 return sources

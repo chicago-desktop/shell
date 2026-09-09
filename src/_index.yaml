@@ -19,7 +19,7 @@ entries:
     kind: ns.definition
     meta:
       title: Windows Shell
-      description: Оболочка терминального десктопа в стиле Windows 95 — бирюзовый рабочий стол, панель задач с «Пуском» и часами, меню программ из реестра и раскладка ярлыков, которую двигает пользователь.
+      description: A Windows 95 style shell for the terminal desktop — teal desktop, a taskbar with Start and a clock, a program menu built from the registry and a shortcut layout the user rearranges.
 
   # ─── Зависимости ─────────────────────────────────────────────────────
   - version: "*"
@@ -103,7 +103,7 @@ entries:
       comment: Оболочка Windows 95 — композитор основы со своей темой, своим каталогом и своей раскладкой стола.
       command:
         name: windows
-        short: Оболочка терминального десктопа в стиле Windows 95
+        short: A Windows 95 style shell for the terminal desktop
         security:
           actor: {id: butschster.windows:shell}
           policies: [butschster.windows.security:shell_runtime]
@@ -133,3 +133,5 @@ entries:
       seed: butschster.windows.programs:seed
       view: butschster.windows.programs:desktop_view
       repo: butschster.windows.persist:repo
+      logon_screen: butschster.windows.logon:screen
+      logon_provider: butschster.windows.logon:provider

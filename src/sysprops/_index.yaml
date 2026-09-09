@@ -39,10 +39,10 @@ entries:
     kind: process.lua
     meta:
       type: tui_desktop.window
-      title: "Свойства: Система"
+      title: "System Properties"
       image: system
       icon: "▥"
-      group: Настройка
+      group: Settings
       order: 130
       window_type: dialog
       resizable: false

@@ -90,12 +90,12 @@ local function define_tests()
             -- каждый по-своему, разъедутся молча, и щелчок попадёт на соседа
             -- в одном из двух режимов.
             local view = {
-                title = "Мой компьютер",
+                title = "My Computer",
                 selected = 2,
                 objects = {
                     {id = "a", kind = "drive", title = "app_fs"},
                     {id = "b", kind = "drive", title = "public_files"},
-                    {id = "c", kind = "folder", title = "Программы"},
+                    {id = "c", kind = "folder", title = "Programs"},
                 },
             }
 
@@ -120,7 +120,7 @@ local function define_tests()
 
         test.it("отдаёт бэкенду ячеек те же попадания, что и раскладка", function()
             local view = {
-                title = "Мой компьютер",
+                title = "My Computer",
                 objects = {{id = "a", kind = "drive", title = "app_fs"}},
             }
             local plan = render.layout(view, 46, 14)

@@ -29,8 +29,8 @@ end
 function engine.format(value: any): string
     local number = tonumber(value)
     if number == nil then return "0" end
-    if number ~= number then return "Ошибка" end
-    if number == math.huge or number == -math.huge then return "Переполнение" end
+    if number ~= number then return "Error" end
+    if number == math.huge or number == -math.huge then return "Overflow" end
     if number == math.floor(number) and math.abs(number) < 1e15 then
         return string.format("%d", math.tointeger(number) or 0)
     end
@@ -128,13 +128,13 @@ function engine.press(state: any, id: any): any
     end
 
     if id == "sqrt" then
-        if value < 0 then return fail(state, "Недопустимый ввод") end
+        if value < 0 then return fail(state, "Invalid input") end
         state.entry, state.fresh = engine.format(math.sqrt(value)), true
         return state
     end
 
     if id == "inv" then
-        if value == 0 then return fail(state, "Деление на ноль") end
+        if value == 0 then return fail(state, "Cannot divide by zero") end
         state.entry, state.fresh = engine.format(1 / value), true
         return state
     end
@@ -161,7 +161,7 @@ function engine.press(state: any, id: any): any
     if id == "eq" then
         if state.op and state.acc then
             local result = apply(state.acc, state.op, value)
-            if result == nil then return fail(state, "Деление на ноль") end
+            if result == nil then return fail(state, "Cannot divide by zero") end
             state.entry = engine.format(result)
         end
         state.acc, state.op, state.fresh = nil, nil, true
@@ -173,7 +173,7 @@ function engine.press(state: any, id: any): any
         -- новая. Две операции подряд без ввода — замена, а не пересчёт.
         if state.op and state.acc and not state.fresh then
             local result = apply(state.acc, state.op, value)
-            if result == nil then return fail(state, "Деление на ноль") end
+            if result == nil then return fail(state, "Cannot divide by zero") end
             state.acc = result
             state.entry = engine.format(result)
         elseif not (state.op and state.acc) then

@@ -9,7 +9,7 @@
 
 local model = {}
 
-model.ROOT_LABEL = "Реестр"
+model.ROOT_LABEL = "Registry"
 
 local geometry = require("geometry")
 local whole = geometry.whole
@@ -140,7 +140,7 @@ function model.stringify(value: any, encode: any): string
     local kind = type(value)
     if kind == "string" then return "\"" .. one_line(value, 160) .. "\"" end
     if kind == "number" or kind == "boolean" then return tostring(value) end
-    if kind == "nil" then return "(нет)" end
+    if kind == "nil" then return "(none)" end
     if kind == "table" then
         local ok, encoded = pcall(function()
             if type(encode) == "function" then return encode(value) end
@@ -149,7 +149,7 @@ function model.stringify(value: any, encode: any): string
         if ok and type(encoded) == "string" then return one_line(encoded, 160) end
         local count = 0
         for _ in pairs(value) do count = count + 1 end
-        return "{…} " .. count .. " полей"
+        return "{…} " .. count .. " fields"
     end
     return "(" .. kind .. ")"
 end
@@ -162,8 +162,8 @@ function model.values(node: any, encode: any): any
     if type(node) ~= "table" or node.kind ~= "entry" then
         local count = type(node) == "table" and #node.children or 0
         return {
-            {name = "(По умолчанию)", data = "(значение не присвоено)", icon = "text"},
-            {name = "(объектов)", data = tostring(count), icon = "number"},
+            {name = "(Default)", data = "(value not set)", icon = "text"},
+            {name = "(items)", data = tostring(count), icon = "number"},
         }
     end
     local record: any = node.record or {}

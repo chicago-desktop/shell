@@ -146,7 +146,7 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
             local field_h = 24
             local field_y = 1 + (box.h - field_h) // 2
             local text_y = field_y + (field_h - whole(face:height())) // 2
-            strip:text(6, text_y, "Адрес", {font = face, color = color.face_text})
+            strip:text(6, text_y, "Address", {font = face, color = color.face_text})
             local fhit: any = address.hits.field
             local fbox = pixels.box(fhit.from, 1, fhit.to - fhit.from + 1, 1, cell)
             pixels.field(strip, fbox.x, field_y, fbox.w, field_h)

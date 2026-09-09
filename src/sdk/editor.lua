@@ -32,6 +32,14 @@ function editor.event(text: any, state: any, event: any): (any, any)
     end
     return text, nil
 end
+-- Текст поля так, как его показывают: у пароля — звёздочки, по одной на
+-- руну, чтобы каретка и выделение считались по тем же позициям. Само
+-- значение остаётся в `node.text`, редактирование идёт по нему.
+function editor.shown(node: any): string
+    local value = tostring(node.text or "")
+    if node.password then return string.rep("*", #editor.runes(value)) end
+    return value
+end
 -- Cell-width conservative visible suffix around the caret. Renderers share it.
 function editor.visible(text: any, editing: any, columns: any): (any, any)
     local chars: {string} = editor.runes(text)

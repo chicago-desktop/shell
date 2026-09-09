@@ -32,8 +32,8 @@ local whole = geometry.whole
 local function caption(state: any): string
     if state.failure then return tostring(state.failure) end
     local how = state.mode == "zoom" and string.format("%d%%", whole((tonumber(state.zoom) or 1) * 100))
-        or "по размеру окна"
-    return string.format("%s · %s · %s · +/- масштаб, 1 — 100%%, 0 — по окну, стрелки — сдвиг",
+        or "fit to window"
+    return string.format("%s · %s · %s · +/- zoom, 1 — 100%%, 0 — fit, arrows — pan",
         tostring(state.name), files.human_size(state.size), how)
 end
 
@@ -71,7 +71,7 @@ local function main(desktop, window_id, args, viewport: any)
             if raster then
                 source_w, source_h = raster:size()
                 state.data = base64.encode(bytes :: string)
-            else state.failure = "картинка не открылась: " .. tostring(decode_error) end
+            else state.failure = "picture not opened: " .. tostring(decode_error) end
         end
     end
 

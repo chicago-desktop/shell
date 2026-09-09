@@ -2,7 +2,9 @@
 
 Read [README.md](README.md) for the module and local runtime setup.
 For any window application, start with the canonical [SDK](docs/sdk.md) and
-use [wippy-window-app](skills/wippy-window-app/SKILL.md). This applies to
+use [wippy-window-app](skills/wippy-window-app/SKILL.md). A window built live
+through MCP or the HTTP workshop follows
+[wippy-window-workshop](skills/wippy-window-workshop/SKILL.md). This applies to
 registration, client geometry, scrolling, resize, input, state and rendering.
 The [migration audit](docs/sdk-audit-2026-09-08.md) identifies specialized apps.
 The [SDK review](docs/sdk-review-2026-09-08.md) lists what still diverges

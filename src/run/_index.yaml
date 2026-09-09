@@ -16,7 +16,7 @@ entries:
     kind: process.lua
     meta:
       type: tui_desktop.window
-      title: Выполнить…
+      title: Run…
       image: run
       icon: "▸"
       order: 900

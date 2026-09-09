@@ -44,7 +44,7 @@ repo.KIND_FOLDER = "folder"
 -- потерянное соединение не даёт о себе знать, пока не кончится пул.
 local function with_db(work)
     local db, err = sql.get(DB_ID)
-    if err or not db then return nil, err or ("база недоступна: " .. DB_ID) end
+    if err or not db then return nil, err or ("database unavailable: " .. DB_ID) end
     local ok, result, work_err = pcall(work, db)
     db:release()
     if not ok then return nil, tostring(result) end
@@ -133,7 +133,7 @@ end
 function repo.create(item)
     return with_db(function(db)
         local id, uerr = uuid.v7()
-        if not id then return nil, "идентификатор: " .. tostring(uerr) end
+        if not id then return nil, "id: " .. tostring(uerr) end
         local stamp = now_stamp()
         local _, err = db:execute(
             "INSERT INTO " .. ITEMS ..

@@ -39,7 +39,7 @@ local NO_ORDER = 1e9
 -- хочет лежать на корне, говорит это явно — `group: ""`. Иначе каждое окно,
 -- собранное мастерской по HTTP (у него `meta.group` нет и взяться неоткуда),
 -- ложилось бы на корень, и корень рос с каждым таким окном.
-catalog.DEFAULT_GROUP = "Программы"
+catalog.DEFAULT_GROUP = "Programs"
 
 -- "Служебные/Сеть" -> {"Служебные", "Сеть"}. Пустые сегменты выбрасываются:
 -- "Служебные//Сеть" — это опечатка, а не безымянная папка посередине.
@@ -222,7 +222,7 @@ function catalog.menu_items(programs: any)
         item.w, item.h = program.width, program.height
         out[#out + 1] = item
     end
-    out[#out + 1] = {action = "quit", title = "Завершение работы", image = "shutdown",
+    out[#out + 1] = {action = "quit", title = "Shut Down…", image = "shutdown",
         icon = "■", order = 1e12, group = {}, separator_before = true}
     return out
 end
@@ -236,10 +236,10 @@ function catalog.assign_images(programs: any, declarations: any): (any, any)
         local data: any = record.data or {}
         for entry, name in pairs(data.images or {}) do
             if type(entry) ~= "string" or type(name) ~= "string" or name == "" then
-                return nil, "неверное объявление значка: " .. tostring(record.id)
+                return nil, "invalid icon declaration: " .. tostring(record.id)
             end
             if chosen[entry] and chosen[entry] ~= name then
-                return nil, "два значка для программы: " .. entry
+                return nil, "two icons for one program: " .. entry
             end
             chosen[entry] = name
         end
@@ -255,13 +255,13 @@ end
 catalog.CLOCK_TYPE = "windows.taskbar_clock"
 function catalog.taskbar_clock(): (any, any)
     local found, err = registry.find({[".kind"] = "registry.entry", ["meta.type"] = catalog.CLOCK_TYPE})
-    if err then return nil, "часы панели не прочитаны: " .. tostring(err) end
+    if err then return nil, "taskbar clock not read: " .. tostring(err) end
     if #found == 0 then return nil, nil end
-    if #found ~= 1 then return nil, "объявлено несколько часов панели" end
+    if #found ~= 1 then return nil, "more than one taskbar clock declared" end
     local record: any = found[1]
     local data: any = record.data or {}
     if type(data.entry) ~= "string" or data.entry == "" then
-        return nil, "не задано окно часов: " .. tostring(record.id)
+        return nil, "clock window not set: " .. tostring(record.id)
     end
     return data.entry, nil
 end
@@ -273,10 +273,10 @@ end
 -- «программ нет» там, где верно «не смогли посмотреть».
 function catalog.list()
     local found, err = registry.find({ ["meta.type"] = catalog.WINDOW_TYPE })
-    if err then return nil, "каталог не прочитан: " .. tostring(err) end
-    if type(found) ~= "table" then return nil, "каталог не прочитан: реестр ответил не списком" end
+    if err then return nil, "catalog not read: " .. tostring(err) end
+    if type(found) ~= "table" then return nil, "catalog not read: the registry answered with something other than a list" end
     local declarations, ierr = registry.find({[".kind"] = "registry.entry", ["meta.type"] = catalog.IMAGES_TYPE})
-    if ierr then return nil, "значки программ не прочитаны: " .. tostring(ierr) end
+    if ierr then return nil, "program icons not read: " .. tostring(ierr) end
     local built = catalog.build(found)
     local ok, why = catalog.assign_images(built.programs, declarations)
     if not ok then return nil, why end

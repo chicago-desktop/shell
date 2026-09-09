@@ -40,10 +40,10 @@ entries:
     kind: process.lua
     meta:
       type: tui_desktop.window
-      title: Диспетчер задач
+      title: Task Manager
       image: system
       icon: "▥"
-      group: Настройка
+      group: Settings
       order: 120
       window_type: app
       resizable: true

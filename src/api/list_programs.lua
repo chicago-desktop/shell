@@ -28,7 +28,7 @@ local function handler()
     local found, err = catalog.list()
     if err or not found then
         res:set_status(http.STATUS.INTERNAL_ERROR)
-        res:write_json({success = false, error = err or "каталог не прочитан"})
+        res:write_json({success = false, error = err or "catalog not read"})
         return
     end
 

@@ -79,7 +79,7 @@ local function main(service, window_id, args, viewport: any)
 
     local state: any = {
         path = model.ROOT,
-        title = "Мой компьютер",
+        title = "My Computer",
         objects = {},
         failure = nil,
         selected = 0,
@@ -136,7 +136,7 @@ local function main(service, window_id, args, viewport: any)
         -- Открытые окна — единственный источник, который не читается: его
         -- приносит ответ композитора, и до ответа сказать про него нечего.
         if state.path == "windows" then
-            state.title = "Открытые окна"
+            state.title = "Open Windows"
             if state.windows_error then
                 state.objects, state.failure = {}, state.windows_error
             elseif state.windows then
@@ -145,7 +145,7 @@ local function main(service, window_id, args, viewport: any)
                 -- Ещё не ответили — это не пустая папка и не отказ. Сказать
                 -- «объектов нет» здесь значит соврать на четверть секунды, и
                 -- человек успеет это прочитать.
-                state.objects, state.failure = {}, "спрашиваем оболочку…"
+                state.objects, state.failure = {}, "asking the shell…"
             end
             return
         end
@@ -157,13 +157,13 @@ local function main(service, window_id, args, viewport: any)
             -- Заголовок при отказе НЕ меняется на имя папки, которую не
             -- открыли: подпись «Программы» над причиной читалась бы как
             -- «программы кончились».
-            state.objects, state.failure = {}, err or "не прочитано"
-            state.title = "Мой компьютер"
+            state.objects, state.failure = {}, err or "not read"
+            state.title = "My Computer"
             return
         end
 
         state.objects, state.failure = shown.objects, nil
-        state.title = tostring(shown.title or "Мой компьютер")
+        state.title = tostring(shown.title or "My Computer")
         state.notice = shown.notice
     end
 
@@ -183,7 +183,7 @@ local function main(service, window_id, args, viewport: any)
             -- где он может разойтись с подпиской.
             if not answers then
                 state.windows_error = tostring(answers_error
-                    or "подписка на ответы композитора не открылась")
+                    or "subscription to compositor replies did not open")
             else
                 local ok, err = request("desktop.list", {})
                 if not ok then state.windows_error = tostring(err) end
@@ -199,7 +199,7 @@ local function main(service, window_id, args, viewport: any)
         -- незамеченного, и второе, что попробует человек, — щёлкнуть сильнее.
         -- Причина уже собрана моделью в `detail`.
         if type(object.open) ~= "table" then
-            state.notice = "открыть нечем: " .. tostring(object.detail or object.title)
+            state.notice = "nothing to open it with: " .. tostring(object.detail or object.title)
             return
         end
 
@@ -211,14 +211,14 @@ local function main(service, window_id, args, viewport: any)
                 entry = open.entry, title = open.title,
                 w = open.w, h = open.h, args = open.args,
             })
-            if not ok then state.notice = "не открылось: " .. tostring(err) end
+            if not ok then state.notice = "did not open: " .. tostring(err) end
         elseif open.action == "raise" then
             -- «raise» — намерение модели, а не имя топика: у композитора это
             -- `desktop.focus`, и зовётся оно по имени из библиотеки, а не
             -- строкой. Послать топик, которого у композитора нет, значит не
             -- получить ни окна, ни отказа.
             local ok, err = desktop.focus(open.id)
-            if not ok then state.notice = "не поднялось: " .. tostring(err) end
+            if not ok then state.notice = "did not start: " .. tostring(err) end
         end
     end
 
@@ -343,7 +343,7 @@ local function main(service, window_id, args, viewport: any)
                 history.forward[#history.forward + 1] = state.path
                 go(previous, "back")
             else
-                state.notice = "Назад: истории нет"
+                state.notice = "Back: no history"
             end
         elseif button.id == "forward" then
             local next_path = table.remove(history.forward :: {any})
@@ -351,15 +351,15 @@ local function main(service, window_id, args, viewport: any)
                 history.back[#history.back + 1] = state.path
                 go(next_path, "forward")
             else
-                state.notice = "Вперёд: истории нет"
+                state.notice = "Forward: no history"
             end
         elseif button.id == "up" then
             local up = model.parent(state.path)
-            if up then go(up) else state.notice = "Вверх: это корень" end
+            if up then go(up) else state.notice = "Up: this is the root" end
         elseif button.id == "refresh" then
             load()
         elseif button.id == "view_large" then
-            state.notice = "Крупные значки — единственный вид пока"
+            state.notice = "Large Icons is the only view so far"
         end
     end
 
@@ -488,7 +488,7 @@ local function main(service, window_id, args, viewport: any)
             local body: any = type(payload) == "table" and payload or {}
 
             if body.ok == false then
-                state.windows_error = tostring(body.error or "композитор отказал без причины")
+                state.windows_error = tostring(body.error or "the compositor refused without a reason")
                 state.windows = nil
             else
                 state.windows = type(body.windows) == "table" and body.windows or {}

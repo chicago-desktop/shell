@@ -34,10 +34,10 @@ local widgets = require("widgets")
 local render = {}
 
 render.MENU = {
-    {text = "Файл", accel = 1},
-    {text = "Правка", accel = 1},
-    {text = "Вид", accel = 1},
-    {text = "Справка", accel = 1},
+    {text = "File", accel = 1},
+    {text = "Edit", accel = 1},
+    {text = "View", accel = 1},
+    {text = "Help", accel = 1},
 }
 
 -- Панель окна папки Windows 95: назад, вперёд, вверх · вырезать, копировать,
@@ -48,23 +48,23 @@ render.MENU = {
 -- кнопка на щелчок отвечает в статусной строке, почему она недоступна.
 -- Подписей нет — панель одна строка, и с подписями она не влезает в окно.
 render.TOOLS = {
-    {id = "back", icon = "←", title = "Назад"},
-    {id = "forward", icon = "→", title = "Вперёд"},
-    {id = "up", icon = "↑", title = "Вверх"},
+    {id = "back", icon = "←", title = "Back"},
+    {id = "forward", icon = "→", title = "Forward"},
+    {id = "up", icon = "↑", title = "Up"},
     {sep = true},
-    {id = "cut", icon = "✂", title = "Вырезать", disabled = true},
-    {id = "copy", icon = "⧉", title = "Копировать", disabled = true},
-    {id = "paste", icon = "⎘", title = "Вставить", disabled = true},
+    {id = "cut", icon = "✂", title = "Cut", disabled = true},
+    {id = "copy", icon = "⧉", title = "Copy", disabled = true},
+    {id = "paste", icon = "⎘", title = "Paste", disabled = true},
     {sep = true},
-    {id = "undo", icon = "↶", title = "Отменить", disabled = true},
+    {id = "undo", icon = "↶", title = "Undo", disabled = true},
     {sep = true},
-    {id = "delete", icon = "✕", title = "Удалить", disabled = true},
-    {id = "properties", icon = "▤", title = "Свойства", disabled = true},
+    {id = "delete", icon = "✕", title = "Remove", disabled = true},
+    {id = "properties", icon = "▤", title = "Properties", disabled = true},
     {sep = true},
-    {id = "view_large", icon = "▦", title = "Крупные значки", pressed = true},
-    {id = "view_small", icon = "▩", title = "Мелкие значки", disabled = true},
-    {id = "view_list", icon = "≡", title = "Список", disabled = true},
-    {id = "view_details", icon = "☷", title = "Таблица", disabled = true},
+    {id = "view_large", icon = "▦", title = "Large Icons", pressed = true},
+    {id = "view_small", icon = "▩", title = "Small Icons", disabled = true},
+    {id = "view_list", icon = "≡", title = "List", disabled = true},
+    {id = "view_details", icon = "☷", title = "Details", disabled = true},
 }
 -- «Обновить» на панели Windows 95 нет — оно в меню «Вид» и на F5; здесь
 -- Ctrl+R. Кнопка не поместилась бы: панель — 64 ячейки, окно — 70.
@@ -219,7 +219,7 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
     -- Счётчик — содержимое окна, а не хрома: он пересчитывается на каждое
     -- открытие папки, и канал «окно сообщает теме свою строку» означал бы,
     -- что композитор знает про устройство чужого окна.
-    local count = state.failure and "—" or (tostring(#objects) .. " объектов")
+    local count = state.failure and "—" or (tostring(#objects) .. " object(s)")
 
     -- Правое поле рассказывает про то, на что смотрят. Порядок не
     -- произвольный: замечание важнее выделенного объекта, а выделенный объект

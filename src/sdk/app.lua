@@ -31,9 +31,9 @@ local app = {}
 -- кадре и выглядело живым.
 local function failure_tree(reason: any): any
     return {kind = "column", padding = 1, gap = 1, children = {
-        {kind = "label", size = 1, text = "Окно остановлено: ошибка в приложении"},
+        {kind = "label", size = 1, text = "Window stopped: application error"},
         {kind = "label", text = tostring(reason)},
-        {kind = "button", id = "sdk_close", size = 2, text = "Закрыть", default = true},
+        {kind = "button", id = "sdk_close", size = 2, text = "Close", default = true},
     }}
 end
 

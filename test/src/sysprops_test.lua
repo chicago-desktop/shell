@@ -30,16 +30,16 @@ local function define_tests()
             local labels = {}
             for _, row in ipairs(rows) do labels[#labels + 1] = tostring(row.label) end
             test.eq(labels[1], "stand")
-            test.eq(labels[2], "Хосты процессов (1)")
+            test.eq(labels[2], "Process hosts (1)")
             test.eq(labels[3], "app:processes")
-            test.eq(labels[4], "Файловые системы (1)")
-            test.eq(labels[6], "Базы данных (1)")
+            test.eq(labels[4], "File systems (1)")
+            test.eq(labels[6], "Databases (1)")
             test.eq(labels[8], "HTTP (2)")
-            test.eq(labels[11], "Терминалы (нет)")
-            test.eq(labels[12], "Модули Lua (2)")
+            test.eq(labels[11], "Terminals (none)")
+            test.eq(labels[12], "Lua modules (2)")
             test.eq(#rows, 14, "cron не попадает ни в одну группу и не теряет соседей")
             test.eq(rows[3].depth, 2)
-            test.is_true(rows[3].detail:find("рабочих 4", 1, true) ~= nil)
+            test.is_true(rows[3].detail:find("workers 4", 1, true) ~= nil)
             -- Свёрнутая группа прячет детей, но остаётся сама.
             state.expanded.http = nil
             local folded = model.flatten(state.tree, state.expanded)

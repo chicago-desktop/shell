@@ -372,7 +372,7 @@ end
 -- Возвращает попадания: `field` — само поле, `drop` — кнопка. Оба открывают
 -- список: в Windows щелчок по полю выделяет текст, но текст здесь не
 -- редактируется, и поле, которое ни на что не отвечает, хуже поля-кнопки.
-widgets.ADDRESS_LABEL = " Адрес "
+widgets.ADDRESS_LABEL = " Address "
 widgets.ADDRESS_DROP = " ▾ "
 
 -- address_hits(x, y, width) -> {field, drop} | {}

@@ -27,14 +27,14 @@ function definition.init(args: any, context: any): any
     local stored, err = repo.setting("desktop_color")
     local chosen = model.valid(stored) and stored or model.DEFAULT
     return {tab = 1, chosen = chosen, saved = chosen, info = screen_info(),
-        failure = err and ("настройки не прочитаны: " .. tostring(err)) or nil,
+        failure = err and ("settings not read: " .. tostring(err)) or nil,
         -- Запись и просьба к композитору вынесены в поле: тест подставляет
         -- свои и проверяет, что «Применить» их зовёт, без базы.
         persist = function(hex: any)
             local _, werr = repo.set_setting("desktop_color", hex)
             if werr then return nil, tostring(werr) end
             local _, rerr = desktop.request("desktop.refresh", {})
-            if rerr then return nil, "стол не обновлён: " .. tostring(rerr) end
+            if rerr then return nil, "desktop not refreshed: " .. tostring(rerr) end
             return true, nil
         end}
 end
@@ -43,13 +43,13 @@ local function background(state: any): any
     return {kind = "column", gap = 0, children = {
         {kind = "monitor", size = 8, color = state.chosen},
         {kind = "row", gap = 1, children = {
-            {kind = "group", title = "Цвет стола", children = {
+            {kind = "group", title = "Desktop color", children = {
                 {kind = "list", id = "colors", items = model.color_items(state.chosen), selected = state.chosen},
             }},
             {kind = "column", size = 22, children = {
                 {kind = "label", size = 1, text = ""},
-                {kind = "label", size = 1, text = "Выбрано: " .. tostring(state.chosen)},
-                {kind = "label", size = 1, text = state.chosen ~= state.saved and "Не применено" or "Применено"},
+                {kind = "label", size = 1, text = "Selected: " .. tostring(state.chosen)},
+                {kind = "label", size = 1, text = state.chosen ~= state.saved and "Not applied" or "Applied"},
                 {kind = "label", text = state.failure or "", alert = state.failure ~= nil},
             }},
         }},
@@ -61,15 +61,15 @@ local function settings(state: any): any
     return {kind = "column", gap = 0, children = {
         {kind = "monitor", size = 8, color = state.saved},
         {kind = "row", gap = 1, children = {
-            {kind = "group", title = "Цветовая палитра", children = {
+            {kind = "group", title = "Color palette", children = {
                 {kind = "field", size = 2, text = model.palette()},
                 {kind = "label", size = 1, text = model.graphics(info.pixels)},
-                {kind = "label", text = "Задаётся рантаймом."},
+                {kind = "label", text = "Set by the runtime."},
             }},
-            {kind = "group", title = "Разрешение экрана", children = {
+            {kind = "group", title = "Screen resolution", children = {
                 {kind = "field", size = 2, text = model.resolution(info.screen, info.cell)},
-                {kind = "label", size = 1, text = info.failure and ("композитор не ответил: " .. tostring(info.failure)) or model.cell_text(info.cell), alert = info.failure ~= nil},
-                {kind = "label", text = "Задаётся терминалом."},
+                {kind = "label", size = 1, text = info.failure and ("the compositor did not answer: " .. tostring(info.failure)) or model.cell_text(info.cell), alert = info.failure ~= nil},
+                {kind = "label", text = "Set by the terminal."},
             }},
         }},
     }}
@@ -83,9 +83,9 @@ function definition.view(state: any, context: any): any
         {kind = "tabs", id = "pages", labels = labels, active = state.tab, padding = 1, children = {page}},
         {kind = "row", size = 2, gap = 1, children = {
             {kind = "label", text = ""},
-            {kind = "button", id = "ok", size = 10, text = "ОК", default = true},
-            {kind = "button", id = "cancel", size = 10, text = "Отмена"},
-            {kind = "button", id = "apply", size = 12, text = "Применить", disabled = state.chosen == state.saved},
+            {kind = "button", id = "ok", size = 10, text = "OK", default = true},
+            {kind = "button", id = "cancel", size = 10, text = "Cancel"},
+            {kind = "button", id = "apply", size = 12, text = "Apply", disabled = state.chosen == state.saved},
         }},
     }}
 end

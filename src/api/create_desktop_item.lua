@@ -36,17 +36,17 @@ local function handler()
 
     local kind = type(body.kind) == "string" and body.kind or ""
     if kind ~= repo.KIND_SHORTCUT and kind ~= repo.KIND_FOLDER then
-        return bad(res, "kind: только " .. repo.KIND_SHORTCUT .. " или " .. repo.KIND_FOLDER)
+        return bad(res, "kind: only " .. repo.KIND_SHORTCUT .. " or " .. repo.KIND_FOLDER)
     end
 
     local entry = type(body.entry) == "string" and body.entry or ""
     if kind == repo.KIND_SHORTCUT and entry == "" then
-        return bad(res, "entry: ярлык обязан ссылаться на запись реестра")
+        return bad(res, "entry: a shortcut must reference a registry entry")
     end
     -- Папка с записью — это ярлык, который назвали папкой. Промолчать здесь
     -- значит завести объект, который ведёт себя не как то, чем назван.
     if kind == repo.KIND_FOLDER and entry ~= "" then
-        return bad(res, "entry: у папки стола нет записи реестра")
+        return bad(res, "entry: a desktop folder has no registry entry")
     end
 
     local title = type(body.title) == "string" and body.title or ""
@@ -57,10 +57,10 @@ local function handler()
     -- «места не назвали», и значок уехал бы не туда, куда просили.
     local has_x, has_y = body.x ~= nil, body.y ~= nil
     if has_x ~= has_y then
-        return bad(res, "x и y: называются вместе или не называются вовсе")
+        return bad(res, "x and y: given together or not at all")
     end
     if has_x and (tonumber(body.x) == nil or tonumber(body.y) == nil) then
-        return bad(res, "x и y: числа")
+        return bad(res, "x and y: numbers")
     end
 
     local parent_id = type(body.parent_id) == "string" and body.parent_id ~= "" and body.parent_id or nil
@@ -68,17 +68,17 @@ local function handler()
         local parent, perr = repo.get(parent_id)
         if perr then
             res:set_status(http.STATUS.INTERNAL_ERROR)
-            res:write_json({success = false, error = "чтение папки: " .. tostring(perr)})
+            res:write_json({success = false, error = "reading the folder: " .. tostring(perr)})
             return
         end
         if not parent then
-            return bad(res, "parent_id: такой папки нет")
+            return bad(res, "parent_id: no such folder")
         end
         -- Ярлык внутри ярлыка открыть нечем: у стола есть окно папки, а
         -- окна ярлыка не существует. Вложенная строка просто пропала бы с
         -- экрана, оставшись в таблице.
         if parent.kind ~= repo.KIND_FOLDER then
-            return bad(res, "parent_id: вложить можно только в папку стола")
+            return bad(res, "parent_id: only a desktop folder can hold items")
         end
     end
 
@@ -91,7 +91,7 @@ local function handler()
         -- задаёт явно и оно переживает обновление программы.
         if title == "" and program then title = program.title end
     end
-    if title == "" then title = entry ~= "" and entry or "Новая папка" end
+    if title == "" then title = entry ~= "" and entry or "New Folder" end
 
     local item, err = repo.create({
         kind = kind,
@@ -103,7 +103,7 @@ local function handler()
     })
     if err or not item then
         res:set_status(http.STATUS.INTERNAL_ERROR)
-        res:write_json({success = false, error = "создание: " .. tostring(err or "строка не записана")})
+        res:write_json({success = false, error = "creating: " .. tostring(err or "row not written")})
         return
     end
 

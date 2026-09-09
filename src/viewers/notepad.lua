@@ -92,10 +92,10 @@ local function draw(out, canvas, width: any, height: any, doc: any)
         end
     end
 
-    local position = doc.failure and "" or string.format("Стр %d из %d", math.min(doc.top + 1, math.max(1, #doc.lines)), #doc.lines)
-    local column = doc.left > 0 and string.format("Кол +%d", doc.left) or ""
+    local position = doc.failure and "" or string.format("Ln %d of %d", math.min(doc.top + 1, math.max(1, #doc.lines)), #doc.lines)
+    local column = doc.left > 0 and string.format("Col +%d", doc.left) or ""
     widgets.statusbar(canvas, 1, h, w, {
-        {text = doc.name .. " · " .. files.human_size(doc.size) .. " · только чтение"},
+        {text = doc.name .. " · " .. files.human_size(doc.size) .. " · read-only"},
         {text = position, width = 16},
         {text = column, width = 10},
     })

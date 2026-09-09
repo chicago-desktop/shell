@@ -149,8 +149,8 @@ local function define_tests()
             })
             test.eq(windows[1].open.action, "raise")
             test.eq(windows[1].open.id, "w1")
-            test.eq(windows[1].detail, "на экране")
-            test.eq(windows[2].detail, "свёрнуто")
+            test.eq(windows[1].detail, "on screen")
+            test.eq(windows[2].detail, "minimized")
         end)
 
         test.it("показывает битый ярлык битым и не даёт его открыть", function()
@@ -163,7 +163,7 @@ local function define_tests()
             test.eq(#objects, 1)
             test.eq(objects[1].icon, model.BROKEN_ICON)
             test.is_nil(objects[1].open, "у битого ярлыка нечего открывать")
-            test.is_true(objects[1].detail:find("нет программы", 1, true) ~= nil,
+            test.is_true(objects[1].detail:find("no program", 1, true) ~= nil,
                 "причина названа текстом, а не оставлена на догадку")
         end)
 
@@ -180,7 +180,7 @@ local function define_tests()
 
         test.it("открывает папку стола её собственным окном", function()
             local objects = model.desktop({
-                {id = "f1", kind = "folder", title = "Программы"},
+                {id = "f1", kind = "folder", title = "Programs"},
             }, {})
             test.eq(objects[1].kind, "folder")
             test.eq(objects[1].open.action, "folder")

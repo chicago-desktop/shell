@@ -105,12 +105,12 @@ end
 function associations.find(programs: any, name: any): (any, any)
     local ext = files.ext(name)
     if ext == "" then
-        return nil, "у файла " .. tostring(files.name_of(name)) .. " нет расширения"
+        return nil, "the file " .. tostring(files.name_of(name)) .. " has no extension"
     end
     local by_ext = associations.table(programs)
     local program = by_ext[ext]
     if not program then
-        return nil, "файлы ." .. ext .. " нечем открыть: ни одна программа их не объявила"
+        return nil, "nothing opens ." .. ext .. " files: no program declared them"
     end
     return program, nil
 end

@@ -530,7 +530,7 @@ local function native_icon(raster, x: any, y: any, item: any, size: any)
     local key = tostring(name) .. "@" .. tostring(size)
     if not reported[key] then
         reported[key] = true
-        log:warn("значок не загружен", {icon = key, error = tostring(why)})
+        log:warn("icon not loaded", {icon = key, error = tostring(why)})
     end
     return false
 end

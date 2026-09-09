@@ -11,7 +11,7 @@ local color = palette.exact
 local render = {}
 function render.placement(window: any, inner: any, cell: any, fonts: any, store: any): (any, any)
     local state: any = window.content_state
-    if type(state) ~= "table" or state.sdk ~= 1 then return nil, "SDK: ожидается состояние версии 1" end
+    if type(state) ~= "table" or state.sdk ~= 1 then return nil, "SDK: state version 1 expected" end
     local plan = ui.plan(state.ui, inner.cols, inner.rows, state.interaction)
     local id = "win:" .. tostring(window.id) .. ":sdk"
     local raster, dirty = store.take(id, inner.cols, inner.rows, cell, tostring(window.state_revision or state.revision))
@@ -81,7 +81,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             if node.kind == "calendar" then
                 -- Календарь: дни недели, сетка месяца, сегодня синим.
                 if font then
-                    local names = {"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
+                    local names = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
                     local column = whole(w // 7)
                     local head_h = 18
                     local row_h = whole(math.max(1, (h - head_h) // 6))
@@ -474,7 +474,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 pixels.field(raster, whole(x), whole(y), whole(w), whole(h))
                 if node.disabled then raster:rect(whole(x + 2), whole(y + 2), whole(w - 4), whole(h - 4), color.face) end
                 local editing = state.interaction.editors[node.id]
-                local shown, caret = editor.visible(node.text, editing, rect.w)
+                local shown, caret = editor.visible(editor.shown(node), editing, rect.w)
                 if focused and editing and editing.selected then
                     raster:rect(whole(x + 3), whole(y + 2), whole(math.max(1, w - 6)), whole(math.max(1, h - 4)), color.select_bg)
                 end

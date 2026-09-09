@@ -11,16 +11,16 @@ local whole = geometry.whole
 
 local model = {}
 
-model.TABS = {{text = "Общие"}, {text = "Устройства"}, {text = "Быстродействие"}}
+model.TABS = {{text = "General"}, {text = "Device Manager"}, {text = "Performance"}}
 
 -- Группы дерева в порядке показа: подпись, префикс вида записи реестра.
 model.GROUPS = {
-    {key = "hosts", label = "Хосты процессов"},
-    {key = "fs", label = "Файловые системы", prefix = "fs."},
-    {key = "db", label = "Базы данных", prefix = "db."},
+    {key = "hosts", label = "Process hosts"},
+    {key = "fs", label = "File systems", prefix = "fs."},
+    {key = "db", label = "Databases", prefix = "db."},
     {key = "http", label = "HTTP", prefix = "http."},
-    {key = "terminal", label = "Терминалы", prefix = "terminal."},
-    {key = "modules", label = "Модули Lua"},
+    {key = "terminal", label = "Terminals", prefix = "terminal."},
+    {key = "modules", label = "Lua modules"},
 }
 
 local function node(key: any, label: any, kind: any): any
@@ -34,14 +34,14 @@ end
 -- она не может, иначе «баз нет» было бы неотличимо от «не прочитано».
 function model.tree(snapshot: any, records: any): any
     local snap: any = type(snapshot) == "table" and snapshot or {}
-    local root = node("root", tostring(snap.hostname or "Стенд"), "computer")
+    local root = node("root", tostring(snap.hostname or "Computer"), "computer")
     for _, group in ipairs(model.GROUPS) do
         local branch = node(group.key, group.label, "folder")
         if group.key == "hosts" then
             for _, host in ipairs(type(snap.hosts) == "table" and snap.hosts or {}) do
                 local record: any = host
                 local leaf = node("host:" .. tostring(record.id), tostring(record.id), "device")
-                leaf.detail = string.format("рабочих %d · процессов %d · выполнено %d",
+                leaf.detail = string.format("workers %d · processes %d · executed %d",
                     whole(record.workers), whole(record.processes), whole(record.executed))
                 branch.children[#branch.children + 1] = leaf
             end
@@ -78,7 +78,7 @@ function model.flatten(root: any, expanded: any): any
         local is_open = open[current.key] == true
         local label = current.label
         if current.count ~= nil then
-            label = label .. (current.count > 0 and string.format(" (%d)", current.count) or " (нет)")
+            label = label .. (current.count > 0 and string.format(" (%d)", current.count) or " (none)")
         end
         rows[#rows + 1] = {
             id = current.key, label = label, kind = current.kind == "folder" and "folder" or "device",
@@ -119,8 +119,8 @@ end
 
 function model.megabytes(bytes: any): string
     local value = (tonumber(bytes) or 0) / (1024 * 1024)
-    if value >= 10 then return string.format("%.0f МБ", value) end
-    return string.format("%.1f МБ", value)
+    if value >= 10 then return string.format("%.0f MB", value) end
+    return string.format("%.1f MB", value)
 end
 
 return model

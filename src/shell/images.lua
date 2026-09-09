@@ -49,6 +49,7 @@ images.NAMES = {
     "control_panel", "fonts", "desktop", "windows", "shortcut_overlay",
     "network", "network_neighborhood", "documents_stack", "program_settings", "system",
     "regedit", "regedit_string", "regedit_binary",
+    "key",
 }
 
 local known = {}
@@ -101,7 +102,7 @@ local function open_store(): (any, any)
     if store_failure then return nil, store_failure end
     local opened, err = fs.get(images.STORE)
     if err or not opened then
-        store_failure = "каталог значков не открылся (" .. images.STORE .. "): " .. tostring(err)
+        store_failure = "icon folder not opened (" .. images.STORE .. "): " .. tostring(err)
         return nil, store_failure
     end
     store = opened
@@ -114,7 +115,7 @@ end
 -- читает, и этого достаточно. Кто нарисует в него — испортит значок всем.
 function images.get(name: any, size: any): (any, any)
     if type(name) ~= "string" or not known[name] then
-        return nil, "нет такого значка: " .. tostring(name)
+        return nil, "no such icon: " .. tostring(name)
     end
     local px = math.tointeger(tonumber(size) or 0) or 0
     local sized = false
@@ -122,13 +123,13 @@ function images.get(name: any, size: any): (any, any)
         if allowed == px then sized = true end
     end
     if not sized then
-        return nil, "значков размера " .. tostring(size) .. " в пакете нет"
+        return nil, "no icons of size " .. tostring(size) .. " in the package"
     end
 
     local key = name .. "@" .. tostring(px)
     local cached: any = cache[key]
     if cached ~= nil then
-        if cached == false then return nil, "значок " .. key .. " не прочитан (см. первый отказ)" end
+        if cached == false then return nil, "icon " .. key .. " not read (see the first failure)" end
         return cached, nil
     end
 
@@ -139,19 +140,19 @@ function images.get(name: any, size: any): (any, any)
     local data, read_err = opened:readfile(path)
     if read_err or not data then
         cache[key] = false
-        return nil, "значок " .. path .. " не прочитан: " .. tostring(read_err)
+        return nil, "icon " .. path .. " not read: " .. tostring(read_err)
     end
     -- `opened` типизирован как any, и readfile отдаёт any; линтер прав, что
     -- строку надо назвать строкой, а не догадываться.
     local raster, decode_err = gfx.image(data :: string)
     if not raster then
         cache[key] = false
-        return nil, "значок " .. path .. " не декодирован: " .. tostring(decode_err)
+        return nil, "icon " .. path .. " not decoded: " .. tostring(decode_err)
     end
     local w, h = raster:size()
     if w ~= px or h ~= px then
         cache[key] = false
-        return nil, string.format("значок %s размером %dx%d, ожидался %dx%d", path, w, h, px, px)
+        return nil, string.format("icon %s is %dx%d, expected %dx%d", path, w, h, px, px)
     end
     cache[key] = raster
     return raster, nil
@@ -164,7 +165,7 @@ end
 -- нарисовать примитивами, а не пустоту; причину стоит показать хотя бы раз.
 function images.icon(raster: any, x: any, y: any, item: any, size: any): (any, any)
     local name, overlay = images.name_for(item)
-    if not name then return nil, "у элемента нет значка в пакете" end
+    if not name then return nil, "the item has no icon in the package" end
     local px = math.tointeger(tonumber(size) or 32) or 32
     local picture, why = images.get(name, px)
     if not picture then return nil, why end

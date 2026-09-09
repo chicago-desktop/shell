@@ -35,6 +35,16 @@ entries:
         - process.registry
         - process.registry.register
         - process.registry.unregister
+        # Вход в систему (butschster.windows.logon): окна порождаются под
+        # актором вошедшего — подмена личности потомка требует отдельного
+        # права; функция входа приложения зовётся через funcs; токен сессии
+        # превращается в актора хранилищем токенов. Оболочке при этом НЕ
+        # выдаётся доступ к базе пользователей: пароль проверяет функция
+        # приложения под своим актором.
+        - process.security
+        - funcs.call
+        - security.token_store.get
+        - security.token.validate
         - exec.get
         - exec.run
         # Каталог программ читается из реестра по meta.type — своей копии

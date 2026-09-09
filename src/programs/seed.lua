@@ -31,7 +31,7 @@ local seed = {}
 -- ключ оболочки.
 local function place(wanted: any)
     local seeded, serr = repo.seeded()
-    if serr then return nil, "отметки предложенных: " .. tostring(serr) end
+    if serr then return nil, "offered marks: " .. tostring(serr) end
 
     -- Порядок обхода — тот, в котором пришёл список, поэтому два старта подряд
     -- заводят значки одинаково, а композитор кладёт их в одни и те же ячейки.
@@ -47,7 +47,7 @@ local function place(wanted: any)
             created[#created + 1] = item
 
             local _, merr = repo.mark_seeded(want.key)
-            if merr then return nil, "отметка " .. tostring(want.key) .. ": " .. tostring(merr) end
+            if merr then return nil, "mark " .. tostring(want.key) .. ": " .. tostring(merr) end
         end
     end
 

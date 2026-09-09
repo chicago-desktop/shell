@@ -35,7 +35,7 @@ local function snapshot(): any
     out.node_role = ok_role and tostring(role) or nil
     local hosts, herr = system.hosts.list()
     out.hosts = type(hosts) == "table" and hosts or {}
-    if herr then out.failure = "хосты не прочитаны: " .. tostring(herr) end
+    if herr then out.failure = "hosts not read: " .. tostring(herr) end
     local ok_modules, modules = pcall(function() return system.modules() end)
     out.modules = (ok_modules and type(modules) == "table") and modules or {}
     return out
@@ -67,7 +67,7 @@ end
 local function general(state: any): any
     local snap: any = state.snapshot or {}
     local mem: any = snap.memory or {}
-    local node_line = snap.node_id and ("узел " .. tostring(snap.node_id)) or "узел не назван"
+    local node_line = snap.node_id and ("node " .. tostring(snap.node_id)) or "node not named"
     if snap.node_role then node_line = node_line .. " · " .. tostring(snap.node_role) end
     return {kind = "row", gap = 1, children = {
         {kind = "column", size = 12, children = {
@@ -76,18 +76,18 @@ local function general(state: any): any
             {kind = "label", text = ""},
         }},
         {kind = "column", children = {
-            line("Система:"),
+            line("System:"),
             line("    Wippy Runtime"),
             line("    " .. node_line),
-            line(string.format("    модулей Lua: %d", #(snap.modules or {}))),
+            line(string.format("    Lua modules: %d", #(snap.modules or {}))),
             line(""),
-            line("Приложение:"),
+            line("Application:"),
             line("    " .. tostring(snap.hostname or "")),
             line("    PID " .. tostring(snap.pid or "") .. (snap.cwd and (" · " .. tostring(snap.cwd)) or "")),
             line(""),
-            line("Компьютер:"),
-            line(string.format("    %d процессоров, %d потоков", whole(snap.cpu_count), whole(snap.max_procs))),
-            line("    " .. model.megabytes(mem.sys) .. " памяти у рантайма"),
+            line("Computer:"),
+            line(string.format("    %d processors, %d threads", whole(snap.cpu_count), whole(snap.max_procs))),
+            line("    " .. model.megabytes(mem.sys) .. " of runtime memory"),
             {kind = "label", text = ""},
         }},
     }}
@@ -96,7 +96,7 @@ end
 local function devices(state: any): any
     local rows = model.flatten(state.tree, state.expanded)
     local chosen: any = model.row(rows, state.selected)
-    local detail = chosen and chosen.detail or (state.records_error and ("реестр не прочитан: " .. tostring(state.records_error)) or "")
+    local detail = chosen and chosen.detail or (state.records_error and ("registry not read: " .. tostring(state.records_error)) or "")
     return {kind = "column", gap = 0, children = {
         {kind = "tree", id = "devices", rows = rows, selected = state.selected},
         {kind = "label", size = 1, text = detail, alert = state.records_error ~= nil and chosen == nil},
@@ -118,16 +118,16 @@ local function performance(state: any): any
     local goroutines = whole(snap.goroutines)
     return {kind = "column", gap = 0, children = {
         {kind = "row", size = 6, gap = 1, children = {
-            {kind = "group", title = "Память", children = {
+            {kind = "group", title = "Memory", children = {
                 {kind = "gauge", value = heap, ceiling = heap_top, caption = model.megabytes(heap)}}},
-            {kind = "group", title = "Горутины", children = {
+            {kind = "group", title = "Goroutines", children = {
                 {kind = "gauge", value = goroutines, ceiling = charts.round_ceiling(goroutines), caption = tostring(goroutines)}}},
         }},
-        {kind = "group", title = "Ресурсы рантайма", children = {pairs_table({
-            {"Занято", model.megabytes(mem.alloc)}, {"Куча в работе", model.megabytes(heap)},
-            {"Куча у системы", model.megabytes(mem.heap_sys)}, {"Отдано системе", model.megabytes(mem.heap_released)},
-            {"Сборок мусора", tostring(whole(mem.num_gc))}, {"Горутин", tostring(goroutines)},
-            {"Хостов процессов", tostring(#(snap.hosts or {}))},
+        {kind = "group", title = "Runtime resources", children = {pairs_table({
+            {"In use", model.megabytes(mem.alloc)}, {"Heap in use", model.megabytes(heap)},
+            {"Heap from system", model.megabytes(mem.heap_sys)}, {"Released to system", model.megabytes(mem.heap_released)},
+            {"GC cycles", tostring(whole(mem.num_gc))}, {"Goroutines", tostring(goroutines)},
+            {"Process hosts", tostring(#(snap.hosts or {}))},
         })}},
     }}
 end
@@ -143,8 +143,8 @@ function definition.view(state: any, context: any): any
         {kind = "tabs", id = "pages", labels = labels, active = state.tab, padding = 1, children = {page}},
         {kind = "row", size = 2, gap = 1, children = {
             {kind = "label", text = ""},
-            {kind = "button", id = "ok", size = 10, text = "ОК", default = true},
-            {kind = "button", id = "cancel", size = 10, text = "Отмена"},
+            {kind = "button", id = "ok", size = 10, text = "OK", default = true},
+            {kind = "button", id = "cancel", size = 10, text = "Cancel"},
         }},
     }}
 end

@@ -78,7 +78,7 @@ local unit: any = {w = 10, h = 20}
 local function explorer_placement(window: any, inner: any, cell: any, fonts: any)
     local client = clients[window.id] or rasters.store()
     clients[window.id] = client
-    local state: any = window.content_state or {title = "Мой компьютер", objects = {}}
+    local state: any = window.content_state or {title = "My Computer", objects = {}}
     local plan = explorer_layout.layout(state, inner.cols, inner.rows,
         explorer_layout.pixel_metrics(cell.w, cell.h))
     local placed = explorer_pixels.paint(client, plan, cell, fonts, "client:" .. window.id)
@@ -227,6 +227,7 @@ function chrome_pixels.fill(canvas, width: any, height: any, state)
     local h = whole(height)
     local w = whole(width)
     if h < 1 or w < 1 then return {} end
+    if type(state) == "table" and state.bare then return {} end
 
     -- Лицо панели задач: под картинками всё равно будут пробелы, но строка,
     -- не закрашенная лицом, светится цветом терминала в промежутках между
@@ -362,10 +363,10 @@ local function paint_view(cell: any, window: any, fonts: any, out, inner: any)
     local state: any = type(window.content_state) == "table" and window.content_state or {}
     local placed: any, why: any = nil, nil
     if not lib then
-        why = "нет отрисовки для " .. tostring(window.render)
+        why = "no renderer for " .. tostring(window.render)
     elseif window.waiting then
         why = type(state.caption) == "string" and state.caption ~= "" and state.caption
-            or "ожидание данных…"
+            or "waiting for data…"
     else
         placed, why = lib.placement(window, inner, cell, fonts, store)
     end
@@ -381,7 +382,7 @@ local function paint_view(cell: any, window: any, fonts: any, out, inner: any)
 
     local face: any = type(fonts) == "table" and fonts.face or nil
     local id = "win:" .. tostring(window.id) .. ":notice"
-    local text = tostring(why or "вид ничего не вернул")
+    local text = tostring(why or "the view returned nothing")
     local raster, dirty = store.take(id, inner.cols, inner.rows, cell,
         text .. "\31" .. tostring(inner.cols) .. "x" .. tostring(inner.rows))
     if dirty then
@@ -510,7 +511,7 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     local width, height = w * whole(cell.w), rows * whole(cell.h)
     local button_h = height - 6
     local button_y = 1 + (height - button_h) // 2
-    local start_span = math.max(6, (whole(bold and bold:measure("Пуск") or 28) + 44 + whole(cell.w) - 1) // whole(cell.w))
+    local start_span = math.max(6, (whole(bold and bold:measure("Start") or 28) + 44 + whole(cell.w) - 1) // whole(cell.w))
     if dirty then
         bar:fill(color.face)
         bar:rect(1, 1, width, 1, color.light)
@@ -521,7 +522,7 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
         local shift = (state.menu and not state.menu.anchor) and 1 or 0
         pixels.flag(bar, 9 + shift, button_y + (button_h - 16) // 2 + shift)
         if bold then bar:text(31 + shift, button_y + (button_h - 15) // 2 + shift,
-            "Пуск", {font = bold, color = color.face_text}) end
+            "Start", {font = bold, color = color.face_text}) end
     end
     hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
         from = 1, to = start_span, action = "menu"}
@@ -831,7 +832,9 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     end
 
     clients = live_clients
-    paint_bars(cell, view, fonts, out, hits)
+    -- Голый стол — без панели задач: так рисуется экран входа, где «Пуска»
+    -- ещё нет, потому что нет и пользователя.
+    if not view.bare then paint_bars(cell, view, fonts, out, hits) end
 
     -- Меню поверх всего: оно и на экране поверх всего, а порядок списка и есть
     -- порядок рисования.

@@ -91,7 +91,7 @@ local function define_tests()
         end)
         test.it("activates buttons on release inside and cancels an outside release", function()
             local state = ui.interaction()
-            local tree = {kind = "button", id = "apply", text = "Применить"}
+            local tree = {kind = "button", id = "apply", text = "Apply"}
             local plan = ui.plan(tree, 12, 2, state)
             test.is_nil(ui.event(plan, state, {type = "mouse", action = "press", button = "left", x = 1, y = 2}))
             test.is_true(state.armed.inside)
@@ -137,11 +137,11 @@ local function define_tests()
         test.it("table: one column layout for header, rows, hits and both renderers", function()
             local rows = {}
             for index = 1, 30 do
-                rows[index] = {id = "m" .. index, cells = {"org/module-" .. index, "0.1." .. index, tostring(index * 1000) .. " КБ", "приложение"}}
+                rows[index] = {id = "m" .. index, cells = {"org/module-" .. index, "0.1." .. index, tostring(index * 1000) .. " КБ", "application"}}
             end
             local node = {kind = "table", id = "modules", selected = 2, rows = rows, columns = {
-                {title = "Модуль", weight = 3}, {title = "Версия", width = 8},
-                {title = "Размер", width = 10, align = "right"}, {title = "Откуда", weight = 1},
+                {title = "Module", weight = 3}, {title = "Version", width = 8},
+                {title = "Size", width = 10, align = "right"}, {title = "Source", weight = 1},
             }}
             local interaction = ui.interaction()
             local plan = ui.plan(node, 60, 10, interaction)
@@ -171,7 +171,7 @@ local function define_tests()
             local lines = cells.rows(ui.plan(node, 60, 10, ui.interaction()), ui.interaction(), 60, 10)
             local function plain(text: any): string return (tostring(text):gsub("\27%[[%d;]*m", "")) end
             local header = plain(lines[1])
-            test.is_true(header:find("Модуль", 1, true) ~= nil and header:find("Размер", 1, true) ~= nil, header)
+            test.is_true(header:find("Module", 1, true) ~= nil and header:find("Size", 1, true) ~= nil, header)
             local first = plain(lines[2])
             local size_col = columns[3]
             -- Срез по СИМВОЛАМ, не по байтам: «КБ» — четыре байта на две ячейки.
@@ -195,14 +195,14 @@ local function define_tests()
             local function tree(active: any)
                 return {kind = "column", children = {
                     {kind = "menu", id = "bar", size = 1, entries = {
-                        {title = "Файл", accel = 1, items = {
+                        {title = "File", accel = 1, items = {
                             {id = "open", text = "Открыть", accel = 1},
                             {separator = true},
-                            {id = "quit", text = "Выход", accel = 2},
+                            {id = "quit", text = "Exit", accel = 2},
                         }},
-                        {title = "Правка", accel = 1, items = {{id = "copy", text = "Копировать"}}},
+                        {title = "Edit", accel = 1, items = {{id = "copy", text = "Copy"}}},
                     }},
-                    {kind = "tabs", id = "pages", labels = {"Общие", "Сеть", "Прочее"}, active = active, children = {
+                    {kind = "tabs", id = "pages", labels = {"General", "Сеть", "Прочее"}, active = active, children = {
                         {kind = "label", id = nil, text = "страница"},
                     }},
                     {kind = "statusbar", size = 1, fields = {{text = "Готово", width = 12}, {text = "1 объект"}}},
@@ -246,9 +246,9 @@ local function define_tests()
             test.eq(chosen.type, "activate")
             test.eq(chosen.id, "quit")
             test.is_nil(state.menus.bar, "после выбора свёрнуто")
-            -- Alt+П раскрывает «Правка»; щелчок мимо сворачивает и съедается.
+            -- Alt+E раскрывает «Edit»; щелчок мимо сворачивает и съедается.
             plan = ui.plan(tree(2), 40, 12, state)
-            ui.event(plan, state, {type = "key", action = "press", key_type = "runes", key = "п", alt = true})
+            ui.event(plan, state, {type = "key", action = "press", key_type = "runes", key = "e", alt = true})
             test.eq(state.menus.bar.index, 2)
             plan = ui.plan(tree(2), 40, 12, state)
             test.is_nil(ui.event(plan, state, {type = "mouse", action = "press", button = "left", x = 5, y = 8}))
@@ -266,7 +266,7 @@ local function define_tests()
             local function plain(text: any): string return (tostring(text):gsub("\27%[[%d;]*m", "")) end
             local last = plain(lines[12])
             test.is_true(last:find("Готово", 1, true) ~= nil and last:find("1 объект", 1, true) ~= nil, last)
-            test.is_true(plain(lines[1]):find("Файл", 1, true) ~= nil, "строка меню сверху")
+            test.is_true(plain(lines[1]):find("File", 1, true) ~= nil, "строка меню сверху")
             -- Пиксели: с раскрытым меню, снимок в test/shots.
             local font_files = assert(fs.get("app:system_fonts"))
             local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
@@ -350,8 +350,8 @@ local function define_tests()
             pixels.field(samples, 315, 102, 229, 105)
             samples:rect(317, 104, 225, 18, "#000080")
             samples:text(322, 105, "Документы", {font = font, color = "#ffffff"})
-            samples:text(322, 125, "Программы", {font = font, color = "#000000"})
-            samples:text(322, 145, "Мой компьютер", {font = font, color = "#000000"})
+            samples:text(322, 125, "Programs", {font = font, color = "#000000"})
+            samples:text(322, 145, "My Computer", {font = font, color = "#000000"})
             samples:text(16, 237, "Двойные грани · пунктир фокуса · текст без белой тени", {font = font, color = "#000000"})
             assert(assert(fs.get("app:shots")):writefile("sdk-button-states.png", assert(samples:encode("png"))))
             local bold = assert(gfx.font(assert(font_files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
@@ -416,7 +416,7 @@ local function define_tests()
                     assert(view:send({type = "mouse", action = "release", button = "left", x = cx, y = cy}))
                     local fallen = receive(frames, function(value)
                         return value.id == opened.window.id and value.state.ui.children[1].text ~= nil
-                            and tostring(value.state.ui.children[1].text):find("остановлено", 1, true) ~= nil end)
+                            and tostring(value.state.ui.children[1].text):find("stopped", 1, true) ~= nil end)
                     test.is_true(tostring(fallen.state.ui.children[2].text):find("нарочно", 1, true) ~= nil,
                         "запасное дерево называет причину")
                     local fallback = ui.plan(fallen.state.ui, fallen.width, fallen.height, fallen.state.interaction)

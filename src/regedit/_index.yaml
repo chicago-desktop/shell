@@ -19,10 +19,10 @@ entries:
     kind: process.lua
     meta:
       type: tui_desktop.window
-      title: Реестр
+      title: Registry Editor
       image: regedit
       icon: "▤"
-      group: Настройка
+      group: Settings
       order: 110
       window_type: app
       resizable: true

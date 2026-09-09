@@ -28,7 +28,7 @@ function definition.view(model: any, context: any): any
             {kind = "button", id = "show", size = 12, text = "Показать", default = true},
             {kind = "button", id = "stop", size = 12, text = "Остановить", disabled = true},
             {kind = "button", id = "crash", size = 11, text = "Уронить"},
-            {kind = "button", id = "close", size = 12, text = "Закрыть"},
+            {kind = "button", id = "close", size = 12, text = "Close"},
         }},
     }}
 end

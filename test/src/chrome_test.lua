@@ -147,9 +147,9 @@ local function define_tests()
                 for _ in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do count = count + 1 end
                 return count * 7
             end}
-            local lines = pixels.wrap(font, "Программы", 35, 2)
+            local lines = pixels.wrap(font, "Programs", 35, 2)
             test.eq(#lines, 2)
-            test.eq(table.concat(lines), "Программы")
+            test.eq(table.concat(lines), "Programs")
             local clipped = pixels.wrap(font, "оченьдлинноеимяфайловойсистемы", 49, 2)
             test.eq(#clipped, 2)
             test.eq(clipped[2]:sub(-3), "...")
@@ -221,7 +221,7 @@ local function define_tests()
 
         test.it("пиксельная рамка и значок за передним окном обрезаются и не перерисовываются без изменений", function()
             local state = {width = 80, height = 24, bottom = 23, clock = "12:00", items = {
-                {id = "icon", x = 2, y = 4, kind = "folder", title = "Папка"},
+                {id = "icon", x = 2, y = 4, kind = "folder", title = "Folder"},
             }, windows = {
                 {id = "back", x = 4, y = 3, w = 32, h = 14, title = "Сзади"},
                 {id = "front", x = 20, y = 4, w = 25, h = 12, title = "Спереди"},
@@ -253,7 +253,7 @@ local function define_tests()
                 local layout = chrome_pixels.layout(100, 30)
                 local state = {width = 100, height = 30, bottom = 30 - layout.bottom,
                     clock = "12:00", windows = {}, items = {},
-                    menu = {items = {{entry = "app:test", title = "Программа", group = {"Программы"}}}, cursor = 1}}
+                    menu = {items = {{entry = "app:test", title = "Программа", group = {"Programs"}}}, cursor = 1}}
                 local painted = chrome_pixels.paint(state, cell[1], cell[2])
                 local bar, menu = nil, nil
                 for _, image in ipairs(painted.placements) do
@@ -273,7 +273,7 @@ local function define_tests()
                 local choice = painted.hits.menu[1]
                 test.eq(choice.row, menu.y)
                 test.eq(choice.bottom_row, menu.y + menu.rows - 1)
-                state.menu.open = {"Программы"}
+                state.menu.open = {"Programs"}
                 local expanded = chrome_pixels.paint(state, cell[1], cell[2])
                 test.eq(#expanded.hits.menu, 2, "папка и программа — два логических попадания")
                 local child = expanded.hits.menu[2]
@@ -461,16 +461,16 @@ local function define_tests()
             -- Как в Windows: «Мой компьютер» сверху, под ним черта, потом
             -- папки. Папка стоит там, где её самая ранняя программа.
             local items = {
-                {entry = "app:calc", title = "Калькулятор", group = {"Программы"}, order = 20},
-                {entry = "app:reg", title = "Реестр", group = {"Настройка"}, order = 110},
-                {entry = "app:mycomp", title = "Мой компьютер", group = {}, order = 5, separator_after = true},
+                {entry = "app:calc", title = "Калькулятор", group = {"Programs"}, order = 20},
+                {entry = "app:reg", title = "Registry", group = {"Settings"}, order = 110},
+                {entry = "app:mycomp", title = "My Computer", group = {}, order = 5, separator_after = true},
                 {entry = "app:run", title = "Выполнить…", group = {}, order = 900},
             }
             local shown = chrome.menu_layout(90, 24, items, nil, {})
             local lines = shown.panels[1].lines
-            test.eq(lines[1].label, "Мой компьютер")
-            test.eq(lines[2].label, "Программы")
-            test.eq(lines[3].label, "Настройка")
+            test.eq(lines[1].label, "My Computer")
+            test.eq(lines[2].label, "Programs")
+            test.eq(lines[3].label, "Settings")
             test.eq(lines[4].label, "Выполнить…")
             test.is_true(lines[2].separator_before == true, "черта под «Моим компьютером» — у следующей строки")
             test.is_nil(lines[1].separator_before)
@@ -479,8 +479,8 @@ local function define_tests()
 
         test.it("контекстное меню значка — одна панель у якоря, без папок и банера, внутри экрана", function()
             local items = {
-                {label = "Открыть", bold = true, entry = "app:mycomp", title = "Мой компьютер"},
-                {label = "Свойства", entry = "app:sysprops", separator_before = true},
+                {label = "Открыть", bold = true, entry = "app:mycomp", title = "My Computer"},
+                {label = "Properties", entry = "app:sysprops", separator_before = true},
             }
             local shown = chrome.menu_layout(90, 24, items, nil, {}, 2, {anchor = {x = 10, y = 5}})
             test.eq(#shown.panels, 1)

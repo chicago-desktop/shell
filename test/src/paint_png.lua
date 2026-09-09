@@ -98,7 +98,7 @@ local function scene_window(raster, cell, font, bold)
     local w, h = raster:size()
     pixels.panel(raster, 1, 1, w, h)
     pixels.title(raster, 4, 4, w - 6, cell.h - 2,
-        {text = "Мой компьютер", font = font, bold = bold, focused = true}, cell)
+        {text = "My Computer", font = font, bold = bold, focused = true}, cell)
 
     -- Кнопки заголовка ставятся В ЯЧЕЙКАХ, по две на кнопку: поставленные по
     -- пикселям с шагом 18, они выглядели бы так же, а зоны попадания
@@ -124,7 +124,7 @@ local function scene_buttons(raster, cell, font, bold)
     -- подделку. Считается по самой широкой ИЗМЕРЕННОЙ подписи и округляется
     -- вверх до целых ячеек, не меньше семидесяти пяти пикселей — как в
     -- Windows 95.
-    local labels = {"ОК", "Отмена"}
+    local labels = {"OK", "Cancel"}
     local span = pixels.button_span(font, labels, cell, 75)
     for index, label in ipairs(labels) do
         pixels.button_at(raster, 2 + (index - 1) * (span + 1), 2, span, 1,
@@ -137,9 +137,9 @@ local function scene_titles(raster, cell, font, bold)
     local w = raster:size()
     pixels.panel(raster, 1, 1, w, cell.h * 2)
     pixels.title(raster, 2, 2, w - 2, cell.h - 2,
-        {text = "В фокусе", font = font, bold = bold, focused = true}, cell)
+        {text = "Focused", font = font, bold = bold, focused = true}, cell)
     pixels.title(raster, 2, cell.h + 2, w - 2, cell.h - 2,
-        {text = "Не в фокусе", font = font, bold = bold}, cell)
+        {text = "Not focused", font = font, bold = bold}, cell)
 end
 
 local SCENES = {
@@ -208,7 +208,7 @@ local function check_frames(cell, font)
         return names
     end
 
-    local state: any = {title = "Мой компьютер", focused = true, clock = "21:47"}
+    local state: any = {title = "My Computer", focused = true, clock = "21:47"}
     local first = snapshot(paint(state))
     local second = snapshot(paint(state))
     local still = moved(first, second)
@@ -247,37 +247,37 @@ local function main(spec)
 
     local comparison = gfx.raster(615, 270)
     comparison:fill("#c0c0c0")
-    for index, variant in ipairs({{size = 13, smooth = false, name = "Было: 13 px, без сглаживания"},
-        {size = 13, smooth = true, name = "Стало: 13 px, сглаживание"}}) do
+    for index, variant in ipairs({{size = 13, smooth = false, name = "Before: 13 px, no smoothing"},
+        {size = 13, smooth = true, name = "After: 13 px, smoothing"}}) do
         local left = (index - 1) * 305 + 10
         local regular = assert(load_font(FACE, variant.size))
         local heavy = assert(load_font(BOLD, variant.size))
         comparison:text(left, 8, variant.name, {font = font, color = "#000000", smooth = true})
-        for line, label in ipairs({"Мой компьютер", "Калькулятор", "Дата и время", "Блокнот", "Выполнить…", "Завершение работы"}) do
+        for line, label in ipairs({"My Computer", "Calculator", "Date & Time", "Notepad", "Run…", "Shut Down…"}) do
             comparison:text(left, 24 + line * 26, label, {font = regular, color = "#000000", smooth = variant.smooth})
         end
         comparison:rect(left, 211, 284, 32, "#000080")
-        comparison:text(left + 8, 218, "Программы  ·  Контент-машина", {font = heavy, color = "#ffffff", smooth = variant.smooth})
+        comparison:text(left + 8, 218, "Programs  ·  Content machine", {font = heavy, color = "#ffffff", smooth = variant.smooth})
     end
     assert(store_shots:writefile("font-comparison.png", assert(comparison:encode("png"))))
 
     -- Fixed public labels reproduce the menu used to report unreadable text.
     local font_menu = catalog.build({
-        {id = "butschster.windows.explorer:window", meta = {title = "Мой компьютер", image = "my_computer", group = "", order = 10}},
-        {id = "butschster.windows.calc:window", meta = {title = "Калькулятор", image = "calculator", order = 20}},
-        {id = "butschster.windows.datetime:window", meta = {title = "Дата и время", image = "clock", order = 30}},
-        {id = "butschster.windows.viewers:notepad", meta = {title = "Блокнот", image = "text_document", order = 40}},
-        {id = "example:bridge", meta = {title = "Работы", group = "Программы/Bridge", order = 50}},
-        {id = "example:content", meta = {title = "Статьи", group = "Программы/Контент-машина", order = 60}},
+        {id = "butschster.windows.explorer:window", meta = {title = "My Computer", image = "my_computer", group = "", order = 10}},
+        {id = "butschster.windows.calc:window", meta = {title = "Calculator", image = "calculator", order = 20}},
+        {id = "butschster.windows.datetime:window", meta = {title = "Date & Time", image = "clock", order = 30}},
+        {id = "butschster.windows.viewers:notepad", meta = {title = "Notepad", image = "text_document", order = 40}},
+        {id = "example:bridge", meta = {title = "Jobs", group = "Программы/Bridge", order = 50}},
+        {id = "example:content", meta = {title = "Articles", group = "Programs/Content machine", order = 60}},
         {id = "butschster.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "program", order = 70}},
-        {id = "example:settings", meta = {title = "Свойства", group = "Настройка", order = 80}},
-        {id = "butschster.windows.run:window", meta = {title = "Выполнить…", image = "run", group = "", order = 900}},
+        {id = "example:settings", meta = {title = "Properties", group = "Settings", order = 80}},
+        {id = "butschster.windows.run:window", meta = {title = "Run…", image = "run", group = "", order = 900}},
     })
     chrome_pixels.use_fonts(font, bold)
     chrome_pixels.use_cell_size(cell.w, cell.h)
     local menu_scene = {width = 64, height = 18, top = 1, bottom = 16,
         items = {}, windows = {}, clock = "12:00",
-        menu = {items = catalog.menu_items(font_menu.programs), open = {"Программы"}, cursor = 6}}
+        menu = {items = catalog.menu_items(font_menu.programs), open = {"Programs"}, cursor = 6}}
     local menu_frame = chrome_pixels.paint(menu_scene, cell.w, cell.h)
     local menu_image = gfx.raster(menu_scene.width * cell.w, menu_scene.height * cell.h)
     menu_image:fill(color_desktop)
@@ -289,7 +289,7 @@ local function main(spec)
     -- Метрики шрифта печатаются рядом со снимком: подставка их не знает и
     -- считает приближением, а расхождение между уровнями иначе обнаружится
     -- тем, что надпись не влезла в кнопку на стенде.
-    local sample = "Мой компьютер"
+    local sample = "My Computer"
     local tw, th = font:measure(sample)
     say(string.format("шрифт %d px, высота строки %d, ascent %d; «%s» = %d×%d px",
         font:size(), font:height(), font:ascent(), sample, tw, th))
@@ -300,7 +300,7 @@ local function main(spec)
     -- они, щелчок попадал бы на соседа в одном из двух режимов.
     local function explorer_shots(store)
         local view: any = {
-            title = "Мой компьютер",
+            title = "My Computer",
             selected = 2,
             offset = 0,
             objects = {
@@ -310,12 +310,12 @@ local function main(spec)
                  detail = "wippy.facade:public_files · fs.directory"},
                 {id = "keeper:ui_static_fs", kind = "drive", title = "keeper ui_static_fs",
                  detail = "keeper:ui_static_fs · fs.embed"},
-                {id = "programs", kind = "folder", title = "Программы",
-                 detail = "12 объектов"},
-                {id = "desktop", kind = "folder", title = "Рабочий стол",
-                 detail = "3 объекта"},
-                {id = "windows", kind = "folder", title = "Открытые окна",
-                 detail = "2 объекта"},
+                {id = "programs", kind = "folder", title = "Programs",
+                 detail = "12 object(s)"},
+                {id = "desktop", kind = "folder", title = "Desktop",
+                 detail = "3 object(s)"},
+                {id = "windows", kind = "folder", title = "Open Windows",
+                 detail = "2 object(s)"},
             },
         }
 
@@ -375,33 +375,33 @@ local function main(spec)
         local state: any = {
             width = cols, height = rows, top = 1, bottom = rows - layout.bottom,
             windows = {
-                {id = "w1", title = "Командная строка", x = 20, y = 4, w = 52, h = 14,
+                {id = "w1", title = "Command Prompt", x = 20, y = 4, w = 52, h = 14,
                  window_type = "app"},
-                {id = "w2", title = "Свойства системы", x = 44, y = 12, w = 44, h = 10,
+                {id = "w2", title = "System Properties", x = 44, y = 12, w = 44, h = 10,
                  window_type = "dialog"},
             },
             focused_id = "w2",
             items = {
                 {id = "s1", kind = "shortcut", entry = "butschster.windows.explorer:window",
-                 title = "Мой компьютер", x = 2, y = 1},
-                {id = "f1", kind = "folder", title = "Программы", x = 2, y = 5},
-                {id = "s2", kind = "shortcut", entry = "app:bin", image = "recycle_bin", title = "Корзина", x = 2, y = 9},
-                {id = "s3", kind = "shortcut", entry = "app:gone", title = "Старая программа",
+                 title = "My Computer", x = 2, y = 1},
+                {id = "f1", kind = "folder", title = "Programs", x = 2, y = 5},
+                {id = "s2", kind = "shortcut", entry = "app:bin", image = "recycle_bin", title = "Recycle Bin", x = 2, y = 9},
+                {id = "s3", kind = "shortcut", entry = "app:gone", title = "Old program",
                  x = 2, y = 13, broken = true},
             },
             selected = "f1",
             clock = "21:47",
-            status = "Свойства системы · 40x7 · окон: 2",
-            menu = {open = {"Программы"}, cursor = 2, items = {
-                {entry = "app:calc", title = "Калькулятор", icon = "▣",
-                 group = {"Программы"}},
-                {entry = "app:notepad", title = "Блокнот", group = {"Программы"}},
-                {entry = "app:paint", title = "Графический редактор", group = {"Программы"}},
-                {entry = "app:ping", title = "Пинг", group = {"Программы", "Связь"}},
-                {entry = "app:bash", title = "Сеанс MS-DOS"},
-                {entry = "app:docs", image = "documents", title = "Документы"},
-                {entry = "app:settings", image = "settings", title = "Настройка"},
-                {entry = "app:shutdown", image = "shutdown", title = "Завершение работы"},
+            status = "System Properties · 40x7 · windows: 2",
+            menu = {open = {"Programs"}, cursor = 2, items = {
+                {entry = "app:calc", title = "Calculator", icon = "▣",
+                 group = {"Programs"}},
+                {entry = "app:notepad", title = "Notepad", group = {"Programs"}},
+                {entry = "app:paint", title = "Paint", group = {"Programs"}},
+                {entry = "app:ping", title = "Ping", group = {"Programs", "Communications"}},
+                {entry = "app:bash", title = "MS-DOS Prompt"},
+                {entry = "app:docs", image = "documents", title = "Documents"},
+                {entry = "app:settings", image = "settings", title = "Settings"},
+                {entry = "app:shutdown", image = "shutdown", title = "Shut Down…"},
             }},
         }
 
@@ -410,12 +410,12 @@ local function main(spec)
             -- «Открыть» жирным, «Свойства» за чертой.
             state.selected = "s1"
             state.menu = {anchor = {x = 6, y = 2}, cursor = 2, open = {}, items = {
-                {label = "Открыть", bold = true, entry = "butschster.windows.explorer:window", title = "Мой компьютер"},
-                {label = "Свойства", entry = "butschster.windows.sysprops:window", separator_before = true},
+                {label = "Open", bold = true, entry = "butschster.windows.explorer:window", title = "My Computer"},
+                {label = "Properties", entry = "butschster.windows.sysprops:window", separator_before = true},
             }}
         elseif notice then
             state.menu = {items = {}}
-            if notice == "failure" then state.menu.failure = "реестр временно недоступен" end
+            if notice == "failure" then state.menu.failure = "the registry is temporarily unavailable" end
         end
         local painted = chrome_pixels.paint(state, cell.w, cell.h)
         local screen = gfx.raster(cols * cell.w, rows * cell.h)
@@ -448,14 +448,14 @@ local function main(spec)
         chrome_pixels.use_fonts(font, bold)
         chrome_pixels.use_cell_size(cell.w, cell.h)
         local records = {
-            {id = "butschster.windows.explorer:window", meta = {title = "Мой компьютер", image = "my_computer", order = 10}},
-            {id = "app.desktop:window_calc", meta = {title = "Калькулятор", image = "calculator", group = "Стандартные"}},
-            {id = "butschster.tui_desktop.apps:commander", meta = {title = "Обозреватель стенда"}},
-            {id = "butschster.tui_desktop.apps:dataflows", meta = {title = "Прогоны"}},
-            {id = "butschster.tui_desktop.apps:bridge_runs", meta = {title = "Прогоны работы"}},
-            {id = "butschster.tui_desktop.apps:bridge_jobs", meta = {title = "Работы бриджа"}},
-            {id = "butschster.tui_desktop.apps:dataflow_detail", meta = {title = "Узлы прогона"}},
-            {id = "butschster.tui_desktop.apps:clock", meta = {title = "Часы"}},
+            {id = "butschster.windows.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10}},
+            {id = "app.desktop:window_calc", meta = {title = "Calculator", image = "calculator", group = "Accessories"}},
+            {id = "butschster.tui_desktop.apps:commander", meta = {title = "Stand Explorer"}},
+            {id = "butschster.tui_desktop.apps:dataflows", meta = {title = "Runs"}},
+            {id = "butschster.tui_desktop.apps:bridge_runs", meta = {title = "Job runs"}},
+            {id = "butschster.tui_desktop.apps:bridge_jobs", meta = {title = "Bridge jobs"}},
+            {id = "butschster.tui_desktop.apps:dataflow_detail", meta = {title = "Run nodes"}},
+            {id = "butschster.tui_desktop.apps:clock", meta = {title = "Clock"}},
         }
         local built = catalog.build(records)
         assert(catalog.assign_images(built.programs, {{data = {images = {
@@ -467,12 +467,12 @@ local function main(spec)
             ["butschster.tui_desktop.apps:clock"] = "clock",
         }}}}))
         local items = desktop_view.join({
-            {id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window", title = "Мой компьютер", x = 2, y = 1},
-            {id = "programs", kind = "folder", title = "Программы", x = 2, y = 6},
+            {id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window", title = "My Computer", x = 2, y = 1},
+            {id = "programs", kind = "folder", title = "Programs", x = 2, y = 6},
         }, built)
         local state = {width = 100, height = 36, top = 1, bottom = 36 - chrome_pixels.layout(100, 36).bottom,
             items = items, windows = {}, clock = "12:00",
-            menu = {items = catalog.menu_items(built.programs), open = {"Стандартные"}, cursor = 1}}
+            menu = {items = catalog.menu_items(built.programs), open = {"Accessories"}, cursor = 1}}
         local painted = chrome_pixels.paint(state, cell.w, cell.h)
         local canvas = gfx.raster(state.width * cell.w, state.height * cell.h)
         canvas:fill(color_desktop)
@@ -494,16 +494,16 @@ local function main(spec)
             records[#records + 1] = {id = name, kind = "fs.directory"}
         end
         local objects = model.drives(records)
-        for index = #objects + 1, 65 do objects[index] = {id = "fs" .. index, kind = "drive", title = "Файловая система " .. index} end
+        for index = #objects + 1, 65 do objects[index] = {id = "fs" .. index, kind = "drive", title = "File system " .. index} end
         local state: any = {width = 110, height = 34, top = 1,
             bottom = 34 - chrome_pixels.layout(110, 34).bottom,
             items = {{id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window",
-                title = "Мой компьютер", x = 10, y = 2},
-                {id = "programs", kind = "folder", title = "Программы", x = 20, y = 10}},
+                title = "My Computer", x = 10, y = 2},
+                {id = "programs", kind = "folder", title = "Programs", x = 20, y = 10}},
             windows = {{id = "explorer", entry = "butschster.windows.explorer:window", image = "my_computer",
-                title = "Мой компьютер", window_type = "app", content = "pixels",
+                title = "My Computer", window_type = "app", content = "pixels",
                 render = "butschster.windows.explorer:render_pixels", x = 34, y = 8, w = 64, h = 20,
-                content_state = {title = "Мой компьютер", objects = objects, selected = 0, offset = 0}}},
+                content_state = {title = "My Computer", objects = objects, selected = 0, offset = 0}}},
             focused_id = "explorer", clock = "12:00"}
         local painted = chrome_pixels.paint(state, cell.w, cell.h)
         local canvas = gfx.raster(state.width * cell.w, state.height * cell.h)
@@ -520,23 +520,23 @@ local function main(spec)
         chrome_pixels.use_fonts(font, bold)
         chrome_pixels.use_cell_size(cell.w, cell.h)
         local found = catalog.build({
-            {id = "butschster.windows.explorer:window", meta = {title = "Мой компьютер", image = "my_computer", order = 10}},
-            {id = "butschster.windows.calc:window", meta = {title = "Калькулятор", image = "calculator", group = "Стандартные", order = 20}},
-            {id = "butschster.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "program", group = "Стандартные"}},
-            {id = "butschster.windows.run:window", meta = {title = "Выполнить…", image = "run", order = 900}},
+            {id = "butschster.windows.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10}},
+            {id = "butschster.windows.calc:window", meta = {title = "Calculator", image = "calculator", group = "Accessories", order = 20}},
+            {id = "butschster.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "program", group = "Accessories"}},
+            {id = "butschster.windows.run:window", meta = {title = "Run…", image = "run", order = 900}},
         })
         local items = found.programs
         local state: any = {width = 100, height = 32, top = 1,
             bottom = 32 - chrome_pixels.layout(100, 32).bottom,
             items = {{id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window",
-                title = "Мой компьютер", x = 8, y = 2}},
+                title = "My Computer", x = 8, y = 2}},
             windows = {{id = "run", entry = "butschster.windows.run:window", image = "run",
-                title = "Выполнить…", window_type = "dialog", content = "pixels", resizable = false,
+                title = "Run…", window_type = "dialog", content = "pixels", resizable = false,
                 render = "butschster.windows.sdk:render", x = 30, y = 7, w = 54, h = 12,
                 content_state = {sdk = 1, revision = 1, interaction = ui.interaction(),
                     ui = run_window.definition.view({text = "claude --resume", pending = false}, {width = 52, height = 10})}}},
             focused_id = "run", clock = "12:00",
-            menu = {items = catalog.menu_items(items), open = {"Стандартные"}, cursor = 1}}
+            menu = {items = catalog.menu_items(items), open = {"Accessories"}, cursor = 1}}
         local painted = chrome_pixels.paint(state, cell.w, cell.h)
         local canvas = gfx.raster(state.width * cell.w, state.height * cell.h)
         canvas:fill(color_desktop)
@@ -555,10 +555,10 @@ local function main(spec)
                 pid = "24680", hostname = "wippy-workstation", node_id = "local", node_role = "standalone",
                 memory = {alloc = 286 * MB, heap_in_use = 312 * MB, heap_sys = 384 * MB, heap_released = 46 * MB, num_gc = 128},
                 processes = {}, hosts = {{id = "app:processes", processes = 64}, {id = "wippy:processes", processes = 12}}, members = {{id = "local"}}},
-            windows = {{id = "w1", title = "Мой компьютер", ready = true, image = "my_computer"},
-                {id = "w2", title = "Блокнот — заметки.txt", ready = true, image = "text_document"},
+            windows = {{id = "w1", title = "My Computer", ready = true, image = "my_computer"},
+                {id = "w2", title = "Notepad — notes.txt", ready = true, image = "text_document"},
                 {id = "w3", title = "Bash", ready = true, image = "program"},
-                {id = "w4", title = "Диспетчер задач", ready = true, image = "system"}}}
+                {id = "w4", title = "Task Manager", ready = true, image = "system"}}}
         for index = 1, 150 do
             state.goroutine_history[index] = math.floor(360 + math.sin(index / 8) * 24 + math.sin(index / 3) * 14 + index / 3)
             state.heap_history[index] = (230 + (index % 45) * 1.8) * MB
@@ -574,7 +574,7 @@ local function main(spec)
             local client = {width = 76, height = 24}
             local scene = {width = 110, height = 36, top = 1, bottom = 34, items = {}, clock = "12:00",
                 focused_id = "taskman", windows = {{id = "taskman", entry = "butschster.windows.taskman:window",
-                    title = "Диспетчер задач", image = "system", window_type = "app", content = "pixels",
+                    title = "Task Manager", image = "system", window_type = "app", content = "pixels",
                     render = "butschster.windows.sdk:render", state_revision = tab, x = 17, y = 4, w = 78, h = 27,
                     content_state = {sdk = 1, revision = tab, interaction = ui.interaction(),
                         ui = taskman_window.definition.view(state, client)}}}}
@@ -756,13 +756,13 @@ local function main(spec)
     do
         -- Просмотрщик реестра: дерево с раскрытыми ветками и запись с полями.
         local sample = {
-            {id = "app:db", kind = "db.sql.sqlite", meta = {comment = "База стенда"}, data = {file = ".wippy/app.db"}},
+            {id = "app:db", kind = "db.sql.sqlite", meta = {comment = "Stand database"}, data = {file = ".wippy/app.db"}},
             {id = "app:api", kind = "http.router", meta = {}, data = {prefix = "/api/v1"}},
-            {id = "app.desktop:window_calc", kind = "process.lua", meta = {type = "tui_desktop.window", title = "Калькулятор"}, data = {}},
-            {id = "butschster.windows.shell:chrome", kind = "library.lua", meta = {comment = "Тема в ячейках"}, data = {source = "file://chrome.lua", modules = {"tty"}}},
-            {id = "butschster.windows.shell:pixels", kind = "library.lua", meta = {comment = "Пиксельные примитивы"}, data = {source = "file://pixels.lua"}},
+            {id = "app.desktop:window_calc", kind = "process.lua", meta = {type = "tui_desktop.window", title = "Calculator"}, data = {}},
+            {id = "butschster.windows.shell:chrome", kind = "library.lua", meta = {comment = "Cell theme"}, data = {source = "file://chrome.lua", modules = {"tty"}}},
+            {id = "butschster.windows.shell:pixels", kind = "library.lua", meta = {comment = "Pixel primitives"}, data = {source = "file://pixels.lua"}},
             {id = "butschster.windows.shell:palette", kind = "library.lua", meta = {}, data = {}},
-            {id = "butschster.windows:shell", kind = "process.lua", meta = {title = "Оболочка Windows 95"}, data = {method = "main", modules = {"gfx", "tty"}}},
+            {id = "butschster.windows:shell", kind = "process.lua", meta = {title = "Windows 95 shell"}, data = {method = "main", modules = {"gfx", "tty"}}},
             {id = "butschster.windows:terminal", kind = "terminal.host", meta = {}, data = {hide_logs = true}},
             {id = "wippy.security:process", kind = "security.group", meta = {}, data = {}},
         }

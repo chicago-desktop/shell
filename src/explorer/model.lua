@@ -93,11 +93,11 @@ end
 -- бы то, чего не существует.
 function model.address(path: any): string
     local where: any = model.parse(path)
-    if where.view == "root" then return "Мой компьютер" end
-    if where.view == "programs" then return "Мой компьютер\\Программы" end
-    if where.view == "desktop" then return "Мой компьютер\\Рабочий стол" end
-    if where.view == "desktop_folder" then return "Мой компьютер\\Рабочий стол\\" .. tostring(where.id) end
-    if where.view == "windows" then return "Мой компьютер\\Открытые окна" end
+    if where.view == "root" then return "My Computer" end
+    if where.view == "programs" then return "My Computer\\Programs" end
+    if where.view == "desktop" then return "My Computer\\Desktop" end
+    if where.view == "desktop_folder" then return "My Computer\\Desktop\\" .. tostring(where.id) end
+    if where.view == "windows" then return "My Computer\\Open Windows" end
     if where.view == "drive" then
         local text = tostring(where.id)
         if where.sub then text = text .. "\\" .. tostring(where.sub):gsub("/", "\\") end
@@ -122,7 +122,7 @@ function model.ancestors(path: any): any
         if at == nil then break end
     end
     if #chain == 0 or chain[1].path ~= model.ROOT then
-        table.insert(chain, 1, {title = "Мой компьютер", path = model.ROOT})
+        table.insert(chain, 1, {title = "My Computer", path = model.ROOT})
     end
     return chain
 end
@@ -261,7 +261,7 @@ function model.files(entries: any, path: any, drive: any, sub: any, programs: an
                 kind = "directory",
                 title = row.name,
                 icon = model.DIR_ICON,
-                detail = "папка",
+                detail = "folder",
                 open = {action = "folder", path = base .. "/" .. row.name},
             })
         else
@@ -276,7 +276,7 @@ function model.files(entries: any, path: any, drive: any, sub: any, programs: an
                 title = row.name,
                 icon = model.FILE_ICON,
                 image = associations.image_for(programs, row.name),
-                detail = open and "файл" or tostring(why),
+                detail = open and "file" or tostring(why),
                 open = open,
             })
         end
@@ -328,7 +328,7 @@ function model.desktop(items: any, programs: any)
                 kind = "folder",
                 title = item.title,
                 icon = "▤",
-                detail = "папка стола",
+                detail = "desktop folder",
                 -- Папка стола открывается своим окном, а не этим: у неё своё
                 -- содержимое и своя раскладка.
                 open = {action = "folder", path = "desktop/" .. tostring(item.id)},
@@ -342,7 +342,7 @@ function model.desktop(items: any, programs: any)
                 icon = program and (program.icon or model.DEFAULT_ICON) or model.BROKEN_ICON,
                 image = program and program.image, entry = item.entry,
                 broken = programs ~= nil and program == nil or nil,
-                detail = program and item.entry or ("нет программы: " .. tostring(item.entry)),
+                detail = program and item.entry or ("no program: " .. tostring(item.entry)),
                 open = program and {
                     action = "open_window",
                     entry = item.entry,
@@ -368,7 +368,7 @@ function model.windows(windows: any)
             kind = "window",
             title = window.title or window.id,
             icon = "◫",
-            detail = window.minimized and "свёрнуто" or "на экране",
+            detail = window.minimized and "minimized" or "on screen",
             open = {action = "raise", id = window.id},
         })
     end

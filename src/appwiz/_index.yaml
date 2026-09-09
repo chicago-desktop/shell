@@ -44,10 +44,10 @@ entries:
     kind: process.lua
     meta:
       type: tui_desktop.window
-      title: Установка и удаление программ
+      title: Add/Remove Programs
       image: program_settings
       icon: "▦"
-      group: Настройка
+      group: Settings
       order: 100
       width: 76
       height: 22

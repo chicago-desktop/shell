@@ -79,7 +79,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             put(r.x, r.y, tostring(node.caption or node.value or ""), r.w, line)
         elseif node.kind == "calendar" then
             -- Заголовок дней недели, шесть строк чисел, сегодня — инверсией.
-            local names = {"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
+            local names = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
             local col = math.max(2, whole(r.w) // 7)
             local head = {}
             for _, name in ipairs(names) do head[#head + 1] = widgets.fit(styles.face_bold, name, col) end
@@ -261,7 +261,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 if focused then style = widgets.styles.select end
             elseif node.kind == "input" then
                 local editing = interaction.editors[node.id]
-                label = editor.visible(node.text, editing, r.w)
+                label = editor.visible(editor.shown(node), editing, r.w)
                 style = focused and editing and editing.selected and widgets.styles.select or widgets.styles.field
             end
             if node.disabled and node.kind ~= "button" then style = widgets.styles.face_dim end
@@ -274,7 +274,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             if node.kind == "input" and focused then
                 local editing = interaction.editors[node.id]
                 if not (editing and editing.selected) then
-                    local shown, caret = editor.visible(node.text, editing, r.w)
+                    local shown, caret = editor.visible(editor.shown(node), editing, r.w)
                     local chars = editor.runes(shown)
                     put(r.x + math.min(r.w - 1, caret), r.y + r.h // 2, chars[whole(caret + 1)] or " ", 1, widgets.styles.select)
                 end

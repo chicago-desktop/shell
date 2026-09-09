@@ -32,14 +32,14 @@ local function handler()
     local id = req:param("id")
     if type(id) ~= "string" or id == "" then
         res:set_status(http.STATUS.BAD_REQUEST)
-        res:write_json({success = false, error = "id: ярлык не назван"})
+        res:write_json({success = false, error = "id: shortcut not named"})
         return
     end
 
     local result, err = repo.delete(id)
     if err or not result then
         res:set_status(http.STATUS.INTERNAL_ERROR)
-        res:write_json({success = false, error = "удаление: " .. tostring(err or "строка не тронута")})
+        res:write_json({success = false, error = "deleting: " .. tostring(err or "row untouched")})
         return
     end
 
@@ -50,7 +50,7 @@ local function handler()
         existed = result.existed == true,
         promoted = result.promoted,
         shell = control.refresh(),
-        note = "программа с desktop true больше не предлагается: отметка о предложении не снимается",
+        note = "a program with desktop true is no longer offered: the offered mark is not cleared",
     })
 end
 

@@ -86,10 +86,10 @@ entries:
     kind: process.lua
     meta:
       type: tui_desktop.window
-      title: Блокнот
+      title: Notepad
       image: text_document
       icon: "▤"
-      group: Программы
+      group: Programs
       order: 40
       width: 64
       height: 20
@@ -122,12 +122,12 @@ entries:
     kind: process.lua
     meta:
       type: tui_desktop.window
-      title: Просмотр картинок
+      title: Image Viewer
       # В «Пуске» бесполезен: открывается только файлом из проводника.
       in_menu: false
       image: document
       icon: "▦"
-      group: Программы
+      group: Programs
       order: 50
       width: 70
       height: 22

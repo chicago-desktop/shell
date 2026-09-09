@@ -34,7 +34,7 @@ local function handler()
     local items, err = repo.list()
     if err then
         res:set_status(http.STATUS.INTERNAL_ERROR)
-        res:write_json({success = false, error = "чтение раскладки: " .. tostring(err)})
+        res:write_json({success = false, error = "reading the layout: " .. tostring(err)})
         return
     end
 

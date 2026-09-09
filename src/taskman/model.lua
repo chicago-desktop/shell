@@ -15,10 +15,10 @@ local model = {}
 -- быстродействие; четвёртая вместо «Сети» — узел, потому что сеть у нас
 -- это кластер рантайма, а не сетевые адаптеры.
 model.TABS = {
-    {id = "apps", text = "Приложения"},
-    {id = "procs", text = "Процессы"},
-    {id = "perf", text = "Быстродействие"},
-    {id = "node", text = "Узел"},
+    {id = "apps", text = "Applications"},
+    {id = "procs", text = "Processes"},
+    {id = "perf", text = "Performance"},
+    {id = "node", text = "Node"},
 }
 
 local geometry = require("geometry")
@@ -53,14 +53,14 @@ model.round_ceiling = charts.round_ceiling
 
 function model.megabytes(bytes: any): string
     local n = tonumber(bytes) or 0
-    if n < 1024 * 1024 then return string.format("%.1f МБ", n / (1024 * 1024)) end
-    return string.format("%d МБ", whole(n / (1024 * 1024)))
+    if n < 1024 * 1024 then return string.format("%.1f MB", n / (1024 * 1024)) end
+    return string.format("%d MB", whole(n / (1024 * 1024)))
 end
 
 function model.bytes(value: any): string
     local n = tonumber(value) or 0
-    if n < 1024 then return string.format("%d Б", whole(n)) end
-    if n < 1024 * 1024 then return string.format("%d КБ", whole(n / 1024)) end
+    if n < 1024 then return string.format("%d B", whole(n)) end
+    if n < 1024 * 1024 then return string.format("%d KB", whole(n / 1024)) end
     return model.megabytes(n)
 end
 
@@ -72,7 +72,7 @@ function model.uptime(seconds: any): string
     local minutes = (total % 3600) // 60
     local secs = total % 60
     if days > 0 then
-        return string.format("%d д %02d:%02d:%02d", days, hours, minutes, secs)
+        return string.format("%dd %02d:%02d:%02d", days, hours, minutes, secs)
     end
     return string.format("%d:%02d:%02d", hours, minutes, secs)
 end

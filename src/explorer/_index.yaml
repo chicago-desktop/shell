@@ -108,7 +108,7 @@ entries:
     kind: process.lua
     meta:
       type: tui_desktop.window
-      title: Мой компьютер
+      title: My Computer
       image: my_computer
       pixel_render: butschster.windows.explorer:render_pixels
       pixel_state: butschster.windows.explorer:state

@@ -128,13 +128,13 @@ local function define_tests()
         test.it("деление на ноль — фраза, а после неё работает только сброс", function()
             local state = engine.new()
             for _, id in ipairs({"8", "div", "0", "eq"}) do state = engine.press(state, id) end
-            test.eq(engine.display(state), "Деление на ноль")
+            test.eq(engine.display(state), "Cannot divide by zero")
             state = engine.press(state, "5")
-            test.eq(engine.display(state), "Деление на ноль", "цифра после отказа не считается")
+            test.eq(engine.display(state), "Cannot divide by zero", "цифра после отказа не считается")
             state = engine.press(state, "ce")
             test.eq(engine.display(state), "0.")
             state = engine.press(state, "inv")
-            test.eq(engine.display(state), "Деление на ноль")
+            test.eq(engine.display(state), "Cannot divide by zero")
             state = engine.press(state, "c")
             test.eq(engine.display(state), "0.")
         end)
@@ -259,8 +259,8 @@ local function define_tests()
             test.eq(rows[#rows].label, "shell")
             test.eq(rows[#rows].kind, "entry")
             test.is_false(rows[#rows].trail[#rows[#rows].trail], "последний брат — линия вниз не идёт")
-            test.eq(reg_model.path("butschster.windows.shell:chrome"), "Реестр\\butschster\\windows\\shell\\chrome")
-            test.eq(reg_model.path(""), "Реестр")
+            test.eq(reg_model.path("butschster.windows.shell:chrome"), "Registry\\butschster\\windows\\shell\\chrome")
+            test.eq(reg_model.path(""), "Registry")
             test.eq(reg_model.parent_key("butschster.windows.shell:chrome"), "butschster.windows.shell")
             test.eq(reg_model.parent_key("butschster.windows"), "butschster")
             test.eq(reg_model.parent_key("app"), "")
@@ -278,7 +278,7 @@ local function define_tests()
             test.eq(values[3].data, "{json}", "таблица кодируется тем, что дали")
             test.eq(values[4].name, "data.source")
             local folder = reg_model.values(reg_model.find(root, "app"), nil)
-            test.eq(folder[1].name, "(По умолчанию)")
+            test.eq(folder[1].name, "(Default)")
             test.eq(folder[2].data, "2")
             test.eq(reg_model.stringify("первая\nвторая", nil), "\"первая…\"", "исходник — первой строкой")
         end)
@@ -326,7 +326,7 @@ local function define_tests()
             key("end")
             test.eq(state.selected, "butschster.windows", "end — последняя видимая строка")
             local tree_view = regedit.definition.view(state, context)
-            test.eq(tree_view.children[3].fields[1].text, "Реестр\\butschster\\windows")
+            test.eq(tree_view.children[3].fields[1].text, "Registry\\butschster\\windows")
         end)
 
         test.it("длинное дерево прокручивается и держит выбор на экране", function()
@@ -383,7 +383,7 @@ local function define_tests()
             local rows = canvas:rows()
             local found: any = nil
             for index, row in ipairs(rows) do
-                if tostring(row):find("питание компьютера", 1, true) then found = index end
+                if tostring(row):find("safe to turn off", 1, true) then found = index end
             end
             test.eq(found, 5, "надпись стоит в средней строке")
             test.is_true(tostring(rows[5]):find("\27[", 1, true) ~= nil, "строка окрашена, а не голая")
@@ -397,7 +397,7 @@ local function define_tests()
             local rows = canvas:rows()
             local seen = false
             for _, row in ipairs(rows) do
-                if tostring(row):find("Теперь", 1, true) then seen = true end
+                if tostring(row):find("It's now", 1, true) then seen = true end
             end
             test.is_true(seen)
         end)

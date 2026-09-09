@@ -19,6 +19,8 @@ local defaults = require("defaults")
 local seed = require("seed")
 local view = require("view")
 local repo = require("repo")
+local logon_screen = require("logon_screen")
+local logon_provider = require("logon_provider")
 
 local SERVICE_NAME = "butschster.windows.shell"
 
@@ -57,20 +59,20 @@ local function read(name): (any, string)
     if type(all) == "table" then
         local value: any = all[name]
         if type(value) == "string" and value ~= "" then
-            return value, "окружение процесса"
+            return value, "process environment"
         end
     end
 
     local stored, err = env.get(name)
     if type(stored) == "string" and stored ~= "" then
-        return stored, "файловое хранилище"
+        return stored, "file store"
     end
 
     local failure: any = err
     if type(failure) == "table" and failure.kind == "PermissionDenied" then
-        return nil, "НЕТ ПРАВА env.get — отказ политики, а не отсутствие переменной"
+        return nil, "NO env.get PERMISSION — a policy denial, not a missing variable"
     end
-    return nil, "не задана"
+    return nil, "not set"
 end
 
 local function whole_cell(value: any): integer
@@ -91,7 +93,7 @@ local FONT_SIZE = 13
 local function wants_pixels(): (boolean, string)
     local asked, source = read("BUTSCHSTER_WINDOWS_PIXELS")
     if asked == "1" or asked == "true" or asked == "yes" then return true, source end
-    if asked ~= nil then return false, "задана как «" .. tostring(asked) .. "»" end
+    if asked ~= nil then return false, "set to \"" .. tostring(asked) .. "\"" end
     return false, source
 end
 
@@ -112,16 +114,16 @@ end
 local function load_fonts(log, cell_h: any)
     local store, err = fs.get(FONTS)
     if err or not store then
-        return nil, "шрифты не открылись (" .. FONTS .. "): " .. tostring(err)
+        return nil, "fonts not opened (" .. FONTS .. "): " .. tostring(err)
     end
 
     local face_data, ferr = store:readfile(FONT_FACE)
     if ferr or not face_data then
-        return nil, FONT_FACE .. " не прочитан: " .. tostring(ferr)
+        return nil, FONT_FACE .. " not read: " .. tostring(ferr)
     end
     local bold_data, berr = store:readfile(FONT_BOLD)
     if berr or not bold_data then
-        return nil, FONT_BOLD .. " не прочитан: " .. tostring(berr)
+        return nil, FONT_BOLD .. " not read: " .. tostring(berr)
     end
 
     -- Thresholding small TrueType glyphs erases thin strokes. Set smoothing
@@ -144,13 +146,13 @@ local function main()
     -- второго, пойдёт искать ошибку в своём приложении, где её нет.
     local function menu_catalog()
         local found, err = catalog.list()
-        if err or not found then return {}, err or "каталог не прочитан" end
+        if err or not found then return {}, err or "catalog not read" end
 
         -- Опечатка в `window_type` не мешает показать программу, но должна
         -- быть названа: неназванная, она живёт вечно, а окно всё это время
         -- рисуется не тем, чем его объявляли.
         for _, warning in ipairs(found.warnings or {}) do
-            log:warn("неизвестный тип окна", {
+            log:warn("unknown window type", {
                 entry = tostring((warning :: any).entry),
                 window_type = tostring((warning :: any).window_type),
             })
@@ -175,10 +177,10 @@ local function main()
         local programs = type(found) == "table" and found.programs or {}
 
         local _, ferr = seed.furnish(defaults.resolve(programs))
-        if ferr then log:warn("мебель стола не заведена", {error = tostring(ferr)}) end
+        if ferr then log:warn("desktop furniture not created", {error = tostring(ferr)}) end
 
         local _, serr = seed.ensure(programs)
-        if serr then log:warn("ярлыки не вынесены на стол", {error = tostring(serr)}) end
+        if serr then log:warn("shortcuts not placed on the desktop", {error = tostring(serr)}) end
     end
 
     -- Раскладка стола. Отдаётся функцией, а не таблицей: композитор
@@ -194,11 +196,11 @@ local function main()
     local function apply_desktop_color()
         local hex, err = repo.setting("desktop_color")
         if err then
-            log:warn("цвет стола не прочитан", {error = tostring(err)})
+            log:warn("desktop color not read", {error = tostring(err)})
             return
         end
         if type(hex) == "string" and hex ~= "" and not chrome.use_desktop(hex) then
-            log:warn("цвет стола в базе негодный", {value = hex})
+            log:warn("desktop color in the database is invalid", {value = hex})
         end
     end
 
@@ -211,7 +213,7 @@ local function main()
         furnish(found)
 
         local items, err = repo.list()
-        if err then return {}, "раскладка не прочитана: " .. tostring(err) end
+        if err then return {}, "layout not read: " .. tostring(err) end
 
         -- Отказ каталога сюда НЕ попадает. `failure` означает «раскладка не
         -- прочитана», и тема на него не рисует значков вовсе — сказать так
@@ -230,13 +232,13 @@ local function main()
     -- стол, а не аварию.
     local function move_desktop_item(id, x, y)
         if type(id) ~= "string" or id == "" then
-            return false, "значок не назван"
+            return false, "icon not named"
         end
         local item, err = repo.update(id, {x = x, y = y})
-        if err then return false, "запись места: " .. tostring(err) end
+        if err then return false, "writing the position: " .. tostring(err) end
         -- `false` от репозитория — это «такой строки нет», а не отказ базы.
         -- Молчание здесь превратило бы опечатку в успешное перемещение.
-        if item == false then return false, "значка нет: " .. id end
+        if item == false then return false, "no such icon: " .. id end
         return true, nil
     end
 
@@ -258,17 +260,17 @@ local function main()
     local cell_size: any = nil
     -- Короткая заметка об исходе — уезжает в подсказку пустого стола, то
     -- есть в первое, что человек видит после запуска.
-    local pixel_note = "пиксели выкл"
+    local pixel_note = "pixels off"
 
     local asked, source = wants_pixels()
-    log:info("пиксельный режим", {asked = asked, source = source})
+    log:info("pixel mode", {asked = asked, source = source})
 
     if not asked then
         -- «Не просили» и «просили, но не прочиталось» — разные утверждения, и
         -- второе человек может исправить. Поэтому источник едет на экран
         -- вместе с исходом: отказ по правам выглядит как незаданная
         -- переменная ровно до тех пор, пока его так не назвать.
-        pixel_note = "пиксели выкл: BUTSCHSTER_WINDOWS_PIXELS " .. tostring(source)
+        pixel_note = "pixels off: BUTSCHSTER_WINDOWS_PIXELS " .. tostring(source)
     end
 
     if asked then
@@ -276,21 +278,21 @@ local function main()
         local width, height = gfx.cell_size()
 
         if not protocol then
-            pixel_note = "пиксели выкл: терминал не умеет графику (" .. tostring(why) .. ")"
-            log:warn("пиксельный режим не включён: терминал не умеет графику",
+            pixel_note = "pixels off: the terminal has no graphics (" .. tostring(why) .. ")"
+            log:warn("pixel mode not enabled: the terminal has no graphics",
                 {reason = tostring(why)})
         elseif not width or not height then
             -- Догадка «8×16» права достаточно часто, чтобы выглядеть верной, и
             -- картинка не того размера читается как ошибка рисования, а не как
             -- незаданный вопрос. Поэтому отказ, а не умолчание.
-            pixel_note = "пиксели выкл: терминал не сказал размер ячейки"
-            log:warn("пиксельный режим не включён: терминал не сказал размер ячейки",
+            pixel_note = "pixels off: the terminal did not report a cell size"
+            log:warn("pixel mode not enabled: the terminal did not report a cell size",
                 {reason = tostring(height)})
         else
             local fonts, ferr = load_fonts(log, height)
             if not fonts then
-                pixel_note = "пиксели выкл: нет шрифта (" .. tostring(ferr) .. ")"
-                log:warn("пиксельный режим не включён: нет шрифта", {error = tostring(ferr)})
+                pixel_note = "pixels off: no font (" .. tostring(ferr) .. ")"
+                log:warn("pixel mode not enabled: no font", {error = tostring(ferr)})
             else
                 chrome_pixels.use_fonts(fonts.face, fonts.bold, fonts.display)
                 chrome_pixels.use_cell_size(width, height)
@@ -302,8 +304,8 @@ local function main()
                     end
                     return w, h
                 end
-                pixel_note = "пиксели: " .. tostring(protocol) .. " " .. width .. "x" .. height
-                log:info("пиксельный режим включён",
+                pixel_note = "pixels: " .. tostring(protocol) .. " " .. width .. "x" .. height
+                log:info("pixel mode enabled",
                     {protocol = protocol, cell = width .. "x" .. height})
             end
         end
@@ -314,7 +316,24 @@ local function main()
     -- выполняется вовсе — молча, за 0 мс.
     local clock_entry, clock_error = catalog.taskbar_clock()
     theme.clock_entry = clock_entry
-    if clock_error then log:warn("часы панели не настроены", {error = clock_error}) end
+    if clock_error then log:warn("taskbar clock not configured", {error = clock_error}) end
+
+    -- Вход в систему — если приложение назвало функцию входа и хранилище
+    -- токенов. Без них оболочка поднимается без входа, под своим актором:
+    -- так было всегда, и стенд без модуля пользователей остаётся рабочим.
+    -- Отказ по правам — не «не настроено»: он называется в логе.
+    local logon: any = nil
+    local logon_config, logon_error = logon_provider.configured()
+    if logon_error then
+        log:warn("logon not enabled", {reason = tostring(logon_error)})
+    elseif logon_config then
+        logon = function(screen)
+            return logon_screen.run(screen, function(login, password)
+                return logon_provider.authenticate(logon_config, login, password)
+            end)
+        end
+        log:info("logon enabled", {func = logon_config.func, store = logon_config.store})
+    end
 
     local ok, err = library.run({
         chrome = theme,
@@ -323,7 +342,7 @@ local function main()
         -- меняет шрифт терминала, и снятое однажды число разъедется с экраном.
         cell_size = cell_size,
         service_name = SERVICE_NAME,
-        hint = "Пуск — программы · alt+n — окно с bash · ctrl+q — выход · " .. pixel_note,
+        hint = "Start — programs · alt+n — bash window · ctrl+q — quit · " .. pixel_note,
         -- Необязательные швы к основе. Не поддержи их композитор — меню
         -- откатывается к его собственному плоскому каталогу, а стол остаётся
         -- без значков; оболочка при этом поднимается и работает.
@@ -337,6 +356,7 @@ local function main()
         -- показало бы каталог без них, не объяснив, куда они делись. Отказ
         -- восстановления уезжает в restore_report и виден в GET /windows/status.
         restore = true,
+        logon = logon,
     })
     return ok, err
 end
