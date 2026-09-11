@@ -143,7 +143,7 @@ entries:
       group: Windows Shell
       suite: butschster_windows
     source: file://images_test.lua
-    modules: [gfx, registry]
+    modules: [gfx, registry, fs]
     imports:
       test: wippy.test:test
       images: butschster.windows.shell:images

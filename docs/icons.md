@@ -231,11 +231,11 @@ wherever a name is taken: `meta.image` of a program, the `image` of an SDK
 
 - **The pack is looked up in the registry when a picture is asked for**, not
   when the library loads. A pack applied to the live registry, and a file added
-  to a pack's folder, are drawn without touching the shell. A refused pack
-  picture is asked again after `images.PACK_RETRY_SECONDS` (5): the theme asks
-  every frame, and a pack registered a minute later must show up then. A
-  decoded picture is kept for the life of the process, like an icon, so a file
-  REPLACED in a pack shows after the shell restarts.
+  to a pack's folder, are drawn without touching the shell. A pack picture is
+  looked at again every `images.PACK_RECHECK_SECONDS` (5): a refused one is
+  asked again (a pack registered a minute later shows up then), a read one is
+  compared with its file — the same bytes keep the same raster, so the surface
+  resends nothing, and a REPLACED file becomes a new raster without a restart.
 - **Only an entry that declared itself a pack is read as one.** A window names
   the picture, and a drive of the stand or someone's data is not a pack; such a
   name refuses with "is not an image pack".

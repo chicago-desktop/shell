@@ -67,8 +67,11 @@ images.WALLPAPER_STORE = "butschster.windows.display:wallpaper_files"
 -- library loads, so a pack applied to the live registry, and a file added to
 -- its folder, are drawn without touching the shell.
 images.PACK_TYPE = "windows.images"
--- How long a refused pack picture stays refused before it is asked again.
-images.PACK_RETRY_SECONDS = 5
+-- How often a pack picture is looked at again: a refused one is asked again,
+-- a read one is compared with its file. The same bytes keep the same raster
+-- (the surface resends nothing); other bytes are decoded into a new one, so a
+-- picture REPLACED in a pack's folder shows without a restart too.
+images.PACK_RECHECK_SECONDS = 5
 -- A pack's sizes are the folders its author drew; the largest one read.
 images.PACK_MAX_SIZE = 256
 
@@ -202,11 +205,11 @@ end
 -- A refusal is remembered: the theme asks every frame. A picture of the
 -- shell's own pack stays refused until `forget` — its files do not change
 -- while the shell runs. A pack picture is asked again after
--- `PACK_RETRY_SECONDS`: the pack may be applied to the registry, or the file
+-- `PACK_RECHECK_SECONDS`: the pack may be applied to the registry, or the file
 -- added to its folder, a minute later, and it must show up then.
 local function fail(key: string, pack: any, why: string): (any, any)
     if pack then
-        cache[key] = {retry_at = time.now():unix() + images.PACK_RETRY_SECONDS, why = why}
+        cache[key] = {check_at = time.now():unix() + images.PACK_RECHECK_SECONDS, why = why}
     else
         cache[key] = false
     end
@@ -240,9 +243,11 @@ function images.get(name: any, size: any): (any, any)
     local cached: any = cache[key]
     if cached == false then return nil, "icon " .. key .. " not read (see the first failure)" end
     if type(cached) == "table" then
-        -- A pack picture refused a moment ago is asked again after the retry.
-        if time.now():unix() < cached.retry_at then return nil, cached.why end
-        cache[key] = nil
+        -- A pack picture, read or refused, until it is looked at again.
+        if time.now():unix() < cached.check_at then
+            if cached.raster then return cached.raster, nil end
+            return nil, cached.why
+        end
     elseif cached ~= nil then
         return cached, nil
     end
@@ -262,6 +267,11 @@ function images.get(name: any, size: any): (any, any)
     if read_err or not data then
         return fail(key, pack, "icon " .. path .. " not read" .. where .. ": " .. tostring(read_err))
     end
+    -- A pack picture whose file has not changed keeps its raster.
+    if pack and type(cached) == "table" and cached.raster and cached.bytes == data then
+        cached.check_at = time.now():unix() + images.PACK_RECHECK_SECONDS
+        return cached.raster, nil
+    end
     -- `opened` is typed as any, and readfile returns any; the linter is right
     -- that a string has to be named a string rather than guessed.
     local raster, decode_err = gfx.image(data :: string)
@@ -272,7 +282,11 @@ function images.get(name: any, size: any): (any, any)
     if w ~= px or h ~= px then
         return fail(key, pack, string.format("icon %s%s is %dx%d, expected %dx%d", path, where, w, h, px, px))
     end
-    cache[key] = raster
+    if pack then
+        cache[key] = {raster = raster, bytes = data, check_at = time.now():unix() + images.PACK_RECHECK_SECONDS}
+    else
+        cache[key] = raster
+    end
     return raster, nil
 end
 

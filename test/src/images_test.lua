@@ -6,16 +6,25 @@
 local test = require("test")
 local images = require("images")
 local registry = require("registry")
+local fs = require("fs")
+local gfx = require("gfx")
 
 -- A pack applied to the live registry: the path a module or the application
 -- takes to bring pictures while the shell runs.
-local function apply_pack(id: string): (any, any)
+local function apply_pack(id: string, directory: string?): (any, any)
     local snapshot, serr = registry.snapshot()
     if not snapshot then return nil, serr end
     local changes = snapshot:changes()
     changes:create({id = id, kind = "fs.directory", meta = {type = images.PACK_TYPE},
-        data = {base = "project", directory = "./fixtures/images", auto_init = false}})
+        data = {base = "project", directory = directory or "./fixtures/images", auto_init = directory ~= nil}})
     return changes:apply()
+end
+
+-- A square PNG of one color, made with the same gfx the shell decodes with.
+local function png(color: string): string
+    local raster = gfx.raster(16, 16)
+    raster:fill(color)
+    return assert(raster:encode("png"))
 end
 
 local function drop_pack(id: string)
@@ -71,18 +80,44 @@ local function define_tests()
 
         test.it("draws a pack applied to the live registry without touching the shell", function()
             images.forget()
-            local retry = images.PACK_RETRY_SECONDS
-            images.PACK_RETRY_SECONDS = 0
+            local recheck = images.PACK_RECHECK_SECONDS
+            images.PACK_RECHECK_SECONDS = 0
             local id = "app:late_images"
             local before, why = images.get(id .. "/smile", 16)
             local applied, aerr = apply_pack(id)
             local after, later = images.get(id .. "/smile", 16)
             drop_pack(id)
-            images.PACK_RETRY_SECONDS = retry
+            images.PACK_RECHECK_SECONDS = recheck
             test.is_nil(before, "the pack is not there yet")
             test.not_nil(tostring(why):find("no image pack", 1, true), tostring(why))
             test.not_nil(applied, "the pack entry was applied: " .. tostring(aerr))
             test.not_nil(after, "the picture of a pack applied later is drawn: " .. tostring(later))
+        end)
+
+        test.it("shows a picture replaced in a pack, and keeps the raster while the file is the same", function()
+            images.forget()
+            local recheck = images.PACK_RECHECK_SECONDS
+            images.PACK_RECHECK_SECONDS = 0
+            local id = "app:scratch_images"
+            local applied, aerr = apply_pack(id, "./shots/scratch_pack")
+            local store: any = applied and fs.get(id)
+            local first, same, replaced: any, any, any = nil, nil, nil
+            local why: any = aerr
+            if store then
+                store:mkdir("16")
+                store:writefile("16/dot.png", png("#ffff00"))
+                first, why = images.get(id .. "/dot", 16)
+                same = images.get(id .. "/dot", 16)
+                store:writefile("16/dot.png", png("#ff0000"))
+                replaced = images.get(id .. "/dot", 16)
+                store:remove("16/dot.png")
+            end
+            drop_pack(id)
+            images.PACK_RECHECK_SECONDS = recheck
+            test.not_nil(first, "the scratch pack serves its picture: " .. tostring(why))
+            test.is_true(same == first, "an unchanged file keeps its raster: the surface resends nothing")
+            test.not_nil(replaced, "the replaced file is read")
+            test.is_true(replaced ~= first, "a replaced file is a new raster, drawn without a restart")
         end)
     end)
 

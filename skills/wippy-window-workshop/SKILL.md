@@ -29,6 +29,8 @@ or the reason in `error`.
 - **`close`** — arguments: `id`; effect: close a window
 - **`list`** — arguments: —; effect: stored workshop windows with `live` (registered right now)
 - **`remove`** — arguments: `name`; effect: delete from storage and registry; open windows keep running
+- **`image`** — arguments: `image_name`, `png` (base64 of a square PNG, 1..256 px); effect: writes it into the workshop pack as `<size>/<image_name>.png` and answers the name to use, `app.workshop:images/<image_name>`; `replaced` says an older picture was overwritten
+- **`images`** — arguments: —; effect: pictures of the workshop pack with their sizes
 
 If the trait is not active in the MCP session, activate it first:
 `use_trait` with `app.workshop:trait` (the credential's `allowed_trait_ids` must
@@ -143,12 +145,15 @@ pack — an `fs.*` entry of a module or the application with
 `image`, `button.image` (a picture instead of the caption) and `ui.message`'s
 `image`. The contract is `docs/icons.md`, "Image packs of other modules".
 
-On the stand the pack for workshop windows is `app.workshop:images`
-(`src/app/workshop/images/`); Minesweeper takes `app.workshop:images/mine` and
-`…/face_smile`. A file added to a declared pack shows within seconds, no
-rebuild; a NEW pack entry is registry, so it arrives with a restart of the
-application. Keep `text` / `icon` beside every picture: cells show them, and
-pixels show them while the picture is missing.
+On the stand the pack for workshop windows is `app.workshop:images`; upload a
+picture into it with `image` and name what it answers. The shell looks at a
+pack picture again every few seconds, so an uploaded picture shows and a
+re-uploaded one replaces the old without a rebuild or a restart. Draw at the
+size it is shown: 16 for a button face or a title, 32 for a menu or dialog
+icon — there is no scaling. Minesweeper takes `app.workshop:images/mine` and
+`…/face_smile`. One pack serves every workshop window; a NEW pack entry is
+registry and arrives only with a restart. Keep `text` / `icon` beside every
+picture: cells show them, and pixels show them while the picture is missing.
 
 ## Mouse and size
 
