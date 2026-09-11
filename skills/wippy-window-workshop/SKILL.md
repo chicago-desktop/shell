@@ -24,7 +24,7 @@ or the reason in `error`.
 - **`build`** — arguments: `name`, `source`, `title`, `width`, `height`, `modules[]`, `imports{}`, `pixel_render`, `group`, `image`, `icon`, `window_type`, `resizable`, `in_menu`, `open`, `args`; effect: store + register; `replaced` says an older build was overwritten
 - **`open`** — arguments: `entry` or `name`, `title`, `args`, `w`, `h`; effect: open a window by registry entry
 - **`windows`** — arguments: —; effect: open windows with ids, geometry, `user` (who is logged on)
-- **`screen`** — arguments: `id`; effect: the window's text screen — the only evidence a window works
+- **`screen`** — arguments: `id`; effect: the window's text screen. A pixel window (`pixel_render`) has no text and answers empty — see "Verification"
 - **`type`** — arguments: `id`, `text`, `enter`; effect: send keystrokes to a window
 - **`close`** — arguments: `id`; effect: close a window
 - **`list`** — arguments: —; effect: stored workshop windows with `live` (registered right now)
@@ -50,11 +50,13 @@ Open and inspect through the desktop command channel of the base README.
    callbacks in the tree.
 3. `build` with `imports = {app = "butschster.windows.sdk:app"}`,
    `pixel_render = "butschster.windows.sdk:render"`, a `group` folder
-   (`Programs/<module>` style), an `image` from the icon catalog, and `open = true`.
+   (`Programs/<module>` style), an `image` (icon catalog or image pack, see
+   "Pictures"), and `open = true`.
 4. Read the answer: `live` must be true; `error` names the field that failed.
-5. Verify with `windows` (find the id) and `screen` (read the text). Resize
-   below the intended size and scroll long lists through `type` if the window
-   has them; a window that only rendered once is not verified.
+5. Verify (see "Verification"): `windows` finds the id and the geometry; the
+   content is read by `screen` in cells and by a rendered PNG in pixels. Resize
+   below the intended size and scroll long lists if the window has them; a
+   window that only rendered once is not verified.
 6. Iterate: build again under the same name. Already open windows keep the old
    code until closed; close them and `open` again.
 7. Remove probes and experiments with `remove`.
@@ -95,7 +97,8 @@ local function main(first, id, args, viewport)
     app.run(definition, first, id, args, viewport)
 end
 
-return {main = main}
+-- `definition` beside `main`: an offline shot drives the same code.
+return {main = main, definition = definition}
 ```
 
 `build` call for it:
@@ -131,14 +134,54 @@ return {main = main}
   otherwise `build` stores the window and reports that it will register on the
   next start.
 
-## Verification is the screen, not the answer
+## Pictures: image packs
 
-`build` succeeding proves the entry applied, not that the window draws. Open
-it, read `screen`, and look for the labels and controls you expect. A window
-that dies on its first frame disappears silently; `windows` then does not list
-it. Common causes: a `nil` module, a control without `id`, a duplicated `id`, a
-runtime call outside the whitelist, Lua's late `local` (declare everything a
-function uses above that function).
+The workshop carries source, not files. A window's pictures live in an image
+pack — an `fs.*` entry of a module or the application with
+`meta.type: windows.images`, pictures as `<size>/<file>.png` — and are named
+`<pack entry>/<file>` wherever a name is taken: the `build` `image`, an SDK
+`image`, `button.image` (a picture instead of the caption) and `ui.message`'s
+`image`. The contract is `docs/icons.md`, "Image packs of other modules".
+
+On the stand the pack for workshop windows is `app.workshop:images`
+(`src/app/workshop/images/`); Minesweeper takes `app.workshop:images/mine` and
+`…/face_smile`. A file added to a declared pack shows within seconds, no
+rebuild; a NEW pack entry is registry, so it arrives with a restart of the
+application. Keep `text` / `icon` beside every picture: cells show them, and
+pixels show them while the picture is missing.
+
+## Mouse and size
+
+- A right press on a button reaches `update` as `{type = "context", id}` at the
+  press (a Minesweeper flag); the left button stays `activate` on release.
+- A window that fits its content (a game board per level) asks the compositor:
+  its outer size from `desktop.list()` minus `context.width/height` is the
+  frame, then `desktop.ask("desktop.resize", {id = context.window_id, w, h})`.
+  `window_id` exists in pixels only, and the build must be `resizable`. Ask
+  from a one-shot timer set in `init` (`context.after("100ms", "fit")`), after
+  the window is placed.
+
+## Verification
+
+`build` succeeding proves the entry applied, not that the window draws. A
+window that dies on its first frame disappears silently; `windows` then does
+not list it. Common causes: a `nil` module, a control without `id`, a
+duplicated `id`, a runtime call outside the whitelist, Lua's late `local`
+(declare everything a function uses above that function).
+
+- **Cells:** read `screen` and look for the labels and controls you expect.
+- **Pixels:** `screen` is empty; the evidence is a PNG rendered by the same
+  code the compositor runs. Copy the module's `test/` app into a scratch
+  folder (absolute replacements, the shared `test/` stays untouched), register
+  the window source as a `library.lua` with the build's imports plus
+  `desktop: butschster.tui_desktop.desktop:window_api`, and write a command
+  that builds `app.context({width, height, native = true})`, drives
+  `definition.init/update` through `app.dispatch` with the actions the SDK
+  would send, and paints each state with `chrome_pixels.paint` exactly as
+  `run_shot` in `test/src/paint_png.lua` does. Give every shot a new
+  `state_revision`: the theme keeps the client raster by it, and a repeated
+  revision hands back the previous picture (the tell: PNGs of different
+  states identical to the byte). Read the PNG.
 
 ## Pitfalls
 

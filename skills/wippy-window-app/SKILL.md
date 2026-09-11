@@ -27,6 +27,9 @@ when repairing an older custom window.
    dimensions, group and icon. Use `pixel_render: butschster.windows.sdk:render`
    and `pixel_state` pointing to this same process. Keep a single `main` wrapper
    passing arguments to `app.run`. Do not add an app-specific import to the theme.
+   The icon is a name from the shell's catalog or from the module's own image
+   pack (`<pack entry>/<file>`, docs/icons.md "Image packs"); a module's
+   pictures live in its pack, and the shell's `assets/icons` stays the shell's.
 4. Implement `init`, `view`, `update`, optional `interval`, `title` and `dispose`.
    `definition.title` (a string or a function of the model) is the window
    caption when it differs from the menu entry. Besides control actions,
@@ -60,7 +63,8 @@ when repairing an older custom window.
   from list rows; declare that unit rather than inventing another scroll engine.
 - Normalize events through `window_api` or `input`. Ignore key release for
   actions. Left press focuses/selects; SDK buttons and checkboxes activate on
-  left release inside their rectangle (outside cancels). Wheel belongs to the
+  left release inside their rectangle (outside cancels); a right press on a
+  button is `context` at the press. Wheel belongs to the
   panel under the cursor. Client motion/release can leave its bounds during capture.
 - Render controls through shared `pixels.button/field/checkbox/edge`: two-pixel
   Win95 borders, a dotted focus rectangle, a separate default-button outline
