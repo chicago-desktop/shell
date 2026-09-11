@@ -10,10 +10,10 @@ local containers = {row = true, column = true, split = true}
 local leaves = {label = true, button = true, input = true, list = true, table = true, checkbox = true,
     statusbar = true, tabs = true, menu = true, image = true, field = true,
     group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true, monitor = true,
-    icons = true, select = true}
+    icons = true, select = true, slider = true, spectrum = true}
 -- Only the ones that take no input can live without an `id`.
 local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
-    calendar = true, clock = true, monitor = true}
+    calendar = true, clock = true, monitor = true, spectrum = true}
 -- A node that takes no input: a passive kind, or a table declared `static` —
 -- pairs of "name — value" on a properties sheet, which nobody selects. Such a
 -- table needs no `id`, takes no focus and no clicks, and keeps no scroll offset.
@@ -566,6 +566,42 @@ function ui.placeholder(node: any, focused: any): any
     if type(node.placeholder) ~= "string" or node.placeholder == "" then return nil end
     return node.placeholder
 end
+-- slider_position(node, width) -> the thumb's column offset from the left, 0-based
+--
+-- A slider's `value` within `min`..`max`, over `width` columns. One rule for
+-- the cell renderer's thumb and for the hit test; pixels place the thumb by
+-- the same value, in pixels.
+function ui.slider_position(node: any, width: any): integer
+    local low, high = whole(node.min or 0), whole(node.max or 0)
+    if high <= low then return 0 end
+    local value = whole(math.max(low, math.min(high, whole(node.value or low))))
+    return whole((value - low) * math.max(0, whole(width) - 1) // (high - low))
+end
+-- spectrum_color(t) -> "#rrggbb"
+--
+-- The color spectrum of "Display Properties → Settings": at `t` from 0 to 1
+-- the hue sweeps from magenta through blue, cyan, green and yellow to red,
+-- as the Windows 95 bar reads left to right. Full saturation and value.
+function ui.spectrum_color(t: any): string
+    local at = math.max(0, math.min(1, tonumber(t) or 0))
+    local hue = (1 - at) * 5
+    local sector = whole(math.floor(hue))
+    local f = hue - sector
+    local r, g, b = 1.0, 0.0, 1.0
+    if sector == 0 then r, g, b = 1, f, 0
+    elseif sector == 1 then r, g, b = 1 - f, 1, 0
+    elseif sector == 2 then r, g, b = 0, 1, f
+    elseif sector == 3 then r, g, b = 0, 1 - f, 1
+    elseif sector == 4 then r, g, b = f, 0, 1 end
+    -- Two hex digits by hand: `%02x` in this runtime's string.format prints the
+    -- hex of the number's decimal text ("255" → "323535"), not of the number.
+    local digits = "0123456789abcdef"
+    local function byte(v: any): string
+        local n = whole(math.max(0, math.min(255, math.floor(v * 255 + 0.5))))
+        return digits:sub(n // 16 + 1, n // 16 + 1) .. digits:sub(n % 16 + 1, n % 16 + 1)
+    end
+    return "#" .. byte(r) .. byte(g) .. byte(b)
+end
 function ui.interaction(): any
     return {focus = nil, offsets = {}, capture = nil, editors = {}, armed = nil, menus = {}, revealed = {}}
 end
@@ -756,6 +792,34 @@ local function select_event(item: any, state: any, event: any): any
     elseif key == "end" then return choose(count) end
     return nil
 end
+-- Slider: a click sets the value at the clicked column, ←/↓ and →/↑ step by
+-- one, Page Up/Down by a quarter of the range, Home/End go to the ends. A
+-- change is `change` with the whole-number value, only when it changes.
+local function slider_event(item: any, state: any, event: any): any
+    local node, rect = item.node, item.rect
+    local low, high = whole(node.min or 0), whole(node.max or 0)
+    if high <= low then return nil end
+    local value = whole(math.max(low, math.min(high, whole(node.value or low))))
+    local wanted = value
+    if event.type == "mouse" then
+        if not input.pressed(event) then return nil end
+        local span = whole(math.max(1, whole(rect.w) - 1))
+        wanted = low + ((whole(event.x) - whole(rect.x)) * (high - low) * 2 + span) // (span * 2)
+    else
+        local key = input.key(event)
+        local page = math.max(1, (high - low) // 4)
+        if key == "left" or key == "down" then wanted = value - 1
+        elseif key == "right" or key == "up" then wanted = value + 1
+        elseif key == "pgup" then wanted = value + page
+        elseif key == "pgdown" then wanted = value - page
+        elseif key == "home" then wanted = low
+        elseif key == "end" then wanted = high
+        else return nil end
+    end
+    wanted = whole(math.max(low, math.min(high, wanted)))
+    if wanted == value then return nil end
+    return {type = "change", id = node.id, value = wanted}
+end
 local function tabs_event(item: any, state: any, event: any): any
     local node = item.node
     local labels = node.labels or {}
@@ -944,6 +1008,7 @@ function ui.event(plan: any, state: any, original: any): any
         if item.node.kind == "list" or item.node.kind == "table" or item.node.kind == "tree" then return list_event(item, state, event) end
         if item.node.kind == "icons" then return icons_event(item, state, event) end
         if item.node.kind == "select" then return select_event(item, state, event) end
+        if item.node.kind == "slider" then return slider_event(item, state, event) end
         if (item.node.kind == "button" or item.node.kind == "checkbox") and input.pressed(event) then
             state.armed = {id = item.node.id, inside = true}
         end
@@ -1032,6 +1097,8 @@ function ui.event(plan: any, state: any, original: any): any
         return {type = "select", id = node.id, index = index, value = items[index]}
     elseif node.kind == "select" then
         return select_event(item, state, event)
+    elseif node.kind == "slider" then
+        return slider_event(item, state, event)
     elseif node.kind == "input" then
         local editing = state.editors[node.id] or {cursor = #editor.runes(node.text), selected = false}
         state.editors[node.id] = editing

@@ -417,6 +417,29 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     pixels.icon(raster, whole(x + (w - side) // 2), whole(y + (h - side) // 2),
                         {kind = node.icon_kind or "program", image = node.image}, side)
                 end
+            elseif node.kind == "spectrum" then
+                -- The palette's spectrum bar: a sunken box up to 15 px in its
+                -- rows, the hue sweeping left to right (`ui.spectrum_color`).
+                local bh = whole(math.min(15, h))
+                local by = whole(y + (h - bh) // 2)
+                pixels.edge(raster, whole(x), by, whole(w), bh, false)
+                local inner = whole(w - 4)
+                for column = 0, inner - 1 do
+                    raster:rect(whole(x + 2 + column), by + 2, 1, whole(math.max(1, bh - 4)),
+                        ui.spectrum_color(column / math.max(1, inner - 1)))
+                end
+            elseif node.kind == "slider" then
+                -- A trackbar: a sunken 4 px track and an 11 px raised thumb at
+                -- the value, as in Windows 95.
+                local low, high = whole(node.min or 0), whole(node.max or 0)
+                local value = whole(math.max(low, math.min(high, whole(node.value or low))))
+                local cy = whole(y + h // 2)
+                pixels.edge(raster, whole(x + 5), cy - 2, whole(math.max(4, w - 10)), 4, false)
+                local th = whole(math.min(21, h))
+                local travel = whole(math.max(0, w - 10 - 11))
+                local tx = whole(x + 5 + (high > low and (value - low) * travel // (high - low) or 0))
+                pixels.button(raster, tx, whole(y + (h - th) // 2), 11, th, {disabled = node.disabled == true}, cell)
+                if focused and not node.disabled then pixels.focus_rect(raster, whole(x + 1), whole(y + 1), whole(w - 2), whole(h - 2)) end
             elseif node.kind == "statusbar" then
                 -- Sunken fields in one row, as in the explorer: the last one
                 -- stretches, the others have their own width or fit the text.
@@ -628,6 +651,11 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 for index, piece in ipairs(lines) do
                     text(x + 2, top + (index - 1) * 15, w - 4, 15, piece, node.alert and color.alert or nil)
                 end
+            elseif node.kind == "label" and node.align == "center" and font then
+                -- A centered label: the caption in the middle of its width by the font.
+                local shown = pixels.ellipsize(font, tostring(node.text or ""), whole(math.max(0, w - 4)))
+                local tw = whole(font:measure(shown))
+                text(x + math.max(2, (w - tw) // 2), y, w - 4, h, shown, node.alert and color.alert or (node.disabled and color.shadow or nil))
             else text(x + 2, y, w - 4, h, node.text, node.alert and color.alert or (node.disabled and color.shadow or nil)) end
         end
     end

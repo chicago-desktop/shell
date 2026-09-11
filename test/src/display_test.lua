@@ -59,10 +59,10 @@ local function define_tests()
             test.is_true(not model.valid("008080"))
             test.is_true(not model.valid("#00808"))
             test.is_true(not model.valid("#00zz80"))
-            test.eq(model.resolution({width = 100, height = 28}, {w = 10, h = 20}), "100 × 28 cells, 1000 × 560 px")
+            test.eq(model.resolution({width = 100, height = 28}, {w = 10, h = 20}), "100 by 28 cells, 1000 by 560 pixels")
             test.eq(model.cell_text({w = 10, h = 20}), "Terminal cell 10 × 20 px")
             test.eq(model.graphics(false), "Pixel graphics: no, cells only")
-            test.eq(model.resolution({width = 80, height = 24}, nil), "80 × 24 cells")
+            test.eq(model.resolution({width = 80, height = 24}, nil), "80 by 24 cells")
             test.eq(model.resolution(nil, nil), "unknown")
             test.eq(#model.color_items("#008080"), #model.COLORS)
             local extra = model.color_items("#123456")
@@ -140,6 +140,33 @@ local function define_tests()
                 test.is_true(buttons >= 3, where .. ": three 75×23 buttons drawn, got " .. buttons)
                 test.not_nil(screen, where .. ": the monitor draws the desktop color")
                 test.is_true(math.abs(screen.w * 3 - screen.h * 4) <= 3, where .. ": the screen is 4:3, got " .. screen.w .. "×" .. screen.h)
+            end
+        end)
+        test.it("the Settings tab is Windows 95's: palette and spectrum, a disabled slider, Font size, Change Display Type", function()
+            for _, cell in ipairs({{8, 16}, {10, 20}}) do
+                local cw = cell[1]
+                local where = cell[1] .. "x" .. cell[2]
+                local state = fixture()
+                state.tab = 4
+                local plan = pixel_plan(state, cell[1], cell[2])
+                local palette_select: any = plan.by_id.palette
+                test.is_true(palette_select.node.disabled == true, where .. ": the palette is read-only")
+                test.eq(palette_select.node.options[1].label, "True Color (24 bit)", where .. ": the palette's name")
+                local spectrum: any, area_label: any = nil, nil
+                for _, item in ipairs(plan.items) do
+                    if item.node.kind == "spectrum" then spectrum = item end
+                    if item.node.text == "100 by 28 cells, 1000 by 560 pixels" then area_label = item end
+                end
+                test.is_true(spectrum ~= nil and spectrum.rect.y > palette_select.rect.y, where .. ": the spectrum under the palette")
+                test.is_true(plan.by_id.area.node.disabled == true, where .. ": the Desktop area slider is disabled")
+                test.not_nil(area_label, where .. ": the resolution in Windows 95's words")
+                test.is_true(plan.by_id.fonts.node.disabled == true and plan.by_id.custom.node.disabled == true,
+                    where .. ": Font size is disabled")
+                local change: any = plan.by_id.display_type
+                test.eq(change.px and change.px.w, 173, where .. ": Change Display Type… is 173 px")
+                local page = plan.by_id.pages
+                test.is_true(change.px.x + change.px.w - 1 <= (page.rect.x + page.rect.w - 1) * cw, where .. ": inside the page")
+                test.is_true(change.node.disabled == true, where .. ": disabled")
             end
         end)
         test.it("choosing a color and a pattern, \"Apply\" and \"OK\" write through the substituted write", function()

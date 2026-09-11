@@ -113,7 +113,8 @@ current data; `update` changes the model on a component's action.
   `wrap = true` flows the text by words into the label's rectangle from the top:
   lines of its width, as many as its height holds (one per row in cells, 15 px
   apart in pixels), and only the last line is cut with "…". A wrapped label is
-  one paragraph: `\n` is not a hard break there.
+  one paragraph: `\n` is not a hard break there. `align = "center"` centers a
+  single-line label in its width (by cells in cells, by the font in pixels).
 - `monitor`: `color` — a monitor screen in the desktop color, like the preview in
   "Display Properties"; in pixels a case with a bevel and a stand, in cells
   a face frame and a colored screen. Does not take focus, no `id` needed.
@@ -161,6 +162,17 @@ current data; `update` changes the model on a component's action.
   is `change` with the option's `value`, only when it differs. The list is an
   overlay, like a menu's; its rectangle is `ui.dropdown`, one for both renderers
   and the hit test.
+- `slider`: `id`, `value`, `min`, `max`, `disabled` — a Windows 95 trackbar. In
+  pixels a sunken 4 px track and an 11 px raised thumb; in cells a `─` track
+  with a `█` thumb. The thumb's column is `ui.slider_position(node, width)`, the
+  hit test's rule too. A click sets the value at the clicked column; ←/↓ and
+  →/↑ step by one, Page Up/Down by a quarter of the range, Home/End go to the
+  ends. The action is `change` with the whole number `value`, only when it
+  changes. Disabled: no focus, no clicks.
+- `spectrum`: a color spectrum bar ("Display Properties → Settings"), passive,
+  no `id`: the hue sweeps from magenta through blue, cyan, green and yellow to
+  red, one rule for both renderers (`ui.spectrum_color(t)`). In pixels a
+  sunken box up to 15 px tall, in cells one colored cell per step.
 - Form rules — `required`, `required_if`, validation messages — are out of scope:
   the SDK draws the controls and reports what the person did, the window decides
   what a valid form is (the Connections window checks its credential schema
@@ -450,6 +462,17 @@ on a terminal without graphics the main process in cells remains.
 `window_content: pixels` + `render/state` means graphics are required. In text mode the base can show only such a window's `state.caption`;
 that does not give a full interface. Do not claim
 GNOME Terminal support for an application that has only a pixel view.
+
+## Open: a window record sized in pixels
+
+A window entry names its size in cells (`meta.width`, `meta.height`), and one
+number of cells is a different dialog at every cell size: "Display Properties"
+is 46×24 cells — 460×480 px at a 10×20 cell, 368×384 px at 8×16 — while the
+Windows 95 original is 404×448 px. The layout inside already speaks pixels
+(`size_px`, `padding_px`, `width_px`); the record cannot. The fix belongs to the
+base: `meta.width_px` / `meta.height_px`, converted to whole cells by the
+compositor, which is the one that knows the cell. Not started — it is a change
+to `butschster/tui-desktop`, not to this module.
 
 ## Checks and adding capabilities
 

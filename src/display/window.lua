@@ -137,20 +137,44 @@ local function appearance(state: any): any
     }}
 end
 
+-- Settings, as the Windows 95 tab: the monitor, then "Color palette" (the
+-- palette in a drop-down list, read-only — the runtime forces TrueColor — and
+-- the spectrum under it), "Desktop area" (a Less–More slider, disabled — the
+-- terminal sets the size — and the resolution in Windows 95's words under it),
+-- a disabled "Font size" and a disabled "Change Display Type…".
 local function settings(state: any): any
     local info: any = state.info or {}
+    local area: any = {kind = "label", size = 1, size_px = 20, text = model.resolution(info.screen, info.cell), align = "center"}
+    if info.failure then
+        area = {kind = "label", size = 1, size_px = 20, text = "the compositor did not answer: " .. tostring(info.failure), alert = true}
+    end
     return {kind = "column", gap = 0, children = {
-        monitor(state.saved, state.pattern_saved),
-        {kind = "row", gap = 1, gap_px = 11, children = {
+        -- The monitor takes what the groups leave: the page is short at 16 px rows.
+        {kind = "monitor", color = state.saved, pattern = patterns.find(state.pattern_saved)},
+        {kind = "row", size = 4, size_px = 70, gap = 1, gap_px = 11, children = {
             {kind = "group", title = "Color palette", children = {
-                {kind = "field", size = 2, size_px = 26, text = model.palette()},
-                {kind = "label", text = model.graphics(info.pixels), wrap = true},
+                {kind = "select", id = "palette", size = 1, size_px = 21, value = "truecolor",
+                    options = {{value = "truecolor", label = model.palette()}}, disabled = true},
+                {kind = "spectrum", size = 1, size_px = 15},
             }},
             {kind = "group", title = "Desktop area", children = {
-                {kind = "field", size = 2, size_px = 26, text = model.resolution(info.screen, info.cell)},
-                {kind = "label", text = info.failure and ("the compositor did not answer: " .. tostring(info.failure))
-                    or model.cell_text(info.cell), alert = info.failure ~= nil, wrap = true},
+                {kind = "row", size = 1, size_px = 21, gap = 1, children = {
+                    {kind = "label", size = 4, size_px = 36, text = "Less"},
+                    {kind = "slider", id = "area", value = 0, min = 0, max = 4, disabled = true},
+                    {kind = "label", size = 4, size_px = 36, text = "More"},
+                }},
+                area,
             }},
+        }},
+        {kind = "group", size = 3, size_px = 50, title = "Font size", disabled = true, children = {
+            {kind = "row", size = 1, size_px = 21, gap = 2, gap_px = 12, children = {
+                {kind = "select", id = "fonts", value = "small", options = {{value = "small", label = "Small Fonts"}}, disabled = true},
+                {kind = "button", id = "custom", size = 10, size_px = 81, text = "Custom…", disabled = true},
+            }},
+        }},
+        {kind = "row", size = 2, size_px = 30, align = "right", children = {
+            {kind = "button", id = "display_type", size = 22, size_px = 179, width_px = 173,
+                text = "Change Display Type…", disabled = true},
         }},
     }}
 end

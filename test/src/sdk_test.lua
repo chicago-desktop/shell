@@ -1259,6 +1259,60 @@ local function define_tests()
         end)
     end)
 
+    -- The two Settings controls of "Display Properties": a Windows 95
+    -- trackbar and the palette's spectrum bar.
+    test.describe("Window SDK: slider and spectrum", function()
+        local function row_of(plan: any, interaction: any, cols: integer): string
+            return (tostring(cells.rows(plan, interaction, cols, 1)[1]):gsub("\27%[[%d;:]*m", ""))
+        end
+        test.it("a slider changes by keys and clicks within min..max; a disabled one takes nothing", function()
+            local tree = {kind = "column", children = {{kind = "slider", id = "s", size = 1, value = 2, min = 0, max = 4}}}
+            local interaction = ui.interaction()
+            local plan = ui.plan(tree, 21, 1, interaction)
+            test.eq(table.concat(plan.focusable, ","), "s", "a slider takes focus")
+            local function key(name: string): any
+                return ui.event(plan, interaction, {type = "key", action = "press", key_type = name, key = name})
+            end
+            local function click(x: integer): any
+                return ui.event(plan, interaction, {type = "mouse", action = "press", button = "left", x = x, y = 1})
+            end
+            local steps = {}
+            for _, name in ipairs({"right", "left", "home", "end", "pgup"}) do
+                local action = key(name)
+                steps[#steps + 1] = name .. "=" .. tostring(action and action.value)
+            end
+            test.eq(table.concat(steps, " "), "right=3 left=1 home=0 end=4 pgup=3", "keys step from the value")
+            test.eq(click(21) and click(21).value, 4, "the right end is max")
+            test.eq(click(1) and click(1).value, 0, "the left end is min")
+            test.is_nil(click(11), "the thumb's own column is no change")
+            local before = row_of(plan, interaction, 21):match("^(.-)█")
+            test.eq(select(2, (before or ""):gsub("─", "")), ui.slider_position(tree.children[1], 21),
+                "cells: the thumb stands in the column the hit test uses")
+            test.eq(ui.slider_position(tree.children[1], 21), 10, "value 2 of 0..4 is the middle of 21 columns")
+            local off = {kind = "column", children = {{kind = "slider", id = "s", size = 1, value = 2, min = 0, max = 4, disabled = true}}}
+            local frozen = ui.interaction()
+            local plan_off = ui.plan(off, 21, 1, frozen)
+            test.eq(#plan_off.focusable, 0, "a disabled slider takes no focus")
+            test.is_nil(ui.event(plan_off, frozen, {type = "mouse", action = "press", button = "left", x = 21, y = 1}),
+                "and no clicks")
+        end)
+        test.it("the spectrum runs from magenta to red by one rule in both renderers", function()
+            test.eq(ui.spectrum_color(0) .. " " .. ui.spectrum_color(0.5) .. " " .. ui.spectrum_color(1), "#ff00ff #00ff80 #ff0000")
+            local tree = {kind = "column", children = {{kind = "spectrum", size = 1}}}
+            test.is_nil(ui.problem(tree), "a spectrum needs no id")
+            test.eq(#row_of(ui.plan(tree, 12, 1, ui.interaction()), ui.interaction(), 12), 12, "cells: one cell per step")
+            local colors: any = {}
+            local raster: any = {fill = function() end, set = function() end, blit = function() end, text = function() return 0 end,
+                rect = function(_, x, y, w, h, color) colors[#colors + 1] = color end}
+            local store: any = {take = function() return raster, true end}
+            assert(render.placement({id = "spectrum", state_revision = 1, content_state = {sdk = 1, revision = 1, ui = tree}},
+                {x = 1, y = 1, cols = 12, rows = 1}, {w = 10, h = 20}, {}, store))
+            local seen = table.concat(colors, " ")
+            test.not_nil(seen:find("#ff00ff", 1, true), "pixels: magenta at the left end")
+            test.not_nil(seen:find("#ff0000", 1, true), "pixels: red at the right end")
+        end)
+    end)
+
     test.describe("Window SDK ergonomics", function()
         test.it("app.main wraps app.run, and a bare context has watch, unwatch, after and close", function()
             test.eq(type(app.main({})), "function")

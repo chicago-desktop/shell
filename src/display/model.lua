@@ -57,9 +57,10 @@ function model.resolution(screen: any, cell: any): string
     local c: any = type(cell) == "table" and cell or {}
     local cols, rows = whole(s.width), whole(s.height)
     if cols < 1 or rows < 1 then return "unknown" end
-    local text = string.format("%d × %d cells", cols, rows)
+    -- In Windows 95's words: "640 by 480 pixels".
+    local text = string.format("%d by %d cells", cols, rows)
     if whole(c.w) > 0 and whole(c.h) > 0 then
-        text = text .. string.format(", %d × %d px", cols * whole(c.w), rows * whole(c.h))
+        text = text .. string.format(", %d by %d pixels", cols * whole(c.w), rows * whole(c.h))
     end
     return text
 end

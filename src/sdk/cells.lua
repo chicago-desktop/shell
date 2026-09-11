@@ -105,7 +105,8 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             local top = widgets.edge_top(r.w, false)
             canvas:put(whole(r.x), whole(r.y), top, whole(r.w))
             if r.w > widgets.cells(title) + 2 then
-                canvas:put(whole(r.x + 1), whole(r.y), styles.face_bold:render(title), whole(widgets.cells(title)))
+                canvas:put(whole(r.x + 1), whole(r.y), (node.disabled and styles.face_dim or styles.face_bold):render(title),
+                    whole(widgets.cells(title)))
             end
             for row = 1, r.h - 2 do
                 canvas:put(whole(r.x), whole(r.y + row), styles.light:render("▏"), 1)
@@ -192,6 +193,21 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             -- An icon in cells is one character: the font knows nothing about rasters.
             local glyph = tostring(node.icon or "▸")
             put(r.x + math.max(0, (r.w - 1) // 2), r.y + math.max(0, (r.h - 1) // 2), glyph, 1, styles.face)
+        elseif node.kind == "spectrum" then
+            -- The color spectrum: a cell per hue step on the middle row, the
+            -- same sweep as in pixels (`ui.spectrum_color`).
+            local parts = {}
+            for column = 0, r.w - 1 do
+                parts[#parts + 1] = tty.style():background(ui.spectrum_color(column / math.max(1, r.w - 1))):render(" ")
+            end
+            canvas:put(whole(r.x), whole(r.y + r.h // 2), table.concat(parts), whole(r.w))
+        elseif node.kind == "slider" then
+            -- A slider: a track and the thumb in its column on the middle row —
+            -- the column is `ui.slider_position`, the hit test's rule.
+            local at = ui.slider_position(node, r.w)
+            local track = string.rep("─", at) .. "█" .. string.rep("─", whole(math.max(0, r.w - at - 1)))
+            local style = node.disabled and styles.face_dim or (focused and styles.select or styles.face)
+            put(r.x, r.y + r.h // 2, track, r.w, style)
         elseif node.kind == "statusbar" then
             widgets.statusbar(canvas, r.x, r.y + r.h - 1, r.w, node.fields or {})
         elseif node.kind == "tabs" then
@@ -315,6 +331,10 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             local label = tostring(node.text or "")
             local style = widgets.styles.face
             if node.kind == "label" and node.alert then style = widgets.styles.alert end
+            -- `align = "center"`: a single-line label stands in the middle of its width.
+            if node.kind == "label" and node.align == "center" and not node.wrap and not label:find("\n", 1, true) then
+                label = string.rep(" ", whole(math.max(0, (r.w - widgets.cells(label)) // 2))) .. label
+            end
             if node.kind == "button" then
                 -- The same button as in Run, the explorer and the chrome: edges, a black
                 -- outline on default, reversed edges when pressed, dimmed when
