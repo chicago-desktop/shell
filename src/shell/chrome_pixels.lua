@@ -103,6 +103,7 @@ local VIEWS: any = {
 }
 function chrome_pixels.forget(id)
     picture_render.forget(id)
+    sdk_render.forget(id)
 end
 function chrome_pixels.renders(reference)
     return VIEWS[tostring(reference)] ~= nil
@@ -566,7 +567,10 @@ local function paint_view(cell: any, window: any, fonts: any, out, inner: any)
         -- silently diverge from itself. So a view must not throw but refuse:
         -- `render.placement` checks the tree with `ui.problem` and returns
         -- the reason, and that becomes the text below.
-        placed, why = lib.placement(window, inner, cell, fonts, store)
+        -- A renderer that can cut its client into rows (the SDK's) gives rows:
+        -- a keypress re-sends the rows that changed, not the whole client.
+        local draw: any = lib.rows or lib.placement
+        placed, why = draw(window, inner, cell, fonts, store)
     end
 
     if type(placed) == "table" then

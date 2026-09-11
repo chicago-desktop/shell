@@ -1347,6 +1347,115 @@ local function define_tests()
         end)
     end)
 
+    -- The client by rows: a placement per row, an unchanged row keeps its
+    -- raster and version, so the surface does not re-send it. The costs go to
+    -- shots/sdk-rows-cost.txt.
+    test.describe("Window SDK: client rows", function()
+        local function face(): any
+            local files = assert(fs.get("app:system_fonts"))
+            return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
+        end
+        local function list_window(selected: integer, revision: integer): any
+            local items = {}
+            for index = 1, 10 do items[index] = "item " .. index end
+            return {id = "rows", state_revision = revision, content_state = {sdk = 1, revision = revision,
+                interaction = ui.interaction(),
+                ui = {kind = "column", children = {{kind = "list", id = "items", items = items, selected = selected}}}}}
+        end
+        local function ms(from: any, to: any): string
+            return string.format("%.2f", (to - from) / 1000000.0)
+        end
+        test.it("only the rows whose content changed are repainted; the same revision repaints none; a resize all", function()
+            local fonts = {face = face()}
+            local store = rasters.store()
+            local inner, cell = {x = 1, y = 1, cols = 50, rows = 15}, {w = 10, h = 20}
+            store.begin()
+            local t0 = time.now():unix_nano()
+            local first = assert(render.rows(list_window(2, 1), inner, cell, fonts, store))
+            local t1 = time.now():unix_nano()
+            test.eq(#first, 15, "a placement per client row")
+            test.eq(first[3].id .. " " .. first[3].y .. " " .. first[3].rows, "win:rows:sdk:row:3 3 1", "a row placement is one row")
+            local before: any = {}
+            for _, placed in ipairs(first) do before[placed.id] = {raster = placed.raster, version = placed.raster:version()} end
+
+            store.begin()
+            local t2 = time.now():unix_nano()
+            local second = assert(render.rows(list_window(5, 2), inner, cell, fonts, store))
+            local t3 = time.now():unix_nano()
+            local dirty = {}
+            for _, placed in ipairs(second) do
+                local was: any = before[placed.id]
+                test.eq(placed.raster, was.raster, "a row keeps its raster: " .. placed.id)
+                if placed.raster:version() ~= was.version then dirty[#dirty + 1] = placed.id:match(":row:(%d+)$") end
+            end
+            test.eq(table.concat(dirty, ","), "2,5", "rows unchanged were re-sent: only the old and the new selection may be")
+
+            local versions: any = {}
+            for _, placed in ipairs(second) do versions[placed.id] = placed.raster:version() end
+            store.begin()
+            local calls: any = {count = 0}
+            local plan = ui.plan
+            ui.plan = function(...) calls.count = calls.count + 1; return plan(...) end
+            local third = assert(render.rows(list_window(5, 2), inner, cell, fonts, store))
+            ui.plan = plan
+            test.eq(calls.count, 0, "the same revision is not laid out again")
+            for _, placed in ipairs(third) do
+                test.eq(placed.raster:version(), versions[placed.id], "the same revision repaints nothing: " .. placed.id)
+            end
+
+            store.begin()
+            local wider = assert(render.rows(list_window(5, 2), {x = 1, y = 1, cols = 52, rows = 15}, cell, fonts, store))
+            local repainted = 0
+            for _, placed in ipairs(wider) do
+                if placed.raster ~= before[placed.id].raster then repainted = repainted + 1 end
+            end
+            test.eq(repainted, 15, "a resize repaints every row")
+
+            -- The cost, for the report: the whole client as one placement against the rows.
+            local whole_store = rasters.store()
+            whole_store.begin()
+            local t4 = time.now():unix_nano()
+            local single = assert(render.placement(list_window(2, 1), inner, cell, fonts, whole_store))
+            local t5 = time.now():unix_nano()
+            local png_whole = single.raster:encode("png")
+            local t6 = time.now():unix_nano()
+            for _, placed in ipairs(second) do
+                if placed.id:match(":row:[25]$") then placed.raster:encode("png") end
+            end
+            local t7 = time.now():unix_nano()
+            test.not_nil(png_whole)
+            assert(assert(fs.get("app:shots")):writefile("sdk-rows-cost.txt", string.format(
+                "50x15 client at 10x20 (500x300 px), a 10-item list, the selection moved from 2 to 5\n"
+                .. "one raster: every revision re-sends 150000 px; paint %s ms, PNG encode of the whole %s ms\n"
+                .. "rows, first frame: 15 placements, 150000 px; plan + keys + paint + 15 blits %s ms\n"
+                .. "rows, next revision: 2 placements re-sent, 20000 px; plan + keys + paint + 2 blits %s ms; "
+                .. "PNG encode of the 2 rows %s ms\n",
+                ms(t4, t5), ms(t5, t6), ms(t0, t1), ms(t2, t3), ms(t6, t7))))
+        end)
+        test.it("a graph's integer ceiling is printed as digits", function()
+            local texts: any = {}
+            local raster: any = {fill = function() end, rect = function() end, set = function() end, blit = function() end,
+                text = function(_, x, y, caption) texts[#texts + 1] = tostring(caption); return 0 end}
+            local store: any = {take = function() return raster, true end}
+            -- Both ways a ceiling reaches the caption: declared, and computed by
+            -- charts.ceiling_of (all-zero values give its floor of 1).
+            for _, case in ipairs({{ceiling = 40, values = {1, 2, 3}, caption = "40 MB"},
+                                   {values = {0, 0, 0}, caption = "1 MB"}}) do
+                local from = #texts + 1
+                assert(render.placement({id = "graph", state_revision = 1, content_state = {sdk = 1, revision = 1,
+                    ui = {kind = "graph", values = case.values, ceiling = case.ceiling, unit = " MB"}}},
+                    {x = 1, y = 1, cols = 20, rows = 6}, {w = 10, h = 20}, {face = face()}, store))
+                local seen = table.concat(texts, "|", from)
+                test.not_nil(seen:find(case.caption, 1, true), "the ceiling reads " .. case.caption .. ": " .. seen)
+            end
+            -- Neither way passes an integer today (tonumber and math.max return
+            -- floats), so the caption is checked on a real one directly: a Lua
+            -- literal and math.tointeger are what reach %f as lua.LInteger.
+            test.eq(render.ceiling_caption(math.tointeger(40) :: number, " MB"), "40 MB",
+                "an integer ceiling must print as digits, not as %!f(lua.LInteger=40)")
+        end)
+    end)
+
     test.describe("Window SDK ergonomics", function()
         test.it("app.main wraps app.run, and a bare context has watch, unwatch, after and close", function()
             test.eq(type(app.main({})), "function")

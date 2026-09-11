@@ -29,7 +29,9 @@ local function detached(interaction: any): any
     end
     return copy
 end
-function render.placement(window: any, inner: any, cell: any, fonts: any, store: any): (any, any)
+-- checked(window) -> the window's SDK state, or nil and why it cannot be laid
+-- out. One gate for the whole raster and for the rows.
+local function checked(window: any): (any, any)
     local state: any = window.content_state
     if type(state) ~= "table" or state.sdk ~= 1 then return nil, "SDK: state version 1 expected" end
     -- The shape is checked as a whole, not by the version alone: a state without
@@ -42,20 +44,25 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
     -- and a thrown one would crash the frame of the whole shell.
     local problem = ui.problem(state.ui)
     if problem then return nil, "SDK: " .. tostring(problem) end
-    local id = "win:" .. tostring(window.id) .. ":sdk"
-    local raster, dirty = store.take(id, inner.cols, inner.rows, cell, tostring(window.state_revision or state.revision))
-    -- The raster first: a clean one is reused as it is, and the tree is laid
-    -- out only for a frame that is actually painted — before, every frame of
-    -- the shell laid out every SDK window and threw the plan away. The layout
-    -- works on a copy, so the compositor's interaction stays as the window
-    -- published it.
-    local interaction: any = {}
-    local plan: any = {items = {}, overlays = {}}
-    if dirty then
-        interaction = detached(type(state.interaction) == "table" and state.interaction or ui.interaction())
-        plan = ui.plan(state.ui, inner.cols, inner.rows, interaction, {scroll_cols = widgets.scroll_cols(cell.w), cell = cell})
-    end
-    if dirty then
+    return state, nil
+end
+-- laid_out(state, inner, cell) -> plan, interaction. The layout works on a
+-- copy, so the compositor's interaction stays as the window published it.
+local function laid_out(state: any, inner: any, cell: any): (any, any)
+    local interaction = detached(type(state.interaction) == "table" and state.interaction or ui.interaction())
+    local plan = ui.plan(state.ui, inner.cols, inner.rows, interaction, {scroll_cols = widgets.scroll_cols(cell.w), cell = cell})
+    return plan, interaction
+end
+-- ceiling_caption(ceiling, unit) — a graph's ceiling label, "40 MB".
+-- `+ 0.0`: an integer under %f prints "%!f(lua.LInteger=…)" in this runtime's
+-- string.format. tonumber and math.max already return floats, so paint passes
+-- none today; a literal or math.tointeger would.
+function render.ceiling_caption(ceiling: number, unit: any): string
+    return string.format("%.0f", ceiling + 0.0) .. tostring(unit or "")
+end
+-- paint(raster, plan, interaction, cell, fonts) — the whole client into `raster`.
+local function paint(raster: any, plan: any, interaction: any, cell: any, fonts: any)
+    do
         raster:fill(color.face)
         local font = fonts and fonts.face
         local function text(x: any, y: any, w: any, h: any, value: any, tint: any?)
@@ -341,7 +348,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                         previous = {x = px, y = py}
                     end
                     if font then
-                        local cap = string.format("%.0f", ceiling) .. tostring(node.unit or "")
+                        local cap = render.ceiling_caption(ceiling, node.unit)
                         local lw = math.min(gw - 4, whole(font:measure(cap)) + 4)
                         raster:rect(whole(gx + 2), whole(gy + 2), whole(lw), whole(math.min(16, gh)), "#000000")
                         raster:text(whole(gx + 4), whole(gy + 2), cap, {font = font, color = "#00ff00"})
@@ -708,7 +715,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
         end
     end
     -- Open menus go on top of everything, hence after the rest and in the same raster.
-    if dirty then
+    do
         local font = fonts and fonts.face
         -- A select's open list: a white box with a black frame straight under
         -- (or over) the field, the cursor row in the selection colors.
@@ -761,6 +768,160 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             end
         end
     end
+end
+-- placement(window, inner, cell, fonts, store) -> the whole client as ONE
+-- placement `win:<id>:sdk`. Snapshots and tools take the picture from here;
+-- the compositor takes `rows`.
+function render.placement(window: any, inner: any, cell: any, fonts: any, store: any): (any, any)
+    local state, why = checked(window)
+    if not state then return nil, why end
+    local id = "win:" .. tostring(window.id) .. ":sdk"
+    local raster, dirty = store.take(id, inner.cols, inner.rows, cell, tostring(window.state_revision or state.revision))
+    -- The raster first: a clean one is reused as it is, and the tree is laid
+    -- out only for a frame that is actually painted — before, every frame of
+    -- the shell laid out every SDK window and threw the plan away.
+    if dirty then
+        local plan, interaction = laid_out(state, inner, cell)
+        paint(raster, plan, interaction, cell, fonts)
+    end
     return {id = id, raster = raster, x = inner.x, y = inner.y, cols = inner.cols, rows = inner.rows}, nil
+end
+
+-- ─── The client by rows ─────────────────────────────────────────────────
+--
+-- One raster for the whole client was re-rasterised AND re-sent whole on
+-- every revision: a keypress in the registry editor, a Task Manager tick —
+-- 500×300 px encoded again because the version moved, although one row
+-- changed. So the compositor takes the client as ONE PLACEMENT PER ROW,
+-- `win:<id>:sdk:row:<n>`, the chrome's rule: the surface re-sends a placement
+-- only when its raster changed, and an unchanged row keeps its raster and
+-- its version.
+--
+-- A row's key is a fingerprint of what that row draws: every plan item that
+-- crosses it, with its node and its state (geometry, offsets, the scrollbar,
+-- focus, a pressed button, an editor's caret, an open list), and the overlays
+-- over it. Lists, tables and trees are fingerprinted per row — the entry in
+-- that row and whether it is selected — so moving the selection repaints two
+-- rows, not the list. The plan is built once per revision, as before; the
+-- same revision in the next frame reuses the keys without a layout.
+--
+-- The pixels of a dirty row come from ONE full rasterisation, blitted row by
+-- row: `paint` walks every item whatever the target, so painting row by row
+-- would cost the whole walk once per dirty row. The full raster is a scratch
+-- one, not the store's: the store sweeps what a frame did not place, and a
+-- full raster taken but never placed would come back new and be repainted
+-- every frame.
+local memo: any = {}
+local LINES: any = {list = true, table = true, tree = true}
+-- sig(value, skip) — a stable text of plain data, keys sorted; `children`
+-- is left out (a container's children are items of their own).
+local function sig(value: any, skip: any?): string
+    if type(value) ~= "table" then return type(value):sub(1, 1) .. tostring(value) end
+    local keys: any = {}
+    for key in pairs(value) do
+        if key ~= "children" and not (skip ~= nil and skip[key]) then keys[#keys + 1] = key end
+    end
+    table.sort(keys, function(a: any, b: any): boolean return tostring(a) < tostring(b) end)
+    local parts = {}
+    for _, key in ipairs(keys) do parts[#parts + 1] = tostring(key) .. "=" .. sig(value[key]) end
+    return "{" .. table.concat(parts, ",") .. "}"
+end
+-- What an item draws on every row it crosses: its node (without the entries
+-- of a list-like node, which are per row) and its state.
+local function item_sig(item: any, plan: any, interaction: any): string
+    local node: any = item.node
+    local id = node.id
+    local lines = LINES[node.kind] == true
+    local armed: any = interaction.armed
+    local capture: any = interaction.capture
+    local menus: any = interaction.menus or {}
+    local editors: any = interaction.editors or {}
+    return table.concat({
+        -- A list-like node's entries and its `selected` are per row (`line_sig`):
+        -- in the shared part they would repaint every row on a selection move.
+        sig(node, lines and {items = true, rows = true, selected = true} or nil), sig(item.rect),
+        tostring(item.offset), tostring(item.header), lines and "" or tostring(item.selected_index),
+        sig(item.bar), sig(item.px), tostring(item.current), tostring(item.bar_cols),
+        sig(item.spans), sig(item.frame), sig(item.popup), sig(item.cells),
+        id ~= nil and interaction.focus == id and "F" or "",
+        id ~= nil and armed ~= nil and armed.id == id and (armed.inside and "A" or "a") or "",
+        id ~= nil and capture ~= nil and capture.id == id and "C" or "",
+        id ~= nil and sig(editors[id]) or "", id ~= nil and sig(menus[id]) or "",
+        node.kind == "button" and tostring(plan.focus_on_button) or "",
+    }, ";")
+end
+-- The entry a list-like item draws in one row, and whether it is selected.
+local function line_sig(item: any, row: integer): string
+    local node: any, rect: any = item.node, item.rect
+    local at = row - whole(rect.y) - whole(item.header)
+    if at < 0 then return "header" end
+    local index = whole(item.offset) + at + 1
+    local entries: any = node.kind == "list" and (node.items or {}) or (node.rows or {})
+    return tostring(index) .. ":" .. sig(entries[index]) .. (index == whole(item.selected_index) and ":selected" or "")
+end
+local function row_keys(plan: any, interaction: any, rows: integer, base: string): any
+    local common: any = {}
+    for index, item in ipairs(plan.items) do common[index] = item_sig(item, plan, interaction) end
+    local keys: any = {}
+    for row = 1, rows do
+        local parts: any = {base}
+        for index, item in ipairs(plan.items) do
+            local r: any = item.rect
+            if row >= r.y and row <= r.y + r.h - 1 then
+                parts[#parts + 1] = common[index]
+                if LINES[item.node.kind] then parts[#parts + 1] = line_sig(item, row) end
+            end
+        end
+        for _, item in ipairs(plan.overlays or {}) do
+            local popup: any = item.popup
+            if popup and row >= popup.rect.y and row <= popup.rect.y + popup.rect.h - 1 then
+                parts[#parts + 1] = "over:" .. sig(popup) .. sig((interaction.menus or {})[item.node.id])
+            end
+        end
+        keys[row] = table.concat(parts, "\30")
+    end
+    return keys
+end
+-- rows(window, inner, cell, fonts, store) -> a placement per client row
+function render.rows(window: any, inner: any, cell: any, fonts: any, store: any): (any, any)
+    local state, why = checked(window)
+    if not state then return nil, why end
+    local cw, ch = math.max(1, whole(cell.w)), math.max(1, whole(cell.h))
+    local count = whole(inner.rows)
+    -- The font set by identity: `use_fonts` makes a new set when the fonts
+    -- change, and the rows are repainted with them.
+    local base = tostring(inner.cols) .. "x" .. tostring(count) .. "@" .. cw .. "x" .. ch .. "|" .. tostring(fonts)
+    local revision = tostring(window.state_revision or state.revision)
+    local seen: any = memo[tostring(window.id)]
+    local plan: any, interaction: any = nil, nil
+    local keys: any
+    if seen and seen.revision == revision and seen.base == base then
+        keys = seen.keys
+    else
+        plan, interaction = laid_out(state, inner, cell)
+        keys = row_keys(plan, interaction, count, base)
+        memo[tostring(window.id)] = {revision = revision, base = base, keys = keys}
+    end
+    local prefix = "win:" .. tostring(window.id) .. ":sdk:row:"
+    local full: any = nil
+    local out = {}
+    for row = 1, count do
+        local id = prefix .. row
+        local raster, dirty = store.take(id, inner.cols, 1, cell, keys[row])
+        if dirty then
+            if full == nil then
+                if plan == nil then plan, interaction = laid_out(state, inner, cell) end
+                full = gfx.raster(whole(inner.cols) * cw, count * ch)
+                paint(full, plan, interaction, cell, fonts)
+            end
+            raster:blit(full, 1, 1 - (row - 1) * ch)
+        end
+        out[#out + 1] = {id = id, raster = raster, x = inner.x, y = inner.y + row - 1, cols = inner.cols, rows = 1}
+    end
+    return out, nil
+end
+-- forget(id) — a closed window's row keys.
+function render.forget(id: any)
+    memo[tostring(id)] = nil
 end
 return render

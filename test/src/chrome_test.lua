@@ -706,6 +706,10 @@ local function define_tests()
         for index = 1, 5 do WINDOWS[index] = {id = "w" .. index, title = "Window " .. index} end
 
         local function use_fonts()
+            -- A pattern or wallpaper left by a test that failed mid-way must
+            -- not paint under this one.
+            chrome.use_pattern(nil)
+            chrome.use_wallpaper(nil, nil)
             local files = assert(fs.get("app:system_fonts"))
             chrome_pixels.use_fonts(
                 assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true})),
@@ -1003,6 +1007,10 @@ local function define_tests()
 
     test.describe("pixel desktop failure and taskbar status", function()
         local function use_fonts()
+            -- A pattern or wallpaper left by a test that failed mid-way must
+            -- not paint under this one.
+            chrome.use_pattern(nil)
+            chrome.use_wallpaper(nil, nil)
             local files = assert(fs.get("app:system_fonts"))
             local face = assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local bold = assert(gfx.font(assert(files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
@@ -1235,6 +1243,10 @@ local function define_tests()
     -- window changed and the menu did not.
     test.describe("menu above windows", function()
         local function load_fonts()
+            -- A pattern or wallpaper left by a test that failed mid-way must
+            -- not paint under this one.
+            chrome.use_pattern(nil)
+            chrome.use_wallpaper(nil, nil)
             local files = assert(fs.get("app:system_fonts"))
             local face = assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local bold = assert(gfx.font(assert(files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
@@ -1337,7 +1349,7 @@ local function define_tests()
             test.eq(#below_menu(first), 0, table.concat(below_menu(first), "; "))
             local cropped = false
             for _, item in ipairs(first.placements) do
-                if tostring(item.id):find("win:sdk:sdk:crop:", 1, true) == 1 then cropped = true end
+                if tostring(item.id):match("^win:sdk:sdk:row:%d+:crop:") then cropped = true end
             end
             test.is_true(cropped, "the scene must cover the window's pixel content with the menu")
             for _, panel in ipairs(panels) do
@@ -1345,9 +1357,11 @@ local function define_tests()
             end
             local kept: any = {}
             for _, panel in ipairs(panels) do kept[panel.id] = {raster = panel.raster, version = panel.raster:version()} end
-            local crops: any = {}
+            -- The client is a placement per row (`win:sdk:sdk:row:N`); the rows
+            -- under the menu come as their crops.
+            local rows_before: any = {}
             for _, item in ipairs(first.placements) do
-                if tostring(item.id):find("win:sdk:sdk:crop:", 1, true) == 1 then crops[item.id] = item.raster:version() end
+                if tostring(item.id):find("win:sdk:sdk:row:", 1, true) == 1 then rows_before[item.id] = item.raster:version() end
             end
 
             -- The second frame: the window changed (a tick), the menu did not.
@@ -1361,17 +1375,17 @@ local function define_tests()
             end
             local moved = false
             for _, item in ipairs(second.placements) do
-                local was = crops[item.id]
+                local was = rows_before[item.id]
                 if was ~= nil and item.raster:version() ~= was then moved = true end
             end
-            test.is_true(moved, "the window's crops are keyed by its raster version and repainted")
+            test.is_true(moved, "the window's changed rows are repainted, crops following their rows")
 
-            -- The menu is closed: no crops, the window came back whole with its former id.
+            -- The menu is closed: no crops, the window's rows came back whole.
             state.menu = nil
             local closed = chrome_pixels.paint(state, 10, 20)
-            test.not_nil(by_id(closed, "win:sdk:sdk"), "the window content is one placement again")
+            test.not_nil(by_id(closed, "win:sdk:sdk:row:1"), "the window content is whole rows again")
             for _, item in ipairs(closed.placements) do
-                test.is_nil(tostring(item.id):find("win:sdk:sdk:crop:", 1, true), "a crop outlived the menu: " .. item.id)
+                test.is_nil(tostring(item.id):match("^win:sdk:sdk:row:%d+:crop:"), "a crop outlived the menu: " .. item.id)
             end
             chrome_pixels.fonts = nil
         end)

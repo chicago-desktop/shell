@@ -158,7 +158,7 @@ local function define_tests()
                 shot:blit(item.raster, (item.x - 1) * 10 + 1, (item.y - 1) * 20 + 1)
             end
             test.is_true(ids["win:logon:head"] == true, "no window title")
-            test.is_true(ids["win:logon:sdk"] == true, "no SDK client")
+            test.is_true(ids["win:logon:sdk:row:1"] == true, "no SDK client (a placement per client row)")
             test.is_nil(ids["bars"], "taskbar drawn on the logon screen")
             assert(assert(fs.get("app:shots")):writefile("logon.png", assert(shot:encode("png"))))
         end)
