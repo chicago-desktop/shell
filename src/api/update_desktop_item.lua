@@ -6,16 +6,21 @@
 --
 -- `parent_id: null` в теле — просьба вынести значок из папки на стол.
 -- Отсутствие поля означает «не трогать»; без этого различия вынести значок
--- было бы нечем.
+-- было бы нечем. Что в теле допустимо, решает `desktop_body`.
 
 local http = require("http")
-local json = require("json")
 local security = require("security")
 local repo = require("repo")
 local control = require("control")
+local desktop_body = require("desktop_body")
 
 local function bad(res, message)
     res:set_status(http.STATUS.BAD_REQUEST)
+    res:write_json({success = false, error = message})
+end
+
+local function failed(res, message)
+    res:set_status(http.STATUS.INTERNAL_ERROR)
     res:write_json({success = false, error = message})
 end
 
@@ -36,68 +41,27 @@ local function handler()
         return bad(res, "id: shortcut not named")
     end
 
-    local raw = req:body() or ""
-    local body = json.decode(raw) or {}
-    if type(body) ~= "table" then body = {} end
+    local patch, why = desktop_body.update(req:body())
+    if not patch then return bad(res, tostring(why)) end
 
-    if body.entry ~= nil or body.kind ~= nil then
-        return bad(res, "entry and kind do not change: swapping the entry under the same icon launches something other than what is shown")
-    end
-
-    local patch: any = {}
-    if body.title ~= nil then
-        if type(body.title) ~= "string" or body.title == "" then
-            return bad(res, "title: a non-empty string")
-        end
-        patch.title = body.title
-    end
-    if body.x ~= nil then
-        if tonumber(body.x) == nil then return bad(res, "x: a number") end
-        patch.x = body.x
-    end
-    if body.y ~= nil then
-        if tonumber(body.y) == nil then return bad(res, "y: a number") end
-        patch.y = body.y
-    end
-
-    -- Разобранная таблица не отличает присланный null от отсутствующего
-    -- поля — оба приезжают как nil. Различие здесь смысловое («вынести на
-    -- стол» против «не трогать»), поэтому null ищется в сыром теле.
-    --
-    -- ЭТО РАЗБОР ЧУЖОГО JSON РУКАМИ, и он временный. Условие снятия: как
-    -- только у json появится значение-метка для null (json.null или подобное),
-    -- заменить эту ветку на сравнение с ней — место в коде одно, вот оно.
-    -- Долг записан осознанно: пока метки нет, единственная альтернатива —
-    -- отдельная ручка «вынести на стол», то есть второй способ сделать то же
-    -- самое, который разойдётся с первым.
-    if body.parent_id ~= nil then
-        if type(body.parent_id) ~= "string" or body.parent_id == "" then
-            return bad(res, "parent_id: a folder id or null")
-        end
-        local parent, perr = repo.get(body.parent_id)
-        if perr then
-            res:set_status(http.STATUS.INTERNAL_ERROR)
-            res:write_json({success = false, error = "reading the folder: " .. tostring(perr)})
+    -- Перенос в папку: что кладут, решает вид самого значка, поэтому он
+    -- читается здесь, до записи.
+    if type(patch.parent_id) == "string" then
+        local item, ierr = repo.get(id)
+        if ierr then return failed(res, "reading the shortcut: " .. tostring(ierr)) end
+        if not item then
+            res:set_status(http.STATUS.NOT_FOUND)
+            res:write_json({success = false, error = "no such shortcut: " .. id})
             return
         end
-        if not parent then return bad(res, "parent_id: no such folder") end
-        if parent.kind ~= repo.KIND_FOLDER then
-            return bad(res, "parent_id: only a desktop folder can hold items")
-        end
-        if body.parent_id == id then
-            return bad(res, "parent_id: a folder cannot hold itself")
-        end
-        patch.parent_id = body.parent_id
-    elseif string.find(raw, '"parent_id"%s*:%s*null') then
-        patch.parent_id = false
+        local parent, perr = repo.get(patch.parent_id)
+        if perr then return failed(res, "reading the folder: " .. tostring(perr)) end
+        local refused = desktop_body.nest(item.kind, parent)
+        if refused then return bad(res, tostring(refused)) end
     end
 
     local item, err = repo.update(id, patch)
-    if err then
-        res:set_status(http.STATUS.INTERNAL_ERROR)
-        res:write_json({success = false, error = "moving: " .. tostring(err)})
-        return
-    end
+    if err then return failed(res, "moving: " .. tostring(err)) end
     if item == false then
         res:set_status(http.STATUS.NOT_FOUND)
         res:write_json({success = false, error = "no such shortcut: " .. id})

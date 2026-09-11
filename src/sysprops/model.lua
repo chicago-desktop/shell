@@ -65,6 +65,13 @@ function model.tree(snapshot: any, records: any): any
         end
         table.sort(branch.children, function(left, right) return left.label < right.label end)
         branch.count = #branch.children
+        -- Не прочитали — не «нет»: вместо «(none)» причина, и она же — строка
+        -- состояния под деревом, где целиком помещается текст отказа.
+        local problems: any = type(snap.problems) == "table" and snap.problems or {}
+        if group.key == "hosts" or group.key == "modules" then
+            branch.problem = problems[group.key]
+            branch.detail = problems[group.key]
+        end
         root.children[#root.children + 1] = branch
     end
     return root
@@ -77,7 +84,9 @@ function model.flatten(root: any, expanded: any): any
     local function walk(current: any, depth: any, trail: any)
         local is_open = open[current.key] == true
         local label = current.label
-        if current.count ~= nil then
+        if current.problem then
+            label = label .. " (" .. tostring(current.problem) .. ")"
+        elseif current.count ~= nil then
             label = label .. (current.count > 0 and string.format(" (%d)", current.count) or " (none)")
         end
         rows[#rows + 1] = {

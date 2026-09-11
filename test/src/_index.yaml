@@ -31,6 +31,7 @@ entries:
       catalog: butschster.windows.programs:catalog
       seed: butschster.windows.programs:seed
       view: butschster.windows.programs:desktop_view
+      desktop_body: butschster.windows.api:desktop_body
     method: run
 
   - name: catalog_test
@@ -530,6 +531,8 @@ entries:
       model: butschster.windows.network:model
       ui: butschster.windows.sdk:ui
       network_window: butschster.windows.network:window
+      cells: butschster.windows.sdk:cells
+      facts: butschster.windows.config:system
     method: run
 
   - name: sysprops_test

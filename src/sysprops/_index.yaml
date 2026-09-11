@@ -63,3 +63,4 @@ entries:
       app: butschster.windows.sdk:app
       model: butschster.windows.sysprops:model
       charts: butschster.windows.sdk:charts
+      facts: butschster.windows.config:system

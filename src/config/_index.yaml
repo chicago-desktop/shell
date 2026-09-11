@@ -21,3 +21,16 @@ entries:
     modules:
       - env
       - logger
+
+  # butschster.windows.config:system
+  #
+  # Цифры рантайма для «Диспетчера задач», «Свойств: Система» и «Сетевого
+  # окружения» — значение или причина на каждое поле. Права — у окна, которое
+  # зовёт (system.read в его политике).
+  - name: system
+    kind: library.lua
+    meta:
+      comment: Снимок рантайма для окон системы — значение или причина на каждое поле, отказ по правам отличим от «кластера нет».
+    source: file://system.lua
+    modules:
+      - system

@@ -209,6 +209,47 @@ local function define_tests()
         end)
     end)
 
+    test.describe("Task Manager reading the runtime", function()
+        local function strings_of(node: any, out: any): any
+            if type(node) == "string" then out[#out + 1] = node
+            elseif type(node) == "table" then
+                for _, value in pairs(node) do strings_of(value, out) end
+            end
+            return out
+        end
+
+        test.it("отказ по правам назван, а не превращён в ноль или «unavailable»", function()
+            local function denied(what: string): any
+                return function()
+                    return nil, errors.new({message = "permission denied: system.read on " .. what, kind = errors.INVALID})
+                end
+            end
+            local absent = function() return nil, errors.new({message = "raft not available", kind = errors.INTERNAL}) end
+            local fake: any = {
+                memory = {stats = denied("memory")},
+                runtime = {goroutines = denied("goroutines"), cpu_count = function() return 4, nil end,
+                    max_procs = function() return 4, nil end},
+                process = {pid = function() return 7, nil end, hostname = function() return "host", nil end},
+                hosts = {list = function() return {}, nil end, processes = function() return {}, nil end},
+                node = {id = denied("node"), role = function() return "voter", nil end},
+                cluster = {members = denied("cluster"), leader = absent},
+                raft = {role = absent},
+            }
+            local snap: any = taskman.definition.snapshot(fake)
+            test.is_nil(snap.goroutines, "не прочитали — не ноль")
+            local state: any = {tab = 4, selected_id = nil, heap_history = {}, goroutine_history = {},
+                windows = {}, snapshot = snap}
+            local node_page = table.concat(strings_of(taskman.definition.view(state, {width = 76, height = 25}), {}), "\n")
+            test.is_true(node_page:find("node name: permission denied: system.read on node", 1, true) ~= nil, node_page)
+            test.is_true(node_page:find("leader: unavailable (raft not available)", 1, true) ~= nil)
+            test.is_nil(node_page:find("\nunavailable\n", 1, true), "голого «unavailable» нет")
+            state.tab = 3
+            local charts_page = table.concat(strings_of(taskman.definition.view(state, {width = 76, height = 25}), {}), "\n")
+            test.is_true(charts_page:find("memory: permission denied: system.read on memory", 1, true) ~= nil,
+                "над графиками — причина")
+        end)
+    end)
+
 end
 
 -- Форма раннера — как у shell_test. `return {run = run}` с describe внутри

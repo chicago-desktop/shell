@@ -20,6 +20,7 @@ local app = require("app")
 local desktop = require("desktop")
 local model = require("model")
 local charts = require("charts")
+local facts = require("facts")
 
 local HISTORY_CAP = 240
 
@@ -28,42 +29,30 @@ local whole = geometry.whole
 
 -- ─── Снятие цифр ─────────────────────────────────────────────────────────
 
-local function snapshot(): any
-    local out: any = {taken = tonumber(os_clock.time()) or 0}
-    local mem: any = system.memory.stats()
-    if type(mem) == "table" then out.memory = mem else out.memory = {} end
-    out.goroutines = whole(system.runtime.goroutines())
-    out.cpu_count = whole(system.runtime.cpu_count())
-    out.max_procs = whole(system.runtime.max_procs())
-    out.pid = tostring(system.process.pid())
-    out.hostname = tostring(system.process.hostname())
-    -- Процессы спрашиваются по каждому хосту: пустой идентификатор хоста
-    -- отвечает пустым списком, а не «всеми».
-    local hosts, herr = system.hosts.list()
-    if type(hosts) == "table" then out.hosts = hosts else out.hosts, out.hosts_error = {}, tostring(herr) end
-    local all: any = {}
-    local failures = {}
-    for _, host in ipairs(out.hosts) do
-        local record: any = host
-        local procs, perr = system.hosts.processes(tostring(record.id or ""))
-        if type(procs) == "table" then
-            for _, proc in ipairs(procs) do all[#all + 1] = proc end
-        else
-            failures[#failures + 1] = tostring(record.id) .. ": " .. tostring(perr)
-        end
-    end
+-- Значение или причина на каждое поле — `butschster.windows.config:system`.
+-- Прежде второе значение `system.*` отбрасывалось, и отказ по правам
+-- становился нулём горутин или «unavailable».
+local function snapshot(from: any?): any
+    local snap: any = facts.read({"memory", "goroutines", "cpu_count", "max_procs", "pid", "hostname", "hosts",
+        "node_id", "node_role", "members", "leader", "raft_role"}, from)
+    local function text(value: any): any return value ~= nil and tostring(value) or nil end
+    local function count(value: any): any return value ~= nil and whole(value) or nil end
+    local out: any = {taken = tonumber(os_clock.time()) or 0, problems = snap.problems}
+    out.memory = type(snap.memory) == "table" and snap.memory or {}
+    out.goroutines = count(snap.goroutines)
+    out.cpu_count = count(snap.cpu_count)
+    out.max_procs = count(snap.max_procs)
+    out.pid = text(snap.pid)
+    out.hostname = text(snap.hostname)
+    out.hosts = type(snap.hosts) == "table" and snap.hosts or {}
+    local all, perr = facts.processes(out.hosts, from)
     out.processes = model.processes(all)
-    if #failures > 0 then out.processes_error = "not read: " .. table.concat(failures, "; ") end
-    local ok_node, node_id = pcall(function() return system.node.id() end)
-    out.node_id = ok_node and tostring(node_id) or nil
-    local ok_role, role = pcall(function() return system.node.role() end)
-    out.node_role = ok_role and tostring(role) or nil
-    local ok_members, members = pcall(function() return system.cluster.members() end)
-    out.members = ok_members and type(members) == "table" and members or nil
-    local ok_leader, leader = pcall(function() return system.cluster.leader() end)
-    out.leader = ok_leader and tostring(leader) or nil
-    local ok_raft, raft_role = pcall(function() return system.raft.role() end)
-    out.raft_role = ok_raft and tostring(raft_role) or nil
+    out.processes_error = snap.problems.hosts or perr
+    out.node_id = text(snap.node_id)
+    out.node_role = text(snap.node_role)
+    out.members = type(snap.members) == "table" and snap.members or nil
+    out.leader = text(snap.leader)
+    out.raft_role = text(snap.raft_role)
     return out
 end
 
@@ -72,7 +61,7 @@ local function sample(state: any)
     state.snapshot = snap
     local mem: any = snap.memory or {}
     state.heap_history = model.push(state.heap_history, tonumber(mem.heap_in_use) or 0, HISTORY_CAP)
-    state.goroutine_history = model.push(state.goroutine_history, snap.goroutines, HISTORY_CAP)
+    state.goroutine_history = model.push(state.goroutine_history, snap.goroutines or 0, HISTORY_CAP)
     if state.tab == 1 then
         local answer, err = desktop.list({timeout = "300ms"})
         if answer then state.windows, state.windows_error = answer.windows or {}, nil
@@ -84,6 +73,15 @@ end
 
 local definition: any = {}
 definition.interval = "1s"
+-- Для тестов: тот же снимок над подставным `system`.
+definition.snapshot = snapshot
+
+-- Поле или причина, почему его нет, или запасной текст.
+local function shown(snap: any, field: string, fallback: string): string
+    if snap[field] ~= nil then return tostring(snap[field]) end
+    local problems: any = type(snap.problems) == "table" and snap.problems or {}
+    return problems[field] and tostring(problems[field]) or fallback
+end
 
 function definition.init(args: any, context: any): any
     local state: any = {tab = 3, selected_id = nil, snapshot = nil, heap_history = {}, goroutine_history = {},
@@ -147,7 +145,7 @@ local function page(state: any, context: any): any
         if context.width < 40 or context.height < 14 then
             return {kind = "label", text = "Enlarge the window to see the graphs."}
         end
-        return {kind = "column", gap = 0, children = {
+        local charts_page: any = {kind = "column", gap = 0, children = {
             {kind = "row", gap = 1, children = {
                 {kind = "group", size = 16, title = "Goroutines", children = {{kind = "gauge", value = snap.goroutines, ceiling = go_top, caption = tostring(snap.goroutines or 0)}}},
                 {kind = "group", title = "Goroutine history", children = {{kind = "graph", values = state.goroutine_history, ceiling = go_top}}},
@@ -167,6 +165,14 @@ local function page(state: any, context: any): any
                     {"Running", uptime}})}},
             }},
         }}
+        -- Не прочитали — не ноль: причина строкой над графиками, иначе
+        -- пустой датчик читается как «горутин нет».
+        local problems: any = type(snap.problems) == "table" and snap.problems or {}
+        local missing = problems.memory or problems.goroutines
+        if missing then
+            table.insert(charts_page.children, 1, {kind = "label", size = 1, text = tostring(missing), alert = true})
+        end
+        return charts_page
     end
     local hosts = {}
     for _, host in ipairs(snap.hosts or {}) do
@@ -176,10 +182,10 @@ local function page(state: any, context: any): any
     end
     return {kind = "column", gap = 0, children = {
         {kind = "group", size = 9, title = "Runtime node", children = {pairs_table({
-            {"Node", snap.node_id or "unavailable"}, {"Role", snap.node_role or "unavailable"},
-            {"Leader", snap.leader or "—"}, {"Raft", snap.raft_role or "—"},
-            {"Members", snap.members and tostring(#snap.members) or "—"},
-            {"Host", tostring(snap.hostname or "")}, {"Runtime PID", tostring(snap.pid or "")}})}},
+            {"Node", shown(snap, "node_id", "unavailable")}, {"Role", shown(snap, "node_role", "unavailable")},
+            {"Leader", shown(snap, "leader", "—")}, {"Raft", shown(snap, "raft_role", "—")},
+            {"Members", snap.members and tostring(#snap.members) or shown(snap, "members", "—")},
+            {"Host", shown(snap, "hostname", "")}, {"Runtime PID", shown(snap, "pid", "")}})}},
         {kind = "group", title = "Process hosts", children = {
             {kind = "table", id = "hosts", columns = {{title = "Host", weight = 3}, {title = "Wrk", width = 6, align = "right"},
                 {title = "Proc", width = 7, align = "right"}, {title = "Done", width = 9, align = "right"}}, rows = hosts},

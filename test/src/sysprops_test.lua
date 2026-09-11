@@ -92,6 +92,35 @@ local function define_tests()
             test.eq(closed, 1)
         end)
     end)
+
+    test.describe("System Properties reading the runtime", function()
+        test.it("не прочитанные хосты — причина вместо «(none)», отказ по правам назван", function()
+            -- Подставной `system`: хосты отказаны так, как отказывает настоящий
+            -- модуль (Invalid и «permission denied: …»), остальное отвечает.
+            local fake: any = {
+                memory = {stats = function() return {alloc = 1, heap_in_use = 1, heap_sys = 1}, nil end},
+                runtime = {goroutines = function() return 5, nil end, cpu_count = function() return 4, nil end,
+                    max_procs = function() return 4, nil end},
+                process = {pid = function() return 7, nil end, hostname = function() return "stand", nil end,
+                    cwd = function() return "/srv", nil end},
+                node = {id = function() return "node-1", nil end, role = function() return "voter", nil end},
+                hosts = {list = function()
+                    return nil, errors.new({message = "permission denied: system.read on hosts", kind = errors.INVALID})
+                end},
+                modules = function() return {}, nil end,
+            }
+            local snap: any = sysprops.definition.snapshot(fake)
+            test.eq(snap.problems.hosts, "process hosts: permission denied: system.read on hosts")
+            test.eq(snap.hostname, "stand", "ответившее поле держит значение")
+            local tree = model.tree(snap, {})
+            local label: any = nil
+            for _, row in ipairs(model.flatten(tree, model.expanded_all(tree))) do
+                if row.id == "hosts" then label = row.label end
+            end
+            test.is_true(tostring(label):find("permission denied", 1, true) ~= nil, tostring(label))
+            test.is_nil(tostring(label):find("(none)", 1, true), "не прочитали — не «нет»")
+        end)
+    end)
 end
 
 local run_cases = test.run_cases(define_tests)

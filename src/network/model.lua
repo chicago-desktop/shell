@@ -155,8 +155,11 @@ function model.summary(snapshot: any): string
     local snap: any = type(snapshot) == "table" and snapshot or {}
     local rows = model.rows(snap)
     local count = #rows
-    if snap.failure and count == 0 then
-        return "0 object(s) · " .. tostring(snap.failure)
+    -- A refusal is named even when the window falls back to showing this
+    -- node alone: "standalone node, no peers" would be a claim about the mesh
+    -- that nobody was allowed to check.
+    if snap.failure then
+        return tostring(count) .. " object(s) · " .. tostring(snap.failure)
     end
     local text = tostring(count) .. " object(s)"
     if count == 1 and rows[1] and (rows[1] :: any).is_local then
@@ -178,8 +181,16 @@ function model.detail(snapshot: any, selected: any): string
     end
     if not chosen then
         local leader = tostring(snap.leader or "")
-        if leader == "" then return "No leader elected yet" end
-        return "Leader: " .. leader
+        -- Not read is not "not elected": a refused or missing cluster is
+        -- named, and only a real blank says nobody won the vote yet.
+        local problem = type(snap.problems) == "table" and snap.problems.leader or nil
+        local leader_text = "No leader elected yet"
+        if leader ~= "" then leader_text = "Leader: " .. leader
+        elseif problem then leader_text = tostring(problem) end
+        -- Membership that was not read is named first: without it the grid
+        -- shows this computer alone and reads as a standalone node.
+        if snap.failure then return tostring(snap.failure) .. " · " .. leader_text end
+        return leader_text
     end
     local parts = {chosen.name}
     if chosen.addr ~= "" then parts[#parts + 1] = chosen.addr end

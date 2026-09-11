@@ -9,6 +9,34 @@ local test = require("test")
 local model = require("model")
 local ui = require("ui")
 local network = require("network_window")
+local cells = require("cells")
+local facts = require("facts")
+
+-- Подставной `system`: одно поле отказано видом PermissionDenied, одно — так,
+-- как отказывает настоящий модуль (Invalid и «permission denied: …»), одно
+-- недоступно (кластера нет), остальные отвечают.
+local function refusing_system(): any
+    return {
+        node = {
+            id = function() return "kickside", nil end,
+            addr = function() return "127.0.0.1:7946", nil end,
+            role = function() return nil, errors.new({message = "no node role for you", kind = errors.PERMISSION_DENIED}) end,
+        },
+        process = {hostname = function() return "wippy-host", nil end},
+        cluster = {
+            members = function()
+                return nil, errors.new({message = "permission denied: system.read on cluster", kind = errors.INVALID})
+            end,
+            leader = function() return nil, errors.new({message = "raft not available", kind = errors.NOT_FOUND}) end,
+        },
+    }
+end
+
+local function screen_text(tree: any, width: integer, height: integer): string
+    local interaction = ui.interaction()
+    local rows = cells.rows(ui.plan(tree, width, height, interaction), interaction, width, height)
+    return (table.concat(rows, "\n"):gsub("\27%[[%d;:]*m", ""))
+end
 
 local function mesh(): any
     return {
@@ -143,6 +171,38 @@ local function define_tests()
             network.definition.update(state, {type = "key", key_type = "esc"},
                 {close = function() closed = true end})
             test.is_true(closed, "the second Escape closes")
+        end)
+    end)
+
+    -- Reading the runtime: a refusal by policy is named as one, a missing
+    -- cluster as unavailable, and neither turns into "unnamed" or
+    -- "no leader elected yet".
+    test.describe("Network Neighborhood reading the runtime", function()
+        test.it("tells a policy refusal from an absent cluster, whatever kind the runtime used", function()
+            test.is_true(facts.denied(errors.new({message = "x", kind = errors.PERMISSION_DENIED})))
+            test.is_true(facts.denied(errors.new({message = "permission denied: system.read on hosts", kind = errors.INVALID})),
+                "the runtime's system module marks a refusal as Invalid")
+            test.is_false(facts.denied(errors.new({message = "host ID required", kind = errors.INVALID})),
+                "Invalid alone is not a refusal")
+            test.is_false(facts.denied(errors.new({message = "cluster membership not available", kind = errors.INTERNAL})))
+            test.is_false(facts.denied("permission denied"), "text without a runtime error is not evidence")
+        end)
+
+        test.it("keeps each field's value or its reason, and the screen shows the refusal", function()
+            local snap: any = network.definition.snapshot(refusing_system())
+            test.eq(snap.node_id, "kickside", "an answered field keeps its value")
+            test.eq(snap.problems.members, "cluster members: permission denied: system.read on cluster")
+            test.eq(snap.problems.node_role, "node role: permission denied (no node role for you)")
+            test.eq(snap.problems.leader, "leader: unavailable (raft not available)")
+            test.eq(snap.failure, snap.problems.members, "membership refusal goes to the status line")
+
+            local state: any = {snapshot = snap, selected = nil, sheet = nil, about = false}
+            local shown = screen_text(network.definition.view(state, {width = 140, height = 14}), 140, 14)
+            test.is_true(shown:find("permission denied: system.read on cluster", 1, true) ~= nil,
+                "the refusal is on screen: " .. shown)
+            test.is_true(shown:find("raft not available", 1, true) ~= nil, "so is the missing cluster")
+            test.is_nil(shown:find("standalone node", 1, true), "a refused membership is not a lone node")
+            test.is_nil(shown:find("No leader elected yet", 1, true), "an unread leader is not an unelected one")
         end)
     end)
 end

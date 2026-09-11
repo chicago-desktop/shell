@@ -8,7 +8,7 @@
 --
 -- Окно ничего не меняет: у него нет ни `registry.apply`, ни порождения
 -- процессов; «ОК» и «Отмена» закрывают его одинаково.
-local system = require("system")
+local facts = require("facts")
 local registry = require("registry")
 local app = require("app")
 local model = require("model")
@@ -18,27 +18,35 @@ local whole = geometry.whole
 
 local definition: any = {interval = "2s"}
 
-local function snapshot(): any
-    local out: any = {}
-    local mem: any = system.memory.stats()
-    out.memory = type(mem) == "table" and mem or {}
-    out.goroutines = whole(system.runtime.goroutines())
-    out.cpu_count = whole(system.runtime.cpu_count())
-    out.max_procs = whole(system.runtime.max_procs())
-    out.pid = tostring(system.process.pid())
-    out.hostname = tostring(system.process.hostname())
-    local ok_cwd, cwd = pcall(function() return system.process.cwd() end)
-    out.cwd = ok_cwd and tostring(cwd) or nil
-    local ok_node, node_id = pcall(function() return system.node.id() end)
-    out.node_id = ok_node and tostring(node_id) or nil
-    local ok_role, role = pcall(function() return system.node.role() end)
-    out.node_role = ok_role and tostring(role) or nil
-    local hosts, herr = system.hosts.list()
-    out.hosts = type(hosts) == "table" and hosts or {}
-    if herr then out.failure = "hosts not read: " .. tostring(herr) end
-    local ok_modules, modules = pcall(function() return system.modules() end)
-    out.modules = (ok_modules and type(modules) == "table") and modules or {}
+-- Значение или причина на каждое поле — `butschster.windows.config:system`.
+-- Прежде второе значение `system.*` отбрасывалось, а причина «hosts not read»
+-- записывалась в поле, которое никто не читал: на экране было «(none)».
+local function snapshot(from: any?): any
+    local snap: any = facts.read({"memory", "goroutines", "cpu_count", "max_procs", "pid", "hostname", "cwd",
+        "node_id", "node_role", "hosts", "modules"}, from)
+    local function text(value: any): any return value ~= nil and tostring(value) or nil end
+    local out: any = {problems = snap.problems}
+    out.memory = type(snap.memory) == "table" and snap.memory or {}
+    out.goroutines = snap.goroutines ~= nil and whole(snap.goroutines) or nil
+    out.cpu_count = snap.cpu_count ~= nil and whole(snap.cpu_count) or nil
+    out.max_procs = snap.max_procs ~= nil and whole(snap.max_procs) or nil
+    out.pid = text(snap.pid)
+    out.hostname = text(snap.hostname)
+    out.cwd = text(snap.cwd)
+    out.node_id = text(snap.node_id)
+    out.node_role = text(snap.node_role)
+    out.hosts = type(snap.hosts) == "table" and snap.hosts or {}
+    out.modules = type(snap.modules) == "table" and snap.modules or {}
     return out
+end
+-- Для тестов: тот же снимок над подставным `system`.
+definition.snapshot = snapshot
+
+-- Поле или причина, почему его нет, или запасной текст.
+local function shown(snap: any, field: string, fallback: string): string
+    if snap[field] ~= nil then return tostring(snap[field]) end
+    local problems: any = type(snap.problems) == "table" and snap.problems or {}
+    return problems[field] and tostring(problems[field]) or fallback
 end
 
 local function records(): any
@@ -67,8 +75,14 @@ end
 local function general(state: any): any
     local snap: any = state.snapshot or {}
     local mem: any = snap.memory or {}
-    local node_line = snap.node_id and ("node " .. tostring(snap.node_id)) or "node not named"
+    local problems: any = type(snap.problems) == "table" and snap.problems or {}
+    local node_line = snap.node_id and ("node " .. tostring(snap.node_id)) or (problems.node_id or "node not named")
     if snap.node_role then node_line = node_line .. " · " .. tostring(snap.node_role) end
+    local modules_line = problems.modules and tostring(problems.modules)
+        or string.format("Lua modules: %d", #(snap.modules or {}))
+    local cpu_line = (problems.cpu_count or problems.max_procs)
+        and tostring(problems.cpu_count or problems.max_procs)
+        or string.format("%d processors, %d threads", whole(snap.cpu_count), whole(snap.max_procs))
     return {kind = "row", gap = 1, children = {
         {kind = "column", size = 12, children = {
             line(""),
@@ -79,14 +93,14 @@ local function general(state: any): any
             line("System:"),
             line("    Wippy Runtime"),
             line("    " .. node_line),
-            line(string.format("    Lua modules: %d", #(snap.modules or {}))),
+            line("    " .. modules_line),
             line(""),
             line("Application:"),
-            line("    " .. tostring(snap.hostname or "")),
-            line("    PID " .. tostring(snap.pid or "") .. (snap.cwd and (" · " .. tostring(snap.cwd)) or "")),
+            line("    " .. shown(snap, "hostname", "")),
+            line("    PID " .. shown(snap, "pid", "") .. (snap.cwd and (" · " .. tostring(snap.cwd)) or "")),
             line(""),
             line("Computer:"),
-            line(string.format("    %d processors, %d threads", whole(snap.cpu_count), whole(snap.max_procs))),
+            line("    " .. cpu_line),
             line("    " .. model.megabytes(mem.sys) .. " of runtime memory"),
             {kind = "label", text = ""},
         }},
@@ -127,7 +141,7 @@ local function performance(state: any): any
             {"In use", model.megabytes(mem.alloc)}, {"Heap in use", model.megabytes(heap)},
             {"Heap from system", model.megabytes(mem.heap_sys)}, {"Released to system", model.megabytes(mem.heap_released)},
             {"GC cycles", tostring(whole(mem.num_gc))}, {"Goroutines", tostring(goroutines)},
-            {"Process hosts", tostring(#(snap.hosts or {}))},
+            {"Process hosts", shown({hosts = nil, problems = snap.problems}, "hosts", tostring(#(snap.hosts or {})))},
         })}},
     }}
 end

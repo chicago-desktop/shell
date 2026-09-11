@@ -65,3 +65,4 @@ entries:
     imports:
       app: butschster.windows.sdk:app
       model: butschster.windows.network:model
+      facts: butschster.windows.config:system

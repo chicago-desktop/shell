@@ -81,6 +81,20 @@ entries:
     func: list_desktop
     path: /windows/desktop
 
+  # butschster.windows.api:desktop_body
+  #
+  # Тело POST и PATCH стола — разбор и проверка одним местом, без HTTP и базы,
+  # чтобы каждый отказ проверялся тестом без сервера.
+  - name: desktop_body
+    kind: library.lua
+    meta:
+      comment: Проверка тела запросов стола — JSON-объект, конечные целые координаты, потолки длины, папка не вкладывается в папку, null только у ключа верхнего уровня.
+    source: file://desktop_body.lua
+    modules:
+      - json
+    imports:
+      repo: butschster.windows.persist:repo
+
   # butschster.windows.api:create_desktop_item
   - name: create_desktop_item
     kind: function.lua
@@ -103,6 +117,7 @@ entries:
       repo: butschster.windows.persist:repo
       catalog: butschster.windows.programs:catalog
       control: butschster.windows.api:control
+      desktop_body: butschster.windows.api:desktop_body
     security:
       policies: [butschster.windows.security:shell_storage]
 
@@ -135,6 +150,7 @@ entries:
     imports:
       repo: butschster.windows.persist:repo
       control: butschster.windows.api:control
+      desktop_body: butschster.windows.api:desktop_body
     security:
       policies: [butschster.windows.security:shell_storage]
 

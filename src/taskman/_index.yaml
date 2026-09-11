@@ -65,3 +65,4 @@ entries:
       desktop: butschster.tui_desktop.desktop:window_api
       model: butschster.windows.taskman:model
       charts: butschster.windows.sdk:charts
+      facts: butschster.windows.config:system

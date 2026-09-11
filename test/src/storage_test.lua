@@ -10,6 +10,8 @@ local repo = require("repo")
 local catalog = require("catalog")
 local seed = require("seed")
 local view = require("view")
+local sql = require("sql")
+local desktop_body = require("desktop_body")
 
 local GHOST = "butschster.windows.test:ghost"
 
@@ -218,6 +220,169 @@ local function define_tests()
 
             repo.delete(placed.id)
             repo.delete(unplaced.id)
+        end)
+    end)
+
+    -- Тело POST и PATCH стола (butschster.windows.api:desktop_body): то, что
+    -- ручки принимали, а стол потом не рисовал.
+    test.describe("desktop request bodies", function()
+        test.it("битый JSON и не-объект — отказ с причиной, а не пустой успешный PATCH", function()
+            local patch, why = desktop_body.update('{"title": ')
+            test.is_nil(patch)
+            test.is_true(tostring(why):find("body is not JSON", 1, true) == 1, tostring(why))
+            patch, why = desktop_body.update("[1, 2]")
+            test.is_nil(patch)
+            test.eq(why, "body: a JSON object")
+            local spec, cwhy = desktop_body.create("")
+            test.is_nil(spec)
+            test.is_true(tostring(cwhy):find("body is not JSON", 1, true) == 1, tostring(cwhy))
+        end)
+
+        test.it("координата — конечное целое от 1 до 10000, и база не клеит бесконечность к углу", function()
+            local cases = {
+                {'{"x": 1.5}', "x: a whole number"},
+                {'{"x": 0}', "x: between 1 and 10000"},
+                {'{"y": 10001}', "y: between 1 and 10000"},
+                {'{"x": "left"}', "x: a number"},
+                -- Строка «1e999» в go-lua не число вовсе: tonumber даёт nil.
+                {'{"x": "1e999"}', "x: a number"},
+            }
+            for _, case in ipairs(cases) do
+                local patch, why = desktop_body.update(case[1])
+                test.is_nil(patch, case[1])
+                test.eq(why, case[2], case[1])
+            end
+            -- Бесконечность приходит ЧИСЛОМ: JSON 1e999 или вызов из Lua.
+            local _, huge = desktop_body.coordinate(math.huge)
+            test.eq(huge, "a finite number")
+            local _, nan = desktop_body.coordinate(0 / 0)
+            test.eq(nan, "a finite number")
+            local spec, why = desktop_body.create('{"kind": "shortcut", "entry": "app:x", "x": 1e999, "y": 2}')
+            test.is_nil(spec, "1e999 числом не проходит: " .. tostring(why))
+            local ok = desktop_body.update('{"x": 10000, "y": "7"}')
+            test.eq(ok.x, 10000)
+            test.eq(ok.y, 7)
+            local item = repo.create({kind = repo.KIND_SHORTCUT, entry = "butschster.windows.test:inf",
+                title = "Inf", x = math.huge, y = 3})
+            test.is_nil(item.x, "бесконечность — не место, а не ноль")
+            repo.delete(item.id)
+        end)
+
+        test.it("папка в папку не вкладывается — ни при создании, ни переносом", function()
+            local spec, why = desktop_body.create('{"kind": "folder", "title": "A", "parent_id": "p1"}')
+            test.is_nil(spec)
+            test.eq(why, desktop_body.FOLDER_IN_FOLDER)
+            test.eq(desktop_body.nest(repo.KIND_FOLDER, {id = "p1", kind = repo.KIND_FOLDER}), desktop_body.FOLDER_IN_FOLDER)
+            test.eq(desktop_body.nest(repo.KIND_SHORTCUT, nil), "parent_id: no such folder")
+            test.eq(desktop_body.nest(repo.KIND_SHORTCUT, {id = "s", kind = repo.KIND_SHORTCUT}),
+                "parent_id: only a desktop folder can hold items")
+            test.is_nil(desktop_body.nest(repo.KIND_SHORTCUT, {id = "p1", kind = repo.KIND_FOLDER}))
+        end)
+
+        test.it("parent_id: null — только ключ верхнего уровня, а не подстрока тела", function()
+            test.eq(desktop_body.update('{"parent_id": null}').parent_id, false, "вынести на стол")
+            test.is_nil(desktop_body.update('{"title": "A", "meta": {"parent_id": null}}').parent_id,
+                "вложенный ключ — не наш")
+            test.is_nil(desktop_body.update('{"title": "\\"parent_id\\": null"}').parent_id,
+                "текст внутри строки — не ключ")
+            test.is_nil(desktop_body.update('{"title": "A"}').parent_id, "отсутствие поля — не трогать")
+        end)
+
+        test.it("entry и title — не длиннее 256 и 512 символов", function()
+            local spec, why = desktop_body.create('{"kind": "shortcut", "entry": "' .. string.rep("e", 257) .. '"}')
+            test.is_nil(spec)
+            test.eq(why, "entry: at most 256 characters")
+            local patch, twhy = desktop_body.update('{"title": "' .. string.rep("t", 513) .. '"}')
+            test.is_nil(patch)
+            test.eq(twhy, "title: at most 512 characters")
+            -- Потолок в символах: 512 кириллических (1024 байта) проходят.
+            local cyrillic = string.rep("я", 512)
+            test.eq(desktop_body.update('{"title": "' .. cyrillic .. '"}').title, cyrillic)
+        end)
+
+        test.it("полный PATCH проходит проверку и доезжает до базы", function()
+            local folder = repo.create({kind = repo.KIND_FOLDER, title = "Box"})
+            local item = repo.create({kind = repo.KIND_SHORTCUT, entry = "butschster.windows.test:full_patch", title = "Before"})
+            local patch, why = desktop_body.update(string.format(
+                '{"title": "After", "x": 12, "y": 3, "parent_id": "%s"}', folder.id))
+            test.not_nil(patch, tostring(why))
+            test.is_nil(desktop_body.nest(item.kind, repo.get(patch.parent_id)))
+            local moved = repo.update(item.id, patch)
+            test.eq(moved.title, "After")
+            test.eq(moved.x, 12)
+            test.eq(moved.y, 3)
+            test.eq(moved.parent_id, folder.id)
+            local out = repo.update(item.id, desktop_body.update('{"parent_id": null}'))
+            test.is_nil(out.parent_id, "null выносит на стол")
+            repo.delete(item.id)
+            repo.delete(folder.id)
+        end)
+    end)
+
+    -- Второй писатель и отказ посередине: то, что без транзакций и
+    -- ON CONFLICT давало ошибку ключа, лишний значок или полтаблицы.
+    test.describe("persistence under a second writer", function()
+        test.it("двойное предложение одного значка — один ярлык и ни одной ошибки", function()
+            local key = "butschster.windows.test:offer_twice"
+            local first, ferr = repo.offer(key, {kind = repo.KIND_SHORTCUT, entry = key, title = "Once"})
+            test.is_nil(ferr, tostring(ferr))
+            test.not_nil(first)
+            local second, serr = repo.offer(key, {kind = repo.KIND_SHORTCUT, entry = key, title = "Once"})
+            test.is_nil(serr, tostring(serr))
+            test.eq(second, false, "второй раз — «уже предлагали», а не ошибка ключа")
+            local count = 0
+            for _, item in ipairs(repo.list() or {}) do
+                if item.entry == key then count = count + 1 end
+            end
+            test.eq(count, 1, "значок один")
+            local again, merr = repo.mark_seeded(key)
+            test.is_nil(merr, tostring(merr))
+            test.eq(again, false, "повторная отметка — false, а не ошибка")
+            repo.delete(first.id)
+        end)
+
+        test.it("настройка пишется и читается плейсхолдерами одного диалекта", function()
+            local _, err = repo.set_setting("test.dialect", "a")
+            test.is_nil(err, tostring(err))
+            repo.set_setting("test.dialect", "b")
+            test.eq(repo.setting("test.dialect"), "b")
+        end)
+
+        test.it("миграция 02: пересборка таблицы в транзакции откатывается целиком", function()
+            -- Раннер wippy/migration зовёт `up(tx)` внутри своей транзакции
+            -- и откатывает её на любой ошибке (migration.lua, execute_migration).
+            -- Здесь проверяется, что на этом драйвере DDL SQLite откатывается
+            -- вместе с ней: отказ после DROP не оставляет одну `_new`, и
+            -- повторный прогон начинается с исходной таблицы.
+            local db = assert(sql.get("app:db"))
+            local kind = db:type()
+            if kind ~= "sqlite" then db:release(); return end
+            local function count(): any
+                local rows = assert(db:query("SELECT COUNT(*) AS n FROM butschster_windows_desktop_items", {}))
+                return tonumber(rows[1].n)
+            end
+            local marker = repo.create({kind = repo.KIND_FOLDER, title = "Survives the rollback"})
+            local before = count()
+            local tx = assert(db:begin())
+            local _, cerr = tx:execute([[
+                CREATE TABLE butschster_windows_desktop_items_new (
+                    id TEXT PRIMARY KEY, kind TEXT NOT NULL, entry TEXT, parent_id TEXT,
+                    title TEXT NOT NULL, x INTEGER, y INTEGER,
+                    created_at TEXT NOT NULL, updated_at TEXT NOT NULL)
+            ]], {})
+            test.is_nil(cerr, tostring(cerr))
+            local _, ierr = tx:execute("INSERT INTO butschster_windows_desktop_items_new SELECT id, kind, entry, parent_id, title, x, y, created_at, updated_at FROM butschster_windows_desktop_items", {})
+            test.is_nil(ierr, tostring(ierr))
+            local _, derr = tx:execute("DROP TABLE butschster_windows_desktop_items", {})
+            test.is_nil(derr, tostring(derr))
+            -- Здесь миграция упала бы до RENAME — и раннер откатывает.
+            tx:rollback()
+            test.eq(count(), before, "исходная таблица цела со всеми строками")
+            local leftovers = assert(db:query(
+                "SELECT name FROM sqlite_master WHERE name = 'butschster_windows_desktop_items_new'", {}))
+            test.eq(#leftovers, 0, "`_new` не осталась")
+            db:release()
+            repo.delete(marker.id)
         end)
     end)
 end

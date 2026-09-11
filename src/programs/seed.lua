@@ -16,9 +16,10 @@
 -- значок за краем не обрезается, он исчезает целиком и молча. Место выбирает
 -- композитор в момент кадра, когда ширина известна.
 --
--- Ошибка отметки после успешного создания ярлыка не откатывает ярлык: цена
--- второго значка на следующем старте меньше, чем цена значка, помеченного
--- предложенным, но не предложённого, — такой уже никогда не вынесут.
+-- Отметка и ярлык пишутся одной транзакцией (`repo.offer`), отметка первой и
+-- `ON CONFLICT DO NOTHING`: второй писатель получает «уже предлагали», а не
+-- ошибку ключа и лишний значок, а отказ записи ярлыка откатывает и отметку —
+-- значок не останется помеченным предложенным, но не предложенным.
 
 local repo = require("repo")
 
@@ -37,17 +38,16 @@ local function place(wanted: any)
     -- заводят значки одинаково, а композитор кладёт их в одни и те же ячейки.
     local created = {}
     for _, want in ipairs(type(wanted) == "table" and wanted or {}) do
+        -- Прочитанные отметки — дешёвый фильтр, а не решение: решает `offer`
+        -- в транзакции, и опоздавший писатель получает `false`.
         if not (seeded :: any)[want.key] then
-            local item, cerr = repo.create({
+            local item, cerr = repo.offer(want.key, {
                 kind = want.kind,
                 entry = want.entry,
                 title = want.title,
             })
             if cerr then return nil, tostring(want.key) .. ": " .. tostring(cerr) end
-            created[#created + 1] = item
-
-            local _, merr = repo.mark_seeded(want.key)
-            if merr then return nil, "mark " .. tostring(want.key) .. ": " .. tostring(merr) end
+            if item then created[#created + 1] = item end
         end
     end
 

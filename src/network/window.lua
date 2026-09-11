@@ -2,11 +2,12 @@
 -- a grid of icons, "Entire Network" first, one computer per node, and a
 -- status bar that says how many objects are there and whether one is picked.
 --
--- Every reading is wrapped. `system.cluster.members()` answers an error while
--- membership is still forming and on a runtime with clustering switched off,
--- and both are ordinary states of this window, not crashes: it says so in the
--- status bar and keeps showing the node it runs on.
-local system = require("system")
+-- Every reading goes through `butschster.windows.config:system`: a value OR a
+-- reason, never a silent blank. `system.cluster.members()` answers an error
+-- while membership is still forming, on a runtime with clustering switched
+-- off, and when the policy denies `system.read` — the status bar names which,
+-- and the window keeps showing the node it runs on.
+local facts = require("facts")
 local app = require("app")
 local model = require("model")
 
@@ -15,30 +16,22 @@ local definition: any = {interval = "2s"}
 -- One snapshot per tick. Two reads of the same fact inside one frame can
 -- disagree — membership changes between them — and a window that shows four
 -- computers and "3 object(s)" is worse than one that is a tick stale.
-local function snapshot(): any
-    local out: any = {}
+local function text_of(value: any): string
+    return value ~= nil and tostring(value) or ""
+end
 
-    local ok_id, id = pcall(function() return system.node.id() end)
-    out.node_id = ok_id and tostring(id) or ""
-    local ok_addr, addr = pcall(function() return system.node.addr() end)
-    out.node_addr = ok_addr and tostring(addr) or ""
-    local ok_role, role = pcall(function() return system.node.role() end)
-    out.node_role = ok_role and tostring(role) or ""
+local function snapshot(from: any?): any
+    local snap: any = facts.read({"node_id", "node_addr", "node_role", "hostname", "members", "leader"}, from)
+    -- Why a field is blank travels with the snapshot: the view shows the
+    -- reason where it used to say "unnamed" or "no leader elected yet".
+    local out: any = {problems = snap.problems}
+    out.node_id = text_of(snap.node_id)
+    out.node_addr = text_of(snap.node_addr)
+    out.node_role = text_of(snap.node_role)
     -- The machine name, for the case the runtime has no cluster name yet.
-    local ok_host, host = pcall(function() return system.process.hostname() end)
-    out.hostname = ok_host and tostring(host) or ""
-
-    local ok_members, members, merr = pcall(function()
-        local list, err = system.cluster.members()
-        return list, err
-    end)
-    if not ok_members then
-        out.members, out.failure = {}, tostring(members)
-    elseif merr then
-        out.members, out.failure = {}, tostring(merr)
-    else
-        out.members = type(members) == "table" and members or {}
-    end
+    out.hostname = text_of(snap.hostname)
+    out.members = type(snap.members) == "table" and snap.members or {}
+    out.failure = snap.problems.members
 
     -- Clustering off: membership answers nothing, but the runtime is still a
     -- node. Showing an empty window there would say "the network is gone",
@@ -47,10 +40,11 @@ local function snapshot(): any
         out.members = {{id = out.node_id, is_local = true, addr = out.node_addr}}
     end
 
-    local ok_leader, leader = pcall(function() return system.cluster.leader() end)
-    out.leader = ok_leader and tostring(leader or "") or ""
+    out.leader = text_of(snap.leader)
     return out
 end
+-- For tests: the same snapshot over a stand-in `system`.
+definition.snapshot = snapshot
 
 function definition.init(args: any, context: any): any
     return {snapshot = snapshot(), selected = nil, sheet = nil, about = false}
@@ -67,7 +61,7 @@ local function sheet_lines(snap: any, id: any): any
         return {
             "The whole mesh as gossip currently sees it.",
             "Nodes: " .. tostring(#rows),
-            "Leader: " .. (leader ~= "" and leader or "none elected yet"),
+            "Leader: " .. (leader ~= "" and leader or ((snap.problems or {}).leader or "none elected yet")),
             snap.failure and ("Membership: " .. tostring(snap.failure)) or "Membership: gossip (SWIM)",
         }, "network"
     end
@@ -95,7 +89,7 @@ function definition.view(state: any, context: any): any
         local lines, image = sheet_lines(snap, id)
         if state.about then
             lines = {"Wippy mesh: gossip membership, Raft leadership.",
-                "This node: " .. (snap.node_id ~= "" and snap.node_id or "unnamed"),
+                "This node: " .. (snap.node_id ~= "" and snap.node_id or ((snap.problems or {}).node_id or "unnamed")),
                 "Read-only: this window joins nothing and evicts nobody."}
             image = "network_neighborhood"
         end

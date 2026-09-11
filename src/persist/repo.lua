@@ -40,6 +40,29 @@ local function with_db(work)
     return result, work_err
 end
 
+-- То же в транзакции: всё или ничего. Работа, вернувшая причину или
+-- упавшая, откатывается; соединение возвращается на каждом пути.
+local function with_tx(work)
+    local db, err = sql.get(DB_ID)
+    if err or not db then return nil, err or ("database unavailable: " .. DB_ID) end
+    local tx, berr = db:begin()
+    if berr or not tx then
+        db:release()
+        return nil, "begin: " .. tostring(berr)
+    end
+    local ok, result, work_err = pcall(work, tx)
+    if not ok or work_err ~= nil then
+        tx:rollback()
+        db:release()
+        if not ok then return nil, tostring(result) end
+        return nil, work_err
+    end
+    local committed, cerr = tx:commit()
+    db:release()
+    if not committed then return nil, "commit: " .. tostring(cerr) end
+    return result, nil
+end
+
 local function now_stamp()
     return time.now():utc():format(time.RFC3339)
 end
@@ -51,11 +74,14 @@ end
 -- называл». Поэтому нуля вместо nil тут быть не может ни на одном пути: ноль —
 -- это место, и он приклеил бы значок к левому верхнему углу вместо того, чтобы
 -- отдать его композитору на раскладку.
+--
+-- Бесконечность и NaN — тоже не место: `math.floor(inf)` целым не становится,
+-- и прежнее `or 0` приклеивало такой значок к углу вопреки правилу выше.
 local function cell(value: any)
     if value == nil then return nil end
     local number = tonumber(value)
-    if number == nil then return nil end
-    return math.tointeger(number) or math.tointeger(math.floor(number)) or 0
+    if number == nil or number ~= number or number == math.huge or number == -math.huge then return nil end
+    return math.tointeger(number) or math.tointeger(math.floor(number))
 end
 
 local function to_item(row: any)
@@ -119,32 +145,36 @@ end
 -- место выберет композитор, когда узнает ширину экрана. Подставь мы здесь
 -- ноль — значок стал бы «поставленным в левый верхний угол», и переложить его
 -- было бы уже нельзя.
+-- Одна вставка строки на соединение или транзакцию — её зовут и `create`, и
+-- `offer`, чтобы две записи одной строки не разошлись.
+local function insert_item(conn: any, item: any): (any, any)
+    local id, uerr = uuid.v7()
+    if not id then return nil, "id: " .. tostring(uerr) end
+    local stamp = now_stamp()
+    local _, err = conn:execute(
+        "INSERT INTO " .. ITEMS ..
+        " (id, kind, entry, parent_id, title, x, y, created_at, updated_at)" ..
+        " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+        {
+            id, item.kind, item.entry, item.parent_id, item.title,
+            cell(item.x), cell(item.y), stamp, stamp,
+        })
+    if err then return nil, err end
+    return {
+        id = id,
+        kind = item.kind,
+        entry = item.entry,
+        parent_id = item.parent_id,
+        title = item.title,
+        x = cell(item.x),
+        y = cell(item.y),
+        created_at = stamp,
+        updated_at = stamp,
+    }, nil
+end
+
 function repo.create(item)
-    return with_db(function(db)
-        local id, uerr = uuid.v7()
-        if not id then return nil, "id: " .. tostring(uerr) end
-        local stamp = now_stamp()
-        local _, err = db:execute(
-            "INSERT INTO " .. ITEMS ..
-            " (id, kind, entry, parent_id, title, x, y, created_at, updated_at)" ..
-            " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-            {
-                id, item.kind, item.entry, item.parent_id, item.title,
-                cell(item.x), cell(item.y), stamp, stamp,
-            })
-        if err then return nil, err end
-        return {
-            id = id,
-            kind = item.kind,
-            entry = item.entry,
-            parent_id = item.parent_id,
-            title = item.title,
-            x = cell(item.x),
-            y = cell(item.y),
-            created_at = stamp,
-            updated_at = stamp,
-        }
-    end)
+    return with_db(function(db) return insert_item(db, item) end)
 end
 
 -- update(id, patch) -> (item, nil) | (false, nil) | (nil, причина)
@@ -201,8 +231,11 @@ end
 -- Содержимое удалённой папки не удаляется вместе с ней, а возвращается на
 -- стол. Каскад здесь означал бы, что снятая папка уносит с собой значки,
 -- которые пользователь в неё складывал, — и восстановить их нечем.
+--
+-- В транзакции: вынести детей и снять папку — одно действие. Отказ между
+-- ними оставлял бы детей на столе при живой папке или папку без детей.
 function repo.delete(id)
-    return with_db(function(db)
+    return with_tx(function(db)
         local rows, err = db:query("SELECT * FROM " .. ITEMS .. " WHERE id = $1", { id })
         if err then return nil, err end
         local row = rows and rows[1]
@@ -241,7 +274,10 @@ end
 -- настраивали» и «база недоступна» различаются вторым значением.
 function repo.setting(key: any)
     return with_db(function(db)
-        local rows, err = db:query("SELECT value FROM " .. SETTINGS .. " WHERE key = ? LIMIT 1", {tostring(key)})
+        -- Плейсхолдеры `$n`, как во всём файле: `?` принимает только SQLite,
+        -- а переписывания плейсхолдеров в модуле `sql` рантайма нет, так что
+        -- на postgres эти два запроса не выполнялись вовсе.
+        local rows, err = db:query("SELECT value FROM " .. SETTINGS .. " WHERE key = $1 LIMIT 1", {tostring(key)})
         if err then return nil, tostring(err) end
         local first: any = type(rows) == "table" and rows[1] or nil
         if type(first) == "table" and type(first.value) == "string" then return first.value, nil end
@@ -252,7 +288,7 @@ end
 function repo.set_setting(key: any, value: any)
     return with_db(function(db)
         local stamp = now_stamp()
-        local _, err = db:execute("INSERT INTO " .. SETTINGS .. " (key, value, updated_at) VALUES (?, ?, ?)"
+        local _, err = db:execute("INSERT INTO " .. SETTINGS .. " (key, value, updated_at) VALUES ($1, $2, $3)"
             .. " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
             {tostring(key), tostring(value), stamp})
         if err then return nil, tostring(err) end
@@ -273,18 +309,38 @@ function repo.seeded()
     end)
 end
 
+-- Одна вставка отметки: `ON CONFLICT DO NOTHING`, а не «проверить, потом
+-- вставить». Между проверкой и вставкой второй писатель успевал вставить
+-- свою, и первый падал на первичном ключе. Сколько строк легло, говорит
+-- `rows_affected`: одна — отметили сейчас, ноль — уже была.
+local function claim(conn: any, entry: any): (any, any)
+    local result, err = conn:execute(
+        "INSERT INTO " .. SEEDED .. " (entry, seeded_at) VALUES ($1, $2) ON CONFLICT (entry) DO NOTHING",
+        { entry, now_stamp() })
+    if err then return nil, err end
+    return type(result) == "table" and (tonumber(result.rows_affected) or 0) > 0, nil
+end
+
 -- Отметить программу предложенной. Повторный вызов не отказ: отметка — это
--- утверждение о прошлом, и второй раз оно всё так же верно.
+-- утверждение о прошлом, и второй раз оно всё так же верно (`false`).
 function repo.mark_seeded(entry)
-    return with_db(function(db)
-        local rows, err = db:query("SELECT entry FROM " .. SEEDED .. " WHERE entry = $1", { entry })
-        if err then return nil, err end
-        if rows and rows[1] then return false end
-        local _, ierr = db:execute(
-            "INSERT INTO " .. SEEDED .. " (entry, seeded_at) VALUES ($1, $2)",
-            { entry, now_stamp() })
-        if ierr then return nil, ierr end
-        return true
+    return with_db(function(db) return claim(db, entry) end)
+end
+
+-- offer(key, item) -> (ярлык, nil) | (false, nil) | (nil, причина)
+--
+-- Предложить значок один раз: отметка и ярлык — в одной транзакции, и
+-- отметка ставится ПЕРВОЙ. Кто вставил отметку, тот и заводит ярлык; второй
+-- писатель (два старта подряд, мастерская при запущенной оболочке) получает
+-- `false` — «уже предлагали», — а не ошибку первичного ключа и лишний
+-- значок. Отказ записи ярлыка откатывает и отметку: значок не останется
+-- «предложенным, но не предложенным».
+function repo.offer(key: any, item: any)
+    return with_tx(function(tx)
+        local claimed, cerr = claim(tx, key)
+        if cerr then return nil, cerr end
+        if not claimed then return false, nil end
+        return insert_item(tx, item)
     end)
 end
 
