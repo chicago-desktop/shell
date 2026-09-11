@@ -131,6 +131,8 @@ entries:
       widgets: butschster.windows.shell:widgets
       pixels: butschster.windows.shell:pixels
       desktop_pixels: butschster.tui_desktop.desktop:pixels
+      menu_layout: butschster.windows.shell:menu_layout
+      placements: butschster.windows.shell:placements
     method: run
 
   - name: images_test
@@ -505,7 +507,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Display properties — the color shape and the resolution label, the layout of two tabs, selecting and applying through a substituted entry, OK after a successful write; the theme repaints the desktop through a single point.
+      comment: Display properties — the color shape and the resolution label, four tabs without overlaps in cells and at 8×16 and 10×20, the Windows 95 metrics, choosing a color and a pattern and applying through a substituted entry, OK after a successful write; the theme repaints the desktop through a single point.
       group: Windows Shell
       suite: butschster_windows
     source: file://display_test.lua
@@ -514,6 +516,7 @@ entries:
       test: wippy.test:test
       model: butschster.windows.display:model
       ui: butschster.windows.sdk:ui
+      render: butschster.windows.sdk:render
       display_window: butschster.windows.display:window
       chrome: butschster.windows.shell:chrome
       chrome_pixels: butschster.windows.shell:chrome_pixels

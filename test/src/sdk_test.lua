@@ -1200,6 +1200,65 @@ local function define_tests()
         end)
     end)
 
+    -- Pixel measures: a dialog named in Windows 95 pixels is laid out in the
+    -- whole cells closest to them, and its buttons are drawn at their
+    -- Windows 95 size inside their cells. Cells mode keeps the cell measures.
+    test.describe("Window SDK: pixel measures", function()
+        test.it("size_px, padding_px and gap_px round to whole cells in pixels; cells keep size, padding and gap", function()
+            local tree = {kind = "column", padding = 2, padding_px = 7, gap = 2, gap_px = 11, children = {
+                {kind = "label", size = 3, size_px = 45, text = "a"},
+                {kind = "row", size = 2, gap = 2, gap_px = 11, children = {
+                    {kind = "button", id = "left", size = 5, size_px = 38, text = "L"},
+                    {kind = "button", id = "right", size = 5, size_px = 38, text = "R"},
+                }},
+            }}
+            local in_pixels = ui.plan(tree, 40, 20, ui.interaction(), {cell = {w = 10, h = 20}})
+            local in_cells = ui.plan(tree, 40, 20, ui.interaction())
+            local label, plain = in_pixels.items[1].rect, in_cells.items[1].rect
+            test.eq(label.x .. "," .. label.y .. " h" .. label.h, "2,1 h2", "pixels: 7 px is one column and no row, 45 px two rows")
+            test.eq(plain.x .. "," .. plain.y .. " h" .. plain.h, "3,3 h3", "cells: padding 2, size 3")
+            local l, r = in_pixels.by_id.left.rect, in_pixels.by_id.right.rect
+            test.eq(l.w .. "+" .. (r.x - l.x - l.w) .. "+" .. r.w, "4+1+4", "pixels: 38 px is four columns, an 11 px gap one")
+            test.eq(l.y - (label.y + label.h), 1, "pixels: an 11 px gap is one row at 20 px")
+            local cl, cr = in_cells.by_id.left.rect, in_cells.by_id.right.rect
+            test.eq(cl.w .. "+" .. (cr.x - cl.x - cl.w), "5+2", "cells: size 5, gap 2")
+        end)
+        test.it("a right-aligned row packs 75 px buttons 6 px apart from its right edge, each inside its own cells", function()
+            local row = {kind = "row", size = 2, size_px = 30, align = "right", children = {
+                {kind = "button", id = "a", size = 10, size_px = 81, width_px = 75, text = "A"},
+                {kind = "button", id = "b", size = 10, size_px = 81, width_px = 75, text = "B"},
+                {kind = "button", id = "c", size = 10, size_px = 81, width_px = 75, text = "C"},
+            }}
+            for _, cw in ipairs({8, 10}) do
+                local plan = ui.plan(row, 40, 2, ui.interaction(), {cell = {w = cw, h = 20}})
+                local a, b, c = plan.by_id.a, plan.by_id.b, plan.by_id.c
+                for _, entry in ipairs({a, b, c}) do
+                    local item: any = entry
+                    test.eq(item.px and item.px.w, 75, cw .. " px: " .. item.node.id .. " is 75 px")
+                    test.is_true(item.px.x >= (item.rect.x - 1) * cw + 1 and item.px.x + 74 <= (item.rect.x + item.rect.w - 1) * cw,
+                        cw .. " px: " .. item.node.id .. " is drawn inside its own cells")
+                end
+                test.eq((b.px.x - a.px.x - 75) .. "," .. (c.px.x - b.px.x - 75), "6,6", cw .. " px: 6 px apart")
+                test.eq(c.px.x + 74, 40 * cw, cw .. " px: flush with the row's right edge")
+            end
+            test.is_nil(ui.plan(row, 40, 2, ui.interaction()).by_id.a.px, "cells: nothing is packed")
+        end)
+        test.it("tabs are measured by their captions in pixels, so four Windows 95 tabs fit", function()
+            local tabs = {kind = "tabs", id = "t", labels = {"Background", "Screen Saver", "Appearance", "Settings"}, children = {}}
+            test.eq(#ui.plan(tabs, 42, 6, ui.interaction(), {cell = {w = 8, h = 16}}).by_id.t.spans, 4, "8 px cells: all four")
+            test.eq(#ui.plan(tabs, 42, 6, ui.interaction()).by_id.t.spans, 2, "cells: a cell per character keeps two")
+            local tight: any = {kind = "tabs", id = "t", pad = 1, labels = {"Background", "Saver", "Appearance", "Settings"}, children = {}}
+            test.eq(#ui.plan(tight, 42, 6, ui.interaction()).by_id.t.spans, 4, "cells: pad = 1 and a short caption fit four")
+        end)
+        test.it("a native window plans with the compositor's cell and follows a resize", function()
+            local context = app.context({native = true, cell_w = 8, cell_h = 16})
+            test.eq(context.cell and (context.cell.w .. "x" .. context.cell.h), "8x16")
+            test.is_nil(app.context({cell_w = 8, cell_h = 16}).cell, "cells: no pixel cell")
+            app.resize(context, {type = "resize", width = 30, height = 12, cell_w = 10, cell_h = 20})
+            test.eq(context.cell.w .. "x" .. context.cell.h, "10x20")
+        end)
+    end)
+
     test.describe("Window SDK ergonomics", function()
         test.it("app.main wraps app.run, and a bare context has watch, unwatch, after and close", function()
             test.eq(type(app.main({})), "function")

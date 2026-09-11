@@ -198,3 +198,23 @@ entries:
       - fs
       - gfx
       - logger
+
+  # butschster.windows.shell:menu_layout
+  - name: menu_layout
+    kind: library.lua
+    meta:
+      comment: The Start menu cascade layout for both themes — the folder tree from meta.group, the panels, their rows and the hit map; no painting, the banner arrives as a parameter.
+    source: file://menu_layout.lua
+    imports:
+      glyphs: butschster.windows.shell:glyphs
+      icons: butschster.windows.shell:icons
+      widgets: butschster.windows.shell:widgets
+
+  # butschster.windows.shell:placements
+  - name: placements
+    kind: library.lua
+    meta:
+      comment: Pure rectangle geometry of the pixel theme placements — higher windows and the menu cut lower pictures, plus the crop id and key rule.
+    source: file://placements.lua
+    imports:
+      geometry: butschster.tui_desktop.desktop:geometry

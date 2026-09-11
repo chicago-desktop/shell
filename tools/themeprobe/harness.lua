@@ -198,6 +198,7 @@ modules.palette = dofile(BASE .. "shell/palette.lua")
 modules.glyphs = dofile(BASE .. "shell/glyphs.lua")
 modules.widgets = dofile(BASE .. "shell/widgets.lua")
 modules.icons = dofile(BASE .. "shell/icons.lua")
+modules.menu_layout = dofile(BASE .. "shell/menu_layout.lua")
 local chrome = dofile(BASE .. "shell/chrome.lua")
 modules.catalog = dofile(BASE .. "programs/catalog.lua")
 local catalog = modules.catalog

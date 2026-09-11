@@ -302,6 +302,64 @@ function chrome_pixels.farewell(canvas, width: any, height: any)
     return {placements = store.frame(unit), hits = {desktop = {}, bars = {}, menu = {}}}
 end
 
+-- ─── desktop pattern ─────────────────────────────────────────────────────
+--
+-- The Windows 95 pattern ("Display Properties → Background"): an 8×8 tile,
+-- set bits black over the desktop color (`chrome.use_pattern`). Without a
+-- pattern the desktop stays cells, as before, and costs nothing.
+--
+-- With one, the desktop is rasters, and the cost rule of this file shapes
+-- them: the price is the pixels sent, and the surface resends a placement
+-- that is new, changed or covers a repainted row. So the desktop is ONE
+-- PLACEMENT PER ROW (a strip) under the icons, cropped by the windows over
+-- it like an icon is (`visible_placements`). A window moved over the desktop
+-- re-crops only the strips of the rows it covers; every other row keeps its
+-- id and raster and is not sent again.
+--
+-- The strips and the icons' backgrounds come from one shared row raster: the
+-- pattern repeats every eight pixels, so eight rows of set pixels are drawn
+-- once per pattern, color and width, and everything else is a blit at the
+-- right phase — the tile continues across placements without a seam.
+local pattern_row: any = {key = nil, raster = nil}
+local function pattern_raster(pattern: any, width: integer): string
+    local key = table.concat(pattern, ",") .. "|" .. tostring(color.desktop) .. "|" .. tostring(width)
+    if pattern_row.key ~= key then
+        local row = gfx.raster(width, 8)
+        row:fill(color.desktop)
+        for py = 1, 8 do
+            local byte = whole(pattern[py])
+            for px = 1, width do
+                if (byte >> (7 - (px - 1) % 8)) & 1 == 1 then row:set(px, py, "#000000") end
+            end
+        end
+        pattern_row.key, pattern_row.raster = key, row
+    end
+    return key
+end
+-- tiled(raster, x0, y0, h) — the pattern under a raster whose top-left pixel
+-- is the screen pixel (x0, y0), both from one, `h` pixels tall.
+local function tiled(raster: any, x0: any, y0: any, h: any)
+    local row: any = pattern_row.raster
+    if row == nil then return end
+    local xoff, yoff = (whole(x0) - 1) % 8, (whole(y0) - 1) % 8
+    for at = 1 - yoff, whole(h), 8 do raster:blit(row, 1 - xoff, at) end
+end
+local function desktop_strips(cell: any, view: any, pattern: any): any
+    local w = whole(view.width)
+    local top, bottom = math.max(1, whole(view.top)), whole(view.bottom)
+    local out = {}
+    if w < 1 or bottom < top then return out end
+    local ch = whole(cell.h)
+    local key = pattern_raster(pattern, w * whole(cell.w))
+    for line = top, bottom do
+        local id = "desk:pattern:" .. line
+        local strip, dirty = store.take(id, w, 1, cell, key)
+        if dirty then tiled(strip, 1, (line - 1) * ch + 1, ch) end
+        out[#out + 1] = {id = id, raster = strip, x = 1, y = line, cols = w, rows = 1, layer = 0}
+    end
+    return out
+end
+
 -- ─── desktop icons ───────────────────────────────────────────────────────
 
 local function icon_key(item: any, selected)
@@ -320,15 +378,20 @@ end
 -- Every icon has its own placement on purpose. One raster for the whole
 -- desktop would cost forty-three milliseconds and would be resent on every
 -- keystroke in a window that covered even one of its rows.
-local function paint_icon(cell: any, item: any, selected, grid: any)
+local function paint_icon(cell: any, item: any, selected, grid: any, x: any, y: any)
     local id = "desk:" .. tostring(item.id)
     local cols = grid.w - 1
-    local raster, dirty = store.take(id, cols, grid.drawn, cell, icon_key(item, selected))
+    -- Under a pattern the background depends on the place too: the tile's
+    -- phase is the screen's, so a moved icon is a different raster.
+    local key = icon_key(item, selected)
+    if chrome.pattern ~= nil then key = key .. "\30" .. tostring(pattern_row.key) .. "@" .. tostring(x) .. "," .. tostring(y) end
+    local raster, dirty = store.take(id, cols, grid.drawn, cell, key)
     if dirty then
         local box = pixels.box(1, 1, cols, grid.drawn, cell)
         -- The background matches the desktop fill; the parts of the raster
         -- covered by windows are cropped before placement.
         raster:rect(1, 1, box.w, box.h, color.desktop)
+        if chrome.pattern ~= nil then tiled(raster, (whole(x) - 1) * cell.w + 1, (whole(y) - 1) * cell.h + 1, box.h) end
         chrome_pixels.draw_icon(raster, box, item, selected)
     end
     return id, raster
@@ -358,7 +421,10 @@ function chrome_pixels.draw_icon(raster, box: any, item: any, selected)
     for _, line in ipairs(lines) do
         local width = whole(face:measure(line))
         local from = box.x + (box.w - width) // 2
-        if selected then raster:rect(from - 2, at - 1, width + 4, 15, color.select_bg) end
+        if selected then raster:rect(from - 2, at - 1, width + 4, 15, color.select_bg)
+        -- Over a pattern the caption stands on the desktop color, as in
+        -- Windows 95: the tile under the letters would eat them.
+        elseif chrome.pattern ~= nil then raster:rect(from - 2, at - 1, width + 4, 15, color.desktop) end
         local tint = selected and color.select_fg or color.desktop_text
         if item.broken and not selected then tint = color.desktop_broken end
         raster:text(from, at, line, {font = face, color = tint})
@@ -1019,6 +1085,12 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     local out = {}
     local hits: any = {desktop = {}, bars = {}, menu = {}}
 
+    -- The desktop pattern goes first of all: under the icons and everything.
+    local pattern: any = chrome.pattern
+    if pattern ~= nil and not view.bare then
+        for _, strip in ipairs(desktop_strips(cell, view, pattern)) do out[#out + 1] = strip end
+    end
+
     -- Desktop icons are under the windows, so they go first: the list order is
     -- the painting order.
     --
@@ -1036,7 +1108,7 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
         local x, y = chrome.desktop_spot(item, view.top, view.bottom, view.width, grid.drawn)
         if x then
             local selected = view.selected ~= nil and item.id == view.selected
-            local id, raster = paint_icon(cell, item, selected, grid)
+            local id, raster = paint_icon(cell, item, selected, grid, x, y)
             store.place(id, x, y)
             out[#out + 1] = {id = id, raster = raster, x = x, y = y,
                              cols = grid.w - 1, rows = grid.drawn, layer = 0}

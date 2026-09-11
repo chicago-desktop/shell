@@ -6,6 +6,8 @@
 -- silently does not work. Neither looks like an error: it looks like "the
 -- click did not work".
 local test = require("test")
+local menu_layout = require("menu_layout")
+local placements = require("placements")
 local catalog = require("catalog")
 local chrome = require("chrome")
 local chrome_pixels = require("chrome_pixels")
@@ -1102,6 +1104,54 @@ local function define_tests()
             chrome_pixels.fonts = nil
         end)
 
+        -- The pattern costs pixels, so its shape is checked: one placement per
+        -- desktop row under the icons, cropped by windows like an icon, and a
+        -- window dragged over it re-sends only the strips of the rows it
+        -- covers. The numbers go to shots/pattern-cost.txt for the report.
+        test.it("a desktop pattern is a strip per row, and a dragged window re-sends only its own rows", function()
+            use_fonts()
+            test.is_true(chrome.use_pattern({136, 84, 34, 69, 136, 21, 34, 81}))
+            local state: any = {width = 80, height = 24, top = 1, bottom = 22, clock = "12:00",
+                items = {{id = "icon", x = 2, y = 2, kind = "folder", title = "Folder"}},
+                windows = {{id = "w1", title = "Notepad", x = 10, y = 5, w = 20, h = 8}}, focused_id = "w1"}
+            local first = chrome_pixels.paint(state, 10, 20)
+            local before: any = {}
+            local placements_first, first_px = 0, 0
+            for _, item in ipairs(first.placements) do
+                before[item.id] = {raster = item.raster, version = item.raster:version()}
+                if tostring(item.id):find("desk:pattern:", 1, true) == 1 then
+                    placements_first = placements_first + 1
+                    first_px = first_px + item.cols * item.rows * 200
+                    test.eq(item.rows, 1, "a strip is one row: " .. item.id)
+                end
+            end
+            test.is_true(placements_first >= 22, "every desktop row has its strip, the covered rows their crops")
+            state.windows[1].x = 40
+            local second = chrome_pixels.paint(state, 10, 20)
+            local resent, resent_px = 0, 0
+            for _, item in ipairs(second.placements) do
+                local id = tostring(item.id)
+                local was: any = before[id]
+                if id:find("desk:pattern:", 1, true) == 1
+                    and (was == nil or was.raster ~= item.raster or was.version ~= item.raster:version()) then
+                    resent = resent + 1
+                    resent_px = resent_px + item.cols * item.rows * 200
+                    local line = math.tointeger(tonumber(id:match("^desk:pattern:(%d+)")))
+                    test.is_true(line ~= nil and line >= 5 and line <= 12, "only the window's rows are re-sent: " .. id)
+                end
+            end
+            test.is_true(resent > 0, "the rows under the window change")
+            assert(assert(fs.get("app:shots")):writefile("pattern-cost.txt", string.format(
+                "10x20 cells, 80x24 screen, Weave: first frame %d pattern placements, %d px; "
+                .. "a 20x8 window dragged 30 columns: %d placements re-sent, %d px\n",
+                placements_first, first_px, resent, resent_px)))
+            test.is_true(chrome.use_pattern(nil))
+            for _, item in ipairs(chrome_pixels.paint(state, 10, 20).placements) do
+                test.is_nil(tostring(item.id):find("desk:pattern:", 1, true), "no pattern, no strips: " .. item.id)
+            end
+            chrome_pixels.fonts = nil
+        end)
+
         test.it("a view that threw an error is a failure text in the window, not a crashed shell frame", function()
             use_fonts()
             -- `children` not as a list: `ui.plan` throws inside the view library.
@@ -1320,6 +1370,155 @@ local function define_tests()
                     test.is_true(line[col] ~= "X", string.format("the window shows through at %d,%d", col, hit.row))
                 end
             end
+        end)
+    end)
+
+    -- ─── the extracted libraries, directly ─────────────────────────────────
+    -- chrome.menu_layout and the pixel theme's cropping moved into their own
+    -- libraries (review, 2026-09-11). The theme cases above are the contract
+    -- that behaviour did not change; these pin the libraries themselves.
+    test.describe("menu_layout library", function()
+        test.it("lays a cascade out in compact metrics: panels side by side, a submenu level with its folder", function()
+            local items = {
+                {entry = "app:a", title = "Alpha", group = {"Programs"}, order = 10},
+                {entry = "app:b", title = "Beta", group = {"Programs"}, order = 20},
+                {entry = "app:c", title = "Control", group = {"Settings"}, order = 30},
+                {entry = "app:q", title = "Shut Down", action = "quit", order = 90},
+            }
+            local shown = menu_layout.layout(90, 24, items, nil, {"Programs"}, 1,
+                {compact = true, bottom = 2, root_rows = 2, item_rows = 1, banner = ""})
+            test.eq(#shown.panels, 2, "the root and the open Programs folder")
+            local root, sub = shown.panels[1], shown.panels[2]
+            test.eq(root.x, 1)
+            test.eq(root.y + root.h - 1, 22, "the root stands on the taskbar: 24 rows minus 2")
+            test.eq(root.h, #root.lines * 2, "compact: no frame rows, and a root row is two cells tall")
+            test.eq(sub.x, root.x + root.w, "the submenu stands right of the root")
+            local folder_row = nil
+            for _, line in ipairs(root.lines) do
+                if line.kind == "group" and line.label == "Programs" then folder_row = line.row end
+            end
+            test.not_nil(folder_row)
+            test.eq(sub.y, folder_row, "compact: the submenu's first row is level with its folder")
+            test.eq(sub.h, #sub.lines)
+            local hit = nil
+            for _, spot in ipairs(shown.hits) do
+                if spot.level == 2 and spot.slot == 1 then hit = spot end
+            end
+            test.not_nil(hit)
+            test.eq(hit.from, sub.x, "compact: the hit spans the whole panel, the frame is pixels")
+            test.eq(hit.to, sub.x + sub.w - 1)
+            test.is_true(hit.cursor == true, "cursor 1 marks the first row of the deepest panel")
+        end)
+
+        test.it("takes the banner as a parameter and writes it bottom to top", function()
+            local items = {
+                {entry = "app:a", title = "A long program name", order = 1},
+                {entry = "app:b", title = "Another long name", order = 2},
+                {entry = "app:c", title = "The third long name", order = 3},
+            }
+            local shown = menu_layout.layout(90, 24, items, nil, {}, 1, {banner = "xyz"})
+            local root = shown.panels[1]
+            test.eq(root.banner, 2, "the panel is wide enough for the vertical caption")
+            local last = #root.lines
+            test.eq(root.lines[last].banner_letter, "X", "the caption reads bottom to top, in capitals")
+            test.eq(root.lines[last - 1].banner_letter, "Y")
+            test.eq(root.lines[last - 2].banner_letter, "Z")
+            local plain = menu_layout.layout(90, 24, items, nil, {}, 1, {})
+            test.eq(plain.panels[1].lines[last].banner_letter, " ", "no banner given, no letters")
+        end)
+
+        test.it("puts a context menu at the anchor and keeps it on the screen", function()
+            local items = {
+                {entry = "app:x", label = "Open", bold = true},
+                {entry = "app:y", label = "Properties", separator_before = true},
+            }
+            local edge = menu_layout.layout(90, 24, items, nil, {}, 2, {anchor = {x = 88, y = 23}})
+            local box = edge.panels[1]
+            test.is_true(box.context == true)
+            test.is_true(box.x + box.w - 1 <= 90, "at the right edge the panel shifts left")
+            test.is_true(box.y + box.h - 1 <= 23, "and up, above the taskbar row")
+            test.eq(box.banner, 0, "a context menu has no banner")
+            test.eq(#edge.hits, 2)
+            test.is_true(edge.hits[2].cursor == true)
+            local roomy = menu_layout.layout(90, 24, items, nil, {}, 1, {anchor = {x = 10, y = 5}})
+            test.eq(roomy.panels[1].x, 10)
+            test.eq(roomy.panels[1].y, 5, "with room, exactly at the anchor")
+        end)
+    end)
+
+    test.describe("placements library", function()
+        local function rect(x, y, cols, rows) return {x = x, y = y, cols = cols, rows = rows} end
+
+        test.it("subtract returns the very rectangle when the cover misses it", function()
+            local r = rect(1, 1, 10, 5)
+            local apart = placements.subtract(r, {x = 20, y = 1, w = 5, h = 5})
+            test.eq(#apart, 1)
+            test.is_true(apart[1] == r, "the same table, not a copy: identity says 'shown whole'")
+            local touching = placements.subtract(r, {x = 11, y = 1, w = 5, h = 5})
+            test.is_true(#touching == 1 and touching[1] == r, "a cover touching the edge does not overlap")
+        end)
+
+        test.it("subtract cuts the four overlap cases into what is left", function()
+            local r = rect(1, 1, 10, 6)
+            local top = placements.subtract(r, {x = 1, y = 1, w = 10, h = 2})
+            test.eq(#top, 1)
+            test.eq(top[1].y, 3)
+            test.eq(top[1].rows, 4)
+            test.eq(top[1].cols, 10)
+            local bottom = placements.subtract(r, {x = 1, y = 5, w = 10, h = 5})
+            test.eq(#bottom, 1)
+            test.eq(bottom[1].y, 1)
+            test.eq(bottom[1].rows, 4)
+            local left = placements.subtract(r, {x = 1, y = 1, w = 3, h = 6})
+            test.eq(#left, 1)
+            test.eq(left[1].x, 4)
+            test.eq(left[1].cols, 7)
+            local right = placements.subtract(r, {x = 8, y = 1, w = 5, h = 6})
+            test.eq(#right, 1)
+            test.eq(right[1].x, 1)
+            test.eq(right[1].cols, 7)
+            local hole = placements.subtract(r, {x = 4, y = 3, w = 3, h = 2})
+            test.eq(#hole, 4, "a hole in the middle leaves four pieces")
+            local area = 0
+            for _, piece in ipairs(hole) do area = area + piece.cols * piece.rows end
+            test.eq(area, 10 * 6 - 3 * 2, "the pieces cover exactly what the hole did not")
+        end)
+
+        test.it("visible cuts a picture by the windows above its layer and by the menu, never the menu", function()
+            local windows = {
+                {id = "w1", x = 1, y = 1, w = 20, h = 10},
+                {id = "w2", x = 11, y = 1, w = 20, h = 10},
+                {id = "w3", x = 1, y = 1, w = 40, h = 20, minimized = true},
+            }
+            local low = {id = "low", x = 1, y = 1, cols = 20, rows = 10, layer = 1}
+            local high = {id = "high", x = 11, y = 1, cols = 20, rows = 10, layer = 2}
+            local menu = {id = "menu:1", x = 1, y = 5, cols = 8, rows = 4, top = true}
+            local shown = placements.visible({low, high, menu}, windows, {{x = 1, y = 5, w = 8, h = 4}})
+            local by: any = {low = {}, high = {}, ["menu:1"] = {}}
+            for _, entry in ipairs(shown) do
+                local list: any = by[entry.source.id]
+                list[#list + 1] = entry
+            end
+            test.eq(#by.high, 1)
+            test.is_nil(by.high[1].piece, "nothing above layer 2 but a minimized window: shown whole")
+            test.eq(#by["menu:1"], 1)
+            test.is_nil(by["menu:1"][1].piece, "the menu is the top layer and is never cut")
+            test.eq(#by.low, 3, "layer 1 loses what window 2 covers, then what the menu covers")
+            for _, entry in ipairs(by.low) do
+                local piece: any = entry.piece
+                test.not_nil(piece)
+                test.is_true(piece.x + piece.cols - 1 <= 10, "nothing of window 2's area is left")
+                local under_menu = piece.x <= 8 and piece.x + piece.cols - 1 >= 1
+                    and piece.y <= 8 and piece.y + piece.rows - 1 >= 5
+                test.is_true(not under_menu, "nothing under the menu is left")
+            end
+        end)
+
+        test.it("names a crop after its source and offset, and keys it by the source's version", function()
+            local source = {id = "win", x = 3, y = 2, cols = 10, rows = 4,
+                raster = {version = function() return 7 end}}
+            test.eq(placements.crop_id(source, {x = 5, y = 3, cols = 4, rows = 2}), "win:crop:2:1:4:2")
+            test.eq(placements.crop_key(source), "10:4:7")
         end)
     end)
 end

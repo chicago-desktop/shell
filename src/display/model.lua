@@ -27,7 +27,8 @@ model.COLORS = {
     {id = "#ffffff", text = "White"},
 }
 
-model.TABS = {{text = "Background"}, {text = "Settings"}}
+-- `short` is the caption in cells, where the four captions do not fit whole.
+model.TABS = {{text = "Background"}, {text = "Screen Saver", short = "Saver"}, {text = "Appearance"}, {text = "Settings"}}
 
 function model.valid(hex: any): boolean
     return type(hex) == "string" and hex:match("^#%x%x%x%x%x%x$") ~= nil

@@ -21,6 +21,7 @@ local defaults = require("defaults")
 local seed = require("seed")
 local view = require("view")
 local repo = require("repo")
+local patterns = require("patterns")
 local logon_screen = require("logon_screen")
 local logon_provider = require("logon_provider")
 
@@ -178,8 +179,20 @@ local function main()
         end
     end
 
+    -- The desktop pattern, the same way: a name in the settings, the rows
+    -- from the pattern library; a name nobody knows is no pattern.
+    local function apply_desktop_pattern()
+        local name, err = repo.setting("desktop_pattern")
+        if err then
+            log:warn("desktop pattern not read", {error = tostring(err)})
+            return
+        end
+        chrome.use_pattern(patterns.find(name))
+    end
+
     local function desktop_items()
         apply_desktop_color()
+        apply_desktop_pattern()
         -- The catalog is read BEFORE the layout: furniture is created from
         -- it, and reading the layout earlier would mean handing over a frame
         -- without the icons just created — they would appear only on the next

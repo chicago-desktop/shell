@@ -56,15 +56,19 @@ end
 -- The loop builds its own with it, and a test builds one the same way, so a
 -- window calls `context.watch`, `context.after` and `context.close` without
 -- asking first whether they exist. `fields` gives `args`, `width`, `height`,
--- `native`, `window_id` and `cell_w`. `watched` and `timers` are the lists the loop
+-- `native`, `window_id`, `cell_w` and `cell_h`. `watched` and `timers` are the lists the loop
 -- selects on; a test reads them to see what the window asked for.
 -- `scroll_cols` is the scrollbar width the plan reserves: in a native window
 -- it follows the compositor's cell (`widgets.scroll_cols`), in cells it is one.
+-- `cell` is that cell in a native window, nil in cells: the plan rounds the
+-- tree's pixel measures with it, exactly as the renderer does.
 function app.context(fields: any?): any
     local given: any = type(fields) == "table" and fields or {}
     local context: any = {args = given.args, width = given.width or 1, height = given.height or 1,
         native = given.native == true, closing = false, failure = nil, window_id = given.window_id,
         scroll_cols = given.native == true and widgets.scroll_cols(given.cell_w) or 1,
+        cell = given.native == true and (tonumber(given.cell_w) or 0) > 0 and (tonumber(given.cell_h) or 0) > 0
+            and {w = given.cell_w, h = given.cell_h} or nil,
         watched = {}, timers = {}}
     function context.close() context.closing = true end
     -- The application's own channel: the compositor's answer on `desktop.replies()`,
@@ -97,6 +101,9 @@ end
 function app.resize(context: any, event: any)
     context.width, context.height = event.width, event.height
     if event.cell_w ~= nil then context.scroll_cols = widgets.scroll_cols(event.cell_w) end
+    if (tonumber(event.cell_w) or 0) > 0 and (tonumber(event.cell_h) or 0) > 0 then
+        context.cell = {w = event.cell_w, h = event.cell_h}
+    end
 end
 
 -- channel_action(context, picked) -> the action for a fired channel of the
@@ -165,7 +172,7 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
 
     local loop: any = {plan = nil, revision = 0}
     local context: any = app.context({args = args, width = width, height = height, native = native,
-        window_id = window_id, cell_w = native and viewport.cell_w or nil})
+        window_id = window_id, cell_w = native and viewport.cell_w or nil, cell_h = native and viewport.cell_h or nil})
 
     local model: any = definition.init and guarded(context, "init", definition.init, args, context) or {}
     local interaction = ui.interaction()
@@ -176,7 +183,7 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
         local tree: any = nil
         if not context.failure then tree = guarded(context, "view", definition.view, model, context) end
         if context.failure then tree = failure_tree(context.failure) end
-        local sizing = {scroll_cols = context.scroll_cols}
+        local sizing = {scroll_cols = context.scroll_cols, cell = context.cell}
         local ok, built = pcall(ui.plan, tree, context.width, context.height, interaction, sizing)
         if ok then loop.plan = built
         else

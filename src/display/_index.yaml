@@ -15,6 +15,13 @@ entries:
     imports:
       geometry: butschster.tui_desktop.desktop:geometry
 
+  # butschster.windows.display:patterns
+  - name: patterns
+    kind: library.lua
+    meta:
+      comment: The Windows 95 desktop patterns — 8×8 monochrome tiles as bit rows, the list of Display Properties, lookup by name.
+    source: file://patterns.lua
+
   # Permissions: read and write a setting in the shell database (`db.get` on
   # the resource, the database name comes from the environment), ask and
   # nudge the compositor.
@@ -44,11 +51,14 @@ entries:
       order: 140
       window_type: dialog
       resizable: false
-      width: 60
+      # 46×24 cells: at a 10×20 cell the page frame is 420×380 px against the
+      # 386×360 of Windows 95. The record is cells, so at an 8×16 cell the
+      # same record is a smaller dialog (a 336×304 px page frame).
+      width: 46
       height: 24
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.display:window
-      comment: Display Properties — the desktop color with a preview, applied through the shell settings; resolution and palette are read-only; a window on the shell SDK.
+      comment: Display Properties — the desktop pattern and color with a preview, applied through the shell settings; resolution and palette are read-only; a window on the shell SDK.
     source: file://window.lua
     method: main
     modules:
@@ -64,3 +74,4 @@ entries:
       desktop: butschster.tui_desktop.desktop:window_api
       repo: butschster.windows.persist:repo
       model: butschster.windows.display:model
+      patterns: butschster.windows.display:patterns

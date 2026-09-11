@@ -80,7 +80,10 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
         -- bare for menus; the current one is bold, the open one is inverted.
         local parts, used = {}, 0
         for _, span in ipairs(item.spans or {}) do
-            local text = " " .. span.title .. " "
+            -- The air around a caption is the span's own: a tab's edges take
+            -- a cell each, so a tab of pad 1 is its caption between edges.
+            local air = string.rep(" ", whole(math.max(0, whole(span.pad or 1) - (item.node.kind == "tabs" and 1 or 0))))
+            local text = air .. span.title .. air
             local style = styles.face
             if span.index == opened then style = styles.select
             elseif span.index == current then style = styles.face_bold

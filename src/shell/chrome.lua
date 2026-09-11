@@ -281,6 +281,29 @@ function chrome.use_desktop(hex: any): boolean
     return true
 end
 
+-- use_pattern(rows) — the desktop pattern from "Display Properties": eight
+-- bit rows (`butschster.windows.display:patterns`), or nil for none. The
+-- pixel theme tiles it over the desktop color. Cells have no pattern: an 8×8
+-- pixel tile has no place in a character cell, and a dither character on every
+-- desktop cell would read as noise and cost every cell a styled character.
+-- Anything but eight bytes is not accepted and returns false.
+chrome.pattern = nil
+function chrome.use_pattern(rows: any): boolean
+    if rows == nil then
+        chrome.pattern = nil
+        return true
+    end
+    if type(rows) ~= "table" or #rows ~= 8 then return false end
+    local copy: any = {}
+    for index = 1, 8 do
+        local byte = math.tointeger(rows[index])
+        if byte == nil or byte < 0 or byte > 255 then return false end
+        copy[index] = byte
+    end
+    chrome.pattern = copy
+    return true
+end
+
 -- ─── Chrome geometry ─────────────────────────────────────────────────────
 
 -- The taskbar takes the bottom row and only that. The chrome takes nothing on

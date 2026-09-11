@@ -257,20 +257,34 @@ drifted from "Start" on the first edit.
 
 A right click on the empty desktop gives "Properties" (named to the compositor as
 `desktop_properties`), and the same window is in "Start → Settings": the Windows 95
-Display Properties in two tabs.
+Display Properties in four tabs, laid out by the Windows 95 dialog's measured
+pixels (the numbers are in `src/display/window.lua`).
 
-- **Background** — the desktop color: a list of standard colors and a monitor preview
-  (the SDK `monitor` component). "Apply" and "OK" write the choice into the shell's
-  settings (`butschster_windows_settings`, key `desktop_color`) and ask
-  the compositor to reread the desktop (`desktop.refresh`); it repaints the desktop and
-  the icons in both modes through `chrome.use_desktop` — one point for the palette,
-  cell styles, widgets and icons. An icon raster carries the desktop color in its key,
-  so it is repainted together with the desktop. There is deliberately no pattern or wallpaper: the desktop in
-  pixel mode is cells, and a full-screen raster would be resent on
-  every change of a window on top of it.
+- **Background** — the desktop pattern: the twenty Windows 95 8×8 tiles
+  (`butschster.windows.display:patterns`, the original bits) in a list, and a monitor
+  preview (the SDK `monitor` component, which draws the pattern too). The Wallpaper
+  group stands there disabled until wallpapers exist.
+- **Appearance** — the desktop color, where Windows 95 kept it: the color of the
+  Desktop item.
+- **Screen Saver** — says it is not available.
 - **Settings** — resolution (cells and pixels from `screen` and `cell` in
   `desktop.list`) and palette, read-only: the size is set by the terminal, TrueColor
   is forced by the runtime.
+
+"Apply" and "OK" write the choice into the shell's settings
+(`butschster_windows_settings`, keys `desktop_color` and `desktop_pattern`) and ask the
+compositor to reread the desktop (`desktop.refresh`); it repaints through
+`chrome.use_desktop` and `chrome.use_pattern` — one point each. An icon raster carries
+the desktop color, and under a pattern its place, in its key, so it is repainted
+together with the desktop.
+
+The pattern is pixels only. With one, the pixel desktop becomes rasters, and their
+shape follows the cost rule: ONE PLACEMENT PER DESKTOP ROW under the icons, cropped by
+the windows over it like an icon, so a window dragged over the desktop re-sends only the
+strips of the rows it covers (`chrome_test` measures it and writes
+`test/shots/pattern-cost.txt`). Without a pattern the desktop stays cells and costs
+nothing. Cells mode has no pattern: an 8×8 pixel tile has no place in a character cell,
+and a dither character on every desktop cell would read as noise.
 
 The color from the database is validated on read (`#rrggbb`): an invalid string is not
 accepted and goes to the log, and the desktop stays as it was.

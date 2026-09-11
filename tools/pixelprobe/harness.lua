@@ -217,6 +217,7 @@ modules.pixels = dofile(BASE .. "shell/pixels.lua")
 modules.rasters = dofile(BASE .. "shell/rasters.lua")
 -- `chrome` is pulled in here not for drawing into cells but for ONE table of
 -- title-button sets: a second list would drift from the first.
+modules.menu_layout = dofile(BASE .. "shell/menu_layout.lua")
 modules.chrome = dofile(BASE .. "shell/chrome.lua")
 modules.render = dofile(BASE .. "explorer/render.lua")
 modules.render_pixels = dofile(BASE .. "explorer/render_pixels.lua")
@@ -224,6 +225,7 @@ modules.explorer_layout = modules.render
 modules.explorer_pixels = modules.render_pixels
 -- Other clients have runtime tests; this geometry probe does not open them.
 modules.datetime_render, modules.calc_render, modules.picture_render, modules.run_render, modules.taskman_render = {}, {}, {}, {}, {}
+modules.placements = dofile(BASE .. "shell/placements.lua")
 modules.chrome_pixels = dofile(BASE .. "shell/chrome_pixels.lua")
 
 local pixels = modules.pixels

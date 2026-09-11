@@ -137,6 +137,7 @@ entries:
       seed: butschster.windows.programs:seed
       view: butschster.windows.programs:desktop_view
       repo: butschster.windows.persist:repo
+      patterns: butschster.windows.display:patterns
       logon_screen: butschster.windows.logon:screen
       logon_provider: butschster.windows.logon:provider
       environment: butschster.windows.config:environment

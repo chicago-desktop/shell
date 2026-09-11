@@ -95,6 +95,17 @@ current data; `update` changes the model on a component's action.
 - A child's `size` is its size along the parent's axis. Without `size` the remaining
   space is divided by `weight` (1 by default). When space runs short, components are
   clipped; the container's size does not grow beyond the viewport.
+- Pixel measures: `size_px` on a child, `padding_px` and `gap_px` on a container
+  name Windows 95 pixels. When the plan draws in pixels (`ui.plan(…, {cell = {w,
+  h}})`, which `app.run` and the renderer both pass), they are rounded to the
+  nearest whole cells per axis — the mouse speaks cells, so a layout is always
+  whole cells, and the pixel number picks the closest one (7 px of padding is a
+  column at an 8–10 px cell and no row at a 16–20 px one). In cells mode `size`,
+  `padding` and `gap` stand, so a tree gives both. A button's `width_px` is its
+  drawn width: in a row with `align = "right"` such buttons are packed from the
+  row's right edge `pack_px` (6) apart, each drawing kept inside its own cells.
+  A dialog row gives each button `size_px = 81, width_px = 75` and gets the
+  Windows 95 75×23 buttons 6 px apart; "Display Properties" is the example.
 - `label`: `text`, does not take focus; `alert = true` — refusal text (red).
   `\n` in the text makes a multi-line label: lines go at the font's step (15 px in
   pixels, one row per line in cells), the block centered in the rectangle; this way
@@ -106,6 +117,9 @@ current data; `update` changes the model on a component's action.
 - `monitor`: `color` — a monitor screen in the desktop color, like the preview in
   "Display Properties"; in pixels a case with a bevel and a stand, in cells
   a face frame and a colored screen. Does not take focus, no `id` needed.
+  `pattern` — eight bit rows of a Windows 95 desktop pattern
+  (`butschster.windows.display:patterns`), set bits black over the screen color;
+  pixels only.
 - `image`: `image` (a name from the icon catalog), `icon` (a character for cells),
   `size_px` (32 by default). A dialog icon: a raster in pixels, a single character
   in cells. Does not take focus, no `id` needed.
@@ -231,7 +245,10 @@ current data; `update` changes the model on a component's action.
   column (`padding`, `gap` — as for `column`). A click on a tab and the ←/→ arrows
   while focused give `select` with `index`; the application itself switches the page
   content by `active`. A tab that did not fit in the strip is neither drawn nor
-  clickable — half a tab would be clicked "into nowhere".
+  clickable — half a tab would be clicked "into nowhere". `pad` is the air on each
+  side of a caption in cells (2 by default; 1 fits more tabs). In pixels a tab is
+  measured by its caption — 7 px a character, the Liberation Sans 13 average, plus
+  10 px — and rounded up to whole cells, so the four tabs of a Windows 95 dialog fit.
 - `menu`: `id`, `entries = {{title, accel?, items = {{id, text, accel?,
   disabled?} | {separator = true}, …}}, …}` — the window's menu bar. A click on a
   title or Alt+letter opens the list; it lies on top of everything

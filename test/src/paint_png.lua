@@ -772,13 +772,14 @@ local function main(spec)
         view_shot("network", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
             interaction = ui.interaction(), ui = network_window.definition.view(state, {width = 60, height = 14})}}, 60, 14)
     end
-    -- "Display Properties": the Background with the chosen color, and Settings.
-    for tab = 1, 2 do
-        local state: any = {tab = tab, chosen = "#000080", saved = "#008080",
+    -- "Display Properties": the four tabs at the entry's 46×24, the client
+    -- inside the pixel frame; the Background with a pattern chosen.
+    for tab = 1, 4 do
+        local state: any = {tab = tab, chosen = "#008080", saved = "#008080", pattern = "Weave", pattern_saved = "(None)",
             info = {screen = {width = 100, height = 28}, cell = {w = cell.w, h = cell.h}, pixels = true},
             persist = function() return true, nil end}
         view_shot("display-" .. tab, sdk_render, {id = "shot", state_revision = tab, content_state = {sdk = 1, revision = tab,
-            interaction = ui.interaction(), ui = display_window.definition.view(state, {width = 58, height = 22})}}, 58, 22)
+            interaction = ui.interaction(), ui = display_window.definition.view(state, {width = 44, height = 22, native = true})}}, 44, 22)
     end
     -- The farewell screen: the large font is computed from the cell height, as
     -- in the shell.

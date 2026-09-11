@@ -98,17 +98,24 @@ end
 -- Tab and menu strips: each caption takes " caption " plus two edges.
 -- One layout for both renderers and for hits; a string longer than the strip
 -- is cut at whole tabs — half a tab would be pressed "into nowhere".
-function ui.spans(labels: any, width: any, pad: any): any
+--
+-- `cell` (a plan drawn in pixels) measures a tab by its caption in pixels —
+-- 7 px a character, the Liberation Sans 13 average, plus 10 px of air — and
+-- rounds up to whole cells: a caption set in a proportional font is half as
+-- wide as one cell per character, and Windows 95's four tabs only fit that way.
+function ui.spans(labels: any, width: any, pad: any, cell: any?): any
     local out, used = {}, 0
     -- Padding on each side: two cells for tabs (edges and air), one for
     -- menu titles — otherwise "Edit View Help" does not fit into the
     -- calculator, which is 27 cells wide.
     local side = whole(pad or 2)
+    local cw = type(cell) == "table" and whole(cell.w) or 0
     for index, entry in ipairs(labels or {}) do
         local title = type(entry) == "table" and tostring(entry.title or entry.text or "?") or tostring(entry)
         local room = cells_of(title) + side * 2
+        if cw > 0 then room = math.max(2, (cells_of(title) * 7 + 10 + cw - 1) // cw) end
         if used + room > whole(width) then break end
-        out[#out + 1] = {index = index, x = used, w = room, title = title,
+        out[#out + 1] = {index = index, x = used, w = room, title = title, pad = side,
             accel = type(entry) == "table" and whole(entry.accel) or 0}
         used = used + room
     end
@@ -206,7 +213,45 @@ end
 -- Dialogs need this: the pixel theme already has a whole row of cells under
 -- the bottom frame (the frame is three pixels, but the reserve is a row), and one more
 -- cell of padding at the bottom pushed the buttons twice as far from the frame as in Windows 95.
-local function padded(rect: any, node: any): any
+-- cells_for(plan, px, fallback, horizontal, least) -> whole cells
+--
+-- A measure named in pixels (`size_px`, `padding_px`, `gap_px`) as whole cells
+-- along one axis, when the plan draws in pixels: rounded to the nearest cell,
+-- never below `least`. The mouse speaks cells, so a layout can only ever be
+-- whole cells; the pixel number says which whole number is closest to Windows
+-- 95. Without a cell (cells mode) the cell measure `fallback` stands.
+local function cells_for(plan: any, px: any, fallback: any, horizontal: boolean, least: integer): integer
+    local cell: any = plan.cell
+    if cell == nil or px == nil then return whole(math.max(least, whole(fallback or 0))) end
+    local unit = whole(horizontal and cell.w or cell.h)
+    return whole(math.max(least, (whole(px) * 2 + unit) // (unit * 2)))
+end
+-- pack(children, rect, node, plan) — the buttons of a right-aligned row, drawn
+-- at their Windows 95 size in pixels: `width_px` wide (75 in a dialog),
+-- `pack_px` apart (6 by default), packed from the row's right edge. Each
+-- drawing is kept inside its own cells: a button's picture in a neighbour's
+-- cell would press the neighbour. So the row gives each button whole cells
+-- that hold its drawing plus the gap (`size_px = 81` for 75 + 6), and the
+-- drawing lands in `item.px` — the pixel column and width the renderer uses.
+local function pack(children: any, rect: any, node: any, plan: any)
+    local cw = whole(plan.cell.w)
+    local gap = whole(node.pack_px or 6)
+    local edge = (rect.x + rect.w - 1) * cw
+    for index = #children, 1, -1 do
+        local child: any = children[index]
+        local item: any = child.id ~= nil and plan.by_id[child.id] or nil
+        if item and child.kind == "button" and child.width_px ~= nil then
+            local left, right = (item.rect.x - 1) * cw + 1, (item.rect.x + item.rect.w - 1) * cw
+            local draw_right = whole(math.min(whole(edge), whole(right)))
+            local draw_left = whole(math.max(whole(left), draw_right - whole(child.width_px) + 1))
+            item.px = {x = draw_left, w = draw_right - draw_left + 1}
+            edge = draw_left - 1 - gap
+        elseif item then
+            edge = (item.rect.x - 1) * cw - gap
+        end
+    end
+end
+local function padded(rect: any, node: any, plan: any): any
     local all = whole(math.max(0, whole(node.padding or 0)))
     local function side(name: string): integer
         local value: any = node[name]
@@ -214,6 +259,14 @@ local function padded(rect: any, node: any): any
         return whole(math.max(0, whole(value)))
     end
     local top, right, bottom, left = side("padding_top"), side("padding_right"), side("padding_bottom"), side("padding_left")
+    -- In pixels `padding_px` is the padding on every side, rounded to whole
+    -- cells per axis: 7 px is one column at an 8–10 px cell and no row at a
+    -- 16–20 px one.
+    if plan.cell ~= nil and node.padding_px ~= nil then
+        left = cells_for(plan, node.padding_px, 0, true, 0)
+        top = cells_for(plan, node.padding_px, 0, false, 0)
+        right, bottom = left, top
+    end
     if top + bottom + right + left == 0 then return rect end
     local x = rect.x + math.min(left, rect.w)
     local y = rect.y + math.min(top, rect.h)
@@ -251,15 +304,24 @@ local function add(node: any, rect: any, plan: any, interaction: any)
     local kind = node.kind
     if rect.w < 1 or rect.h < 1 then return end
     if containers[kind] then
-        rect = padded(rect, node)
+        rect = padded(rect, node, plan)
         local children = node.children or {}
         local horizontal = kind == "row" or kind == "split"
         local length = whole(horizontal and rect.w or rect.h)
         local gap = whole(math.max(0, node.gap or 0))
+        if plan.cell ~= nil and node.gap_px ~= nil then gap = cells_for(plan, node.gap_px, 0, horizontal, 0) end
+        -- A child's fixed size: `size_px` rounded to cells when the plan draws
+        -- in pixels, `size` otherwise; nil for a flexible child.
+        local function fixed_size(child: any): any
+            if plan.cell ~= nil and child.size_px ~= nil then return cells_for(plan, child.size_px, child.size, horizontal, 1) end
+            if child.size ~= nil then return whole(math.max(0, whole(child.size))) end
+            return nil
+        end
         local available = math.max(0, length - gap * math.max(0, #children - 1))
         local fixed, weight = 0, 0
         for _, child in ipairs(children) do
-            if child.size ~= nil then fixed = fixed + math.max(0, whole(child.size))
+            local own = fixed_size(child)
+            if own ~= nil then fixed = fixed + whole(own)
             else weight = weight + math.max(1, whole(child.weight or 1)) end
         end
         local flexible = math.max(0, available - fixed)
@@ -271,8 +333,9 @@ local function add(node: any, rect: any, plan: any, interaction: any)
             position = math.max(0, length - fixed - gap * math.max(0, #children - 1))
         end
         for _, child in ipairs(children) do
-            local size = math.max(0, whole(child.size))
-            if child.size == nil then
+            local own = fixed_size(child)
+            local size = whole(own or 0)
+            if own == nil then
                 weights = weights + math.max(1, whole(child.weight or 1))
                 local allocation = whole(math.floor(flexible * weights / math.max(1, weight)))
                 size, consumed = allocation - consumed, allocation
@@ -283,6 +346,7 @@ local function add(node: any, rect: any, plan: any, interaction: any)
             add(child, area, plan, interaction)
             position = position + size + gap
         end
+        if horizontal and node.align == "right" and plan.cell ~= nil then pack(children, rect, node, plan) end
         return
     end
     local id = node.id
@@ -299,7 +363,8 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         if rect.h >= 3 and rect.w >= 3 then
             add({kind = "column", children = node.children or {}, padding = node.padding, gap = node.gap,
                 padding_top = node.padding_top, padding_right = node.padding_right,
-                padding_bottom = node.padding_bottom, padding_left = node.padding_left},
+                padding_bottom = node.padding_bottom, padding_left = node.padding_left,
+                padding_px = node.padding_px, gap_px = node.gap_px},
                 geometry.rect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2), plan, interaction)
         end
         return
@@ -308,7 +373,7 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         -- Tabs are a one-row strip and a page frame under it; the children
         -- are laid out inside the frame. Only the strip is a hit target.
         local strip = geometry.rect(rect.x, rect.y, rect.w, 1)
-        local item: any = {node = node, rect = strip, spans = ui.spans(node.labels, rect.w),
+        local item: any = {node = node, rect = strip, spans = ui.spans(node.labels, rect.w, node.pad, plan.cell),
             frame = geometry.rect(rect.x, rect.y + 1, rect.w, math.max(0, rect.h - 1))}
         plan.items[#plan.items + 1] = item
         plan.by_id[id] = item
@@ -316,7 +381,8 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         if rect.h >= 4 and rect.w >= 3 then
             add({kind = "column", children = node.children or {}, padding = node.padding, gap = node.gap,
                 padding_top = node.padding_top, padding_right = node.padding_right,
-                padding_bottom = node.padding_bottom, padding_left = node.padding_left},
+                padding_bottom = node.padding_bottom, padding_left = node.padding_left,
+                padding_px = node.padding_px, gap_px = node.gap_px},
                 geometry.rect(rect.x + 1, rect.y + 2, rect.w - 2, rect.h - 3), plan, interaction)
         end
         return
@@ -522,10 +588,19 @@ end
 -- from the item (`item.bar_cols`), so the window's plan and the renderer's
 -- plan must be given the same number: the window takes it from its context,
 -- the renderer from the cell.
+--
+-- `options.cell = {w, h}` says the plan is drawn in pixels with that cell:
+-- then `size_px`, `padding_px` and `gap_px` are rounded to whole cells, tab
+-- captions are measured in pixels, and right-aligned button rows are packed in
+-- pixels (`pack`). Without it the cell measures stand — the same tree in
+-- cells mode.
 function ui.plan(tree: any, width: any, height: any, interaction: any, options: any?): any
     local given: any = type(options) == "table" and options or {}
+    local cell: any = given.cell
+    local known = type(cell) == "table" and whole(cell.w) > 0 and whole(cell.h) > 0
     local plan: any = {items = {}, by_id = {}, focusable = {}, overlays = {},
         width = whole(width), height = whole(height),
+        cell = known and {w = whole(cell.w), h = whole(cell.h)} or nil,
         scroll_cols = math.max(1, whole(given.scroll_cols or 1))}
     if interaction.menus == nil then interaction.menus = {} end
     if interaction.revealed == nil then interaction.revealed = {} end

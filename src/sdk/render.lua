@@ -51,7 +51,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
     local plan: any = {items = {}, overlays = {}}
     if dirty then
         interaction = detached(type(state.interaction) == "table" and state.interaction or ui.interaction())
-        plan = ui.plan(state.ui, inner.cols, inner.rows, interaction, {scroll_cols = widgets.scroll_cols(cell.w)})
+        plan = ui.plan(state.ui, inner.cols, inner.rows, interaction, {scroll_cols = widgets.scroll_cols(cell.w), cell = cell})
     end
     if dirty then
         raster:fill(color.face)
@@ -308,8 +308,10 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 if font then
                     local title = tostring(node.title or "")
                     local tw = whole(font:measure(title))
-                    raster:rect(whole(x + 6), whole(y), whole(math.min(w - 12, tw + 8)), whole(cell.h), color.face)
-                    raster:text(whole(x + 10), whole(ty), title, {font = font, color = color.face_text})
+                    -- The title 9 px in from the frame's edge, on two pixels of
+                    -- face either side, as in Windows 95.
+                    raster:rect(whole(x + 7), whole(y), whole(math.min(w - 14, tw + 4)), whole(cell.h), color.face)
+                    raster:text(whole(x + 9), whole(ty), title, {font = font, color = node.disabled and color.shadow or color.face_text})
                 end
             elseif node.kind == "graph" then
                 pixels.field(raster, whole(x), whole(y), whole(w), whole(h))
@@ -393,6 +395,17 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     pixels.panel(raster, left, top, body_w, body_h)
                     pixels.edge(raster, left + 6, top + 6, screen_w + 4, screen_h + 4, false)
                     raster:rect(left + 8, top + 8, screen_w, screen_h, tostring(node.color or color.desktop))
+                    -- `pattern`: eight bit rows, high bit on the left, a set bit
+                    -- black over the desktop color — the desktop as it will be.
+                    local tile: any = node.pattern
+                    if type(tile) == "table" and #tile == 8 then
+                        for py = 0, screen_h - 1 do
+                            local byte = whole(tile[py % 8 + 1])
+                            for px = 0, screen_w - 1 do
+                                if (byte >> (7 - px % 8)) & 1 == 1 then raster:set(left + 8 + px, top + 8 + py, "#000000") end
+                            end
+                        end
+                    end
                     -- Power indicator and stand.
                     raster:rect(left + body_w - 12, top + body_h - 5, 4, 2, "#00c000")
                     pixels.panel(raster, left + body_w // 2 - 12, top + body_h, 24, 4)
@@ -531,6 +544,9 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 -- `bold` means a bold caption, like the original's keys.
                 local pad = whole(node.inset)
                 local bx, bw = x + pad, w - pad * 2
+                -- A packed button (a dialog row): its Windows 95 width, placed
+                -- by the plan inside its own cells.
+                if item.px then bx, bw = item.px.x, item.px.w end
                 local bh = node.fill and whole(h) - pad * 2 or math.min(23, whole(h))
                 local by = node.fill and whole(y + pad) or whole(y + (h - bh) // 2)
                 local armed = interaction.armed
@@ -612,7 +628,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 for index, piece in ipairs(lines) do
                     text(x + 2, top + (index - 1) * 15, w - 4, 15, piece, node.alert and color.alert or nil)
                 end
-            else text(x + 2, y, w - 4, h, node.text, node.alert and color.alert or nil) end
+            else text(x + 2, y, w - 4, h, node.text, node.alert and color.alert or (node.disabled and color.shadow or nil)) end
         end
     end
     -- Open menus go on top of everything, hence after the rest and in the same raster.

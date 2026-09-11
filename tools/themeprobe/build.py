@@ -30,6 +30,7 @@ MODULES = (
     ("shell", "glyphs"),
     ("shell", "widgets"),
     ("shell", "icons"),
+    ("shell", "menu_layout"),
     ("shell", "chrome"),
     ("programs", "catalog"),
     ("explorer", "model"),
