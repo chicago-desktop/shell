@@ -48,15 +48,8 @@ local images = {}
 -- anything.
 images.STORE = "butschster.windows.shell:icon_files"
 
--- The weather set — original pixel art drawn by `tools/weather_icons.py`,
--- in its own folder: assets/icons is Microsoft artwork and is excluded from
--- the published package, while these ship with the module. A name starting
--- with `weather_` is read from here; everything else from `STORE`.
-images.WEATHER_STORE = "butschster.windows.shell:weather_files"
-images.WEATHER_PREFIX = "weather_"
-
 -- The wallpapers — original pictures drawn by `tools/wallpapers.py`, in the
--- display module's folder (assets/wallpaper, MIT like the weather set). A
+-- display module's folder (assets/wallpaper, original art, MIT). A
 -- wallpaper has no sizes: the theme draws it at 1:1, tiled or centred.
 images.WALLPAPER_STORE = "butschster.windows.display:wallpaper_files"
 
@@ -92,18 +85,7 @@ images.NAMES = {
     "regedit", "regedit_string", "regedit_binary",
     "key",
     "appwizard", "taskmgr", "console", "user", "display_properties", "notepad", "dialup",
-    -- The weather set (assets/weather): day and night sky, clouds, fog,
-    -- rain, snow, a thunderstorm.
-    "weather_sun", "weather_sun_cloud", "weather_cloud", "weather_fog", "weather_rain",
-    "weather_snow", "weather_storm", "weather_moon", "weather_moon_cloud",
 }
-
--- store_of(name) -> the registry id of the folder the icon is read from.
-function images.store_of(name: any): string
-    local text = tostring(name or "")
-    if text:sub(1, #images.WEATHER_PREFIX) == images.WEATHER_PREFIX then return images.WEATHER_STORE end
-    return images.STORE
-end
 
 -- pack_of(name) -> pack entry id, file | nil
 --
@@ -257,7 +239,7 @@ function images.get(name: any, size: any): (any, any)
         opened, why = open_pack(tostring(pack))
         if not opened then return fail(key, pack, tostring(why)) end
     else
-        opened, why = open_store(images.store_of(name))
+        opened, why = open_store(images.STORE)
         if not opened then return nil, why end
     end
 

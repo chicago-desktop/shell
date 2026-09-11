@@ -791,7 +791,7 @@ local function define_tests()
         -- items sit between the window buttons and the clock, against the
         -- clock, and each theme hits exactly where the plan puts them.
         local TRAY: any = {
-            {key = "weather", text = "+17°", entry = "app:weather", icon = "☼", image = "weather_sun"},
+            {key = "weather", text = "+17°", entry = "app:weather", icon = "☼", image = "clock"},
             {key = "mail", text = "3 new", entry = "app:mail"},
         }
         -- A caption without `entry`: drawn in its slot, no hit.
