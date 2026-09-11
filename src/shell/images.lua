@@ -60,10 +60,10 @@ images.NAMES = {
     "program", "document", "text_document",
     "drive", "floppy", "cdrom", "network_drive", "printer",
     "control_panel", "fonts", "desktop", "windows", "shortcut_overlay",
-    "network", "network_neighborhood", "dialup", "documents_stack", "program_settings", "system",
+    "network", "network_neighborhood", "documents_stack", "program_settings", "system",
     "regedit", "regedit_string", "regedit_binary",
     "key",
-    "appwizard", "taskmgr", "console", "user", "display_properties", "notepad",
+    "appwizard", "taskmgr", "console", "user", "display_properties", "notepad", "dialup",
     -- The weather set (assets/weather): day and night sky, clouds, fog,
     -- rain, snow, a thunderstorm.
     "weather_sun", "weather_sun_cloud", "weather_cloud", "weather_fog", "weather_rain",

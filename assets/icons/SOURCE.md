@@ -1,80 +1,80 @@
-# Откуда значки
+# Where the icons come from
 
-Оригинальные значки Windows 95 из `shell32.dll`, взяты из
-<https://github.com/trapd00r/win95-winxp_icons> (каталог `icons/`, файлы
-`w95_N.ico`), где они лежат пронумерованными и без названий. Здесь из каждого
-`.ico` вынуты два образа — 32×32 и 16×16, оба 16-цветные — и сохранены как
-RGBA PNG, потому что `gfx.image` читает PNG/GIF/JPEG, а `.ico` не читает.
+The original Windows 95 icons from `shell32.dll`, taken from
+<https://github.com/trapd00r/win95-winxp_icons> (the `icons/` directory, files
+`w95_N.ico`), where they lie numbered and without names. Here two images are
+extracted from each `.ico` — 32×32 and 16×16, both 16-color — and saved as
+RGBA PNG, because `gfx.image` reads PNG/GIF/JPEG and does not read `.ico`.
 
-**Это артворк Microsoft, а не часть модуля под MIT.** У репозитория-источника
-лицензии нет. Каталог годится для локального стенда и не должен уезжать в Hub
-вместе с модулем — впрочем, модуль туда и так не публикуется, пока `gfx` нет в
-релизе рантайма.
+**This is Microsoft artwork, not part of the module under MIT.** The source
+repository has no license. The directory is fit for the local stand and must not
+go to the Hub together with the module — though the module is not published there
+anyway while `gfx` is not in a runtime release.
 
-Для `calculator` и `clock` взяты файлы `w98_calculator.ico` и `w98_clock.ico`
-из того же репозитория. Это набор Windows 98, по два исходных размера;
-масштабирование при извлечении не применяется.
+For `calculator` and `clock` the files `w98_calculator.ico` and `w98_clock.ico`
+are taken from the same repository. This is the Windows 98 set, two source sizes
+each; no scaling is applied during extraction.
 
-Соответствие номеров именам подобрано глазами по контактному листу; спорные
-оставлены за бортом. Имя файла — это и есть имя значка в `images.lua`.
+The mapping of numbers to names was chosen by eye from a contact sheet; the
+disputable ones were left out. The file name is the icon's name in `images.lua`.
 
-- Файл: calculator; Источник: w98_calculator; Что на нём: калькулятор
-- Файл: clock; Источник: w98_clock; Что на нём: аналоговые часы
-- Файл: my_computer; Источник: w95_16; Что на нём: компьютер с монитором
-- Файл: folder; Источник: w95_4; Что на нём: закрытая папка
-- Файл: folder_open; Источник: w95_5; Что на нём: открытая папка
-- Файл: recycle_bin; Источник: w95_32; Что на нём: пустая корзина
-- Файл: recycle_bin_full; Источник: w95_33; Что на нём: полная корзина
-- Файл: programs; Источник: w95_37; Что на нём: папка с окнами — «Программы»
-- Файл: settings; Источник: w95_36; Что на нём: папка с инструментами — «Настройка»
-- Файл: documents; Источник: w95_69; Что на нём: полка с книгами — «Документы»
-- Файл: find; Источник: w95_23; Что на нём: лупа над документом — «Найти»
-- Файл: help; Источник: w95_24; Что на нём: книга с вопросом — «Справка»
-- Файл: run; Источник: w95_25; Что на нём: окно с часами — «Выполнить»
-- Файл: shutdown; Источник: w95_46; Что на нём: компьютер с монитором — «Завершение работы» (до 2026-09-09 был w95_27, компьютер со стрелкой)
-- Файл: program; Источник: w95_3; Что на нём: пустое окно — программа по умолчанию
-- Файл: document; Источник: w95_2; Что на нём: документ с текстом
-- Файл: text_document; Источник: w95_60; Что на нём: текстовый документ
-- Файл: drive; Источник: w95_8; Что на нём: жёсткий диск
-- Файл: floppy; Источник: w95_7; Что на нём: дисковод 3,5″
-- Файл: cdrom; Источник: w95_12; Что на нём: CD-ROM
-- Файл: network_drive; Источник: w95_10; Что на нём: сетевой диск
-- Файл: printer; Источник: w95_17; Что на нём: принтер
-- Файл: control_panel; Источник: w95_20; Что на нём: панели — «Панель управления»
-- Файл: fonts; Источник: w95_39; Что на нём: папка с буквами — «Шрифты»
-- Файл: desktop; Источник: w95_35; Что на нём: стол с лампой — «Рабочий стол»
-- Файл: windows; Источник: w95_40; Что на нём: флаг Windows — кнопка «Пуск»
-- Файл: shortcut_overlay; Источник: w95_30; Что на нём: стрелка ярлыка (накладывается в угол)
-- Файл: network; Источник: w95_14; Что на нём: глобус — «Сеть»
-- Файл: network_neighborhood; Источник: w95_18; Что на нём: два компьютера — «Сетевое окружение»
-- Файл: documents_stack; Источник: w95_43; Что на нём: стопка документов
-- Файл: program_settings; Источник: w95_61; Что на нём: окно с шестерёнкой
-- Файл: system; Источник: w95_22; Что на нём: шестерёнки в коробке — «Система»
-- Файл: regedit; Источник: w98_regedit; Что на нём: кубики реестра — «Реестр» (набор Windows 98)
-- Файл: regedit_string; Источник: w98_regedit_string; Что на нём: «ab» — строковое значение в просмотрщике реестра
-- Файл: regedit_binary; Источник: w98_regedit_binary; Что на нём: «011» — двоичное значение в просмотрщике реестра
+- File: calculator; Source: w98_calculator; What it shows: a calculator
+- File: clock; Source: w98_clock; What it shows: an analog clock
+- File: my_computer; Source: w95_16; What it shows: a computer with a monitor
+- File: folder; Source: w95_4; What it shows: a closed folder
+- File: folder_open; Source: w95_5; What it shows: an open folder
+- File: recycle_bin; Source: w95_32; What it shows: an empty recycle bin
+- File: recycle_bin_full; Source: w95_33; What it shows: a full recycle bin
+- File: programs; Source: w95_37; What it shows: a folder with windows — "Programs"
+- File: settings; Source: w95_36; What it shows: a folder with tools — "Settings"
+- File: documents; Source: w95_69; What it shows: a shelf with books — "Documents"
+- File: find; Source: w95_23; What it shows: a magnifying glass over a document — "Find"
+- File: help; Source: w95_24; What it shows: a book with a question mark — "Help"
+- File: run; Source: w95_25; What it shows: a window with a clock — "Run"
+- File: shutdown; Source: w95_46; What it shows: a computer with a monitor — "Shut Down" (until 2026-09-09 it was w95_27, a computer with an arrow)
+- File: program; Source: w95_3; What it shows: an empty window — the default program
+- File: document; Source: w95_2; What it shows: a document with text
+- File: text_document; Source: w95_60; What it shows: a text document
+- File: drive; Source: w95_8; What it shows: a hard disk
+- File: floppy; Source: w95_7; What it shows: a 3.5″ floppy drive
+- File: cdrom; Source: w95_12; What it shows: a CD-ROM
+- File: network_drive; Source: w95_10; What it shows: a network drive
+- File: printer; Source: w95_17; What it shows: a printer
+- File: control_panel; Source: w95_20; What it shows: panels — "Control Panel"
+- File: fonts; Source: w95_39; What it shows: a folder with letters — "Fonts"
+- File: desktop; Source: w95_35; What it shows: a desk with a lamp — "Desktop"
+- File: windows; Source: w95_40; What it shows: the Windows flag — the "Start" button
+- File: shortcut_overlay; Source: w95_30; What it shows: the shortcut arrow (overlaid in the corner)
+- File: network; Source: w95_14; What it shows: a globe — "Network"
+- File: network_neighborhood; Source: w95_18; What it shows: two computers — "Network Neighborhood"
+- File: documents_stack; Source: w95_43; What it shows: a stack of documents
+- File: program_settings; Source: w95_61; What it shows: a window with a gear
+- File: system; Source: w95_22; What it shows: gears in a box — "System"
+- File: regedit; Source: w98_regedit; What it shows: registry cubes — "Registry" (the Windows 98 set)
+- File: regedit_string; Source: w98_regedit_string; What it shows: "ab" — a string value in the registry viewer
+- File: regedit_binary; Source: w98_regedit_binary; What it shows: "011" — a binary value in the registry viewer
 
-Пересобрать из источника: клонировать репозиторий, для каждого `w95_N.ico`
-открыть PIL-ом, выставить `im.size = (32, 32)` (и `(16, 16)`), `convert("RGBA")`,
-сохранить PNG с тем же именем в `32/` и `16/`.
+Rebuild from the source: clone the repository, for each `w95_N.ico` open it with
+PIL, set `im.size = (32, 32)` (and `(16, 16)`), `convert("RGBA")`, and save a PNG
+with the same name in `32/` and `16/`.
 
-## Набор Windows 98: программы «Настройки», консоль, пользователь
+## The Windows 98 set: "Settings" programs, the console, the user
 
-Взяты 2026-09-09 из того же репозитория, файлы `w98_*.ico`; извлечение без
-масштабирования, кроме оговорённого.
+Taken 2026-09-09 from the same repository, files `w98_*.ico`; extracted without
+scaling, except where noted.
 
-- Файл: appwizard; Источник: w98_appwizard; Что на нём: окно мастера с панелью значков — «Установка и удаление программ»
-- Файл: taskmgr; Источник: w98_computer_taskmgr; Что на нём: компьютер с кардиограммой на экране — «Диспетчер задач»
-- Файл: console; Источник: w98_console_prompt; Что на нём: чёрное окно с `C:\_` — окно Bash
-- Файл: display_properties; Источник: w98_display_properties; Что на нём: монитор с палитрой — «Свойства: Экран»
-- Файл: notepad; Источник: w98_notepad; Что на нём: блокнот с карандашом — «Блокнот»
-- Файл: user; Источник: w98_address_book_user; Что на нём: голова человека в профиль — вошедший пользователь в «Пуске». **В `.ico` только 32×32**; 16×16 получен уменьшением вдвое (NEAREST, альфа приведена к 0/255), потому что пакет обязан отдавать оба размера, а масштабирования у `gfx` нет.
-- File: dialup; Source: w98_conn_dialup_alt; What it shows: a dial-up connection (computer and telephone) — the "Connections" window in "Settings" (`app.connections:window` of the stand). Added 2026-09-11. **The `.ico` has only 32×32**; 16×16 is the same halving as for `user` (NEAREST, alpha forced to 0/255).
+- File: appwizard; Source: w98_appwizard; What it shows: a wizard window with a panel of icons — "Add/Remove Programs"
+- File: taskmgr; Source: w98_computer_taskmgr; What it shows: a computer with a cardiogram on the screen — "Task Manager"
+- File: console; Source: w98_console_prompt; What it shows: a black window with `C:\_` — the Bash window
+- File: display_properties; Source: w98_display_properties; What it shows: a monitor with a palette — "Display Properties"
+- File: notepad; Source: w98_notepad; What it shows: a notepad with a pencil — "Notepad"
+- File: user; Source: w98_address_book_user; What it shows: a human head in profile — the logged-in user in "Start". **The `.ico` has only 32×32**; 16×16 is obtained by halving (NEAREST, alpha forced to 0/255), because the pack must provide both sizes, and `gfx` has no scaling.
+- File: dialup; Source: w98_conn_dialup_alt; What it shows: a globe and a telephone — a dial-up connection; the "Connections" window in "Settings" (`app.connections:window` of the stand). Added 2026-09-11. **The `.ico` has only 32×32**; 16×16 is the same halving as for `user` (NEAREST, alpha forced to 0/255).
 
-## Ключ входа в систему
+## The logon key
 
-- Файл: key; Источник: `key_win-0.png` (32) и `key_win-1.png` (16) из
-  <https://win98icons.alexmeub.com/> — набор Windows 98, тот же артворк
-  Microsoft, что и выше; в `shell32.dll` Windows 95 (w95_1…w95_72) этого
-  значка нет; Что на нём: ключ с флагом Windows — значок диалога «Вход в
-  Windows» (`butschster.windows.logon`).
+- File: key; Source: `key_win-0.png` (32) and `key_win-1.png` (16) from
+  <https://win98icons.alexmeub.com/> — the Windows 98 set, the same Microsoft
+  artwork as above; this icon is not in the Windows 95 `shell32.dll`
+  (w95_1…w95_72); What it shows: a key with the Windows flag — the icon of the
+  "Welcome to Windows" dialog (`butschster.windows.logon`).
