@@ -1005,6 +1005,12 @@ function ui.event(plan: any, state: any, original: any): any
             if input.pressed(event) then state.focus = item.node.id end
             return tabs_event(item, state, event)
         end
+        -- The right button over a button belongs to the window (Minesweeper
+        -- flags a cell with it): `context` at the PRESS, as in Windows. It
+        -- arms nothing and takes no focus, so its release activates nothing.
+        if item.node.kind == "button" and item.node.id and event.action == "press" and event.button == "right" then
+            return {type = "context", id = item.node.id}
+        end
         -- Only what can hold the focus takes it. Otherwise a passive view with an `id`
         -- (a label, a field, a frame, a graph, a status bar…) took the
         -- focus while not being in the `focusable` ring — and Tab no longer found

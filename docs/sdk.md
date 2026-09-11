@@ -138,6 +138,12 @@ current data; `update` changes the model on a component's action.
   `gap`. That is how "Run…" does it.
 - `button`: `id`, `text`, `disabled`, `default`; the `activate` action on releasing the left button inside,
   or on Enter or Space. Releasing outside the button cancels the press.
+  A right press on an enabled button is `context` with the button's `id`, at
+  the PRESS, as Windows does it (Minesweeper flags a cell on the right button
+  going down). It arms nothing and takes no focus, so its release activates
+  nothing; the window decides what the right button means. The middle button
+  and passive views get nothing. The compositor sends right and middle presses
+  inside the client to the window (the chrome listens only to the left one).
   `default` is a black outline in both modes: what Enter will do, and a dialog has
   exactly one. In cells the button is drawn by `widgets.button` — the same one as in Run
   and the explorer; in pixels by `pixels.button`. Tab/Shift+Tab moves

@@ -179,6 +179,27 @@ local function define_tests()
             test.is_nil(state.armed)
             test.is_nil(ui.event(plan, state, {type = "key", key = "enter", action = "press"}))
         end)
+        test.it("gives a right press on a button to the window as context and arms nothing", function()
+            local state = ui.interaction()
+            local tree = {kind = "column", children = {
+                {kind = "button", id = "cell", size = 1, text = ""},
+                {kind = "label", size = 1, text = "caption"},
+                {kind = "button", id = "off", size = 1, text = "", disabled = true},
+            }}
+            local plan = ui.plan(tree, 12, 3, state)
+            local action = ui.event(plan, state, {type = "mouse", action = "press", button = "right", x = 3, y = 1})
+            test.eq(action and action.type, "context", "a right press on a button reaches the window")
+            test.eq(action and action.id, "cell")
+            test.is_nil(state.armed, "a right press does not arm the button: its release must not activate it")
+            test.is_nil(ui.event(plan, state, {type = "mouse", action = "release", button = "right", x = 3, y = 1}),
+                "the release of the right button is not a second action")
+            test.is_nil(ui.event(plan, state, {type = "mouse", action = "press", button = "right", x = 3, y = 2}),
+                "a label takes no context press")
+            test.is_nil(ui.event(plan, state, {type = "mouse", action = "press", button = "right", x = 3, y = 3}),
+                "a disabled button takes none either")
+            test.is_nil(ui.event(plan, state, {type = "mouse", action = "press", button = "middle", x = 3, y = 1}),
+                "only the right button is the context button")
+        end)
         test.it("toggles a checkbox through change actions, skips disabled controls and ignores key release", function()
             local state = ui.interaction()
             local checkbox = {kind = "checkbox", id = "include", checked = false, text = "Include subfolders"}
