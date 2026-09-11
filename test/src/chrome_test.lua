@@ -753,6 +753,111 @@ local function define_tests()
                 {start = hits[1].to, task_min = 16, task_max = 16, clock = 9, clock_gap = 1}), "pixels")
         end)
 
+        -- The notification area is one more slot of the shared layout. Tray
+        -- items sit between the window buttons and the clock, against the
+        -- clock, and each theme hits exactly where the plan puts them.
+        local TRAY: any = {
+            {key = "weather", text = "+17°", entry = "app:weather"},
+            {key = "mail", text = "3 new", entry = "app:mail"},
+        }
+        -- A caption without `entry`: drawn in its slot, no hit.
+        local NOTE: any = {key = "note", text = "idle"}
+
+        local function split(hits: any): any
+            local parts: any = {tasks = {}, tray = {}}
+            for _, hit in ipairs(hits) do
+                if hit.action == "menu" then parts.start = hit
+                elseif hit.id ~= nil then parts.tasks[#parts.tasks + 1] = hit
+                elseif hit.entry == "app:clock" then parts.clock = hit
+                elseif hit.entry ~= nil then parts.tray[#parts.tray + 1] = hit end
+            end
+            return parts
+        end
+
+        -- The theme measures its captions itself; the plan is rebuilt from the
+        -- widths it hit, and then every window button and tray item must land
+        -- where that plan says. A theme placing the tray on its own drifts
+        -- off the plan and turns this red.
+        local function same_tray_plan(hits: any, metrics: any, name: string)
+            local parts = split(hits)
+            test.eq(#parts.tray, #TRAY, name .. ": one hit per tray item")
+            test.not_nil(parts.clock, name .. ": the clock is still there")
+            test.eq(parts.tray[#parts.tray].to + 1, parts.clock.from, name .. ": the tray sits against the clock")
+            local widths = {}
+            for index, hit in ipairs(parts.tray) do
+                widths[index] = hit.to - hit.from + 1
+                test.eq(hit.entry, TRAY[index].entry, name .. ": the hit opens its own item's window")
+            end
+            metrics.tray = widths
+            metrics.start = parts.start.to
+            local plan = chrome.taskbar_layout(80, WINDOWS, metrics)
+            test.eq(#parts.tasks, #plan.tasks, name .. ": window buttons")
+            for index, task in ipairs(plan.tasks) do
+                test.eq(parts.tasks[index].to, task.to, name .. ": end of " .. tostring(task.id))
+            end
+            for index, slot in ipairs(plan.tray) do
+                test.eq(parts.tray[index].from, slot.from, name .. ": start of tray item " .. index)
+            end
+            local last_task = parts.tasks[#parts.tasks]
+            test.is_true(last_task == nil or last_task.to < parts.tray[1].from,
+                name .. ": a window button reaches into the tray")
+        end
+
+        test.it("puts the tray between the window buttons and the clock in both themes", function()
+            chrome.clock_entry = "app:clock"
+            local cell_hits = chrome.bars(tty.canvas(80, 24), 80, 24, {clock = "12:30", windows = WINDOWS, tray = TRAY})
+            same_tray_plan(cell_hits, {gap = 1, clock = 9}, "cells")
+            -- The caption without an entry is drawn in order and gets no hit.
+            local canvas = tty.canvas(80, 24)
+            local noted = split(chrome.bars(canvas, 80, 24,
+                {clock = "12:30", windows = WINDOWS, tray = {NOTE, TRAY[1], TRAY[2]}}))
+            chrome.clock_entry = nil
+            test.eq(#noted.tray, 2, "cells: a caption without an entry has no hit")
+            local row = (tostring((canvas:rows() :: any)[24]):gsub("\27%[[%d;:]*m", ""))
+            test.is_true(row:find(" idle  +17°  3 new ", 1, true) ~= nil, "cells: the captions in order: " .. row)
+
+            use_fonts()
+            chrome_pixels.clock_entry = "app:clock"
+            local function bar_png(items: any): any
+                local painted = chrome_pixels.paint({width = 80, height = 24, bottom = 22, clock = "12:30",
+                    windows = WINDOWS, items = {}, tray = items}, 10, 20)
+                local bytes = nil
+                for _, image in ipairs(painted.placements) do
+                    if image.id == "bars" then bytes = assert(image.raster:encode("png")) end
+                end
+                return painted.hits.bars, bytes
+            end
+            local pixel_hits, with_tray = bar_png(TRAY)
+            local _, without = bar_png({})
+            chrome_pixels.clock_entry = nil
+            chrome_pixels.fonts = nil
+            same_tray_plan(pixel_hits, {task_min = 16, task_max = 16, clock = 9, clock_gap = 1}, "pixels")
+            test.is_true(with_tray ~= without, "pixels: the tray captions are drawn")
+        end)
+
+        test.it("reserves the tray before window buttons and drops only what does not fit", function()
+            -- 40 cells: Start 8, gap 1, clock 7 with a gap of 1. The budget for
+            -- the tray is 24: 5 fits, 30 does not, 4 still does.
+            local plan = chrome.taskbar_layout(40, WINDOWS, {start = 8, gap = 1, clock = 7, clock_gap = 1,
+                task_min = 7, task_max = 20, tray = {5, 30, 4}})
+            test.eq(#plan.tray, 2)
+            test.eq(plan.tray[1].index, 1)
+            test.eq(plan.tray[2].index, 3)
+            test.eq(plan.tray[1].from, 25)
+            test.eq(plan.tray[2].to, 33, "against the clock")
+            test.eq(plan.clock.from, 34)
+            -- Window buttons gave way: two of five, and neither reaches the tray.
+            test.eq(#plan.tasks, 2)
+            test.is_true(plan.tasks[2].to < plan.tray[1].from)
+            -- No tray: the same layout as before the slot existed, with a third
+            -- button in the room the tray took.
+            local bare = chrome.taskbar_layout(40, WINDOWS, {start = 8, gap = 1, clock = 7, clock_gap = 1,
+                task_min = 7, task_max = 20})
+            test.eq(#bare.tray, 0)
+            test.eq(#bare.tasks, 3)
+            test.eq(bare.tasks[3].to, 30)
+        end)
+
         -- The owner's rule (2026-09-11): no text next to Start while no window
         -- is open. With a window, the status line is still where messages such
         -- as "could not open: ..." are shown. The rule lives in the shared

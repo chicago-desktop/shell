@@ -525,7 +525,14 @@ end
 -- `metrics`: `start` — the width of Start; `gap` — the gap after it;
 -- `task_min`, `task_max`; `clock` — the clock width (0 — no clock) and
 -- `clock_narrow` — the fallback when the first does not fit; `clock_gap` —
--- the gap before the clock.
+-- the gap before the notification area; `tray` — the widths of the tray
+-- items, in their order.
+--
+-- The notification area is the tray items plus the clock, one block at the
+-- right edge, as in Windows 95. Tray items are reserved before the window
+-- buttons and the status, so those give way first. An item that does not
+-- fit beside Start and the clock is dropped; the others keep their order.
+-- `plan.tray` is `{{from, to, index}}`, `index` pointing into `metrics.tray`.
 --
 -- Computed in two places, the layout drifted apart: in cells a button shared
 -- the room, in pixels it was 16 wide and stopped at `w - 10`, and the clock
@@ -544,7 +551,18 @@ function chrome.taskbar_layout(width: any, windows: any, metrics: any): any
     for _, want in ipairs({whole(m.clock), whole(m.clock_narrow)}) do
         if clock == 0 and want > 0 and used + clock_gap + want <= w then clock = want end
     end
-    local reserve = clock > 0 and clock + clock_gap or 0
+    local tray_slots: any = {}
+    local tray_total = 0
+    local budget = w - used - clock_gap - clock
+    for index, want in ipairs(type(m.tray) == "table" and m.tray or {}) do
+        local span = whole(want)
+        if span > 0 and tray_total + span <= budget then
+            tray_slots[#tray_slots + 1] = {index = index, span = span}
+            tray_total = tray_total + span
+        end
+    end
+    local area = clock + tray_total
+    local reserve = area > 0 and area + clock_gap or 0
 
     local list: any = type(windows) == "table" and windows or {}
     local room = w - used - reserve
@@ -565,6 +583,12 @@ function chrome.taskbar_layout(width: any, windows: any, metrics: any): any
     local rest = w - used - reserve
     if #list > 0 and rest >= STATUS_LEAST then plan.status = {from = used + 1, to = used + rest} end
     if clock > 0 then plan.clock = {from = w - clock + 1, to = w} end
+    plan.tray = {}
+    local at = w - clock - tray_total
+    for _, slot in ipairs(tray_slots) do
+        plan.tray[#plan.tray + 1] = {from = at + 1, to = at + slot.span, index = slot.index}
+        at = at + slot.span
+    end
     return plan
 end
 
@@ -588,11 +612,17 @@ function chrome.bars(canvas, width: any, height: any, state)
     -- does not fit with its bevels, the clock goes without them.
     local clock = type(bar.clock) == "string" and bar.clock or ""
     local padded = " " .. clock .. " "
+    -- Tray items are plain captions with a space on each side, left of the
+    -- clock; the compositor sends them as `{key, text, entry}`.
+    local tray: any = type(bar.tray) == "table" and bar.tray or {}
+    local tray_widths = {}
+    for index, item in ipairs(tray) do tray_widths[index] = cells(" " .. tostring(item.text or "") .. " ") end
     local plan = chrome.taskbar_layout(w, bar.windows, {
         start = boxed and cells(label) + 2 or 1, gap = 1,
         task_min = TASK_MIN, task_max = TASK_MAX,
         clock = clock ~= "" and cells(padded) + 2 or 0,
         clock_narrow = clock ~= "" and cells(clock) or 0,
+        tray = tray_widths,
     })
 
     local parts: any = {boxed and bezel(face:render(label), pressed) or face:render(glyphs.icons.start)}
@@ -639,6 +669,19 @@ function chrome.bars(canvas, width: any, height: any, state)
         pad(plan.status.from - 1)
         parts[#parts + 1] = fit(styles.face_dim, " " .. status, plan.status.to - plan.status.from + 1)
         used = plan.status.to
+    end
+
+    -- A click on a tray item opens (or raises) the window it names, the same
+    -- way as the clock; an item without `entry` is only a caption.
+    for _, entry in ipairs(plan.tray) do
+        local slot: any = entry
+        local item: any = tray[slot.index]
+        pad(slot.from - 1)
+        parts[#parts + 1] = fit(styles.face, " " .. tostring(item.text or ""), slot.to - slot.from + 1)
+        if type(item.entry) == "string" and item.entry ~= "" then
+            hits[#hits + 1] = {row = row, from = slot.from, to = slot.to, entry = item.entry}
+        end
+        used = slot.to
     end
 
     pad(plan.clock and plan.clock.from - 1 or w)

@@ -557,6 +557,9 @@ end
 -- The layout rules are `chrome.taskbar_layout`'s, shared with the cell theme.
 local TASK_SPAN = 16
 local CLOCK_SPAN = 9
+-- Room around a tray caption inside its cells, in pixels: three on each side
+-- plus the rounding up to whole cells.
+local TRAY_PAD = 8
 
 local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     local w, h = whole(state.width), whole(state.height)
@@ -571,13 +574,24 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
         key[#key + 1] = tostring(window.id) .. ":" .. tostring(window.title)
             .. ":" .. tostring(window.image) .. ":" .. tostring(window.minimized)
     end
+    -- Tray captions are measured with the face they are drawn with; the
+    -- layout gets whole cells, so a hit never shares a cell with the clock.
+    local tray: any = type(state.tray) == "table" and state.tray or {}
+    local tray_widths = {}
+    local cw = math.max(1, whole(cell.w))
+    for index, item in ipairs(tray) do
+        local text = tostring(item.text or "")
+        local px = face and whole(face:measure(text)) or #text * 7
+        tray_widths[index] = (px + TRAY_PAD + cw - 1) // cw
+        key[#key + 1] = "tray:" .. text
+    end
     local bar, dirty = store.take("bars", w, rows, cell, table.concat(key, "\30"))
     local width, height = w * whole(cell.w), rows * whole(cell.h)
     local button_h = height - 6
     local button_y = 1 + (height - button_h) // 2
     local start_span = math.max(6, (whole(bold and bold:measure("Start") or 28) + 44 + whole(cell.w) - 1) // whole(cell.w))
     local plan: any = chrome.taskbar_layout(w, state.windows or {}, {start = start_span, gap = 0,
-        task_min = TASK_SPAN, task_max = TASK_SPAN, clock = CLOCK_SPAN, clock_gap = 1})
+        task_min = TASK_SPAN, task_max = TASK_SPAN, clock = CLOCK_SPAN, clock_gap = 1, tray = tray_widths})
     if dirty then
         bar:fill(color.face)
         bar:rect(1, 1, width, 1, color.light)
@@ -625,11 +639,31 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
                 {font = face, color = color.shadow})
         end
     end
+    -- The notification area: one sunken box around the tray items and the
+    -- clock, as in Windows 95, with each caption in its own cells.
     local clock: any = plan.clock
+    local first: any = plan.tray[1]
+    local last: any = plan.tray[#plan.tray]
+    if dirty and (first or clock) then
+        local from = first and first.from or clock.from
+        local to = clock and clock.to or last.to
+        pixels.bevel(bar, (from - 1) * cell.w + 1, button_y, (to - from + 1) * cell.w - 4, button_h, false)
+    end
+    for _, entry in ipairs(plan.tray) do
+        local slot: any = entry
+        local item: any = tray[slot.index]
+        if dirty then
+            pixels.label(bar, (slot.from - 1) * cell.w + 1, button_y, (slot.to - slot.from + 1) * cell.w,
+                button_h, tostring(item.text or ""), face, color.face_text)
+        end
+        if type(item.entry) == "string" and item.entry ~= "" then
+            hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
+                from = slot.from, to = slot.to, entry = item.entry}
+        end
+    end
     if clock then
         if dirty then
             local x, cw = (clock.from - 1) * cell.w + 1, (clock.to - clock.from + 1) * cell.w - 4
-            pixels.bevel(bar, x, button_y, cw, button_h, false)
             pixels.label(bar, x, button_y, cw, button_h,
                 tostring(state.clock or ""), face, color.face_text)
         end
