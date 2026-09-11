@@ -117,11 +117,11 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Кнопки заголовка — у каждого типа окна свой состав, неизвестный тип считается обычным окном, нажимается ровно то, что нарисовано; заливка зовётся у обеих тем, а стили лежат в одной таблице, а не в двух похожих.
+      comment: Кнопки заголовка — у каждого типа окна свой состав, неизвестный тип считается обычным окном, нажимается ровно то, что нарисовано; заливка зовётся у обеих тем, а стили лежат в одной таблице, а не в двух похожих; пиксельный стол называет причину нечитаемой раскладки, а панель задач — строку состояния.
       group: Windows Shell
       suite: butschster_windows
     source: file://chrome_test.lua
-    modules: [tty, gfx, registry]
+    modules: [tty, gfx, registry, fs]
     imports:
       test: wippy.test:test
       catalog: butschster.windows.programs:catalog
@@ -466,10 +466,35 @@ entries:
       group: Windows Shell
       suite: butschster_windows
     source: file://appwiz_test.lua
+    modules: [fs]
     imports:
       test: wippy.test:test
       model: butschster.windows.appwiz:model
     method: run
+
+  - name: environment_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Чтение окружения — отказ по правам отличим от «не задано», умолчание его не прячет, окружение процесса главнее файлового хранилища.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://environment_test.lua
+    imports:
+      test: wippy.test:test
+      environment: butschster.windows.config:environment
+    method: run
+
+  # Куда appwiz_test пишет файл объявлений по-настоящему: запись с копией и
+  # чтением обратно проверяется на живом fs, а не на подставке. Под .wippy —
+  # вне git.
+  - name: appwiz_scratch
+    kind: fs.directory
+    meta:
+      comment: Scratch folder for appwiz_test to write a real declarations file into.
+    base: project
+    directory: ./.wippy/appwiz-scratch
+    auto_init: true
 
   - name: display_test
     kind: function.lua
@@ -659,6 +684,8 @@ entries:
       shell_icons: butschster.windows.shell:icons
       fixture: app:sdk_fixture
       catalog: butschster.windows.programs:catalog
+      app: butschster.windows.sdk:app
+      widgets: butschster.windows.shell:widgets
 
   - name: workshop_sdk_test
     kind: function.lua

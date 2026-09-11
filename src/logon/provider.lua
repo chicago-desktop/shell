@@ -16,7 +16,7 @@
 -- таблицы. Отсюда токен как переносимая форма личности, а не «функция
 -- вернёт актора».
 
-local env = require("env")
+local environment = require("environment")
 local funcs = require("funcs")
 local security = require("security")
 
@@ -25,21 +25,12 @@ local provider = {}
 provider.FUNC_ENV = "BUTSCHSTER_WINDOWS_LOGON_FUNC"
 provider.STORE_ENV = "BUTSCHSTER_WINDOWS_TOKEN_STORE"
 
--- Чтение окружения — как у оболочки: `get_all` кладёт только разрешённые
--- ключи и молчит про остальные, поэтому его пустота ничего не доказывает;
--- различает отказ по правам только `env.get`, видом ошибки.
+-- Чтение окружения общее (`butschster.windows.config:environment`); здесь
+-- только слова отказа для экрана входа.
 local function read(name): (any, any)
-    local all = env.get_all()
-    if type(all) == "table" then
-        local value: any = all[name]
-        if type(value) == "string" and value ~= "" then return value, nil end
-    end
-    local stored, err = env.get(name)
-    if type(stored) == "string" and stored ~= "" then return stored, nil end
-    local failure: any = err
-    if type(failure) == "table" and failure.kind == "PermissionDenied" then
-        return nil, "no permission to read " .. name .. " (env.get)"
-    end
+    local value, _, denied = environment.read(name)
+    if value ~= nil then return value, nil end
+    if denied then return nil, "no permission to read " .. name .. " (env.get)" end
     return nil, nil
 end
 

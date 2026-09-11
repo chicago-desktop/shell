@@ -42,6 +42,7 @@ entries:
       comment: Логин и пароль → функция входа приложения → токен → актор и скоуп из хранилища токенов.
     source: file://provider.lua
     modules:
-      - env
       - funcs
       - security
+    imports:
+      environment: butschster.windows.config:environment

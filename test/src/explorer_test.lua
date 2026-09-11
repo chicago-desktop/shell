@@ -188,6 +188,52 @@ local function define_tests()
                 "путь обязан называть саму папку, иначе откроется не та")
         end)
     end)
+
+    -- Канал ответов у окна один. Основа отказывает командам без ожидания —
+    -- open, focus, state — тем же каналом, с пометкой `unsolicited`. Окно,
+    -- читавшее всё подряд как ответ на `desktop.list`, клало отказ открыть
+    -- программу в папку «Открытые окна» и стирало список, а на экране не было
+    -- ничего.
+    test.describe("ответы композитора", function()
+        test.it("незапрошенный отказ не трогает список окон и попадает в строку состояния", function()
+            local listed = {{id = "w1", title = "bash"}}
+            local state: any = {windows = listed}
+            test.eq(model.take_reply(state, {ok = false, error = "no such entry: app:gone",
+                command = "desktop.open", unsolicited = true}), "notice")
+            test.eq(state.windows, listed, "список окон тот же")
+            test.is_nil(state.windows_error, "отказ открыть — не отказ дать список")
+            test.eq(state.notice, "did not open: no such entry: app:gone")
+            model.take_reply(state, {ok = false, error = "no window w9",
+                command = "desktop.focus", unsolicited = true})
+            test.eq(state.notice, "did not start: no window w9", "та же форма, что у отказа сразу")
+            model.take_reply(state, {ok = false, error = "gone", command = "desktop.state", unsolicited = true})
+            test.eq(state.notice, "desktop.state refused: gone")
+            test.eq(state.windows, listed)
+            test.eq(model.refusal("desktop.open", "x"), "did not open: x",
+                "окно зовёт ту же функцию, когда отказ приходит сразу")
+        end)
+
+        test.it("ответ на desktop.list по-прежнему заполняет список", function()
+            local state: any = {windows_error = "old"}
+            test.eq(model.take_reply(state, {ok = true, command = "desktop.list",
+                windows = {{id = "w1", title = "bash"}}}), "list")
+            test.eq(#state.windows, 1)
+            test.is_nil(state.windows_error)
+            test.eq(model.take_reply(state, {ok = false, command = "desktop.list", error = "busy"}), "list")
+            test.is_nil(state.windows)
+            test.eq(state.windows_error, "busy")
+        end)
+
+        test.it("чужой ответ не выдаётся за список", function()
+            local listed = {{id = "w1"}}
+            local state: any = {windows = listed}
+            test.is_nil(model.take_reply(state, {ok = true, command = "desktop.open", window = {id = "w2"}}))
+            test.is_nil(model.take_reply(state, {ok = true, windows = {}}), "без command — не ответ на list")
+            test.is_nil(model.take_reply(state, nil))
+            test.eq(state.windows, listed)
+            test.is_nil(state.notice)
+        end)
+    end)
 end
 
 local run_cases = test.run_cases(define_tests)

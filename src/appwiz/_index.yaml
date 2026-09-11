@@ -70,3 +70,4 @@ entries:
       geometry: butschster.tui_desktop.desktop:geometry
       app: butschster.windows.sdk:app
       model: butschster.windows.appwiz:model
+      environment: butschster.windows.config:environment

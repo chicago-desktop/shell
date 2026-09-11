@@ -375,4 +375,48 @@ function model.windows(windows: any)
     return out
 end
 
+-- ─── ответы композитора ──────────────────────────────────────────────────
+--
+-- Канал ответов у окна один, и приезжает в него не только ответ на
+-- `desktop.list`. Команды без ожидания — `desktop.open`, `desktop.focus`,
+-- `desktop.state` — композитор отказывает тем же каналом, с пометкой
+-- `unsolicited` (основа, `refuse`). Окно, читавшее всё подряд как список,
+-- принимало отказ открыть программу за «список окон не прочитан»: причина
+-- ложилась в папку, на которую никто не смотрел, а на экране не было ничего.
+
+local NO_REASON = "the compositor refused without a reason"
+
+-- Как отказ называется в строке состояния. Одна таблица и для отказа,
+-- пришедшего сразу (композитор не найден), и для пришедшего потом каналом:
+-- две формулировки одного отказа читались бы как два разных.
+local REFUSED: any = {["desktop.open"] = "did not open", ["desktop.focus"] = "did not start"}
+
+function model.refusal(command: any, reason: any): string
+    local prefix = REFUSED[tostring(command)]
+        or (type(command) == "string" and command .. " refused" or "refused")
+    return prefix .. ": " .. tostring(reason or NO_REASON)
+end
+
+-- take_reply(state, body) -> "list" | "notice" | nil
+--
+-- "list" — пришёл список окон или отказ его дать, папку надо перечитать;
+-- "notice" — отказ другой команде: он лёг в строку состояния, список не
+-- тронут; nil — ответ не на вопрос этого окна, класть его некуда.
+function model.take_reply(state: any, body: any): any
+    if type(body) ~= "table" then return nil end
+    if body.unsolicited or (body.ok == false and body.command ~= "desktop.list") then
+        state.notice = model.refusal(body.command, body.error)
+        return "notice"
+    end
+    if body.command ~= "desktop.list" then return nil end
+    if body.ok == false then
+        state.windows_error = tostring(body.error or NO_REASON)
+        state.windows = nil
+    else
+        state.windows = type(body.windows) == "table" and body.windows or {}
+        state.windows_error = nil
+    end
+    return "list"
+end
+
 return model

@@ -16,6 +16,7 @@ entries:
     source: file://repo.lua
     modules:
       - sql
-      - env
       - time
       - uuid
+    imports:
+      environment: butschster.windows.config:environment

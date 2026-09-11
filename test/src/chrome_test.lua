@@ -10,6 +10,8 @@ local chrome = require("chrome")
 local chrome_pixels = require("chrome_pixels")
 local tty = require("tty")
 local pixels = require("pixels")
+local fs = require("fs")
+local gfx = require("gfx")
 
 -- Что реально нарисовано в строке заголовка. Стиль вырезается: нас
 -- интересуют символы и их места, а цвет проверяет пробник.
@@ -673,6 +675,133 @@ local function define_tests()
             local opened = chrome.menu_layout(200, 24, items, nil, program.group)
             test.eq(#opened.panels, catalog.MAX_DEPTH + 1,
                 "тема показывает ровно столько уровней, сколько дал каталог")
+        end)
+    end)
+
+    -- Отказ раскладки и строка состояния — в пикселях.
+    --
+    -- Тема в ячейках рисовала обе вещи, пиксельная не читала ни одной:
+    -- нечитаемая раскладка выглядела пустым столом без причины, а сообщения
+    -- композитора — и его жалобы на негодный кадр самой темы — не видел никто.
+    --
+    -- Прочитать пиксель у растра нечем, поэтому сравниваются PNG-байты кадров,
+    -- различающихся ПОСЛЕДНИМ словом. Одна проверка ловит и «текст не
+    -- нарисован», и «текст срезан, а не перенесён»: срез съел бы именно конец,
+    -- и оба кадра совпали бы.
+    test.describe("pixel desktop failure and taskbar status", function()
+        local function use_fonts()
+            local files = assert(fs.get("app:system_fonts"))
+            local face = assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
+            local bold = assert(gfx.font(assert(files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
+            chrome_pixels.use_fonts(face, bold)
+            chrome_pixels.use_cell_size(10, 20)
+            return face
+        end
+        local function find(painted: any, id): any
+            for _, item in ipairs(painted.placements) do
+                if item.id == id then return item end
+            end
+            return nil
+        end
+        -- Байты снимаются СРАЗУ после кадра: хранилище рисует следующий кадр в
+        -- тот же буфер, и растр из прошлого кадра показывает уже новый.
+        local function png(painted: any, id)
+            local item = find(painted, id)
+            test.not_nil(item, "нет размещения " .. id)
+            return assert(item.raster:encode("png"))
+        end
+
+        test.it("стол называет причину нечитаемой раскладки целиком, переносом, а не срезом", function()
+            local face = use_fonts()
+            -- Две строки, а не три: на третьей, у предела переноса, другой
+            -- шрифт поставил бы многоточие вместо последнего слова, и кейс
+            -- покраснел бы не за то.
+            local reason = "database is locked: SELECT id, x, y, image FROM butschster_windows_desktop"
+                .. " ORDER BY position, table "
+            test.is_true(face:measure(reason .. "alpha") > 48 * 10,
+                "сцена обязана быть шире таблички, иначе переносить нечего")
+            local state: any = {width = 80, height = 24, top = 1, bottom = 22, clock = "12:00",
+                items = {{id = "icon", x = 2, y = 4, kind = "folder", title = "Folder"}},
+                windows = {{id = "w1", title = "Notepad", x = 30, y = 10, w = 40, h = 10}},
+                focused_id = "w1", failure = reason .. "alpha",
+                status = "could not open: app:gone — entry not found"}
+            local painted = chrome_pixels.paint(state, 10, 20)
+
+            -- Снимок — для глаз, из того же кадра, что проверяется ниже.
+            local screen = gfx.raster(80 * 10, 24 * 20)
+            screen:fill("#008080")
+            for _, item in ipairs(painted.placements) do
+                screen:blit(item.raster, (item.x - 1) * 10 + 1, (item.y - 1) * 20 + 1)
+            end
+            assert(assert(fs.get("app:shots")):writefile("layout-failure.png", assert(screen:encode("png"))))
+
+            local plate = find(painted, "desk:failure")
+            test.not_nil(plate, "отказ раскладки обязан быть на столе")
+            test.eq(plate.x, 3)
+            test.eq(plate.y, 2, "строка под верхом стола, как в ячейках")
+            test.eq(plate.cols, 48)
+            test.is_true(plate.y + plate.rows - 1 <= 22, "табличка не заходит на панель задач")
+            test.is_nil(find(painted, "desk:icon"), "значков непрочитанной раскладки не рисуют")
+            local first = assert(plate.raster:encode("png"))
+            local version = plate.raster:version()
+
+            local again = find(chrome_pixels.paint(state, 10, 20), "desk:failure")
+            test.eq(again.raster, plate.raster, "тот же отказ — тот же растр")
+            test.eq(again.raster:version(), version, "тот же отказ не перерисовывается")
+
+            state.failure = reason .. "omega"
+            test.is_true(png(chrome_pixels.paint(state, 10, 20), "desk:failure") ~= first,
+                "конец причины не нарисован: срез вместо переноса")
+
+            state.failure = nil
+            local cleared = chrome_pixels.paint(state, 10, 20)
+            test.is_nil(find(cleared, "desk:failure"), "раскладка прочиталась — таблички нет")
+            test.not_nil(find(cleared, "desk:icon"))
+            chrome_pixels.fonts = nil
+        end)
+
+        test.it("панель задач показывает строку состояния между окнами и часами", function()
+            use_fonts()
+            local state: any = {width = 80, height = 24, bottom = 22, clock = "12:00", items = {},
+                windows = {{id = "w1", title = "Notepad", x = 5, y = 3, w = 30, h = 10}}, focused_id = "w1"}
+            local bare = png(chrome_pixels.paint(state, 10, 20), "bars")
+
+            state.status = "could not open: app:gone — entry not found"
+            local painted = chrome_pixels.paint(state, 10, 20)
+            local shown = png(painted, "bars")
+            test.is_true(shown ~= bare, "строка состояния не нарисована")
+            local version = find(painted, "bars").raster:version()
+            test.eq(find(chrome_pixels.paint(state, 10, 20), "bars").raster:version(), version,
+                "тот же статус — панель не перерисовывается")
+
+            state.status = "could not open: app:gone — entry missing"
+            test.is_true(png(chrome_pixels.paint(state, 10, 20), "bars") ~= shown,
+                "другой конец статуса — другой кадр")
+
+            -- Тесно: между кнопкой окна и часами меньше шести ячеек.
+            state.width, state.status = 36, nil
+            local narrow = chrome_pixels.paint(state, 10, 20)
+            local task = narrow.hits.bars[#narrow.hits.bars]
+            test.eq(task.id, "w1")
+            test.is_true(36 - 8 - (task.to + 1) < 6, "сцена обязана оставить меньше шести ячеек")
+            local empty = png(narrow, "bars")
+            state.status = "could not open: app:gone"
+            test.eq(png(chrome_pixels.paint(state, 10, 20), "bars"), empty, "в тесноте статус не рисуется")
+            chrome_pixels.fonts = nil
+        end)
+
+        test.it("вид, бросивший ошибку, — текст отказа в окне, а не упавший кадр оболочки", function()
+            use_fonts()
+            -- `children` не списком: `ui.plan` бросает внутри библиотеки вида.
+            local window = {id = "v", x = 5, y = 3, w = 30, h = 10, title = "View", content = "pixels",
+                render = "butschster.windows.sdk:render",
+                content_state = {sdk = 1, revision = 1, ui = {kind = "column", children = 42}}}
+            local ok, painted = pcall(chrome_pixels.paint, {width = 80, height = 24, bottom = 22, clock = "12:00",
+                items = {}, windows = {window}, focused_id = "v"}, 10, 20)
+            chrome_pixels.fonts = nil
+            test.is_true(ok, "кадр оболочки упал: " .. tostring(painted))
+            test.not_nil(find(painted, "win:v:notice"), "отказ вида обязан быть текстом на лице окна")
+            test.not_nil(find(painted, "win:v:head"), "рамка окна на месте")
         end)
     end)
 end

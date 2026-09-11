@@ -7,30 +7,19 @@
 -- как «программы больше нет».
 
 local sql = require("sql")
-local env = require("env")
+local environment = require("environment")
 local time = require("time")
 local uuid = require("uuid")
 
 -- Значение по умолчанию в коде, переопределяемое окружением: ресурс базы
 -- принадлежит приложению, а не модулю.
 --
--- Читается ОБА источника, и это не перестраховка. `env.get` видит только
--- файловое хранилище: на переменную, которая есть в окружении процесса, он
--- отвечает «environment variable not found». Читай мы одним `env.get` —
--- названная человеком база молча подменялась бы умолчанием, и обнаружилось бы
--- это тем, что раскладка «не сохраняется», а не отказом.
-local function from_environment(name)
-    local all = env.get_all()
-    if type(all) == "table" then
-        local value: any = all[name]
-        if type(value) == "string" and value ~= "" then return value end
-    end
-    local stored = env.get(name)
-    if type(stored) == "string" and stored ~= "" then return stored end
-    return nil
-end
-
-local DB_ID = from_environment("BUTSCHSTER_WINDOWS_DB_ID") or "app:db"
+-- Умолчание — через `read_or`, а не `read(...) or "app:db"`. Здесь было
+-- второе, и второе значение `env.get` отбрасывалось: отказ по правам
+-- превращался в «человек ничего не переназначал», и приложение, велевшее
+-- хранить раскладку в другой базе, молча хранило её в `app:db`. Теперь отказ
+-- называется в логе.
+local DB_ID = environment.read_or("BUTSCHSTER_WINDOWS_DB_ID", "app:db")
 local ITEMS = "butschster_windows_desktop_items"
 local SETTINGS = "butschster_windows_settings"
 local SEEDED = "butschster_windows_desktop_seeded"

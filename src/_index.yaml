@@ -135,3 +135,4 @@ entries:
       repo: butschster.windows.persist:repo
       logon_screen: butschster.windows.logon:screen
       logon_provider: butschster.windows.logon:provider
+      environment: butschster.windows.config:environment

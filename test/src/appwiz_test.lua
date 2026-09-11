@@ -5,6 +5,7 @@
 
 local test = require("test")
 local model = require("model")
+local fs = require("fs")
 
 local SAMPLE = table.concat({
     'version: "1.0"',
@@ -130,6 +131,92 @@ local function define_tests()
             local back, why = model.remove_declaration(grown, "npc")
             test.not_nil(back, tostring(why))
             test.eq(back, SAMPLE, "снятие возвращает файл в точности")
+        end)
+    end)
+
+    -- Без файла объявлений стенд не поднимается, а окно писало его одним
+    -- `writefile` и под чужим пространством имён, если своего не нашлось.
+    test.describe("проверка и запись файла объявлений", function()
+        local FILE = "_index.yaml"
+
+        test.it("файл без namespace отвергается с причиной, а не дописывается под app.deps", function()
+            local bare = (SAMPLE:gsub("namespace: app.deps\n", ""))
+            test.is_nil(model.namespace_of(bare))
+            local grown, why = model.append_declaration(bare, "butschster/npc", "npc",
+                model.namespace_of(bare), "2026-09-11", FILE)
+            test.is_nil(grown)
+            test.eq(why, "namespace not declared in _index.yaml")
+            -- И текст, собранный в обход дописывания, не пройдёт проверку.
+            local forced = model.append_declaration(bare, "butschster/npc", "npc", "app.deps", "2026-09-11", FILE)
+            local ok, reason = model.check_edit(bare, forced, "npc", 1, FILE)
+            test.is_nil(ok)
+            test.eq(reason, "namespace not declared in _index.yaml")
+        end)
+
+        test.it("дописанный пункт берёт отступ соседей, а не всегда два пробела", function()
+            local wide = (SAMPLE:gsub("\n  ", "\n    "))
+            local grown = model.append_declaration(wide, "butschster/npc", "npc", "app.deps", "2026-09-11", FILE)
+            test.not_nil(grown:find("\n    # app.deps:npc\n", 1, true))
+            test.not_nil(grown:find("\n    - version: '>=v0.0.0'\n      name: npc\n      kind: ns.dependency\n", 1, true),
+                "пункт и его поля — отступом соседей")
+            local ok, why = model.check_edit(wide, grown, "npc", 1, FILE)
+            test.is_true(ok == true, tostring(why))
+            local back = model.remove_declaration(grown, "npc")
+            test.eq(back, wide, "снятие возвращает файл в точности")
+        end)
+
+        test.it("правка, изменившая не одно объявление, отвергается до записи", function()
+            local ok, why = model.check_edit(SAMPLE, SAMPLE, "npc", 1, FILE)
+            test.is_nil(ok)
+            test.is_true(tostring(why):find("instead of 1", 1, true) ~= nil, tostring(why))
+            local two = SAMPLE .. "  - name: x\n    kind: ns.dependency\n  - name: y\n    kind: ns.dependency\n"
+            test.is_nil(model.check_edit(SAMPLE, two, "x", 1, FILE))
+            -- Пункт с параметрами: у него три строки `- name:`, а объявление одно.
+            local removed = model.remove_declaration(SAMPLE, "tui-desktop")
+            ok, why = model.check_edit(SAMPLE, removed, "tui-desktop", -1, FILE)
+            test.is_true(ok == true, tostring(why))
+        end)
+
+        local function put(handle: any, name: string, text: string)
+            local _, err = handle:writefile(name, text)
+            if err then error(tostring(err)) end
+        end
+
+        test.it("пишет с копией рядом, и на диске ровно то, что писали", function()
+            local handle = assert(fs.get("app:appwiz_scratch"))
+            put(handle, FILE, SAMPLE)
+            put(handle, FILE .. ".bak", "")
+            local grown = model.append_declaration(SAMPLE, "butschster/npc", "npc", "app.deps", "2026-09-11", FILE)
+            local ok, why = model.write_file(handle, FILE, SAMPLE, grown)
+            test.is_true(ok == true, tostring(why))
+            test.eq(handle:readfile(FILE), grown)
+            test.eq(handle:readfile(FILE .. ".bak"), SAMPLE, "прежний текст лежит рядом")
+
+            -- Файл поменяли рукой, пока окно было открыто: правка не затирает.
+            put(handle, FILE, SAMPLE .. "# hand edit\n")
+            ok, why = model.write_file(handle, FILE, SAMPLE, grown)
+            test.is_false(ok)
+            test.is_true(tostring(why):find("changed on disk", 1, true) ~= nil, tostring(why))
+            test.eq(handle:readfile(FILE), SAMPLE .. "# hand edit\n", "чужая правка цела")
+        end)
+
+        test.it("расхождение после записи названо вместе с тем, где прежний текст", function()
+            local files: any = {[FILE] = SAMPLE}
+            -- Хранилище, которое теряет хвост записи: так выглядит полный диск
+            -- или оборванная запись, а не отказ.
+            local lossy = {
+                readfile = function(_, name) return files[name], nil end,
+                writefile = function(_, name, data)
+                    files[name] = name == FILE and data:sub(1, 40) or data
+                    return true, nil
+                end,
+            }
+            local grown = model.append_declaration(SAMPLE, "butschster/npc", "npc", "app.deps", "2026-09-11", FILE)
+            local ok, why = model.write_file(lossy, FILE, SAMPLE, grown)
+            test.is_false(ok)
+            test.is_true(tostring(why):find("reads back different", 1, true) ~= nil, tostring(why))
+            test.is_true(tostring(why):find("_index.yaml.bak", 1, true) ~= nil, "названо, где прежний текст")
+            test.eq(files[FILE .. ".bak"], SAMPLE)
         end)
     end)
 end

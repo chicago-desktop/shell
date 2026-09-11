@@ -30,7 +30,9 @@ entries:
       type: tui_desktop.window
       title: {json.dumps(args.title, ensure_ascii=False)}
       image: program
-      group: Программы
+      # No `group`: the program lands in catalog.DEFAULT_GROUP ("Programs").
+      # A module's window names its own folder, e.g. `group: Programs/Bridge`;
+      # `group: ""` puts it on the Start-menu root.
       width: 62
       height: 23
       window_type: app

@@ -414,6 +414,15 @@ local function main(spec)
                 {label = "Open", bold = true, entry = "butschster.windows.explorer:window", title = "My Computer"},
                 {label = "Properties", entry = "butschster.windows.sysprops:window", separator_before = true},
             }}
+        elseif notice == "layout" then
+            -- Раскладка стола не прочиталась: вместо значков табличка с
+            -- причиной, в панели задач — сообщение композитора. Окно одно и
+            -- ниже таблички, чтобы причину было видно целиком.
+            state.items, state.selected, state.menu = {}, nil, nil
+            state.windows = {state.windows[2]}
+            state.failure = "database is locked: SELECT id, x, y, image FROM butschster_windows_desktop"
+                .. " ORDER BY position; retry after the shell restarts"
+            state.status = "could not open: app:gone — entry not found"
         elseif notice then
             state.menu = {items = {}}
             if notice == "failure" then state.menu.failure = "the registry is temporarily unavailable" end
@@ -651,6 +660,7 @@ local function main(spec)
     screen_shot("menu-empty.png", "empty")
     screen_shot("menu-failure.png", "failure")
     screen_shot("menu-context.png", "context")
+    screen_shot("desktop-failure.png", "layout")
 
     -- Native 32px and 16px assets side by side, rendered through the real gfx.
     local atlas = gfx.raster(960, ((#images.NAMES + 4) // 5) * 80)

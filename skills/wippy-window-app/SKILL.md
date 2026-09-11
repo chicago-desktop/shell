@@ -18,14 +18,24 @@ when repairing an older custom window.
    multiple agents work these modules. Editing a published package's working copy
    does not update the running app unless it is replaced.
 2. Default to `butschster.windows.sdk:app` and a plain-data component tree. Scaffold:
-   `python3 <resolved-skill>/scripts/new_window.py --namespace my.documents --title Документы --output <module>/src/documents`.
+   `python3 <resolved-skill>/scripts/new_window.py --namespace my.documents --title Documents --output <module>/src/documents`.
    The generator refuses to overwrite files. Read the resulting declaration and
-   change its group, icon, model and actions for the actual product.
+   change its icon, model and actions for the actual product. It writes no
+   `group`, so the window lands in the default `Programs` folder; a module's
+   window adds `group: Programs/<Module>`. The interface is English.
 3. Declare one `process.lua` with `meta.type: tui_desktop.window`, exact title,
    dimensions, group and icon. Use `pixel_render: butschster.windows.sdk:render`
    and `pixel_state` pointing to this same process. Keep a single `main` wrapper
    passing arguments to `app.run`. Do not add an app-specific import to the theme.
-4. Implement `init`, `view`, `update`, optional `interval` and `dispose`. Give every
+4. Implement `init`, `view`, `update`, optional `interval`, `title` and `dispose`.
+   `definition.title` (a string or a function of the model) is the window
+   caption when it differs from the menu entry. Besides control actions,
+   `update` receives `{type = "key"}` for a key no component took (close on
+   Esc, refresh on F5), `{type = "channel"}` for a channel registered with
+   `context.watch(ch)` (`context.unwatch(ch)` stops; a closed channel is
+   dropped by itself), `resize`, `tick` and `close` (delivered before the loop
+   exits: release resources, it cannot be cancelled). Return `false` from
+   `update` when nothing changed to skip the redraw. Give every
    interactive control a stable unique ID. Keep callbacks and resource handles
    out of `view`'s tree. Handle service failures as visible states. Extend the
    app's own security policy only for resources and actions it actually needs.

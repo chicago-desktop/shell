@@ -177,10 +177,32 @@ local function padded(rect: any, node: any): any
     return geometry.rect(x, y, math.max(0, rect.w - left - right), math.max(0, rect.h - top - bottom))
 end
 
-local function add(node: any, rect: any, plan: any, interaction: any)
-    assert(type(node) == "table", "SDK node must be a table")
+-- Правила, по которым дерево не раскладывается, — в ОДНОМ месте. `add`
+-- утверждает их (`assert`), `ui.problem` называет их без ошибки. Второй
+-- список тех же правил разошёлся бы с первым на том правиле, что редко
+-- нарушают.
+local function holds_children(kind: any): boolean
+    return containers[kind] or kind == "group" or kind == "tabs"
+end
+local function shape_problem(node: any): any
+    if type(node) ~= "table" then return "SDK node must be a table" end
     local kind = node.kind
-    assert(containers[kind] or leaves[kind], "unknown SDK control: " .. tostring(kind))
+    if not (containers[kind] or leaves[kind]) then return "unknown SDK control: " .. tostring(kind) end
+    if holds_children(kind) and node.children ~= nil and type(node.children) ~= "table" then
+        return "SDK " .. tostring(kind) .. " children must be a list"
+    end
+    return nil
+end
+local function id_problem(node: any, taken: any): any
+    local id = node.id
+    if type(id) ~= "string" or id == "" then return "interactive SDK controls need a stable id" end
+    if taken[id] ~= nil then return "duplicate SDK control id: " .. id end
+    return nil
+end
+local function add(node: any, rect: any, plan: any, interaction: any)
+    local shape = shape_problem(node)
+    assert(shape == nil, tostring(shape))
+    local kind = node.kind
     if rect.w < 1 or rect.h < 1 then return end
     if containers[kind] then
         rect = padded(rect, node)
@@ -213,8 +235,8 @@ local function add(node: any, rect: any, plan: any, interaction: any)
     end
     local id = node.id
     if not passive[kind] then
-        assert(type(id) == "string" and id ~= "", "interactive SDK controls need a stable id")
-        assert(plan.by_id[id] == nil, "duplicate SDK control id: " .. id)
+        local bad = id_problem(node, plan.by_id)
+        assert(bad == nil, tostring(bad))
     end
     if kind == "group" then
         -- Рамка с заголовком («Горутины», «Память»): дети внутри рамки,
@@ -316,6 +338,33 @@ local function add(node: any, rect: any, plan: any, interaction: any)
     if id then plan.by_id[id] = item end
     -- Меню в кольцо фокуса не входит — как в Windows, к нему ходят Alt и F10.
     if id and not passive[kind] and kind ~= "menu" and not node.disabled then plan.focusable[#plan.focusable + 1] = id end
+end
+-- problem(tree) -> причина | nil
+--
+-- Почему `ui.plan` не разложит это дерево — теми же правилами, что `add`, но
+-- без ошибки. Нужна там, где ошибку ловить нельзя: отрисовщик вида работает в
+-- кадре композитора, а пойманная `pcall` ошибка в go-lua рвёт upvalue у
+-- всего стека под ней, то есть у цикла композитора. Строже `add` в одном: тот
+-- не проверяет узлы, которым не досталось места, а здесь проверяются все.
+function ui.problem(tree: any): any
+    local seen: any = {}
+    local function walk(node: any): any
+        local why = shape_problem(node)
+        if why then return why end
+        if not containers[node.kind] and not passive[node.kind] then
+            why = id_problem(node, seen)
+            if why then return why end
+            seen[node.id] = true
+        end
+        if holds_children(node.kind) then
+            for _, child in ipairs(node.children or {}) do
+                why = walk(child)
+                if why then return why end
+            end
+        end
+        return nil
+    end
+    return walk(tree)
 end
 function ui.interaction(): any
     return {focus = nil, offsets = {}, capture = nil, editors = {}, armed = nil, menus = {}, revealed = {}}
@@ -562,9 +611,12 @@ function ui.event(plan: any, state: any, original: any): any
             if input.pressed(event) then state.focus = item.node.id end
             return tabs_event(item, state, event)
         end
-        -- Фокус берёт только то, что умеет его держать: метка с `id` иначе
-        -- забирала фокус, и Tab переставал находить, откуда шагать.
-        if input.pressed(event) and item.node.id and item.node.kind ~= "label" then state.focus = item.node.id end
+        -- Фокус берёт только то, что умеет его держать. Пассивный вид с `id`
+        -- (метка, поле, рамка, график, строка состояния…) иначе забирал
+        -- фокус, а в кольце `focusable` его нет — и Tab переставал находить,
+        -- откуда шагать. Проверяется тот же `passive`, что строит кольцо, а
+        -- не имя одного вида.
+        if input.pressed(event) and item.node.id and not passive[item.node.kind] then state.focus = item.node.id end
         if item.node.kind == "list" or item.node.kind == "table" or item.node.kind == "tree" then return list_event(item, state, event) end
         if item.node.kind == "icons" then return icons_event(item, state, event) end
         if (item.node.kind == "button" or item.node.kind == "checkbox") and input.pressed(event) then
@@ -592,7 +644,8 @@ function ui.event(plan: any, state: any, original: any): any
         local rows = entries(node)
         local total = #rows
         if total == 0 then return nil end
-        local index = whole(item.selected_index) > 0 and whole(item.selected_index) or 1
+        local chosen = whole(item.selected_index)
+        local index = chosen > 0 and chosen or 1
         if node.kind == "tree" then
             -- Клавиши дерева, как в regedit: Enter и → раскрывают, ← закрывает
             -- или уходит к родителю, → у раскрытой — к первому ребёнку.
@@ -615,6 +668,9 @@ function ui.event(plan: any, state: any, original: any): any
             end
         end
         if key == "home" then index = 1 elseif key == "end" then index = total
+        -- Без выбора стрелка выбирает ПЕРВУЮ строку, а не шагает от неё:
+        -- «вниз» в свежем списке иначе проскакивала первую.
+        elseif chosen < 1 and (key == "up" or key == "down" or key == "pgup" or key == "pgdown") then index = 1
         elseif key == "up" then index = index - 1 elseif key == "down" then index = index + 1
         elseif key == "pgup" then index = index - item.page elseif key == "pgdown" then index = index + item.page
         elseif key == "enter" then return {type = "activate", id = node.id, index = index, value = rows[index]}
@@ -630,9 +686,13 @@ function ui.event(plan: any, state: any, original: any): any
         local total = #items
         if total == 0 then return nil end
         local columns = math.max(1, whole(item.columns))
-        local index = whole(item.selected_index) > 0 and whole(item.selected_index) or 1
+        local chosen = whole(item.selected_index)
+        local index = chosen > 0 and chosen or 1
+        local moves = key == "left" or key == "right" or key == "up" or key == "down" or key == "pgup" or key == "pgdown"
         if key == "home" then index = 1
         elseif key == "end" then index = total
+        -- Без выбора любая стрелка выбирает первый значок, как у списка.
+        elseif chosen < 1 and moves then index = 1
         elseif key == "left" then index = index - 1
         elseif key == "right" then index = index + 1
         elseif key == "up" then index = index - columns

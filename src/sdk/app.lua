@@ -80,6 +80,8 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
     local interaction = ui.interaction()
 
     local function draw()
+        -- Запасное дерево уже было на экране — значит, повторять нечего.
+        local failed_before = context.failure ~= nil
         local tree: any = nil
         if not context.failure then tree = guarded("view", definition.view, model, context) end
         if context.failure then tree = failure_tree(context.failure) end
@@ -101,8 +103,15 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
             desktop.publish_state(window_id, {sdk = 1, revision = loop.revision, ui = tree, interaction = interaction,
                 title = type(title) == "string" and title ~= "" and title or nil})
         else
-            surface:present(cells.rows(loop.plan, interaction, context.width, context.height),
-                {cursor = {x = 1, y = 1, visible = false}})
+            -- Кадр ячейками — тоже код, зависящий от дерева приложения. Кадр,
+            -- который не собрался, уводит окно в запасное дерево, а не выносит
+            -- ошибку мимо `dispose` и `tty.stop`, оставив терминал без курсора.
+            local shown = guarded("draw", function()
+                surface:present(cells.rows(loop.plan, interaction, context.width, context.height),
+                    {cursor = {x = 1, y = 1, visible = false}})
+                return true
+            end)
+            if not shown and not failed_before then draw() end
         end
     end
 
@@ -133,7 +142,13 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
             timer = time.after(definition.interval)
             redraw = dispatch(action)
         elseif picked.channel == events then
-            local event = native and desktop.input_event(picked.value) or desktop.normalize_event(picked.value)
+            -- Разбор события и `ui.event` — под той же охраной, что `update`:
+            -- мусорное событие или ошибка в разборе дерева иначе рвали цикл
+            -- мимо `dispose`, `desktop.close` и `tty.stop`. Не разобралось —
+            -- пустое событие, и следующий кадр — запасное дерево.
+            local event: any = guarded("input", function()
+                return native and desktop.input_event(picked.value) or desktop.normalize_event(picked.value)
+            end) or {}
             if event.type == "close" then
                 dispatch({type = "close"})
                 break
@@ -143,7 +158,7 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
                 else context.width, context.height = tty.screen_size() end
                 action = {type = "resize", width = context.width, height = context.height}
             else
-                action = ui.event(loop.plan, interaction, event)
+                action = guarded("event", ui.event, loop.plan, interaction, event)
                 -- Клавиша, не взятая компонентом, — приложению: Esc, F5, Ctrl+S.
                 if action == nil and event.type == "key" and event.action ~= "release" then
                     action = {type = "key", key = event.key, key_type = event.key_type,

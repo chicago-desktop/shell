@@ -2,7 +2,7 @@ organization: butschster
 module: windows
 description: Оболочка терминального десктопа в стиле Windows 95 — бирюзовый рабочий стол, панель задач с «Пуском» и часами, меню программ из реестра и раскладка ярлыков, которую двигает пользователь.
 license: MIT
-repository: https://github.com/butschster/windows
+repository: https://github.com/wippy-projects/windows
 homepage: https://wippy.ai
 keywords:
   - kickside
@@ -24,3 +24,9 @@ exclude:
   - "test/stubs/**"
   - "test/stubs:**"
   - "src/**/stubs/**"
+  # Значки Windows 95/98 — артворк Microsoft, под MIT не подпадают (docs/icons.md,
+  # «Лицензия»). Исключены PNG, а не весь `assets/**`: `SOURCE.md` едет, и
+  # каталог `icon_files` в опубликованном модуле есть. Без каталога запись
+  # `fs.directory` с `auto_init: false` рантайм не создаёт (NewFS → OpenRoot),
+  # а без PNG `images.get` отказывает с причиной и значки рисуются примитивами.
+  - "assets/icons/**/*.png"

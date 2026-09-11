@@ -37,6 +37,20 @@ local DOUBLE_CLICK_NS = 500000000
 
 local whole = geometry.whole
 
+-- Ответ композитора приезжает обёрнутым: payload — userdata, внутри бывает
+-- ещё и массив из одного элемента. Поле, прочитанное напрямую, окажется nil
+-- без ошибки — то есть «композитор ответил пустотой». Распаковка одна на
+-- окно: у основы такая же живёт `local` в `window_api` и наружу не отдана.
+local function unwrap(message: any): any
+    local value: any = message:payload()
+    if type(value) == "userdata" then
+        local ok, decoded = pcall(function() return value:data() end)
+        value = ok and decoded or {}
+    end
+    if type(value) == "table" and value[1] ~= nil and #value > 0 then value = value[1] end
+    return type(value) == "table" and value or {}
+end
+
 local function main(service, window_id, args, viewport: any)
     local pixel_view = type(viewport) == "table"
     local events: any
@@ -211,14 +225,14 @@ local function main(service, window_id, args, viewport: any)
                 entry = open.entry, title = open.title,
                 w = open.w, h = open.h, args = open.args,
             })
-            if not ok then state.notice = "did not open: " .. tostring(err) end
+            if not ok then state.notice = model.refusal("desktop.open", err) end
         elseif open.action == "raise" then
             -- «raise» — намерение модели, а не имя топика: у композитора это
             -- `desktop.focus`, и зовётся оно по имени из библиотеки, а не
             -- строкой. Послать топик, которого у композитора нет, значит не
             -- получить ни окна, ни отказа.
             local ok, err = desktop.focus(open.id)
-            if not ok then state.notice = "did not start: " .. tostring(err) end
+            if not ok then state.notice = model.refusal("desktop.focus", err) end
         end
     end
 
@@ -474,28 +488,13 @@ local function main(service, window_id, args, viewport: any)
         if not selected.ok then break end
 
         if answers and selected.channel == answers then
-            -- Ответ приезжает обёрнутым: payload — userdata, внутри бывает
-            -- ещё и массив из одного элемента. Поле, прочитанное напрямую,
-            -- окажется nil без ошибки — то есть «композитор ответил пустотой».
-            local payload: any = selected.value:payload()
-            if type(payload) == "userdata" then
-                local ok, decoded = pcall(function() return payload:data() end)
-                payload = ok and decoded or {}
-            end
-            if type(payload) == "table" and payload[1] ~= nil and #payload > 0 then
-                payload = payload[1]
-            end
-            local body: any = type(payload) == "table" and payload or {}
-
-            if body.ok == false then
-                state.windows_error = tostring(body.error or "the compositor refused without a reason")
-                state.windows = nil
-            else
-                state.windows = type(body.windows) == "table" and body.windows or {}
-                state.windows_error = nil
-            end
-            if state.path == "windows" or state.path == model.ROOT then load() end
-            draw()
+            -- Чей это ответ, решает модель: в канал приезжает не только
+            -- список окон, но и незапрошенный отказ на open/focus/state.
+            -- Отказ ложится в строку состояния, и `load` после него не
+            -- зовётся — он стёр бы замечание раньше, чем его прочтут.
+            local taken = model.take_reply(state, unwrap(selected.value))
+            if taken == "list" and (state.path == "windows" or state.path == model.ROOT) then load() end
+            if taken then draw() end
         else
             local event: any = selected.value
             if pixel_view then event = desktop.input_event(selected.value) end

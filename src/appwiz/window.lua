@@ -15,7 +15,6 @@
 -- — идентификатор записи `fs.directory` над каталогом с `_index.yaml`
 -- зависимостей. Не назвало — окно только показывает и говорит почему.
 
-local env = require("env")
 local fs = require("fs")
 local hub = require("hub")
 local registry = require("registry")
@@ -23,6 +22,7 @@ local time = require("time")
 
 local app = require("app")
 local model = require("model")
+local environment = require("environment")
 
 local DEPS_ENV = "BUTSCHSTER_WINDOWS_DEPS_FS"
 local DEPS_FILE = "_index.yaml"
@@ -31,20 +31,13 @@ local NEXT_STEPS = "Next: wippy update, then a restart"
 local geometry = require("geometry")
 local whole = geometry.whole
 
--- Чтение окружения — как у оболочки: сначала окружение процесса, потом
--- файловое хранилище, и отказ по правам называется отказом по правам.
+-- Чтение окружения общее (`butschster.windows.config:environment`): сначала
+-- окружение процесса, потом файловое хранилище, и отказ по правам называется
+-- отказом по правам. Здесь только слова для строки состояния окна.
 local function read_env(name): (any, string)
-    local all = env.get_all()
-    if type(all) == "table" then
-        local value: any = all[name]
-        if type(value) == "string" and value ~= "" then return value, "" end
-    end
-    local stored, err = env.get(name)
-    if type(stored) == "string" and stored ~= "" then return stored, "" end
-    local failure: any = err
-    if type(failure) == "table" and failure.kind == "PermissionDenied" then
-        return nil, "no env.get permission for " .. name
-    end
+    local value, _, denied = environment.read(name)
+    if value ~= nil then return value, "" end
+    if denied then return nil, "no env.get permission for " .. name end
     return nil, name .. " is not set — the application did not name the declarations folder"
 end
 
@@ -89,12 +82,15 @@ local function read_declarations(state: any): (any, any)
     return text, nil
 end
 
-local function write_declarations(state: any, text: string): (boolean, any)
+-- Без этого файла стенд не поднимается, поэтому правка сперва проверяется
+-- разбором (`model.check_edit`), а пишется с копией и чтением обратно
+-- (`model.write_file`).
+local function write_declarations(state: any, before: any, after: any, name: any, delta: integer): (boolean, any)
+    local fine, why = model.check_edit(before, after, name, delta, DEPS_FILE)
+    if not fine then return false, why end
     local handle, err = fs.get(tostring(state.drive))
     if err or not handle then return false, "declarations folder not opened: " .. tostring(err) end
-    local _, werr = handle:writefile(DEPS_FILE, text)
-    if werr then return false, DEPS_FILE .. " not written: " .. tostring(werr) end
-    return true, nil
+    return model.write_file(handle, DEPS_FILE, tostring(before), tostring(after))
 end
 
 local function load(state: any)
@@ -141,7 +137,7 @@ local function remove_current(state: any): string
     if not text then return tostring(err) end
     local edited, rerr = model.remove_declaration(text, line.name)
     if not edited then return tostring(rerr) end
-    local ok, werr = write_declarations(state, tostring(edited))
+    local ok, werr = write_declarations(state, text, tostring(edited), line.name, -1)
     if not ok then return tostring(werr) end
     state.pending[line.component] = "removed from the declarations"
     return "declaration " .. tostring(line.entry) .. " removed. " .. NEXT_STEPS
@@ -160,12 +156,16 @@ local function install(state: any, component: any): string
     if not text then return tostring(err) end
     local name = model.dep_name(component, state.taken)
     local stamp = time.now():format("2006-01-02")
-    local edited = model.append_declaration(text, component, name, state.namespace, stamp)
-    local ok, werr = write_declarations(state, edited)
+    -- Пространство имён — из того текста, который правится, а не из
+    -- прочитанного при открытии окна: файл мог смениться между ними.
+    local namespace = model.namespace_of(text)
+    local edited, aerr = model.append_declaration(text, component, name, namespace, stamp, DEPS_FILE)
+    if not edited then return tostring(aerr) end
+    local ok, werr = write_declarations(state, text, edited, name, 1)
     if not ok then return tostring(werr) end
     state.pending[component] = "declared, not installed yet"
     state.selected_id = component
-    return "declaration " .. tostring(state.namespace) .. ":" .. name .. " written. " .. NEXT_STEPS
+    return "declaration " .. tostring(namespace) .. ":" .. name .. " written. " .. NEXT_STEPS
 end
 
 -- ─── Приложение ──────────────────────────────────────────────────────────

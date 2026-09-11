@@ -20,16 +20,14 @@ and the base module README (`../kickside-module/README.md`, «Приложени
 selects what happens. Every answer is `{success, ...}`; a failure names the field
 or the reason in `error`.
 
-| action | arguments | effect |
-|---|---|---|
-| `build` | `name`, `source`, `title`, `width`, `height`, `modules[]`, `imports{}`, `pixel_render`, `group`, `image`, `icon`, `window_type`, `resizable`, `in_menu`, `open`, `args` | store + register; `replaced` says an older build was overwritten |
-| `open` | `entry` or `name`, `title`, `args`, `w`, `h` | open a window by registry entry |
-| `windows` | — | open windows with ids, geometry, `user` (who is logged on) |
-| `screen` | `id` | the window's text screen — the only evidence a window works |
-| `type` | `id`, `text`, `enter` | send keystrokes to a window |
-| `close` | `id` | close a window |
-| `list` | — | stored workshop windows with `live` (registered right now) |
-| `remove` | `name` | delete from storage and registry; open windows keep running |
+- **`build`** — arguments: `name`, `source`, `title`, `width`, `height`, `modules[]`, `imports{}`, `pixel_render`, `group`, `image`, `icon`, `window_type`, `resizable`, `in_menu`, `open`, `args`; effect: store + register; `replaced` says an older build was overwritten
+- **`open`** — arguments: `entry` or `name`, `title`, `args`, `w`, `h`; effect: open a window by registry entry
+- **`windows`** — arguments: —; effect: open windows with ids, geometry, `user` (who is logged on)
+- **`screen`** — arguments: `id`; effect: the window's text screen — the only evidence a window works
+- **`type`** — arguments: `id`, `text`, `enter`; effect: send keystrokes to a window
+- **`close`** — arguments: `id`; effect: close a window
+- **`list`** — arguments: —; effect: stored workshop windows with `live` (registered right now)
+- **`remove`** — arguments: `name`; effect: delete from storage and registry; open windows keep running
 
 If the trait is not active in the MCP session, activate it first:
 `use_trait` with `app.workshop:trait` (the credential's `allowed_trait_ids` must

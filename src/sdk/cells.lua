@@ -15,6 +15,16 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
         if w > 0 then canvas:put(whole(x), whole(y), widgets.fit(style, tostring(text), whole(w)), whole(w)) end
     end
     local styles = widgets.styles
+    -- Полоса прокрутки списка, таблицы, дерева и сетки значков — одна, та же,
+    -- что у проводника: `widgets.scrollbar`. Числа — из плана (`item.offset`,
+    -- `item.page`), а ползунок считает тот же `scroll.bar`, по которому план
+    -- считает попадание и перетаскивание, — нарисованный и нажимаемый не
+    -- разъедутся. Было четыре встроенные копии. Колонку сначала заливает
+    -- лицо: полосы нет, когда прокручивать нечего.
+    local function scrollbar(x: any, y: any, h: any, first: any, visible: any, total: any)
+        for row = 0, whole(h) - 1 do put(x, y + row, " ", 1, styles.face) end
+        widgets.scrollbar(canvas, whole(x), whole(y), whole(h), {first = first, visible = visible, total = total})
+    end
     local function strip(item: any, r: any, current: any, opened: any)
         -- Полоса заголовков вкладок или меню: « подпись » с гранями у вкладок,
         -- голая — у меню; текущая жирная, раскрытая — инверсией.
@@ -171,10 +181,13 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 put(r.x + r.w - 1, r.y, " ", 1, styles.face)
             end
             local rows = ui.entries(node)
+            -- Недоступная — лицом и серым текстом, без выделения, как
+            -- недоступное поле: иначе она выглядит рабочей и молча не отвечает.
+            local ground = node.disabled and styles.face_dim or styles.field
             for row = 0, r.h - 1 - header do
                 local index = item.offset + row + 1
                 local record: any = rows[index]
-                local style = item.selected_index == index and styles.select or styles.field
+                local style = not node.disabled and item.selected_index == index and styles.select or ground
                 local y = r.y + header + row
                 put(r.x, y, "", r.w - 1, style)
                 if record then
@@ -188,20 +201,16 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                         put(r.x + column.x, y, value, column.w, style)
                     end
                 end
-                local symbol = " "
-                if item.bar.limit > 0 then
-                    symbol = row == 0 and "▲" or (row == r.h - 1 - header and "▼" or
-                        (row >= item.bar.start and row < item.bar.start + item.bar.size and "█" or "░"))
-                end
-                put(r.x + r.w - 1, y, symbol, 1, styles.face)
             end
+            scrollbar(r.x + r.w - 1, r.y + header, r.h - header, item.offset, item.page, #rows)
         elseif node.kind == "tree" then
             local rows = ui.entries(node)
+            local ground = node.disabled and styles.face_dim or styles.field
             for row = 0, r.h - 1 do
                 local index = item.offset + row + 1
                 local line: any = rows[index]
                 local y = r.y + row
-                put(r.x, y, "", r.w - 1, styles.field)
+                put(r.x, y, "", r.w - 1, ground)
                 if line then
                     local parts = {}
                     local trail: any = line.trail or {}
@@ -211,56 +220,41 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                     end
                     local columns = ui.tree_columns(line.depth)
                     local prefix = table.concat(parts)
-                    put(r.x, y, prefix, math.min(r.w - 1, widgets.cells(prefix)), styles.field)
+                    put(r.x, y, prefix, math.min(r.w - 1, widgets.cells(prefix)), ground)
                     if line.has_children then
-                        put(r.x + columns.expander, y, line.expanded and "-" or "+", 1, styles.field)
+                        put(r.x + columns.expander, y, line.expanded and "-" or "+", 1, ground)
                     end
                     local glyph = line.kind == "folder" and (line.expanded and "▥" or "▤") or "▢"
-                    put(r.x + columns.icon, y, glyph, 1, styles.field)
+                    put(r.x + columns.icon, y, glyph, 1, ground)
                     local label = tostring(line.label or "")
-                    local style = item.selected_index == index and styles.select or styles.field
+                    local style = not node.disabled and item.selected_index == index and styles.select or ground
                     put(r.x + columns.label, y, label, math.max(0, r.w - 1 - columns.label), style)
                 end
-                local symbol = " "
-                if item.bar.limit > 0 then
-                    symbol = row == 0 and "▲" or (row == r.h - 1 and "▼" or
-                        (row >= item.bar.start and row < item.bar.start + item.bar.size and "█" or "░"))
-                end
-                put(r.x + r.w - 1, y, symbol, 1, styles.face)
             end
+            scrollbar(r.x + r.w - 1, r.y, r.h, item.offset, item.page, #rows)
         elseif node.kind == "icons" then
             -- Значок с подписью рисует общая библиотека оболочки — та же, что
             -- на столе и в проводнике. Своя копия здесь означала бы третий
             -- вид одного значка, расходящийся на подписи в две строки.
+            local ground = node.disabled and styles.face_dim or styles.field
             for row = 0, r.h - 1 do
-                put(r.x, r.y + row, "", r.w - 1, widgets.styles.field)
+                put(r.x, r.y + row, "", r.w - 1, ground)
             end
             for _, cell in ipairs(item.cells or {}) do
                 icon_cells.cell(canvas, cell.x, cell.y, cell.item,
-                    {room = cell.room, surface = "panel", selected = cell.selected})
+                    {room = cell.room, surface = "panel", selected = cell.selected and not node.disabled})
             end
-            for row = 0, r.h - 1 do
-                local symbol = " "
-                if item.bar.limit > 0 then
-                    symbol = row == 0 and "▲" or (row == r.h - 1 and "▼" or
-                        (row >= item.bar.start and row < item.bar.start + item.bar.size and "█" or "░"))
-                end
-                put(r.x + r.w - 1, r.y + row, symbol, 1, widgets.styles.face)
-            end
+            scrollbar(r.x + r.w - 1, r.y, r.h, item.offset, item.page, item.rows_total)
         elseif node.kind == "list" then
+            local ground = node.disabled and styles.face_dim or styles.field
             for row = 0, r.h - 1 do
                 local index = item.offset + row + 1
                 local value: any = (node.items or {})[index]
                 local label = type(value) == "table" and value.text or value
                 put(r.x, r.y + row, label or "", r.w - 1,
-                    item.selected_index == index and widgets.styles.select or widgets.styles.field)
-                local symbol = " "
-                if item.bar.limit > 0 then
-                    symbol = row == 0 and "▲" or (row == r.h - 1 and "▼" or
-                        (row >= item.bar.start and row < item.bar.start + item.bar.size and "█" or "░"))
-                end
-                put(r.x + r.w - 1, r.y + row, symbol, 1, widgets.styles.face)
+                    not node.disabled and item.selected_index == index and styles.select or ground)
             end
+            scrollbar(r.x + r.w - 1, r.y, r.h, item.offset, item.page, #(node.items or {}))
         else
             local label = tostring(node.text or "")
             local style = widgets.styles.face

@@ -39,6 +39,8 @@ local function ask(service: any, replies: any, topic: any, value: any): any
     return receive(replies, function(reply) return reply.command == topic end)
 end
 local shell_icons = require("shell_icons")
+local app = require("app")
+local widgets = require("widgets")
 
 local function define_tests()
     test.describe("Window SDK icon grid", function()
@@ -509,6 +511,205 @@ local function define_tests()
                 test.eq(remaining, 0, "окно не закрылось в режиме " .. mode .. ": " .. table.concat(dump, " "))
                 assert(process.send(service, "desktop.quit", {}))
                 view:close()
+            end
+        end)
+    end)
+
+    -- Открытые дефекты обзора 2026-09-08 (docs/sdk-review-2026-09-08.md) и
+    -- ячейки: одна полоса прокрутки, приглушённый `disabled`.
+    test.describe("Window SDK review follow-up", function()
+        local function fonts(): any
+            local files = assert(fs.get("app:system_fonts"))
+            local face = assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
+            return {face = face, bold = face}
+        end
+        local function shot(tree: any, w: integer, h: integer): any
+            local state = ui.interaction()
+            local plan = ui.plan(tree, w, h, state)
+            return cells.rows(plan, state, w, h)
+        end
+        -- Последний видимый символ строки кадра в ячейках — там стоит полоса.
+        local function last_glyph(row: any): string
+            local plain = (tostring(row):gsub("\27%[[%d;:]*m", ""))
+            local last = ""
+            for glyph in plain:gmatch("[%z\1-\127\194-\244][\128-\191]*") do last = glyph end
+            return last
+        end
+        local function bar_column(rows: any, from: integer, to: integer): string
+            local out = {}
+            for index = from, to do out[#out + 1] = last_glyph(rows[index]) end
+            return table.concat(out)
+        end
+
+        test.it("go-lua: ошибка под pcall рвёт upvalue и у кадров НИЖЕ — растяжка", function()
+            -- Измерено 2026-09-11: разрыв upvalue после пойманной ошибки
+            -- (docs/bugreports/go-lua-pcall-error-closes-upvalues.md стенда)
+            -- задевает не только кадр, звавший pcall, но и кадры под ним.
+            -- Поэтому в кадре композитора нет `pcall` вокруг библиотеки вида
+            -- (chrome_pixels, paint_view): ниже него цикл основы с
+            -- замыканиями. Этот тест утверждает НЫНЕШНЕЕ поведение VM.
+            -- Покраснел — go-lua починили: вернуть охрану вокруг вида и
+            -- перевернуть ожидание здесь на 2.
+            local function owner(): integer
+                local value = 1
+                local function bump() value = value + 1 end
+                local function deeper() return pcall(function() error("нарочно") end) end
+                deeper()
+                bump()
+                return value
+            end
+            test.eq(owner(), 1, "запись замыкания не видна владельцу ниже pcall")
+        end)
+
+        test.it("A8: состояние без interaction даёт кадр, дерево не таблицей — отказ с причиной", function()
+            local store = rasters.store()
+            store.begin()
+            local inner, cell = {x = 1, y = 1, cols = 24, rows = 4}, {w = 8, h = 18}
+            local tree = {kind = "column", children = {{kind = "label", text = "hi"}, {kind = "button", id = "ok", text = "OK"}}}
+            local placed, why = render.placement({id = "bare", content_state = {sdk = 1, revision = 1, ui = tree}},
+                inner, cell, fonts(), store)
+            test.not_nil(placed, tostring(why))
+            local refused, reason = render.placement({id = "shapeless", content_state = {sdk = 1, revision = 1, ui = "text"}},
+                inner, cell, fonts(), store)
+            test.is_nil(refused)
+            test.is_true(tostring(reason):find("state.ui", 1, true) ~= nil, tostring(reason))
+        end)
+
+        test.it("A6: ошибка в ui.event уводит окно в запасное дерево и не минует dispose", function()
+            -- Наблюдения — в таблице, а не в локальных: ошибка под pcall рвёт
+            -- upvalue между замыканием и владельцем (ловушка go-lua).
+            local seen: any = {views = 0, disposed = false, failure = nil}
+            local original = ui.event
+            local definition = {
+                init = function(args: any, context: any): any
+                    -- Слушатель `window.input` открыт до `init`: событие,
+                    -- посланное себе здесь, до цикла доедет.
+                    process.send(process.pid(), "window.input",
+                        {event = {type = "mouse", action = "press", button = "left", x = 1, y = 1}})
+                    process.send(process.pid(), "window.input", {event = {type = "close"}})
+                    return {}
+                end,
+                view = function(): any
+                    seen.views = seen.views + 1
+                    return {kind = "button", id = "go", text = "Go"}
+                end,
+                dispose = function(model: any, context: any)
+                    seen.disposed = true
+                    seen.failure = context.failure
+                end,
+            }
+            -- Подмена снимает себя сама на первом вызове: сломайся охрана в
+            -- app.run, ошибка вылетела бы из теста раньше восстановления, и
+            -- следующие тесты получили бы чужой `ui.event` (так и было при
+            -- первой мутации). Таблица `ui` у теста и у `app` одна.
+            ui.event = function()
+                ui.event = original
+                error("нарочно в ui.event")
+            end
+            app.run(definition, nil, "sdk-review-a6", nil, {width = 20, height = 4, cell_w = 8, cell_h = 18})
+            ui.event = original
+            test.is_true(seen.disposed, "dispose не вызван")
+            test.is_true(tostring(seen.failure):find("нарочно в ui.event", 1, true) ~= nil, tostring(seen.failure))
+            test.eq(seen.views, 1, "после ошибки рисуется запасное дерево, а не view приложения")
+        end)
+
+        test.it("A2: пассивный вид с id не берёт фокус по щелчку, Tab после щелчка идёт дальше", function()
+            local state = ui.interaction()
+            local tree = {kind = "column", children = {
+                {kind = "field", id = "readout", size = 2, text = "42"},
+                {kind = "button", id = "first", size = 2, text = "First"},
+                {kind = "button", id = "second", size = 2, text = "Second"},
+            }}
+            local plan = ui.plan(tree, 20, 6, state)
+            test.eq(state.focus, "first")
+            local field = plan.by_id.readout.rect
+            ui.event(plan, state, {type = "mouse", action = "press", button = "left", x = field.x, y = field.y})
+            ui.event(plan, state, {type = "mouse", action = "release", button = "left", x = field.x, y = field.y})
+            test.eq(state.focus, "first", "поле только для чтения фокус не берёт")
+            ui.event(plan, state, {type = "key", key = "tab", action = "press"})
+            test.eq(state.focus, "second", "Tab после щелчка шагает дальше")
+        end)
+
+        test.it("A12: без выбора стрелка выбирает первую строку, а не вторую", function()
+            for _, kind in ipairs({"list", "table", "tree"}) do
+                local rows = {}
+                for index = 1, 5 do
+                    if kind == "list" then rows[index] = "row " .. index
+                    elseif kind == "table" then rows[index] = {cells = {"row " .. index}}
+                    else rows[index] = {label = "row " .. index, depth = 0} end
+                end
+                local node: any = {kind = kind, id = "rows"}
+                if kind == "list" then node.items = rows else node.rows = rows end
+                if kind == "table" then node.columns = {{title = "Name"}} end
+                for _, key in ipairs({"down", "up", "page_down"}) do
+                    local state = ui.interaction()
+                    local plan = ui.plan(node, 20, 6, state)
+                    test.eq(state.focus, "rows")
+                    local action = ui.event(plan, state, {type = "key", key = key, action = "press"})
+                    test.eq(action.index, 1, kind .. ": " .. key .. " без выбора")
+                end
+            end
+            local items = {}
+            for index = 1, 6 do items[index] = {id = "i" .. index, title = "icon " .. index} end
+            for _, key in ipairs({"down", "right", "up"}) do
+                local state = ui.interaction()
+                local plan = ui.plan({kind = "icons", id = "grid", items = items}, 36, 12, state)
+                local action = ui.event(plan, state, {type = "key", key = key, action = "press"})
+                test.eq(action.index, 1, "icons: " .. key .. " без выбора")
+            end
+        end)
+
+        test.it("полоса прокрутки в ячейках одна: список, таблица, дерево и значки рисуют её одинаково", function()
+            local list_rows, tree_rows, table_rows = {}, {}, {}
+            for index = 1, 20 do
+                list_rows[index] = "row " .. index
+                tree_rows[index] = {label = "row " .. index, depth = 0}
+                table_rows[index] = {cells = {"row " .. index}}
+            end
+            -- scroll.bar(0, 20, 10, 10): стрелка, ползунок 4 из 8, стрелка.
+            local expected = "▲████░░░░▼"
+            test.eq(bar_column(shot({kind = "list", id = "l", items = list_rows}, 20, 10), 1, 10), expected, "список")
+            test.eq(bar_column(shot({kind = "tree", id = "t", rows = tree_rows}, 20, 10), 1, 10), expected, "дерево")
+            test.eq(bar_column(shot({kind = "table", id = "g", columns = {{title = "Name"}}, rows = table_rows}, 20, 11), 2, 11),
+                expected, "таблица под заголовком")
+            -- Значки: 12 предметов по 2 в ряд — 6 рядов, страница 3 ряда в 12 строках.
+            local icons = {}
+            for index = 1, 12 do icons[index] = {id = "i" .. index, title = "icon " .. index} end
+            test.eq(bar_column(shot({kind = "icons", id = "n", items = icons}, 24, 12), 1, 12), "▲█████░░░░░▼", "значки")
+            -- Прокручивать нечего — полосы нет, колонка залита лицом.
+            test.eq(bar_column(shot({kind = "list", id = "s", items = {"a", "b"}}, 20, 4), 1, 4), "    ")
+        end)
+
+        test.it("недоступные список, таблица, дерево и значки приглушены в обоих бэкендах", function()
+            local probe = widgets.styles.face_dim:render("x")
+            local dim = probe:sub(1, (probe:find("x", 1, true) or 1) - 1)
+            test.is_true(dim ~= "", "у приглушённого стиля нет своей последовательности")
+            local nodes: any = {
+                list = {kind = "list", id = "l", items = {"alpha", "beta"}, selected = 1},
+                table = {kind = "table", id = "g", columns = {{title = "Name"}}, rows = {{cells = {"alpha"}}}, selected = 1},
+                tree = {kind = "tree", id = "t", rows = {{label = "alpha", depth = 0}}, selected = 1},
+                icons = {kind = "icons", id = "n", items = {{id = "a", title = "alpha"}}, selected = 1},
+            }
+            local face = fonts()
+            for kind, node in pairs(nodes) do
+                local enabled = table.concat(shot(node, 24, 6), "\n")
+                node.disabled = true
+                local disabled = table.concat(shot(node, 24, 6), "\n")
+                node.disabled = nil
+                test.is_nil(enabled:find(dim, 1, true), kind .. ": доступный не приглушён")
+                test.not_nil(disabled:find(dim, 1, true), kind .. ": недоступный в ячейках приглушён")
+
+                local store = rasters.store()
+                store.begin()
+                local inner, cell = {x = 1, y = 1, cols = 24, rows = 6}, {w = 8, h = 18}
+                local on = assert(render.placement({id = "on-" .. kind, content_state = {sdk = 1, revision = 1, ui = node}},
+                    inner, cell, face, store))
+                local lit = on.raster:encode("png")
+                node.disabled = true
+                local off = assert(render.placement({id = "off-" .. kind, content_state = {sdk = 1, revision = 1, ui = node}},
+                    inner, cell, face, store))
+                node.disabled = nil
+                test.is_true(off.raster:encode("png") ~= lit, kind .. ": недоступный в пикселях выглядит иначе")
             end
         end)
     end)

@@ -19,3 +19,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+Значки в `assets/icons` — артворк Microsoft. У репозитория-источника лицензии
+нет вовсе. Модуль объявлен MIT, и значки под него не подпадают. Каталог
+годится для локального стенда и в опубликованный модуль не входит: `wippy.yaml`
+исключает `assets/icons/**/*.png`. Подробности — docs/icons.md, раздел
+«Лицензия», и assets/icons/SOURCE.md.

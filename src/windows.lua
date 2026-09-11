@@ -8,7 +8,7 @@
 -- и обнаружилось бы это через неделю на живом стенде.
 
 local logger = require("logger")
-local env = require("env")
+local environment = require("environment")
 local fs = require("fs")
 local gfx = require("gfx")
 local library = require("library")
@@ -31,55 +31,17 @@ local SERVICE_NAME = "butschster.windows.shell"
 --
 -- Полужирный — ОТДЕЛЬНЫЙ файл, а не опция: в Windows 95 заголовок набран им,
 -- и синтезировать его размазыванием пикселей значит перестать быть похожим.
--- ЛОВУШКА, СТОИВШАЯ ЧУЖОЙ СЕССИИ И ДВУХ ПУСТЫХ ЗАПУСКОВ ЗДЕСЬ.
---
--- Две разные вещи, обе выглядят как «переменной нет».
---
--- ПЕРВАЯ. `env.get` видит ТОЛЬКО файловое хранилище. На переменную из
--- окружения процесса он отвечает «environment variable not found» — то есть
--- `BUTSCHSTER_WINDOWS_PIXELS=1 wippy run …` не работает и работать не будет.
--- Окружение процесса отдаёт `env.get_all`.
---
--- ВТОРАЯ, и она тише. **Объявленный модуль без выданного права выглядит как
--- модуль, которому нечего сказать.** `modules: [env]` есть, а действия
--- `env.get` в политике не было — и `get_all` отдавал ПУСТУЮ ТАБЛИЦУ, потому
--- что кладёт в неё только разрешённые ключи и на отказ не жалуется вовсе.
--- Пустой ответ здесь неотличим от «переменных нет».
---
--- Различает их только `env.get`: на отказ по правам он отвечает ошибкой вида
--- `PermissionDenied`. Поэтому вид ошибки читается, а текст — нет: текст
--- меняется, вид объявлен константой.
---
--- Отказ по правам обязан называться отказом по правам: это единственная
--- причина из четырёх, которую человек НЕ может исправить, задав переменную.
-local function read(name): (any, string)
-    -- `get_all` кладёт только разрешённые ключи и молчит про остальные,
-    -- поэтому его пустота ничего не доказывает — но его непустота доказывает.
-    local all = env.get_all()
-    if type(all) == "table" then
-        local value: any = all[name]
-        if type(value) == "string" and value ~= "" then
-            return value, "process environment"
-        end
-    end
-
-    local stored, err = env.get(name)
-    if type(stored) == "string" and stored ~= "" then
-        return stored, "file store"
-    end
-
-    local failure: any = err
-    if type(failure) == "table" and failure.kind == "PermissionDenied" then
-        return nil, "NO env.get PERMISSION — a policy denial, not a missing variable"
-    end
-    return nil, "not set"
-end
+-- Окружение читает `butschster.windows.config:environment` — там же обе
+-- ловушки, из-за которых «переменной нет» бывает враньём: `env.get` не видит
+-- окружения процесса, а `get_all` молчит об отказе по правам.
 
 local function whole_cell(value: any): integer
     return math.tointeger(math.floor(tonumber(value) or 0)) or 0
 end
 
-local FONTS = read("BUTSCHSTER_WINDOWS_FONTS") or "app:system_fonts"
+-- Через `read_or`, а не `read(...) or …`: умолчание подставляется, но отказ
+-- по правам называется в логе, а не выдаётся за «человек не переназначал».
+local FONTS = environment.read_or("BUTSCHSTER_WINDOWS_FONTS", "app:system_fonts")
 local FONT_FACE = "LiberationSans-Regular.ttf"
 local FONT_BOLD = "LiberationSans-Bold.ttf"
 local FONT_SIZE = 13
@@ -91,7 +53,7 @@ local FONT_SIZE = 13
 -- Отвечает вторым значением, ОТКУДА взято, чтобы «не просил» и «просил, но не
 -- прочиталось» не выглядели одинаково.
 local function wants_pixels(): (boolean, string)
-    local asked, source = read("BUTSCHSTER_WINDOWS_PIXELS")
+    local asked, source = environment.read("BUTSCHSTER_WINDOWS_PIXELS")
     if asked == "1" or asked == "true" or asked == "yes" then return true, source end
     if asked ~= nil then return false, "set to \"" .. tostring(asked) .. "\"" end
     return false, source

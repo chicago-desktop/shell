@@ -111,7 +111,9 @@ $WIPPY test --host wippy.terminal:host
 - `order` — порядок внутри папки; без него по алфавиту, и безпорядковые идут
   после тех, у кого порядок есть.
 - `icon` — один-два символа; без него `▢`.
-- `image` — имя растрового значка из [библиотеки](docs/icons.md).
+- `image` — имя растрового значка из [библиотеки](docs/icons.md). Сами значки —
+  артворк Microsoft: под MIT не подпадают и в опубликованный модуль не входят,
+  см. [лицензию значков](docs/icons.md#лицензия).
 - `width`, `height` — размер окна при открытии.
 - `args` — аргумент запуска по умолчанию.
 - `desktop: true` — просьба вынести ярлык на стол при первом появлении.
@@ -854,6 +856,10 @@ make test      # SQLite
 make postgres-up && make test-pg && make postgres-down
 make verify    # setup + check + lint + test
 ```
+
+Полный `make verify` требует локальной сборки рантайма с `gfx` и основы в
+`../kickside-module`, поэтому в CI не идёт: GitHub Actions
+(`.github/workflows/verify.yml`) проверяет только `make check` и поздние `local`.
 
 Тесты живут в `test/` и поднимают модуль отдельным приложением. Оболочку
 оттуда можно запустить руками:

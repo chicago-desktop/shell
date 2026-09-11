@@ -1,0 +1,23 @@
+version: "1.0"
+namespace: butschster.windows.config
+
+# Что приложение сказало модулю окружением — имена базы, шрифтов, функции
+# входа, папки объявлений.
+#
+# Отдельная запись, а не функция в каждом месте, где читают. Копий было
+# четыре, и одна из них отбрасывала отказ по правам.
+
+entries:
+  # butschster.windows.config:environment
+  #
+  # Библиотека объявляет СВОИ модули, права — у процесса, который её зовёт.
+  # Действие env.get обязано быть в его политике — сейчас это shell_runtime,
+  # shell_storage, explorer_window и window_scope у display и appwiz.
+  - name: environment
+    kind: library.lua
+    meta:
+      comment: Чтение окружения — сначала окружение процесса, потом файловое хранилище; отказ по правам отличим от «не задано», а умолчание его не прячет.
+    source: file://environment.lua
+    modules:
+      - env
+      - logger

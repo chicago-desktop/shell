@@ -12,7 +12,18 @@ local render = {}
 function render.placement(window: any, inner: any, cell: any, fonts: any, store: any): (any, any)
     local state: any = window.content_state
     if type(state) ~= "table" or state.sdk ~= 1 then return nil, "SDK: state version 1 expected" end
-    local plan = ui.plan(state.ui, inner.cols, inner.rows, state.interaction)
+    -- Форма проверяется целиком, а не одной версией: состояние без
+    -- `interaction` (окно, не видевшее ещё ни одного события, чужой
+    -- поставщик) роняло `ui.plan` на `interaction.menus` — и вместе с ним
+    -- кадр всей оболочки. Раскладке хватает пустого взаимодействия.
+    if type(state.ui) ~= "table" then return nil, "SDK: state.ui is not a component tree" end
+    -- Дерево, которое `ui.plan` не разложит, называется причиной, а не
+    -- бросает: ловить ошибку здесь `pcall` нельзя (chrome_pixels, paint_view),
+    -- а брошенная — роняла бы кадр всей оболочки.
+    local problem = ui.problem(state.ui)
+    if problem then return nil, "SDK: " .. tostring(problem) end
+    local interaction: any = type(state.interaction) == "table" and state.interaction or ui.interaction()
+    local plan = ui.plan(state.ui, inner.cols, inner.rows, interaction)
     local id = "win:" .. tostring(window.id) .. ":sdk"
     local raster, dirty = store.take(id, inner.cols, inner.rows, cell, tostring(window.state_revision or state.revision))
     if dirty then
@@ -77,7 +88,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             local node, rect = item.node, item.rect
             local x, y = (rect.x - 1) * cell.w + 1, (rect.y - 1) * cell.h + 1
             local w, h = rect.w * cell.w, rect.h * cell.h
-            local focused = state.interaction.focus == node.id
+            local focused = interaction.focus == node.id
             if node.kind == "calendar" then
                 -- Календарь: дни недели, сетка месяца, сегодня синим.
                 if font then
@@ -206,7 +217,9 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 -- Дерево, как в regedit: пунктирные линии предков, крестики,
                 -- значки папок и записей, выделение только на подписи.
                 local rows = ui.entries(node)
-                raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
+                -- Недоступное — лицом и серым текстом, без выделения, как
+                -- недоступное поле ввода: иначе оно выглядит рабочим и молчит.
+                raster:rect(whole(x), whole(y), whole(w), whole(h), node.disabled and color.face or color.field)
                 local function dotted_v(px: any, from: any, to: any)
                     for py = whole(from), whole(to), 2 do raster:rect(whole(px), py, 1, 1, color.shadow) end
                 end
@@ -247,10 +260,10 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                         local label_x = x + columns.label * cell.w
                         local room = x + w - cell.w - label_x - 4
                         local caption = pixels.ellipsize(font, tostring(line.label or ""), whole(math.max(0, room)))
-                        local selected = item.selected_index == index
+                        local selected = not node.disabled and item.selected_index == index
                         if selected then raster:rect(whole(label_x - 2), whole(top + 2), whole(font:measure(caption)) + 4, whole(cell.h - 4), color.select_bg) end
                         raster:text(whole(label_x), whole(top + (cell.h - 15) // 2), caption,
-                            {font = font, color = selected and color.select_fg or color.field_text})
+                            {font = font, color = selected and color.select_fg or (node.disabled and color.shadow or color.field_text)})
                     end
                 end
                 pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)
@@ -390,7 +403,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     end
                 end
             elseif node.kind == "menu" then
-                local open: any = state.interaction.menus and state.interaction.menus[node.id] or nil
+                local open: any = interaction.menus and interaction.menus[node.id] or nil
                 strip(item, x, y, nil, open and open.index or nil)
             elseif node.kind == "table" then
                 -- Та же раскладка колонок, что в ячейках; заголовок — выпуклые
@@ -398,7 +411,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 local columns = ui.columns(node, rect.w - 1)
                 local rows = ui.entries(node)
                 local header = whole(item.header)
-                raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
+                raster:rect(whole(x), whole(y), whole(w), whole(h), node.disabled and color.face or color.field)
                 if header > 0 then
                     raster:rect(whole(x), whole(y), whole(w), whole(cell.h), color.face)
                     for _, column in ipairs(columns) do
@@ -411,7 +424,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 for row = 0, rect.h - 1 - header do
                     local index = item.offset + row + 1
                     local record: any = rows[index]
-                    local selected = item.selected_index == index
+                    local selected = not node.disabled and item.selected_index == index
                     local row_y = y + (row + header) * cell.h
                     if selected then raster:rect(whole(x), whole(row_y), whole(w - cell.w), whole(cell.h), color.select_bg) end
                     if record then
@@ -419,7 +432,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                         for col, column in ipairs(columns) do
                             local value = tostring(values[col] or "")
                             local cx, cw = x + column.x * cell.w, column.w * cell.w
-                            local tint = selected and color.select_fg or color.field_text
+                            local tint = selected and color.select_fg or (node.disabled and color.shadow or color.field_text)
                             if column.align == "right" and font then
                                 local shown = pixels.ellipsize(font, value, whole(math.max(0, cw - 8)))
                                 local measured = whole(font:measure(shown))
@@ -435,7 +448,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 -- (`pixels.icon` сам откатывается на примитивы), подпись в две
                 -- строки под ним, синий прямоугольник ОБНИМАЕТ подпись, а не
                 -- колонку — по нему в Windows и видно, где кончается имя.
-                raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
+                raster:rect(whole(x), whole(y), whole(w), whole(h), node.disabled and color.face or color.field)
                 local side = 32
                 for _, spot in ipairs(item.cells or {}) do
                     local box: any = spot.box
@@ -449,11 +462,12 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     for line_index, line in ipairs(lines) do
                         local measured = font and whole(font:measure(line)) or 0
                         local left = bx + (bw - measured) // 2
-                        if spot.selected then
+                        local chosen = spot.selected and not node.disabled
+                        if chosen then
                             raster:rect(whole(left - 1), whole(top - 1), whole(measured + 2), 16, color.select_bg)
                         end
                         raster:text(whole(left), whole(top), line, {font = font,
-                            color = spot.selected and color.select_fg or color.field_text})
+                            color = chosen and color.select_fg or (node.disabled and color.shadow or color.field_text)})
                         top = top + 15
                         if line_index >= 2 then break end
                     end
@@ -461,15 +475,16 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "list" then
-                raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
+                raster:rect(whole(x), whole(y), whole(w), whole(h), node.disabled and color.face or color.field)
                 for row = 0, rect.h - 1 do
                     local index = item.offset + row + 1
-                    local selected = item.selected_index == index
+                    local selected = not node.disabled and item.selected_index == index
                     local value: any = (node.items or {})[index]
                     local label = type(value) == "table" and value.text or value
                     local row_y = y + row * cell.h
                     if selected then raster:rect(whole(x), whole(row_y), whole(w - cell.w), whole(cell.h), color.select_bg) end
-                    text(x + 3, row_y, w - cell.w - 6, cell.h, label, selected and color.select_fg or color.field_text)
+                    text(x + 3, row_y, w - cell.w - 6, cell.h, label,
+                        selected and color.select_fg or (node.disabled and color.shadow or color.field_text))
                 end
                 pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
@@ -482,7 +497,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 local bx, bw = x + pad, w - pad * 2
                 local bh = node.fill and whole(h) - pad * 2 or math.min(23, whole(h))
                 local by = node.fill and whole(y + pad) or whole(y + (h - bh) // 2)
-                local armed = state.interaction.armed
+                local armed = interaction.armed
                 local face_font: any = (node.bold and fonts and fonts.bold) or font
                 pixels.button(raster, bx, by, bw, bh, {label = node.text, font = face_font,
                     default = ui.default_look(plan, node, focused), focused = focused, disabled = node.disabled,
@@ -503,7 +518,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 y, h = y + (h - fh) // 2, fh
                 pixels.field(raster, whole(x), whole(y), whole(w), whole(h))
                 if node.disabled then raster:rect(whole(x + 2), whole(y + 2), whole(w - 4), whole(h - 4), color.face) end
-                local editing = state.interaction.editors[node.id]
+                local editing = interaction.editors[node.id]
                 local shown, caret = editor.visible(editor.shown(node), editing, rect.w)
                 if focused and editing and editing.selected then
                     raster:rect(whole(x + 3), whole(y + 2), whole(math.max(1, w - 6)), whole(math.max(1, h - 4)), color.select_bg)
@@ -535,7 +550,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
         local font = fonts and fonts.face
         for _, item in ipairs(plan.overlays or {}) do
             local popup: any = item.popup
-            local open: any = state.interaction.menus[item.node.id]
+            local open: any = interaction.menus[item.node.id]
             local px, py = (popup.rect.x - 1) * cell.w + 1, (popup.rect.y - 1) * cell.h + 1
             local pw = popup.rect.w * cell.w
             -- Поля панели — В ПИКСЕЛЯХ, а не в ячейках. Прямоугольник меню

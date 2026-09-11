@@ -352,6 +352,55 @@ function chrome_pixels.draw_icon(raster, box: any, item: any, selected)
     end
 end
 
+-- ─── отказ раскладки стола ───────────────────────────────────────────────
+--
+-- «Раскладка не прочитана» и «на столе пусто» — разные утверждения, и тема
+-- в ячейках их различает (`chrome.fill`). Здесь `failure` не читался вовсе:
+-- нечитаемая раскладка выглядела пустым столом, и человек шёл искать ярлыки,
+-- которых не терял.
+--
+-- Место то же, что у темы в ячейках: третья колонка, строка под верхом стола,
+-- не шире сорока восьми ячеек. Причина переносится по ИЗМЕРЕННОЙ ширине, а не
+-- срезается: у ошибки базы самое нужное — имя таблицы — стоит в конце.
+local FAILURE_HEADER = "layout not read:"
+local FAILURE_WIDTH = 48
+local FAILURE_LINES = 3
+local FAILURE_PAD = 8
+local LINE_STEP = 15
+
+local function paint_failure(cell: any, view: any): any
+    local fonts: any = chrome_pixels.fonts
+    local face: any = type(fonts) == "table" and fonts.face or nil
+    local bold: any = type(fonts) == "table" and fonts.bold or face
+    local cols = math.min(FAILURE_WIDTH, whole(view.width) - 4)
+    if cols < 12 or not face then return nil end
+    local cw, ch = whole(cell.w), whole(cell.h)
+    local row = math.max(1, whole(view.top)) + 1
+    local bottom = whole(view.bottom)
+    if bottom < 1 or bottom > whole(view.height) then bottom = whole(view.height) end
+
+    -- Строк причины — сколько влезает над панелью задач, но не больше трёх.
+    local fit = ((bottom - row + 1) * ch - FAILURE_PAD * 2) // LINE_STEP - 1
+    if fit < 1 then return nil end
+    local reason = tostring(view.failure)
+    local lines = pixels.wrap(face, reason, cols * cw - FAILURE_PAD * 2, math.min(FAILURE_LINES, fit))
+    local rows = (FAILURE_PAD * 2 + LINE_STEP * (#lines + 1) + ch - 1) // ch
+
+    local id = "desk:failure"
+    local key = reason .. "\31" .. tostring(cols) .. "x" .. tostring(rows) .. "\31" .. tostring(face:size())
+    local raster, dirty = store.take(id, cols, rows, cell, key)
+    if dirty then
+        pixels.panel(raster, 1, 1, cols * cw, rows * ch)
+        local left, top = 1 + FAILURE_PAD, 1 + FAILURE_PAD
+        raster:text(left, top, FAILURE_HEADER, {font = bold, color = color.alert})
+        for index, line in ipairs(lines) do
+            raster:text(left, top + index * LINE_STEP, line, {font = face, color = color.face_text})
+        end
+    end
+    -- Слой стола: окно, накрывшее табличку, обрезает её, как значок.
+    return {id = id, raster = raster, x = 3, y = row, cols = cols, rows = rows, layer = 0}
+end
+
 -- ─── рамка окна ──────────────────────────────────────────────────────────
 
 -- Содержимое окна-вида. Отказ любой природы — нет библиотеки, вид ещё ждёт
@@ -368,6 +417,14 @@ local function paint_view(cell: any, window: any, fonts: any, out, inner: any)
         why = type(state.caption) == "string" and state.caption ~= "" and state.caption
             or "waiting for data…"
     else
+        -- БЕЗ `pcall`, и это не недосмотр. Ошибка, пойманная `pcall`, в
+        -- go-lua рвёт upvalue не только у кадра, звавшего `pcall`, но и у
+        -- кадров НИЖЕ (тест в sdk_test, «go-lua: ошибка под pcall…»). Здесь
+        -- ниже — цикл композитора основы, чьи замыкания пишут его локальные
+        -- (`refuse` → `notice`): поймай мы ошибку вида, композитор молча
+        -- разошёлся бы сам с собой. Поэтому вид обязан не бросать, а
+        -- отказывать: `render.placement` проверяет дерево `ui.problem` и
+        -- возвращает причину, а она становится текстом ниже.
         placed, why = lib.placement(window, inner, cell, fonts, store)
     end
 
@@ -495,14 +552,19 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
     end
 end
 
+-- Меньше шести ячеек под строку состояния — не рисуется вовсе, как у темы в
+-- ячейках: три буквы и многоточие читаются мусором, а не сообщением.
+local STATUS_LEAST = 6
+
 local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     local w, h = whole(state.width), whole(state.height)
     local rows = taskbar_rows()
     local top = h - rows + 1
     local face: any = type(fonts) == "table" and fonts.face or nil
     local bold: any = type(fonts) == "table" and fonts.bold or face
+    local status = type(state.status) == "string" and state.status or ""
     local key = {tostring(w), tostring(state.clock or ""), tostring(state.focused_id or ""),
-                 (state.menu and not state.menu.anchor) and "open" or "closed"}
+                 (state.menu and not state.menu.anchor) and "open" or "closed", status}
     for _, window in ipairs(state.windows or {}) do
         key[#key + 1] = tostring(window.id) .. ":" .. tostring(window.title)
             .. ":" .. tostring(window.image) .. ":" .. tostring(window.minimized)
@@ -547,6 +609,19 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
         hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
             from = at, to = at + span - 1, id = window.id}
         at = at + span
+    end
+    -- Строка состояния — в том, что осталось между кнопками окон и часами,
+    -- как у темы в ячейках (`chrome.bars`). Без неё пропадают сообщения
+    -- композитора — «не открылось: …», жалоба на негодный кадр темы, —
+    -- которые больше нигде не показываются: лог терминального хоста заглушён.
+    -- Часы занимают ячейки от `w - 8` до края.
+    local rest = w - 8 - at
+    if dirty and face and status ~= "" and rest >= STATUS_LEAST then
+        local caption = pixels.ellipsize(face, status, rest * cell.w - 8)
+        if caption ~= "" then
+            bar:text((at - 1) * cell.w + 5, button_y + (button_h - 15) // 2, caption,
+                {font = face, color = color.shadow})
+        end
     end
     if dirty then
         local x, cw = (w - 9) * cell.w + 1, 9 * cell.w - 4
@@ -789,7 +864,16 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
 
     -- Значки стола — под окнами, поэтому первыми: порядок списка и есть
     -- порядок рисования.
-    for _, entry in ipairs(view.items or {}) do
+    --
+    -- Отказ раскладки — вместо значков, а не рядом с ними, как у темы в
+    -- ячейках: значков непрочитанной раскладки никто не обещал.
+    local items: any = view.items or {}
+    if view.failure then
+        items = {}
+        local plate: any = paint_failure(cell, view)
+        if plate then out[#out + 1] = plate end
+    end
+    for _, entry in ipairs(items) do
         local item: any = entry
         local x = whole(item.x)
         local y = whole(item.y)
