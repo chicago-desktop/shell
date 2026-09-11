@@ -6,9 +6,9 @@ function definition.init(args: any, context: any): any
     local items = {}
     for index = 1, 80 do items[index] = {text = string.format("Document %02d", index), id = index} end
     -- The application's own channel: here it is a timer, in real life the compositor's answer or
-    -- a subscription. It fires once and becomes a message. In the layout harness
-    -- the context is bare, there is no channel there.
-    if context.watch then context.watch(time.after("150ms")) end
+    -- a subscription. It fires once and becomes a message. Every context has
+    -- `watch` — the loop's and a test's (`app.context`) alike.
+    context.watch(time.after("150ms"))
     return {items = items, selected = 1, text = args or "Example", message = "Select a document", checked = true}
 end
 function definition.view(model: any, context: any): any
@@ -23,8 +23,7 @@ function definition.view(model: any, context: any): any
                 {kind = "label", text = "Wheel · Page Down · Home / End"},
             }},
         }},
-        {kind = "row", size = 2, gap = 1, children = {
-            {kind = "label", text = ""},
+        {kind = "row", size = 2, gap = 1, align = "right", children = {
             {kind = "button", id = "show", size = 12, text = "Show", default = true},
             {kind = "button", id = "stop", size = 12, text = "Stop", disabled = true},
             {kind = "button", id = "crash", size = 11, text = "Crash"},
@@ -41,10 +40,9 @@ function definition.update(model: any, action: any, context: any)
     elseif action.id == "show" then model.message = model.text
     elseif action.id == "crash" then error("on purpose: the \"Crash\" button")
     elseif action.type == "channel" then model.message = "channel fired"
-    elseif action.type == "key" and action.key_type == "esc" then context.close()
-    elseif action.id == "close" then context.close() end
+    elseif action.id == "close" then context.close()
+    else return false end
 end
-local function main(first: any, id: any, args: any, viewport: any)
-    app.run(definition, first, id, args, viewport)
-end
-return {main = main, definition = definition}
+-- Esc closes the window: the loop does it for an Esc `update` did not take.
+definition.close_on_escape = true
+return {main = app.main(definition), definition = definition}

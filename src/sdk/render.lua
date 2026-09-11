@@ -444,7 +444,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                         local cx, cw = x + column.x * cell.w, column.w * cell.w + cell.w
                         if column.x + column.w >= rect.w - 1 then cw = column.w * cell.w end
                         pixels.bevel(raster, whole(cx), whole(y), whole(cw), whole(cell.h), true)
-                        text(cx + 4, y, cw - 8, cell.h, column.title)
+                        text(cx + cell.w, y, cw - cell.w, cell.h, column.title)
                     end
                 end
                 for row = 0, rect.h - 1 - header do
@@ -459,11 +459,13 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                             local value = tostring(values[col] or "")
                             local cx, cw = x + column.x * cell.w, column.w * cell.w
                             local tint = selected and color.select_fg or (node.disabled and color.shadow or color.field_text)
+                            -- Text starts one cell in; a right-aligned value ends
+                            -- one cell before its column's end — the rule of cells.
                             if column.align == "right" and font then
-                                local shown = pixels.ellipsize(font, value, whole(math.max(0, cw - 8)))
+                                local shown = pixels.ellipsize(font, value, whole(math.max(0, cw - cell.w)))
                                 local measured = whole(font:measure(shown))
-                                text(cx + math.max(4, cw - 4 - measured), row_y, cw - 4, cell.h, shown, tint)
-                            else text(cx + 4, row_y, cw - 8, cell.h, value, tint) end
+                                text(cx + math.max(cell.w, cw - cell.w - measured), row_y, cw - cell.w, cell.h, shown, tint)
+                            else text(cx + cell.w, row_y, cw - cell.w, cell.h, value, tint) end
                         end
                     end
                 end
@@ -509,7 +511,8 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     local label = type(value) == "table" and value.text or value
                     local row_y = y + row * cell.h
                     if selected then raster:rect(whole(x), whole(row_y), whole(w - cell.w), whole(cell.h), color.select_bg) end
-                    text(x + 3, row_y, w - cell.w - 6, cell.h, label,
+                    -- Text starts one cell in, as in a table and in cells.
+                    text(x + cell.w, row_y, w - 2 * cell.w, cell.h, label,
                         selected and color.select_fg or (node.disabled and color.shadow or color.field_text))
                 end
                 pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)

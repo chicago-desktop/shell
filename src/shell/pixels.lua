@@ -235,7 +235,7 @@ end
 --
 -- The two bevels take 2 px per side, and a caption that fits between them is
 -- drawn whole and centred, with no further padding. Only a longer caption is
--- ellipsized, and never down to the ellipsis alone: "..." names no button,
+-- ellipsized, and never down to the ellipsis alone: "…" names no button,
 -- so then the caption is cut to the runes that fit.
 --
 -- Measured with the shell's bold Liberation Sans 13: "MC" is 20 px, "sqrt"
@@ -250,7 +250,7 @@ function pixels.caption(font, text, width: any): string
     if room <= 0 then return "" end
     if whole(font:measure(caption)) <= room then return caption end
     local short = pixels.ellipsize(font, caption, room)
-    if short ~= "" and short ~= "..." then return short end
+    if short ~= "" and short ~= "…" then return short end
     local kept = ""
     for _, rune in ipairs(text_lib.runes(caption)) do
         if whole(font:measure(kept .. rune)) > room then break end
@@ -465,12 +465,13 @@ function pixels.button_span(font, labels, cell: any, least: any): integer
     return math.tointeger(span) or 1
 end
 
--- Clip captions using the actual font rather than character counts.
+-- Clip captions using the actual font rather than character counts. The cut
+-- is marked with "…", the same mark as in the cell renderer.
 function pixels.ellipsize(font, text, room: any)
     local caption = tostring(text or "")
     if not font or whole(room) <= 0 then return "" end
     if whole(font:measure(caption)) <= whole(room) then return caption end
-    local ending = "..."
+    local ending = "…"
     if whole(font:measure(ending)) > whole(room) then return "" end
     local kept = ""
     for _, rune in ipairs(text_lib.runes(caption)) do

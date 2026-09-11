@@ -66,12 +66,11 @@ function definition.view(model, context)
 end
 function definition.update(model, action, context)
     if action.id == "documents" and action.type == "select" then model.selected = action.index
-    elseif action.id == "close" then context.close() end
+    elseif action.id == "close" then context.close()
+    else return false end
 end
-local function main(first, id, args, viewport)
-    app.run(definition, first, id, args, viewport)
-end
-return {main = main}
+definition.close_on_escape = true
+return {main = app.main(definition), definition = definition}
 ```
 
 A ready runnable example with two panes and input:
@@ -85,7 +84,8 @@ Handlers stay in the application process. `view` returns the tree for the
 current data; `update` changes the model on a component's action.
 
 - `column`: vertical placement of `children`.
-- `row`: horizontal placement of `children`.
+- `row`: horizontal placement of `children`. `align = "right"` puts children of a
+  fixed `size` against the far end (with a flexible child there is nothing to align).
 - `split`: horizontal panes, shares via `weight`. The divider is fixed for now.
 - Containers' `padding` and `gap` are non-negative integer **cells**.
   `padding_top` / `padding_right` / `padding_bottom` / `padding_left`
@@ -105,9 +105,9 @@ current data; `update` changes the model on a component's action.
 - `image`: `image` (a name from the icon catalog), `icon` (a character for cells),
   `size_px` (32 by default). A dialog icon: a raster in pixels, a single character
   in cells. Does not take focus, no `id` needed.
-- Buttons in a row stand at the RIGHT edge (shell rule, 2026-09-09): the first
-  child of the row is an empty `label` without a size, it takes the remainder; buttons
-  with a fixed `size` follow it through `gap`. That is how "Run…" does it.
+- Buttons in a row stand at the RIGHT edge (shell rule, 2026-09-09): the row says
+  `align = "right"`, the buttons have a fixed `size` and follow each other through
+  `gap`. That is how "Run…" does it.
 - `button`: `id`, `text`, `disabled`, `default`; the `activate` action on releasing the left button inside,
   or on Enter or Space. Releasing outside the button cancels the press.
   `default` is a black outline in both modes: what Enter will do, and a dialog has
@@ -131,6 +131,7 @@ current data; `update` changes the model on a component's action.
   already selected item as a double click. An optional `reveal` is the row number
   that must be shown; it is applied once per value (the chat log sets
   `reveal = #items` and brings the new message into view without knocking the human's scrolling off).
+  Row text starts one cell in, in both renderers.
 - `table`: `id`, `columns`, `rows`, `selected`, `wheel_step`. A column is
   `{title, width | weight, align = "left" | "right"}`: `width` in cells
   fixes it, otherwise the remainder is divided by `weight`; one cell between columns.
@@ -139,7 +140,11 @@ current data; `update` changes the model on a component's action.
   rectangle is the header: raised column buttons, as in Explorer;
   a click on it selects nothing. Selection, keys, wheel and scrollbar are the same
   as for `list`, the `select`/`activate` actions carry `index` and the row.
-  There is no sorting or cell editing: this is a table for reading.
+  There is no sorting or cell editing: this is a table for reading. Text in a cell
+  starts one cell in, and a right-aligned value ends one cell before its column's
+  end — the same in cells and pixels. `static = true` is a table nobody selects
+  (the "name — value" pairs of a properties sheet): it needs no `id`, takes no
+  focus and no clicks, and keeps no scroll offset.
 - `tree`: `id`, `rows`, `selected`, `wheel_step`. A row is a visible row of the
   flattened tree: `{id, label, depth, has_children, expanded, trail,
   kind = "folder" | "entry", image?}`; `trail` says, per ancestor level, whether that
@@ -233,9 +238,14 @@ with antialiasing in `gfx.font(..., {smooth = true})`. Draw with the font you ar
 its setting applies with a plain `raster:text` too. Do not add a white
 backing and do not turn antialiasing off locally for the application's text.
 
-A normal button is drawn up to 23 px tall, an input field up to 24 px, centered in
-the allotted cells. The hit rectangle stays an integer number of cells. A list
-and a field have a double sunken bevel; a checkbox is a 13×13 px square.
+A button, an input field and a field occupy the middle cell row of their rectangle:
+in cells that row, in pixels the control grows around it to the Windows 95 size — a
+button up to 23 px, an input up to 24 px, a field up to 26 px (a `fill` button takes
+the whole rectangle). The hit rectangle stays an integer number of cells. Text that
+does not fit is cut with "…" in both renderers; each measures in its own unit — cells
+by cell width, pixels by the font — so pixels keep what the proportional font fits.
+In cells a button wider than its caption fills its room, the caption centred, as in
+pixels. A list and a field have a double sunken bevel; a checkbox is a 13×13 px square.
 Panel buttons can be given an equal `size` instead of stretching across the whole
 width of the window. For custom styling use these primitives,
 do not copy combinations of `panel` and `bevel` into the application.
@@ -263,13 +273,21 @@ actions, including `resize`, `tick`, `close` (the window is being closed from ou
 it cannot be cancelled, you can finish cleaning up) and `key` — a key that no component
 took (`key`, `key_type`, `alt`, `ctrl`, `shift`): that is how windows close on Esc and
 refresh on F5. Returning `false` from `update` means "nothing changed, do not
-redraw". For periodic data set `definition.interval = "1s"`.
+redraw". For periodic data set `definition.interval = "1s"`; a one-shot timer is
+`context.after(duration, tag)`, and the action `{type = "timer", tag = tag}` arrives
+once. `definition.close_on_escape = true` closes the window on an Esc that `update`
+did not take (returned `false`): a window with an open sheet closes the sheet in
+`update` first. A window file ends with
+`return {main = app.main(definition), definition = definition}`.
 `definition.title` is the window title, as a string or a function of the model, when it
 does not match the menu item's name (for "Run…" the item has an ellipsis, the window
 is "Run"); empty means the title from the registry entry.
 `dispose(model, context)` releases resources on a normal close. `context`
-contains `args`, `width`, `height`, `native`, `window_id`, `close()`, and also
-`watch(ch)` and `unwatch(ch)`: the application's own channel (a compositor reply from
+contains `args`, `width`, `height`, `native`, `window_id`, `close()`, `after(duration, tag)`,
+and also `watch(ch)` and `unwatch(ch)` — always, in a test too:
+`app.context({width = …, height = …})` builds the same context without a loop, and
+`app.dispatch(definition, model, context, action)` runs one action the way the loop
+does. The application's own channel (a compositor reply from
 `desktop.replies()`, a subscription, a request timer) arrives as the action
 `{type = "channel", channel = ch, value = ..., ok = ...}`; a closed channel
 unsubscribes itself. So a long request does not block the window: send —

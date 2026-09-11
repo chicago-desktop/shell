@@ -157,12 +157,11 @@ function definition.update(state: any, action: any, context: any)
     elseif action.type == "activate" and action.id == "close" then
         context.close()
     elseif action.type == "key" then
-        if action.key_type == "esc" then
-            if state.sheet or state.about then
-                state.sheet, state.about = nil, false
-                return true
-            end
-            context.close()
+        -- Esc leaves an open sheet first; otherwise it is not taken here, and
+        -- the loop closes the window (`close_on_escape`).
+        if action.key_type == "esc" and (state.sheet or state.about) then
+            state.sheet, state.about = nil, false
+            return true
         elseif action.key_type == "f5" or action.key == "F5" then
             state.snapshot = snapshot()
             return true
@@ -174,8 +173,6 @@ function definition.update(state: any, action: any, context: any)
     end
 end
 
-local function main(first: any, id: any, args: any, viewport: any)
-    app.run(definition, first, id, args, viewport)
-end
+definition.close_on_escape = true
 
-return {main = main, definition = definition}
+return {main = app.main(definition), definition = definition}

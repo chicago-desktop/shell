@@ -201,9 +201,10 @@ local function define_tests()
             network.definition.update(state, {type = "key", key_type = "esc"}, {})
             test.is_false(state.about, "Escape leaves About instead of closing the window")
             local closed = false
-            network.definition.update(state, {type = "key", key_type = "esc"},
-                {close = function() closed = true end})
-            test.is_true(closed, "the second Escape closes")
+            test.eq(network.definition.update(state, {type = "key", key_type = "esc"},
+                {close = function() closed = true end}), false, "the second Escape is not taken by update")
+            test.is_false(closed)
+            test.is_true(network.definition.close_on_escape, "so the loop closes the window on it")
         end)
     end)
 

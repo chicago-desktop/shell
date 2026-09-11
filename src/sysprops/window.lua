@@ -158,8 +158,7 @@ function definition.view(state: any, context: any): any
     else page = general(state) end
     return {kind = "column", padding = 1, padding_bottom = 0, gap = 0, children = {
         {kind = "tabs", id = "pages", labels = labels, active = state.tab, padding = 1, children = {page}},
-        {kind = "row", size = 2, gap = 1, children = {
-            {kind = "label", text = ""},
+        {kind = "row", size = 2, gap = 1, align = "right", children = {
             {kind = "button", id = "ok", size = 10, text = "OK", default = true},
             {kind = "button", id = "cancel", size = 10, text = "Cancel"},
         }},
@@ -181,12 +180,11 @@ function definition.update(state: any, action: any, context: any)
             if action.type == "activate" and row.has_children then state.expanded[row.id] = not state.expanded[row.id] end
         end
     elseif action.id == "ok" or action.id == "cancel" then context.close()
-    elseif action.type == "key" and (action.key_type == "esc" or action.key_type == "enter") then context.close()
+    elseif action.type == "key" and action.key_type == "enter" then context.close()
     else return false end
 end
 
-local function main(first: any, id: any, args: any, viewport: any)
-    app.run(definition, first, id, args, viewport)
-end
+-- Esc closes the window: the loop does it for an Esc `update` did not take.
+definition.close_on_escape = true
 
-return {main = main, definition = definition, snapshot = snapshot}
+return {main = app.main(definition), definition = definition, snapshot = snapshot}

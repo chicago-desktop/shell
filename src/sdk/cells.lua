@@ -8,11 +8,21 @@ local geometry = require("geometry")
 local editor = require("editor")
 local whole = geometry.whole
 local cells = {}
+-- A cut is marked, as in pixels: text wider than its room loses its tail to
+-- "…". Each backend measures in its own unit — here cells, there the font —
+-- so the pixel text keeps what the proportional font fits.
+local function ellipsized(value: any, room: any): string
+    local shown = tostring(value)
+    local width = whole(room)
+    if widgets.cells(shown) <= width then return shown end
+    if width <= 1 then return widgets.clip(shown, width) end
+    return widgets.clip(shown, width - 1) .. "…"
+end
 function cells.rows(plan: any, interaction: any, width: any, height: any): any
     local canvas = tty.canvas(whole(math.max(1, width)), whole(math.max(1, height)))
     canvas:clear(widgets.styles.face:render(" "))
     local function put(x: any, y: any, text: any, w: any, style: any)
-        if w > 0 then canvas:put(whole(x), whole(y), widgets.fit(style, tostring(text), whole(w)), whole(w)) end
+        if w > 0 then canvas:put(whole(x), whole(y), widgets.fit(style, ellipsized(text, w), whole(w)), whole(w)) end
     end
     local styles = widgets.styles
     -- The scrollbar of a list, table, tree and icon grid is one and the same as
@@ -114,15 +124,15 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             put(r.x + math.max(0, (r.w - 8) // 2), r.y + r.h // 2, digital, math.min(r.w, 8), styles.field)
         elseif node.kind == "field" then
             -- A sunken read-only field: the calculator display, the memory
-            -- box. Text is aligned right or left, the excess is clipped.
+            -- box. Text is aligned right or left, a cut is marked. The field is
+            -- one cell row, the middle one of its rect, like a button or an
+            -- input; the other rows stay face (pixels grow it around that row
+            -- to the Windows 95 size instead).
             local inner = math.max(0, whole(r.w) - 2)
-            local shown = widgets.clip(tostring(node.text or ""), inner)
+            local shown = ellipsized(node.text or "", inner)
             local pad = math.max(0, inner - widgets.cells(shown))
             local text = node.align == "right" and (string.rep(" ", pad) .. shown) or (shown .. string.rep(" ", pad))
-            for row = 0, r.h - 1 do
-                local line = row == r.h // 2 and text or string.rep(" ", inner)
-                canvas:put(whole(r.x), whole(r.y + row), widgets.bezel(styles.field:render(line), true), whole(r.w))
-            end
+            canvas:put(whole(r.x), whole(r.y + r.h // 2), widgets.bezel(styles.field:render(text), true), whole(r.w))
         elseif node.kind == "monitor" then
             -- In cells the monitor is a face-colored frame with a desktop-colored screen inside.
             local screen = tty.style():background(tostring(node.color or "#008080"))
@@ -194,8 +204,10 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                     local values: any = type(record) == "table" and (record.cells or record) or {record}
                     for col, column in ipairs(columns) do
                         local value = tostring(values[col] or "")
+                        -- Text starts one cell in; a right-aligned value ends one
+                        -- cell before its column's end. The same rule in pixels.
                         if column.align == "right" then
-                            local clipped = widgets.clip(value, column.w - 1)
+                            local clipped = ellipsized(value, column.w - 1)
                             value = string.rep(" ", math.max(0, column.w - 1 - widgets.cells(clipped))) .. clipped
                         else value = " " .. value end
                         put(r.x + column.x, y, value, column.w, style)
@@ -251,7 +263,8 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 local index = item.offset + row + 1
                 local value: any = (node.items or {})[index]
                 local label = type(value) == "table" and value.text or value
-                put(r.x, r.y + row, label or "", r.w - 1,
+                -- Text starts one cell in, as in a table and in pixels.
+                put(r.x, r.y + row, label ~= nil and (" " .. tostring(label)) or "", r.w - 1,
                     not node.disabled and item.selected_index == index and styles.select or ground)
             end
             scrollbar(r.x + r.w - 1, r.y, r.h, item.offset, item.page, #(node.items or {}))

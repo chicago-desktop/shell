@@ -122,15 +122,16 @@ function definition.update(state: any, action: any, context: any)
         fresh.rows = model.flatten(fresh.root, fresh.expanded)
         for key, value in pairs(fresh) do state[key] = value end
         if not model.find(state.root, state.selected) then state.selected = state.root.key end
-    elseif action.id == "exit" or (action.type == "key" and action.key_type == "esc") then
+    elseif action.id == "exit" then
         context.close()
     else return false end
 end
 
-window.definition = definition
+-- Esc closes the window: the loop does it for an Esc `update` did not take
+-- (an open "About" sheet takes it above).
+definition.close_on_escape = true
 
-function window.main(first: any, id: any, args: any, viewport: any)
-    app.run(definition, first, id, args, viewport)
-end
+window.definition = definition
+window.main = app.main(definition)
 
 return window

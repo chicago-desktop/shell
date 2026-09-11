@@ -242,7 +242,9 @@ end
 -- side are the full look; a caption that does not fit with the spaces is
 -- drawn without them, and one that does not fit even so is cut, never
 -- replaced by an ellipsis. So a four-cell calculator key shows "MC" whole
--- instead of " MC" with the right bevel cut off.
+-- instead of " MC" with the right bevel cut off. A button wider than its
+-- caption fills its room, the caption centred, as in pixels: keys of one
+-- calculator column are then the same width.
 function widgets.button(label, opts)
     local options: any = type(opts) == "table" and opts or {}
     local caption = tostring(label or "")
@@ -252,6 +254,11 @@ function widgets.button(label, opts)
         local inner = room - 2 - (options.default and 2 or 0)
         if cells(text) > inner then
             text, lead = cells(caption) <= inner and caption or clip(caption, math.max(0, inner)), 0
+        end
+        if cells(text) < inner then
+            local spare = inner - cells(text)
+            local left = spare // 2
+            text, lead = string.rep(" ", left) .. text .. string.rep(" ", spare - left), lead + left
         end
     end
     local face = styles.face

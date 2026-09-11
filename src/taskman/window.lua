@@ -202,8 +202,7 @@ function definition.view(state: any, context: any): any
     for index, tab in ipairs(model.TABS) do labels[index] = tab.text end
     return {kind = "column", gap = 0, children = {
         {kind = "tabs", id = "pages", labels = labels, active = state.tab, padding = 1, children = {page(state, context)}},
-        {kind = "row", size = 2, gap = 1, children = {
-            {kind = "label", text = ""},
+        {kind = "row", size = 2, gap = 1, align = "right", children = {
             {kind = "button", id = "refresh", size = 12, text = "Refresh"},
         }},
         {kind = "statusbar", size = 1, fields = {
@@ -231,8 +230,4 @@ function definition.update(state: any, action: any, context: any)
     else return false end
 end
 
-local function main(first: any, id: any, args: any, viewport: any)
-    app.run(definition, first, id, args, viewport)
-end
-
-return {main = main, definition = definition}
+return {main = app.main(definition), definition = definition}

@@ -25,7 +25,7 @@ function definition.init(args: any, context: any): any
     local answers, err = desktop.replies()
     if answers then
         state.answers = answers
-        if context.watch then context.watch(answers) end
+        context.watch(answers)
     else
         state.failure = "the compositor reply channel did not open: " .. tostring(err)
     end
@@ -57,11 +57,10 @@ function definition.view(state: any, context: any): any
             {kind = "label", size = 5, text = "Open:"},
             {kind = "input", id = "command", text = state.text},
         }},
-        -- Buttons in a row always go to the right edge (a shell rule): an
-        -- empty label without a size takes the remainder on the left. Right
-        -- under the field, with no line between them, as in Windows 95.
-        {kind = "row", size = 2, gap = 1, children = {
-            {kind = "label", text = ""},
+        -- Buttons in a row always go to the right edge (a shell rule), which
+        -- `align = "right"` does. Right under the field, with no line between
+        -- them, as in Windows 95.
+        {kind = "row", size = 2, gap = 1, align = "right", children = {
             {kind = "button", id = "ok", size = 10, text = "OK", default = true, disabled = state.pending},
             {kind = "button", id = "cancel", size = 10, text = "Cancel", disabled = state.pending},
             {kind = "button", id = "browse", size = 10, text = "Browse…", disabled = state.pending},
@@ -113,7 +112,7 @@ function definition.update(state: any, action: any, context: any)
     elseif (action.id == "command" and action.type == "activate") or action.id == "ok" then
         if action.id == "command" then state.text = tostring(action.value or state.text) end
         launch(state, context)
-    elseif action.id == "cancel" or (action.type == "key" and action.key_type == "esc") then
+    elseif action.id == "cancel" then
         context.close()
     elseif action.id == "browse" and action.type == "activate" then
         browse(state)
@@ -122,8 +121,7 @@ function definition.update(state: any, action: any, context: any)
     else return false end
 end
 
-local function main(first: any, id: any, args: any, viewport: any)
-    app.run(definition, first, id, args, viewport)
-end
+-- Esc cancels the dialog: the loop closes it for an Esc `update` did not take.
+definition.close_on_escape = true
 
-return {main = main, definition = definition}
+return {main = app.main(definition), definition = definition}

@@ -8,13 +8,14 @@
 -- second table any more.
 --
 -- A key from the keyboard goes to the same button as a click (`engine.key`);
--- the button it pressed is highlighted for 150 ms — by its own timer channel,
--- not by the tick: a tick with nothing to do would burn frames.
+-- the button it pressed is highlighted for 150 ms — by a one-shot timer
+-- (`context.after`), not by the tick: a tick with nothing to do would burn
+-- frames. The timer's tag is the press number, so the timer of an earlier
+-- press does not put out the highlight of a later one.
 --
 -- The menu has only what works: "Help → About". There is no Edit — the
 -- window cannot reach the terminal's clipboard, and Copy/Paste would be mere
 -- labels; "View" with a single standard view has nothing to switch.
-local time = require("time")
 local app = require("app")
 local ui = require("ui")
 local engine = require("engine")
@@ -114,13 +115,13 @@ end
 local function press(state: any, id: any, context: any)
     state.calc = engine.press(state.calc, id)
     -- The highlight goes out by its own timer, the same for mouse and keyboard.
-    state.flash = time.after(FLASH)
-    if context.watch then context.watch(state.flash) end
+    state.flash = (state.flash or 0) + 1
+    context.after(FLASH, state.flash)
 end
 
 function definition.update(state: any, action: any, context: any)
-    if action.type == "channel" then
-        if action.channel ~= state.flash then return false end
+    if action.type == "timer" then
+        if action.tag ~= state.flash then return false end
         state.flash = nil
         state.calc.pressed = nil
         return true
@@ -143,8 +144,4 @@ function definition.update(state: any, action: any, context: any)
     else return false end
 end
 
-local function main(first: any, id: any, args: any, viewport: any)
-    app.run(definition, first, id, args, viewport)
-end
-
-return {main = main, definition = definition}
+return {main = app.main(definition), definition = definition}

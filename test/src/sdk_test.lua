@@ -106,7 +106,7 @@ local function define_tests()
 
         test.it("lays out disjoint controls at actual client sizes and clamps after data shrink", function()
             for _, size in ipairs({{60, 20}, {37, 12}, {10, 4}, {1, 1}}) do
-                local context = {width = size[1], height = size[2]}
+                local context = app.context({width = size[1], height = size[2]})
                 local model = fixture.definition.init(nil, context)
                 local interaction = ui.interaction()
                 interaction.offsets.documents = 999
@@ -129,7 +129,7 @@ local function define_tests()
             end
         end)
         test.it("shares wheel, page, keyboard selection and drag geometry", function()
-            local model = fixture.definition.init(nil, {})
+            local model = fixture.definition.init(nil, app.context({}))
             local state = ui.interaction()
             local tree = {kind = "list", id = "items", items = model.items, selected = 1}
             local plan = ui.plan(tree, 20, 10, state)
@@ -366,7 +366,7 @@ local function define_tests()
         test.it("reuses an unchanged raster and exports the real SDK controls", function()
             local font_files = assert(fs.get("app:system_fonts"))
             local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
-            local context = {width = 60, height = 20}
+            local context = app.context({width = 60, height = 20})
             local model = fixture.definition.init(nil, context)
             local state = {sdk = 1, revision = 1, ui = fixture.definition.view(model, context), interaction = ui.interaction()}
             local window = {id = "sdk-demo", state_revision = 1, content_state = state}
@@ -820,6 +820,167 @@ local function define_tests()
             ui.release(interaction)
             test.is_nil(interaction.armed)
             test.is_nil(interaction.capture)
+        end)
+    end)
+
+    -- One rule per divergence between the backends, expressed in cells. Cells
+    -- are read as row strings; pixels through a stub raster that records every
+    -- caption the renderer hands to `raster:text` and where it starts.
+    test.describe("Window SDK: one rule for cells and pixels", function()
+        local CELL = {w = 10, h = 20}
+        local function font(): any
+            local files = assert(fs.get("app:system_fonts"))
+            return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
+        end
+        local function captions(tree: any, cols: integer, rows: integer, face: any): any
+            local drawn: any = {list = {}}
+            local raster: any = {fill = function() end, rect = function() end, set = function() end, blit = function() end,
+                text = function(_, x, y, caption) drawn.list[#drawn.list + 1] = {x = x, y = y, text = caption}; return 0 end}
+            local store: any = {take = function() return raster, true end}
+            local placed, why = render.placement({id = "rule", state_revision = 1,
+                content_state = {sdk = 1, revision = 1, ui = tree}}, {x = 1, y = 1, cols = cols, rows = rows}, CELL, {face = face}, store)
+            assert(placed, tostring(why))
+            return drawn.list
+        end
+        local function caption_of(list: any, wanted: string): any
+            for _, entry in ipairs(list) do if entry.text == wanted then return entry end end
+            return nil
+        end
+        local function lines(tree: any, cols: integer, rows: integer): (any, any)
+            local interaction = ui.interaction()
+            local plan = ui.plan(tree, cols, rows, interaction)
+            local out = {}
+            for index, row in ipairs(cells.rows(plan, interaction, cols, rows)) do
+                out[index] = (tostring(row):gsub("\27%[[%d;:]*m", ""))
+            end
+            return out, plan
+        end
+
+        test.it("list and table text start one cell in; a right-aligned column ends one cell early", function()
+            local face = font()
+            local tree = {kind = "column", children = {
+                {kind = "list", id = "items", size = 3, items = {"one", "two"}},
+                {kind = "table", id = "sizes", size = 3,
+                    columns = {{title = "Name", weight = 1}, {title = "Size", width = 8, align = "right"}},
+                    rows = {{id = "a", cells = {"alpha", "12"}}}},
+            }}
+            local rows, plan = lines(tree, 30, 6)
+            local list, grid = plan.by_id.items.rect, plan.by_id.sizes.rect
+            local size = ui.columns(plan.by_id.sizes.node, grid.w - 1)[2]
+            -- Cells.
+            test.eq(rows[list.y]:sub(list.x, list.x + 3), " one", "cells: a list row starts one cell in")
+            local data = rows[grid.y + 1]
+            test.eq(data:sub(grid.x, grid.x + 5), " alpha", "cells: a table cell starts one cell in")
+            local ends_at = select(2, data:find("12", 1, true))
+            test.eq(ends_at, grid.x + size.x + size.w - 2, "cells: a right-aligned value ends one cell before its column's end")
+            -- Pixels: the same cells, in pixels.
+            local drawn = captions(tree, 30, 6, face)
+            local one, alpha, twelve = caption_of(drawn, "one"), caption_of(drawn, "alpha"), caption_of(drawn, "12")
+            test.eq(one and one.x, (list.x - 1) * CELL.w + 1 + CELL.w, "pixels: a list row starts one cell in")
+            test.eq(alpha and alpha.x, (grid.x - 1) * CELL.w + 1 + CELL.w, "pixels: a table cell starts one cell in")
+            test.eq(twelve and (twelve.x + face:measure("12")), (grid.x - 1 + size.x + size.w - 1) * CELL.w + 1,
+                "pixels: a right-aligned value ends one cell before its column's end")
+        end)
+
+        test.it("a caption that does not fit is cut with an ellipsis in both; one that fits is whole", function()
+            local face = font()
+            local long = "Changes take effect after wippy update and a restart"
+            local tree = {kind = "column", children = {
+                {kind = "label", size = 1, text = long},
+                {kind = "label", size = 1, text = "Short"},
+            }}
+            local rows = lines(tree, 20, 2)
+            local cut = rows[1]:gsub("%s+$", "")
+            test.eq(cut:sub(-3), "…", "cells: the cut is marked: " .. cut)
+            test.eq(long:find(cut:sub(1, -4), 1, true), 1, "cells: what is left is the start of the caption")
+            test.eq(rows[2]:gsub("%s+$", ""), "Short", "cells: a caption that fits is whole")
+            local drawn = captions(tree, 20, 2, face)
+            local first = drawn[1] and drawn[1].text or ""
+            test.eq(first:sub(-3), "…", "pixels: the cut is marked with the same ellipsis: " .. first)
+            test.eq(long:find(first:sub(1, -4), 1, true), 1, "pixels: what is left is the start of the caption")
+            test.not_nil(caption_of(drawn, "Short"), "pixels: a caption that fits is whole")
+        end)
+
+        test.it("a field takes one cell row in cells, the middle one, like a button", function()
+            local rows = lines({kind = "column", children = {{kind = "field", size = 3, text = "42"}}}, 12, 3)
+            test.is_nil(rows[1]:find("[^ ]"), "the row above the field is face: " .. rows[1])
+            test.not_nil(rows[2]:find("42", 1, true), "the middle row holds the field")
+            test.is_nil(rows[3]:find("[^ ]"), "the row below the field is face: " .. rows[3])
+        end)
+    end)
+
+    test.describe("Window SDK ergonomics", function()
+        test.it("app.main wraps app.run, and a bare context has watch, unwatch, after and close", function()
+            test.eq(type(app.main({})), "function")
+            local context = app.context({width = 20, height = 5})
+            test.eq(context.width .. "x" .. context.height, "20x5")
+            for _, name in ipairs({"watch", "unwatch", "after", "close"}) do
+                test.eq(type(context[name]), "function", "context." .. name)
+            end
+            local ch = time.after("1s")
+            context.watch(ch)
+            context.watch(ch)
+            test.eq(#context.watched, 1, "a channel is watched once")
+            context.unwatch(ch)
+            test.eq(#context.watched, 0)
+            context.close()
+            test.is_true(context.closing)
+        end)
+
+        test.it("context.after delivers one timer action with its tag, once", function()
+            local context = app.context({})
+            local ch = context.after("1ms", "flash")
+            local action = app.channel_action(context, channel.select({ch:case_receive()}))
+            test.eq(action.type .. ":" .. tostring(action.tag), "timer:flash")
+            test.eq(#context.timers, 0, "a one-shot timer is forgotten after it fires")
+            local other = time.after("1ms")
+            context.watch(other)
+            test.eq(app.channel_action(context, channel.select({other:case_receive()})).type, "channel",
+                "a watched channel stays a channel action")
+        end)
+
+        test.it("a row with align = right puts fixed children against its far end", function()
+            local function row(align: any): any
+                return ui.plan({kind = "row", align = align, gap = 1, children = {
+                    {kind = "button", id = "ok", size = 6, text = "OK"},
+                    {kind = "button", id = "cancel", size = 8, text = "Cancel"},
+                }}, 30, 2, ui.interaction())
+            end
+            local right = row("right")
+            test.eq(right.by_id.cancel.rect.x + right.by_id.cancel.rect.w - 1, 30, "the last button ends at the edge")
+            test.eq(right.by_id.ok.rect.x, 30 - (6 + 1 + 8) + 1, "the gap stays between them")
+            test.eq(row(nil).by_id.ok.rect.x, 1, "without align the row starts on the left")
+        end)
+
+        test.it("close_on_escape closes on an Esc update did not take, and not on one it did", function()
+            local definition = {close_on_escape = true, update = function(model: any, action: any)
+                if action.type == "key" and action.key_type == "esc" and model.sheet then model.sheet = false; return true end
+                return false
+            end}
+            local model, context = {sheet = true}, app.context({})
+            local esc = {type = "key", key = "esc", key_type = "esc"}
+            app.dispatch(definition, model, context, esc)
+            test.is_false(context.closing, "the first Esc closes the sheet")
+            app.dispatch(definition, model, context, esc)
+            test.is_true(context.closing, "the second closes the window")
+            local plain = app.context({})
+            app.dispatch({update = function() return false end}, {}, plain, esc)
+            test.is_false(plain.closing, "without the flag Esc stays the window's business")
+        end)
+
+        test.it("a static table needs no id, takes no focus and no clicks", function()
+            local tree = {kind = "column", children = {
+                {kind = "table", size = 3, static = true, columns = {{title = "Name"}}, rows = {{cells = {"a"}}}},
+                {kind = "button", id = "ok", size = 2, text = "OK"},
+            }}
+            test.is_nil(ui.problem(tree), "a static table without an id lays out")
+            local interaction = ui.interaction()
+            local plan = ui.plan(tree, 20, 6, interaction)
+            test.eq(table.concat(plan.focusable, ","), "ok", "only the button takes focus")
+            test.is_nil(ui.event(plan, interaction, {type = "mouse", action = "press", button = "left", x = 2, y = 2}),
+                "a click on the static table does nothing")
+            test.eq(interaction.focus, "ok")
+            test.not_nil(ui.problem({kind = "table", columns = {}, rows = {}}), "a table that is not static still needs an id")
         end)
     end)
 end

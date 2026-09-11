@@ -124,7 +124,7 @@ local function define_tests()
             test.is_true(kinds.calendar and kinds.clock and kinds.tabs, "the calendar, the clock and the tabs are in place")
         end)
 
-        test.it("the same second does not redraw, \"OK\" and Esc close", function()
+        test.it("the same second does not redraw, \"OK\" closes, Esc is left to the loop", function()
             local state = clock_state()
             local closed = 0
             local context = {width = 42, height = 20, close = function() closed = closed + 1 end}
@@ -132,8 +132,10 @@ local function define_tests()
             local verdict = datetime.definition.update(state, {type = "tick"}, context)
             test.is_true(verdict == false or verdict == true)
             datetime.definition.update(state, {type = "activate", id = "ok"}, context)
-            datetime.definition.update(state, {type = "key", key_type = "esc", key = "esc"}, context)
-            test.eq(closed, 2)
+            test.eq(datetime.definition.update(state, {type = "key", key_type = "esc", key = "esc"}, context), false,
+                "update does not take Esc")
+            test.is_true(datetime.definition.close_on_escape, "the loop closes the window on it")
+            test.eq(closed, 1)
             test.eq(datetime.definition.update(state, {type = "activate", id = "apply"}, context), false)
         end)
     end)
@@ -231,8 +233,9 @@ local function define_tests()
         end)
 
         test.it("a click and a key count the same, the highlight goes out by its own timer", function()
-            local watched: any = {}
-            local context: any = {watch = function(ch) watched[#watched + 1] = ch end, close = function() end}
+            -- The context records the one-shot timers the window asks for.
+            local timers: any = {}
+            local context: any = {after = function(_, tag) timers[#timers + 1] = tag end, close = function() end}
             local state = calc_window.definition.init(nil, context)
             calc_window.definition.update(state, {type = "activate", id = "7"}, context)
             calc_window.definition.update(state, {type = "key", key_type = "runes", key = "*"}, context)
@@ -240,11 +243,14 @@ local function define_tests()
             calc_window.definition.update(state, {type = "key", key_type = "enter", key = "enter"}, context)
             test.eq(engine.display(state.calc), "42.")
             test.eq(state.calc.pressed, "eq", "the last button is highlighted")
-            test.eq(#watched, 4, "every press starts a highlight timer")
+            test.eq(#timers, 4, "every press starts a highlight timer")
             local tree = calc_window.definition.view(state, {width = 27, height = 14, native = true})
             local plan = ui.plan(tree, 27, 14, ui.interaction())
             test.is_true(plan.by_id.eq.node.pressed == true)
-            test.eq(calc_window.definition.update(state, {type = "channel", channel = watched[4], ok = true}, context), true)
+            test.eq(calc_window.definition.update(state, {type = "timer", tag = timers[3]}, context), false,
+                "the timer of an earlier press leaves the later highlight on")
+            test.eq(state.calc.pressed, "eq")
+            test.eq(calc_window.definition.update(state, {type = "timer", tag = timers[4]}, context), true)
             test.is_nil(state.calc.pressed, "the timer turns the highlight off")
         end)
 
@@ -290,7 +296,7 @@ local function define_tests()
             end
             test.eq(checked, 3 * (3 + 4 * 6), "every key is checked at every cell width")
             test.eq(table.concat(cut, "; "), "", "every caption is drawn whole")
-            -- 16 px leave 10 px of room: no room for "...", room for "s".
+            -- 16 px leave 12 px of room: too little for "s…", enough for "s".
             test.eq(pixels.caption(bold, "sqrt", 16), "s", "a key too narrow for the dots is cut, not left with an ellipsis")
         end)
 
@@ -316,7 +322,7 @@ local function define_tests()
                     test.is_true(widgets.cells(node.text) + 2 <= rect.w, name .. " has room for its caption and both bevels")
                     local shown = tostring(widgets.button(node.text, {room = rect.w})):gsub("\27%[[%d;:]*m", "")
                     test.is_true(shown:find(node.text, 1, true) ~= nil, name .. " shows its caption whole: " .. shown)
-                    test.is_true(widgets.cells(shown) <= rect.w, name .. " stays inside its cells")
+                    test.eq(widgets.cells(shown), rect.w, name .. " fills exactly its cells, like its column")
                 end
             end
             test.eq(#buttons, 3 + 4 * 6, "every key is laid out")
@@ -325,7 +331,7 @@ local function define_tests()
         end)
 
         test.it("the menu has only \"About\": the sheet opens, keys do not count under it", function()
-            local context: any = {watch = function() end, close = function() end}
+            local context: any = {after = function() end, close = function() end}
             local state = calc_window.definition.init(nil, context)
             local titles, ids, disabled = menu_of(calc_window.definition.view(state, {width = 27, height = 14, native = true}))
             test.eq(titles, "Help", "No Edit — the window has no clipboard; no View — there is only one view")

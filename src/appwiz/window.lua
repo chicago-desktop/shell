@@ -309,8 +309,4 @@ function definition.update(state: any, action: any, context: any)
     end
 end
 
-local function main(first: any, id: any, args: any, viewport: any)
-    app.run(definition, first, id, args, viewport)
-end
-
-return {main = main, definition = definition}
+return {main = app.main(definition), definition = definition}

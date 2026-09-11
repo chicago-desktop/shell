@@ -14,6 +14,12 @@ local leaves = {label = true, button = true, input = true, list = true, table = 
 -- Only the ones that take no input can live without an `id`.
 local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
     calendar = true, clock = true, monitor = true}
+-- A node that takes no input: a passive kind, or a table declared `static` —
+-- pairs of "name — value" on a properties sheet, which nobody selects. Such a
+-- table needs no `id`, takes no focus and no clicks, and keeps no scroll offset.
+local function inert(node: any): boolean
+    return passive[node.kind] == true or (node.kind == "table" and node.static == true)
+end
 -- The month grid: six weeks of seven days, a date or false. `first` is the
 -- weekday of the 1st, 0 = Monday; `days` is how many days the month has.
 -- There is no calendar arithmetic here on purpose: `time` handles leap years.
@@ -218,6 +224,12 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         end
         local flexible = math.max(0, available - fixed)
         local position, consumed, weights = 0, 0, 0
+        -- `align = "right"` puts the children of a row against its far end — the
+        -- buttons of a dialog — instead of an empty flexible label in front of
+        -- them. With a flexible child there is nothing to align: it takes the rest.
+        if horizontal and node.align == "right" and weight == 0 then
+            position = math.max(0, length - fixed - gap * math.max(0, #children - 1))
+        end
         for _, child in ipairs(children) do
             local size = math.max(0, whole(child.size))
             if child.size == nil then
@@ -234,7 +246,7 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         return
     end
     local id = node.id
-    if not passive[kind] then
+    if not inert(node) then
         local bad = id_problem(node, plan.by_id)
         assert(bad == nil, tostring(bad))
     end
@@ -322,22 +334,23 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         item.page = math.max(1, whole(rect.h) - whole(item.header))
         local total = #entries(node)
         item.selected_index = selected_index(node, entries(node))
-        item.offset = scroll.clamp(interaction.offsets[id], total, item.page)
+        -- A static table has no `id` to keep an offset under: it stays at the top.
+        item.offset = scroll.clamp(id ~= nil and interaction.offsets[id] or 0, total, item.page)
         -- `reveal` brings the row into view ONCE per value: the chat shows
         -- a new message, and the person's scrolling between messages stays theirs.
         -- A permanent "always to the bottom" would knock the wheel off on every frame.
         local wanted: any = node.reveal
-        if wanted ~= nil and interaction.revealed[id] ~= wanted then
+        if id ~= nil and wanted ~= nil and interaction.revealed[id] ~= wanted then
             interaction.revealed[id] = wanted
             item.offset = scroll.reveal(item.offset, whole(wanted), total, item.page)
         end
-        interaction.offsets[id] = item.offset
+        if id ~= nil then interaction.offsets[id] = item.offset end
         item.bar = scroll.bar(item.offset, total, item.page, math.max(1, rect.h - item.header))
     end
     plan.items[#plan.items + 1] = item
     if id then plan.by_id[id] = item end
     -- The menu is not part of the focus ring — as in Windows, it is reached with Alt and F10.
-    if id and not passive[kind] and kind ~= "menu" and not node.disabled then plan.focusable[#plan.focusable + 1] = id end
+    if id and not inert(node) and kind ~= "menu" and not node.disabled then plan.focusable[#plan.focusable + 1] = id end
 end
 -- problem(tree) -> reason | nil
 --
@@ -351,7 +364,7 @@ function ui.problem(tree: any): any
     local function walk(node: any): any
         local why = shape_problem(node)
         if why then return why end
-        if not containers[node.kind] and not passive[node.kind] then
+        if not containers[node.kind] and not inert(node) then
             why = id_problem(node, seen)
             if why then return why end
             seen[node.id] = true
@@ -386,8 +399,7 @@ function ui.message(spec: any): any
         children[#children + 1] = {kind = "label", size = 1, text = tostring(line)}
     end
     children[#children + 1] = {kind = "label", text = ""}
-    children[#children + 1] = {kind = "row", size = 2, gap = 1, children = {
-        {kind = "label", text = ""},
+    children[#children + 1] = {kind = "row", size = 2, gap = 1, align = "right", children = {
         {kind = "button", id = sheet.ok or "message_ok", size = 10, text = "OK", default = true},
     }}
     return {kind = "column", padding = 1, gap = 0, children = children}
@@ -663,6 +675,7 @@ function ui.event(plan: any, state: any, original: any): any
     if event.type == "mouse" then
         local item = ui.hit(plan, event.x, event.y)
         if not item or item.node.disabled then return nil end
+        if item.node.kind == "table" and item.node.static then return nil end
         if item.node.kind == "menu" then return menu_event(item, state, event) end
         if item.node.kind == "tabs" then
             if input.pressed(event) then state.focus = item.node.id end
