@@ -60,7 +60,7 @@ images.NAMES = {
     "program", "document", "text_document",
     "drive", "floppy", "cdrom", "network_drive", "printer",
     "control_panel", "fonts", "desktop", "windows", "shortcut_overlay",
-    "network", "network_neighborhood", "documents_stack", "program_settings", "system",
+    "network", "network_neighborhood", "dialup", "documents_stack", "program_settings", "system",
     "regedit", "regedit_string", "regedit_binary",
     "key",
     "appwizard", "taskmgr", "console", "user", "display_properties", "notepad",

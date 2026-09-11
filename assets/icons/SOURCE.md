@@ -69,6 +69,7 @@ RGBA PNG, потому что `gfx.image` читает PNG/GIF/JPEG, а `.ico` �
 - Файл: display_properties; Источник: w98_display_properties; Что на нём: монитор с палитрой — «Свойства: Экран»
 - Файл: notepad; Источник: w98_notepad; Что на нём: блокнот с карандашом — «Блокнот»
 - Файл: user; Источник: w98_address_book_user; Что на нём: голова человека в профиль — вошедший пользователь в «Пуске». **В `.ico` только 32×32**; 16×16 получен уменьшением вдвое (NEAREST, альфа приведена к 0/255), потому что пакет обязан отдавать оба размера, а масштабирования у `gfx` нет.
+- File: dialup; Source: w98_conn_dialup_alt; What it shows: a dial-up connection (computer and telephone) — the "Connections" window in "Settings" (`app.connections:window` of the stand). Added 2026-09-11. **The `.ico` has only 32×32**; 16×16 is the same halving as for `user` (NEAREST, alpha forced to 0/255).
 
 ## Ключ входа в систему
 
