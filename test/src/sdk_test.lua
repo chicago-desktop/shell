@@ -200,6 +200,21 @@ local function define_tests()
             test.is_nil(ui.event(plan, state, {type = "mouse", action = "press", button = "middle", x = 3, y = 1}),
                 "only the right button is the context button")
         end)
+        test.it("draws a button's picture from an image pack in pixels and keeps the caption when it is missing", function()
+            local store = rasters.store()
+            store.begin()
+            local inner, cell = {x = 1, y = 1, cols = 6, rows = 2}, {w = 8, h = 18}
+            local function png(id: string, node: any): any
+                local placed = assert(render.placement({id = id, content_state = {sdk = 1, revision = 1, ui = node}},
+                    inner, cell, {}, store))
+                return placed.raster:encode("png")
+            end
+            local caption = png("caption", {kind = "button", id = "face", text = ":)"})
+            local picture = png("picture", {kind = "button", id = "face", text = ":)", image = "app:test_images/smile"})
+            local missing = png("missing", {kind = "button", id = "face", text = ":)", image = "app:test_images/absent"})
+            test.is_true(picture ~= caption, "the picture is drawn instead of the caption")
+            test.eq(missing, caption, "a picture that is not there leaves the caption as it was")
+        end)
         test.it("toggles a checkbox through change actions, skips disabled controls and ignores key release", function()
             local state = ui.interaction()
             local checkbox = {kind = "checkbox", id = "include", checked = false, text = "Include subfolders"}

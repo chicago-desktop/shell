@@ -207,3 +207,48 @@ through the adapter of the live shell and shows the same programs in the menu an
 
 Drive icons by kind (`floppy`, `cdrom`, `network_drive`) are in the set, but
 the explorer does not yet distinguish the `fs.*` kinds, so all drives are drawn as `drive`.
+
+## Image packs of other modules
+
+The pack above is the shell's own, and its list is fixed in `images.NAMES`.
+Pictures of other modules and of the application do not go into it: they come
+in their own pack, found at run time.
+
+A pack is any `fs.*` entry that declares `meta.type: windows.images`, with the
+pictures lying as `<size>/<file>.png`:
+
+```yaml
+- name: images
+  kind: fs.directory
+  meta:
+    type: windows.images
+  directory: ./src/app/workshop/images
+```
+
+A picture of a pack is named `<entry id>/<file>` — `app.workshop:images/mine` —
+wherever a name is taken: `meta.image` of a program, the `image` of an SDK
+`image`, `button` or `ui.message`, a workshop window's `image`.
+
+- **The pack is looked up in the registry when a picture is asked for**, not
+  when the library loads. A pack applied to the live registry, and a file added
+  to a pack's folder, are drawn without touching the shell. A refused pack
+  picture is asked again after `images.PACK_RETRY_SECONDS` (5): the theme asks
+  every frame, and a pack registered a minute later must show up then. A
+  decoded picture is kept for the life of the process, like an icon, so a file
+  REPLACED in a pack shows after the shell restarts.
+- **Only an entry that declared itself a pack is read as one.** A window names
+  the picture, and a drive of the stand or someone's data is not a pack; such a
+  name refuses with "is not an image pack".
+- **A name is not a path.** The file is one segment of letters, digits, `_`
+  and `-`; anything else is "no such icon", and `..` never reaches the
+  filesystem.
+- **The sizes are the folders the author drew**, up to 256; the picture must be
+  exactly the size asked for. There is no scaling here either.
+- **Reading a pack takes `registry.get` as well as `fs.get`.** The compositor
+  holds both already (the icon folder, the program catalog), so a pack needs no
+  permission of its own. Any other process that paints pictures — a PNG probe,
+  a custom renderer's provider — needs both: without `registry.get` a pack
+  picture is refused as "no image pack", and a button or a title falls back to
+  its caption or the default icon, which reads as "the picture is not there"
+  rather than as a permission.
+

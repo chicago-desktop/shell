@@ -71,8 +71,6 @@ scaling, except where noted.
 - File: user; Source: w98_address_book_user; What it shows: a human head in profile — the logged-in user in "Start". **The `.ico` has only 32×32**; 16×16 is obtained by halving (NEAREST, alpha forced to 0/255), because the pack must provide both sizes, and `gfx` has no scaling.
 - File: dialup; Source: w98_conn_dialup_alt; What it shows: a globe and a telephone — a dial-up connection; the "Connections" window in "Settings" (`app.connections:window` of the stand). Added 2026-09-11. **The `.ico` has only 32×32**; 16×16 is the same halving as for `user` (NEAREST, alpha forced to 0/255).
 
-- File: minesweeper; Source: w98_minesweeper; What it shows: the black mine of Minesweeper — the Minesweeper window built in the workshop (`butschster.tui_desktop.apps:minesweeper` on the stand). Added 2026-09-11, the icon chosen by the owner. **The `.ico` has only 32×32, and the 16×16 is DRAWN, not extracted**: the highlight of the 32×32 is a dither, and halving it gave noise either way (NEAREST — a blotch that reads as a face; averaging — grey mush). The 16×16 is the mine the game itself draws on a cell — a black disc, four rays, the diagonal dots, a white 2×2 highlight — set pixel by pixel. `w98_game_mine_1` has a native 16×16, but it is a different, grey drawing.
-
 ## The logon key
 
 - File: key; Source: `key_win-0.png` (32) and `key_win-1.png` (16) from

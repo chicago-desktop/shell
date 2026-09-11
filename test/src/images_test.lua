@@ -5,8 +5,87 @@
 
 local test = require("test")
 local images = require("images")
+local registry = require("registry")
+
+-- A pack applied to the live registry: the path a module or the application
+-- takes to bring pictures while the shell runs.
+local function apply_pack(id: string): (any, any)
+    local snapshot, serr = registry.snapshot()
+    if not snapshot then return nil, serr end
+    local changes = snapshot:changes()
+    changes:create({id = id, kind = "fs.directory", meta = {type = images.PACK_TYPE},
+        data = {base = "project", directory = "./fixtures/images", auto_init = false}})
+    return changes:apply()
+end
+
+local function drop_pack(id: string)
+    local snapshot = registry.snapshot()
+    if not snapshot or not registry.get(id) then return end
+    local changes = snapshot:changes()
+    changes:delete(id)
+    changes:apply()
+end
 
 local function define_tests()
+    test.describe("image packs of other modules", function()
+        test.it("reads a picture from a pack by <entry>/<file> and keeps one raster", function()
+            images.forget()
+            local raster, why = images.get("app:test_images/smile", 16)
+            test.not_nil(raster, tostring(why))
+            local w, h = raster:size()
+            test.eq(w, 16)
+            test.eq(h, 16)
+            test.is_true(images.get("app:test_images/smile", 16) == raster, "the raster outlives the frame")
+            test.eq(images.name_for({kind = "program", image = "app:test_images/smile"}), "app:test_images/smile")
+        end)
+
+        test.it("refuses an fs entry that did not declare itself a pack", function()
+            local raster, why = images.get("app:shots/smile", 16)
+            test.is_nil(raster)
+            test.not_nil(tostring(why):find("not an image pack", 1, true), tostring(why))
+        end)
+
+        test.it("names the pack that is not in the registry and the file that is not in the pack", function()
+            local raster, why = images.get("app:no_such_pack/smile", 16)
+            test.is_nil(raster)
+            test.not_nil(tostring(why):find("no image pack app:no_such_pack", 1, true), tostring(why))
+            raster, why = images.get("app:test_images/absent", 16)
+            test.is_nil(raster)
+            test.not_nil(tostring(why):find("16/absent.png", 1, true), tostring(why))
+        end)
+
+        test.it("refuses a picture whose size is not its folder's", function()
+            local raster, why = images.get("app:test_images/wrong", 16)
+            test.is_nil(raster)
+            test.not_nil(tostring(why):find("is 8x8, expected 16x16", 1, true), tostring(why))
+        end)
+
+        test.it("takes a name, not a path, and a size it can read", function()
+            local raster, why = images.get("app:test_images/../smile", 16)
+            test.is_nil(raster)
+            test.not_nil(tostring(why):find("no such icon", 1, true), tostring(why))
+            raster, why = images.get("app:test_images/smile", 0)
+            test.is_nil(raster)
+            test.not_nil(tostring(why):find("of size 0", 1, true), tostring(why))
+        end)
+
+        test.it("draws a pack applied to the live registry without touching the shell", function()
+            images.forget()
+            local retry = images.PACK_RETRY_SECONDS
+            images.PACK_RETRY_SECONDS = 0
+            local id = "app:late_images"
+            local before, why = images.get(id .. "/smile", 16)
+            local applied, aerr = apply_pack(id)
+            local after, later = images.get(id .. "/smile", 16)
+            drop_pack(id)
+            images.PACK_RETRY_SECONDS = retry
+            test.is_nil(before, "the pack is not there yet")
+            test.not_nil(tostring(why):find("no image pack", 1, true), tostring(why))
+            test.not_nil(applied, "the pack entry was applied: " .. tostring(aerr))
+            test.not_nil(after, "the picture of a pack applied later is drawn: " .. tostring(later))
+        end)
+    end)
+
     test.describe("icon pack", function()
         test.it("decodes every icon in both sizes", function()
             images.forget()

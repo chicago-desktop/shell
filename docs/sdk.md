@@ -144,6 +144,12 @@ current data; `update` changes the model on a component's action.
   nothing; the window decides what the right button means. The middle button
   and passive views get nothing. The compositor sends right and middle presses
   inside the client to the window (the chrome listens only to the left one).
+  `image` puts a picture on the button instead of its caption, in pixels: a
+  name from the [icon catalog](icons.md) or from an image pack of another
+  module (`<pack entry>/<file>`, see "Image packs" there), 16 px unless
+  `image_px`. The caption stays what cells show, and what pixels show when
+  the picture is missing or does not fit — the Minesweeper face is `:)` in
+  cells and a smiley in pixels.
   `default` is a black outline in both modes: what Enter will do, and a dialog has
   exactly one. In cells the button is drawn by `widgets.button` — the same one as in Run
   and the explorer; in pixels by `pixels.button`. Tab/Shift+Tab moves

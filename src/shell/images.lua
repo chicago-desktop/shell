@@ -13,10 +13,16 @@
 --     by the process's permissions, and a module that opened paths by itself
 --     would be a road around them.
 --   * **An icon has one name, and it is also the file name.** The table
---     `images.NAMES` is the only list of what is in the pack; the test checks
---     that every name decodes in both sizes. A name that is not in the list
---     is a refusal with a reason, not a silent skip: an icon that "for some
---     reason did not draw" gets looked for in the drawing, not in a typo.
+--     `images.NAMES` is the only list of what is in the shell's own pack; the
+--     test checks that every name decodes in both sizes. A name that is not
+--     in the list is a refusal with a reason, not a silent skip: an icon that
+--     "for some reason did not draw" gets looked for in the drawing, not in a
+--     typo.
+--   * **Pictures of other modules come in their own packs**, not in this
+--     one: an `fs.*` entry that declares `meta.type: windows.images`, and a
+--     picture named `<entry id>/<file>` (see `images.PACK_TYPE`). The shell
+--     does not list them — it finds the pack in the registry when a picture
+--     is asked for.
 --   * **A decoded raster lives as long as the process lives.** Rasters
 --     outlive the frame (FR-005 §4): an icon decoded anew every frame would
 --     be a new raster with the same version — and the surface would NOT
@@ -30,6 +36,8 @@
 
 local fs = require("fs")
 local gfx = require("gfx")
+local registry = require("registry")
+local time = require("time")
 local logger = require("logger")
 local log = logger:named("windows.icons")
 
@@ -52,6 +60,18 @@ images.WEATHER_PREFIX = "weather_"
 -- wallpaper has no sizes: the theme draws it at 1:1, tiled or centred.
 images.WALLPAPER_STORE = "butschster.windows.display:wallpaper_files"
 
+-- Packs of other modules and of the application: an `fs.*` entry that
+-- declares this meta.type. Its pictures lie as `<size>/<file>.png`, and a
+-- picture is named `<entry id>/<file>` — `app.workshop:images/mine`. The pack
+-- is looked up in the registry when a picture is asked for, not when this
+-- library loads, so a pack applied to the live registry, and a file added to
+-- its folder, are drawn without touching the shell.
+images.PACK_TYPE = "windows.images"
+-- How long a refused pack picture stays refused before it is asked again.
+images.PACK_RETRY_SECONDS = 5
+-- A pack's sizes are the folders its author drew; the largest one read.
+images.PACK_MAX_SIZE = 256
+
 -- The sizes the pack is built in. There are no other files in the folder,
 -- and asking for another size is the caller's mistake, not a reason to
 -- scale: `gfx` has no scaling on purpose, and a 16-color icon stretched by
@@ -69,7 +89,6 @@ images.NAMES = {
     "regedit", "regedit_string", "regedit_binary",
     "key",
     "appwizard", "taskmgr", "console", "user", "display_properties", "notepad", "dialup",
-    "minesweeper",
     -- The weather set (assets/weather): day and night sky, clouds, fog,
     -- rain, snow, a thunderstorm.
     "weather_sun", "weather_sun_cloud", "weather_cloud", "weather_fog", "weather_rain",
@@ -81,6 +100,17 @@ function images.store_of(name: any): string
     local text = tostring(name or "")
     if text:sub(1, #images.WEATHER_PREFIX) == images.WEATHER_PREFIX then return images.WEATHER_STORE end
     return images.STORE
+end
+
+-- pack_of(name) -> pack entry id, file | nil
+--
+-- `app.workshop:images/mine` → `app.workshop:images`, `mine`. The file is one
+-- path segment of letters, digits, `_` and `-`: a name is not a path, and
+-- `..` never reaches the filesystem.
+function images.pack_of(name: any): (any, any)
+    if type(name) ~= "string" then return nil, nil end
+    local id, file = name:match("^([%w_%.%-]+:[%w_%.%-]+)/([%w_%-]+)$")
+    return id, file
 end
 
 local known = {}
@@ -129,7 +159,7 @@ end
 -- One opened folder (or its remembered failure) per store id.
 local stores: any = {}
 local store_failures: any = {}
-local cache = {}
+local cache: any = {}
 
 local function open_store(id: string): (any, any)
     if stores[id] then return stores[id], nil end
@@ -143,51 +173,104 @@ local function open_store(id: string): (any, any)
     return opened, nil
 end
 
+-- open_pack(id) -> filesystem or nil, reason
+--
+-- The pack is checked in the registry, not trusted by its name: a window
+-- names the picture, and an `fs` entry that did not declare itself a pack (a
+-- drive of the stand, someone's data) is not read as one. Only an opened
+-- pack is kept; a refusal is kept by `fail`, with a retry.
+local function open_pack(id: string): (any, any)
+    if stores[id] then return stores[id], nil end
+    local entry, err = registry.get(id)
+    if not entry then
+        return nil, "no image pack " .. id .. ": " .. tostring(err or "not in the registry")
+    end
+    local meta: any = type(entry.meta) == "table" and entry.meta or {}
+    if meta.type ~= images.PACK_TYPE then
+        return nil, "entry " .. id .. " is not an image pack: it does not declare meta.type " .. images.PACK_TYPE
+    end
+    local opened, ferr = fs.get(id)
+    if ferr or not opened then
+        return nil, "image pack " .. id .. " not opened: " .. tostring(ferr)
+    end
+    stores[id] = opened
+    return opened, nil
+end
+
+-- fail(key, pack, why) -> nil, why
+--
+-- A refusal is remembered: the theme asks every frame. A picture of the
+-- shell's own pack stays refused until `forget` — its files do not change
+-- while the shell runs. A pack picture is asked again after
+-- `PACK_RETRY_SECONDS`: the pack may be applied to the registry, or the file
+-- added to its folder, a minute later, and it must show up then.
+local function fail(key: string, pack: any, why: string): (any, any)
+    if pack then
+        cache[key] = {retry_at = time.now():unix() + images.PACK_RETRY_SECONDS, why = why}
+    else
+        cache[key] = false
+    end
+    return nil, why
+end
+
 -- get(name, size) -> raster or nil, reason
 --
 -- The raster is shared by all callers and must not change: `blit` reads from
 -- it, and that is enough. Whoever draws into it spoils the icon for
 -- everyone.
 function images.get(name: any, size: any): (any, any)
-    if type(name) ~= "string" or not known[name] then
+    local pack, file = images.pack_of(name)
+    if not pack and (type(name) ~= "string" or not known[name]) then
         return nil, "no such icon: " .. tostring(name)
     end
     local px = math.tointeger(tonumber(size) or 0) or 0
     local sized = false
-    for _, allowed in ipairs(images.SIZES) do
-        if allowed == px then sized = true end
+    if pack then
+        sized = px >= 1 and px <= images.PACK_MAX_SIZE
+    else
+        for _, allowed in ipairs(images.SIZES) do
+            if allowed == px then sized = true end
+        end
     end
     if not sized then
         return nil, "no icons of size " .. tostring(size) .. " in the package"
     end
 
-    local key = name .. "@" .. tostring(px)
+    local key = tostring(name) .. "@" .. tostring(px)
     local cached: any = cache[key]
-    if cached ~= nil then
-        if cached == false then return nil, "icon " .. key .. " not read (see the first failure)" end
+    if cached == false then return nil, "icon " .. key .. " not read (see the first failure)" end
+    if type(cached) == "table" then
+        -- A pack picture refused a moment ago is asked again after the retry.
+        if time.now():unix() < cached.retry_at then return nil, cached.why end
+        cache[key] = nil
+    elseif cached ~= nil then
         return cached, nil
     end
 
-    local opened, why = open_store(images.store_of(name))
-    if not opened then return nil, why end
+    local opened: any, why: any = nil, nil
+    if pack then
+        opened, why = open_pack(tostring(pack))
+        if not opened then return fail(key, pack, tostring(why)) end
+    else
+        opened, why = open_store(images.store_of(name))
+        if not opened then return nil, why end
+    end
 
-    local path = tostring(px) .. "/" .. name .. ".png"
+    local path = tostring(px) .. "/" .. tostring(file or name) .. ".png"
+    local where = pack and (" from " .. pack) or ""
     local data, read_err = opened:readfile(path)
     if read_err or not data then
-        cache[key] = false
-        return nil, "icon " .. path .. " not read: " .. tostring(read_err)
+        return fail(key, pack, "icon " .. path .. " not read" .. where .. ": " .. tostring(read_err))
     end
     -- `opened` is typed as any, and readfile returns any; the linter is right
     -- that a string has to be named a string rather than guessed.
     local raster, decode_err = gfx.image(data :: string)
     if not raster then
-        cache[key] = false
-        return nil, "icon " .. path .. " not decoded: " .. tostring(decode_err)
+        return fail(key, pack, "icon " .. path .. where .. " not decoded: " .. tostring(decode_err))
     end
     local w, h = raster:size()
     if w ~= px or h ~= px then
-        cache[key] = false
-        return nil, string.format("icon %s is %dx%d, expected %dx%d", path, w, h, px, px)
+        return fail(key, pack, string.format("icon %s%s is %dx%d, expected %dx%d", path, where, w, h, px, px))
     end
     cache[key] = raster
     return raster, nil

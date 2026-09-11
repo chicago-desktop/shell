@@ -602,9 +602,27 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 local by = node.fill and whole(y + pad) or whole(y + (h - bh) // 2)
                 local armed = interaction.armed
                 local face_font: any = (node.bold and fonts and fonts.bold) or font
-                pixels.button(raster, bx, by, bw, bh, {label = node.text, font = face_font,
+                local pressed = node.pressed == true or (armed ~= nil and armed.id == node.id and armed.inside == true)
+                -- `image` is a picture instead of the caption — the Minesweeper
+                -- face. It comes from the icon catalog or an image pack
+                -- (`images.get`, 16 px unless `image_px`); a picture that is not
+                -- there, or does not fit, leaves the caption, which is also what
+                -- cells show.
+                local picture: any, pw, ph = nil, 0, 0
+                if type(node.image) == "string" and node.image ~= "" then
+                    local found: any = images.get(node.image, whole(node.image_px or 16))
+                    if found then
+                        local fw: any, fh: any = found:size()
+                        if whole(fw) <= bw - 4 and whole(fh) <= bh - 4 then picture, pw, ph = found, whole(fw), whole(fh) end
+                    end
+                end
+                pixels.button(raster, bx, by, bw, bh, {label = picture and "" or node.text, font = face_font,
                     default = ui.default_look(plan, node, focused), focused = focused, disabled = node.disabled,
-                    pressed = node.pressed == true or (armed ~= nil and armed.id == node.id and armed.inside == true), color = node.ink}, cell)
+                    pressed = pressed, color = node.ink}, cell)
+                if picture then
+                    local shift = pressed and 1 or 0
+                    raster:blit(picture, whole(bx + (bw - pw) // 2 + shift), whole(by + (bh - ph) // 2 + shift))
+                end
             elseif node.kind == "radio" then
                 -- The Windows 95 radio button, 12×12: an outer ring shadow above
                 -- and light below the diagonal, an inner ring black and face, a

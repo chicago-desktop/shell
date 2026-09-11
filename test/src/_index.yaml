@@ -143,7 +143,7 @@ entries:
       group: Windows Shell
       suite: butschster_windows
     source: file://images_test.lua
-    modules: [gfx]
+    modules: [gfx, registry]
     imports:
       test: wippy.test:test
       images: butschster.windows.shell:images
@@ -286,6 +286,17 @@ entries:
   # Snapshot directory. It is written to, so auto_init is on; the font
   # directory next to it is read-only — the application must not try to create
   # it or change its permissions.
+  # app:test_images — an image pack declared the way any module declares one:
+  # an fs entry with meta.type windows.images, pictures as <size>/<file>.png.
+  - name: test_images
+    kind: fs.directory
+    meta:
+      type: windows.images
+      comment: A test image pack — how another module brings pictures to the shell.
+    base: project
+    directory: ./fixtures/images
+    auto_init: false
+
   - name: shots
     kind: fs.directory
     meta:

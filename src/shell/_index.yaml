@@ -203,6 +203,10 @@ entries:
       - fs
       - gfx
       - logger
+      # Image packs of other modules are found in the registry when a
+      # picture is asked for; a refused one is asked again after a pause.
+      - registry
+      - time
 
   # butschster.windows.shell:menu_layout
   - name: menu_layout
