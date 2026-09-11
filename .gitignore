@@ -12,3 +12,6 @@ ui/vite.config.js
 ui/vite.config.d.ts
 /test/wippy.lock
 /test/shots/
+
+# Python bytecode from tools/*.py and the probe build scripts
+__pycache__/
