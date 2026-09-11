@@ -583,6 +583,28 @@ local function define_tests()
             test.eq(#dialog, 2, "a dialog has no \"maximize\" anyway — the set does not change")
         end)
     end)
+
+    test.describe("calculator display of large integers", function()
+        -- go-lua formats an integer under %g as Go's bad-verb text, and an integer
+        -- reaches the engine's "%.12g" whenever it is too large for the %d branch
+        -- (|x| >= 1e15). Operands are read with tonumber, so a product of two
+        -- typed integers is an integer.
+        test.it("shows a product past 1e15 as a number, not as %!g(lua.LInteger=…)", function()
+            local state = engine.new()
+            for _, id in ipairs({"9", "9", "9", "9", "9", "9", "9", "9", "9", "mul",
+                "9", "9", "9", "9", "9", "9", "9", "9", "9", "eq"}) do
+                state = engine.press(state, id)
+            end
+            test.eq(engine.display(state), "9.99999998e+17", "999999999 × 999999999")
+            test.eq(engine.format(1000000000000000), "1e+15", "an integer literal past the %d branch")
+        end)
+
+        test.it("control: an ordinary integer result keeps the %d path", function()
+            local state = engine.new()
+            for _, id in ipairs({"2", "add", "2", "eq"}) do state = engine.press(state, id) end
+            test.eq(engine.display(state), "4.", "2 + 2 =")
+        end)
+    end)
 end
 
 local run_cases = test.run_cases(define_tests)

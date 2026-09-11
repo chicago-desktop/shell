@@ -433,6 +433,16 @@ straight into a style or a raster as some other color, and the first sign is a
 spectrum that runs the wrong way. Build hex digits by hand (`ui.spectrum_color`
 does, and says why) and check a color by its value in a test, not by its look.
 
+The float verbs are broken for integers too: `string.format("%.1f", 3)` returns
+`"%!f(lua.LInteger=3)"`, and `%e`/`%g` the same — go-lua's integer type has no
+formatter of its own, so Go's `fmt` gets an `int64` for a float verb. Safe on an
+integer: `%d %i %o %c %s`. The rule: **a float verb gets a float (`x + 0.0`),
+hex is built by hand.** The calculator's `%.12g` does the first
+(`calc/engine.lua`), as a guard: go-lua's `tonumber` returns a float even for an
+integer today, so the integer only arrives once it keeps integers as Lua 5.3
+does; the cause and the failing test are in
+`kickside/docs/bugreports/go-lua-string-format-hex.md`.
+
 ### The folder path is parsed by the CATALOG, and only by it
 
 `meta.group` is a string like `System Tools/Network`; it is turned into a list of segments by

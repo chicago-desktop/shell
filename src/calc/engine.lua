@@ -35,7 +35,11 @@ function engine.format(value: any): string
     if number == math.floor(number) and math.abs(number) < 1e15 then
         return string.format("%d", math.tointeger(number) or 0)
     end
-    return (string.format("%.12g", number))
+    -- A float for the float verb: go-lua formats an integer under %e/%f/%g as
+    -- Go's bad-verb text ("%!g(lua.LInteger=…)"). Today go-lua's tonumber always
+    -- returns a float, so this guards a tonumber that keeps integers (Lua 5.3):
+    -- then an integer too large for the %d branch above would reach this line.
+    return (string.format("%.12g", number + 0.0))
 end
 
 -- The display: an integer gets a dot at the end, as Windows 95 draws it
