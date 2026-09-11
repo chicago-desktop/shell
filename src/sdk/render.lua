@@ -559,12 +559,46 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 if focused and editing and editing.selected then
                     raster:rect(whole(x + 3), whole(y + 2), whole(math.max(1, w - 6)), whole(math.max(1, h - 4)), color.select_bg)
                 end
-                text(x + 4, y, w - 8, h, shown, focused and editing and editing.selected and color.select_fg or (node.disabled and color.shadow or color.field_text))
+                -- The placeholder: grey while the value is empty and the field is
+                -- not focused; drawn only, never edited or sent.
+                local placeholder = ui.placeholder(node, focused)
+                text(x + 4, y, w - 8, h, placeholder or shown, placeholder and color.shadow
+                    or (focused and editing and editing.selected and color.select_fg or (node.disabled and color.shadow or color.field_text)))
                 if focused and font and not (editing and editing.selected) then
                     local chars = editor.runes(shown)
                     local before = table.concat(chars, "", 1, whole(math.max(0, caret)))
                     local cx = math.min(whole(x + w - 3), whole(x + 4) + whole(font:measure(before)))
                     raster:rect(whole(cx), whole(y + math.max(2, (h - 15) // 2)), 1, whole(math.min(15, h - 4)), color.field_text)
+                end
+            elseif node.kind == "select" then
+                -- A drop-down list: a field up to 24 px, like an input, with the
+                -- Windows 95 arrow button inside its right edge and the chosen
+                -- option's label, highlighted while focused.
+                local fh = math.min(24, whole(h))
+                y, h = y + (h - fh) // 2, fh
+                pixels.field(raster, whole(x), whole(y), whole(w), whole(h))
+                if node.disabled then raster:rect(whole(x + 2), whole(y + 2), whole(w - 4), whole(h - 4), color.face) end
+                local bw = whole(math.min(16, w - 4))
+                local bx = whole(x + w - 2 - bw)
+                local open = interaction.menus ~= nil and interaction.menus[node.id] ~= nil
+                pixels.button(raster, bx, whole(y + 2), bw, whole(h - 4), {pressed = open}, cell)
+                pixels.mark_drop(raster, bx + (bw - 8) // 2, whole(y + 2 + (h - 4 - 8) // 2), 8,
+                    node.disabled and color.shadow or color.face_text)
+                local option: any = (node.options or {})[whole(item.current)]
+                local caption = option and tostring(option.label or option.value or "") or ""
+                local room = bx - x - 6
+                local lit = focused and not node.disabled and caption ~= ""
+                if lit then
+                    raster:rect(whole(x + 3), whole(y + 3), whole(math.max(1, room)), whole(math.max(1, h - 6)), color.select_bg)
+                end
+                text(x + 4, y, room - 2, h, caption, lit and color.select_fg or (node.disabled and color.shadow or color.field_text))
+            elseif node.kind == "label" and node.wrap == true then
+                -- A wrapped label: words in lines of the label's width by the
+                -- font, 15 px apart from the top, as many as its height holds;
+                -- only the last line is cut with "…".
+                local lines = pixels.wrap(font, tostring(node.text or ""), whole(w - 4), math.max(1, whole(h) // 15))
+                for index, piece in ipairs(lines) do
+                    text(x + 2, y + (index - 1) * 15, w - 4, 15, piece, node.alert and color.alert or nil)
                 end
             elseif node.kind == "label" and tostring(node.text or ""):find("\n", 1, true) then
                 -- A multi-line label: lines split by `\n`, a 15 px step — like
@@ -584,7 +618,29 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
     -- Open menus go on top of everything, hence after the rest and in the same raster.
     if dirty then
         local font = fonts and fonts.face
+        -- A select's open list: a white box with a black frame straight under
+        -- (or over) the field, the cursor row in the selection colors.
+        local menus: any = {}
         for _, item in ipairs(plan.overlays or {}) do
+            if item.node.kind == "select" then
+                local popup: any = item.popup
+                local lx, ly = (popup.rect.x - 1) * cell.w + 1, (popup.rect.y - 1) * cell.h + 1
+                local lw, lh = popup.rect.w * cell.w, popup.rect.h * cell.h
+                raster:rect(whole(lx), whole(ly), whole(lw), whole(lh), color.frame)
+                raster:rect(whole(lx + 1), whole(ly + 1), whole(lw - 2), whole(lh - 2), color.field)
+                for position, row in ipairs(popup.rows) do
+                    local line: any = row
+                    local ry = ly + (position - 1) * cell.h
+                    local chosen = line.index == popup.cursor
+                    if chosen then raster:rect(whole(lx + 2), whole(ry + 1), whole(lw - 4), whole(cell.h - 2), color.select_bg) end
+                    if font then
+                        raster:text(whole(lx + 4), whole(ry + (cell.h - 15) // 2), pixels.ellipsize(font, line.text, whole(lw - 8)),
+                            {font = font, color = chosen and color.select_fg or color.field_text})
+                    end
+                end
+            else menus[#menus + 1] = item end
+        end
+        for _, item in ipairs(menus) do
             local popup: any = item.popup
             local open: any = interaction.menus[item.node.id]
             local px, py = (popup.rect.x - 1) * cell.w + 1, (popup.rect.y - 1) * cell.h + 1

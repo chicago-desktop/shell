@@ -10,7 +10,7 @@ local containers = {row = true, column = true, split = true}
 local leaves = {label = true, button = true, input = true, list = true, table = true, checkbox = true,
     statusbar = true, tabs = true, menu = true, image = true, field = true,
     group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true, monitor = true,
-    icons = true}
+    icons = true, select = true}
 -- Only the ones that take no input can live without an `id`.
 local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
     calendar = true, clock = true, monitor = true}
@@ -136,6 +136,43 @@ function ui.popup(item: any, index: any): any
     local rect = item.rect
     return {rect = geometry.rect(rect.x + span.x, rect.y + 1, widest + 2, #rows + 2), rows = rows, index = whole(index)}
 end
+-- The index of a select's value among its options, 0 when none matches.
+local function option_index(node: any): integer
+    for index, option in ipairs(node.options or {}) do
+        if (option :: any).value == node.value then return whole(index) end
+    end
+    return 0
+end
+-- dropdown(item, open, height) -> the open list of a select, or nil
+--
+-- Straight under the field's row — the row both backends draw the field on —
+-- or above it when more options fit there. As many rows as fit, and `first`
+-- scrolls them so the cursor row is always shown. In cells: the hit test and
+-- both renderers read this one rectangle.
+function ui.dropdown(item: any, open: any, height: any): any
+    local node, rect = item.node, item.rect
+    local options: any = node.options or {}
+    local count = #options
+    if count == 0 then return nil end
+    local row = rect.y + rect.h // 2
+    local below, above = whole(height) - row, row - 1
+    local shown, top = 0, 0
+    if count <= below or below >= above then
+        shown, top = whole(math.min(count, below)), row + 1
+    else
+        shown = whole(math.min(count, above))
+        top = row - shown
+    end
+    if shown < 1 then return nil end
+    local cursor = whole(math.max(1, math.min(count, whole(open.cursor))))
+    local first = scroll.reveal(whole(open.first), cursor, count, shown)
+    local rows = {}
+    for index = first + 1, first + shown do
+        local option: any = options[index]
+        rows[#rows + 1] = {index = index, value = option.value, text = tostring(option.label or option.value or "")}
+    end
+    return {rect = geometry.rect(rect.x, top, rect.w, shown), rows = rows, first = first, cursor = cursor}
+end
 -- Table columns across the width of the text area (without the scrollbar):
 -- `width` in cells means fixed, otherwise a share by `weight`; one cell between
 -- columns. One layout for the header, the rows and both renderers.
@@ -196,6 +233,9 @@ local function shape_problem(node: any): any
     if not (containers[kind] or leaves[kind]) then return "unknown SDK control: " .. tostring(kind) end
     if holds_children(kind) and node.children ~= nil and type(node.children) ~= "table" then
         return "SDK " .. tostring(kind) .. " children must be a list"
+    end
+    if kind == "select" and node.options ~= nil and type(node.options) ~= "table" then
+        return "SDK select options must be a list"
     end
     return nil
 end
@@ -291,6 +331,19 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         if open and open.index then
             item.popup = ui.popup(item, open.index)
             if item.popup then plan.overlays[#plan.overlays + 1] = item else interaction.menus[id] = nil end
+        end
+    end
+    if kind == "select" then
+        -- A select: the field shows the chosen option; the open list is an
+        -- overlay, like a menu's, so it is drawn last and hit first.
+        item.current = option_index(node)
+        local open: any = interaction.menus[id]
+        if open then
+            item.popup = ui.dropdown(item, open, plan.height)
+            if item.popup then
+                open.first = item.popup.first
+                plan.overlays[#plan.overlays + 1] = item
+            else interaction.menus[id] = nil end
         end
     end
     if kind == "icons" then
@@ -390,7 +443,8 @@ end
 -- a separate window: the application returns this sheet from `view` while it is open,
 -- and closes it on the button's `activate` (`spec.ok`, by default
 -- `"message_ok"`). One form for all windows, not a copy in each.
--- `spec`: `title`, `lines`, `image` (a name from the icon catalog), `icon`.
+-- `spec`: `title`, `lines`, `image` (a name from the icon catalog), `icon`,
+-- `buttons` (see below; one "OK" by default).
 function ui.message(spec: any): any
     local sheet: any = type(spec) == "table" and spec or {}
     local children: any = {
@@ -403,10 +457,48 @@ function ui.message(spec: any): any
         children[#children + 1] = {kind = "label", size = 1, text = tostring(line)}
     end
     children[#children + 1] = {kind = "label", text = ""}
-    children[#children + 1] = {kind = "row", size = 2, gap = 1, align = "right", children = {
-        {kind = "button", id = sheet.ok or "message_ok", size = 10, text = "OK", default = true},
-    }}
+    -- The buttons: "OK" alone by default, `buttons = {{id, text, default}, …}`
+    -- for a question, in the given order at the right edge. A button is at
+    -- least 10 cells, like "OK", and wider for a longer caption. The default is
+    -- the declared one, else the only button.
+    local given: any = type(sheet.buttons) == "table" and #sheet.buttons > 0 and sheet.buttons
+        or {{id = sheet.ok or "message_ok", text = "OK", default = true}}
+    local row: any = {}
+    for _, entry in ipairs(given) do
+        local spec_button: any = entry
+        local caption = tostring(spec_button.text or spec_button.id or "")
+        row[#row + 1] = {kind = "button", id = tostring(spec_button.id), size = math.max(10, cells_of(caption) + 4),
+            text = caption, default = spec_button.default == true or #given == 1, disabled = spec_button.disabled == true}
+    end
+    children[#children + 1] = {kind = "row", size = 2, gap = 1, align = "right", children = row}
     return {kind = "column", padding = 1, gap = 0, children = children}
+end
+-- confirm(spec) -> tree
+--
+-- A question with "Yes" and "No": `ui.message` with two buttons. `spec.yes` and
+-- `spec.no` are their ids ("yes" and "no" by default), `yes_text` and `no_text`
+-- rename them. "No" is the default — a question that deletes must not be
+-- answered by a stray Enter — and `spec.default = "yes"` moves it.
+function ui.confirm(spec: any): any
+    local sheet: any = {}
+    for key, value in pairs(type(spec) == "table" and spec or {}) do sheet[key] = value end
+    local yes_default = sheet.default == "yes"
+    sheet.buttons = {
+        {id = sheet.yes or "yes", text = sheet.yes_text or "Yes", default = yes_default},
+        {id = sheet.no or "no", text = sheet.no_text or "No", default = not yes_default},
+    }
+    return ui.message(sheet)
+end
+-- placeholder(node, focused) -> the text an input shows instead of its value
+--
+-- Only while the value is empty and the field is not focused. One rule for
+-- both renderers; the text is drawn, never edited and never sent —
+-- `change.value` is only what was typed.
+function ui.placeholder(node: any, focused: any): any
+    if node.kind ~= "input" or focused then return nil end
+    if node.text ~= nil and tostring(node.text) ~= "" then return nil end
+    if type(node.placeholder) ~= "string" or node.placeholder == "" then return nil end
+    return node.placeholder
 end
 function ui.interaction(): any
     return {focus = nil, offsets = {}, capture = nil, editors = {}, armed = nil, menus = {}, revealed = {}}
@@ -433,6 +525,7 @@ end
 function ui.plan(tree: any, width: any, height: any, interaction: any, options: any?): any
     local given: any = type(options) == "table" and options or {}
     local plan: any = {items = {}, by_id = {}, focusable = {}, overlays = {},
+        width = whole(width), height = whole(height),
         scroll_cols = math.max(1, whole(given.scroll_cols or 1))}
     if interaction.menus == nil then interaction.menus = {} end
     if interaction.revealed == nil then interaction.revealed = {} end
@@ -535,6 +628,57 @@ local function menu_event(item: any, state: any, event: any): any
             return {type = "activate", id = row.id, menu = id}
         end
     end
+    return nil
+end
+-- Select: a click on the field, Enter or Space opens the list with the cursor
+-- on the chosen option; while it is open the arrows move the cursor, Enter,
+-- Space or a click on a row chooses, Esc and a click elsewhere close it.
+-- Closed, the arrows change the value directly, as in a Windows 95 drop-down
+-- list. A choice is `change` with the option's value, only when it differs.
+local function select_event(item: any, state: any, event: any): any
+    local node, id = item.node, item.node.id
+    local options: any = node.options or {}
+    local count = #options
+    local open: any = state.menus[id]
+    local function choose(index: any): any
+        local option: any = options[whole(index)]
+        if option == nil or option.value == node.value then return nil end
+        return {type = "change", id = id, value = option.value}
+    end
+    if event.type == "mouse" then
+        if not input.pressed(event) then return nil end
+        local popup: any = item.popup
+        if open and popup and geometry.contains(popup.rect, event.x, event.y) then
+            state.menus[id] = nil
+            local row: any = popup.rows[event.y - popup.rect.y + 1]
+            return row and choose(row.index) or nil
+        end
+        if open then state.menus[id] = nil
+        elseif count > 0 then state.menus[id] = {cursor = math.max(1, whole(item.current)), first = 0} end
+        return nil
+    end
+    local key = input.key(event)
+    if not key or count == 0 then return nil end
+    local chooses = key == "enter" or (key == "runes" and event.key == " ")
+    if open then
+        local cursor = whole(open.cursor)
+        if key == "esc" or key == "tab" then state.menus[id] = nil
+        elseif chooses then state.menus[id] = nil; return choose(cursor)
+        elseif key == "up" then open.cursor = math.max(1, cursor - 1)
+        elseif key == "down" then open.cursor = math.min(count, cursor + 1)
+        elseif key == "home" then open.cursor = 1
+        elseif key == "end" then open.cursor = count end
+        return nil
+    end
+    if chooses then
+        state.menus[id] = {cursor = math.max(1, whole(item.current)), first = 0}
+        return nil
+    end
+    local current = whole(item.current)
+    if key == "up" then return choose(math.max(1, current - 1))
+    elseif key == "down" then return choose(current < 1 and 1 or math.min(count, current + 1))
+    elseif key == "home" then return choose(1)
+    elseif key == "end" then return choose(count) end
     return nil
 end
 local function tabs_event(item: any, state: any, event: any): any
@@ -678,6 +822,14 @@ function ui.event(plan: any, state: any, original: any): any
     -- An open menu takes presses entirely: a hit is handled,
     -- a miss closes it, and the click goes no further. Alt+letter opens its own menu.
     for _, item in ipairs(plan.items) do
+        -- An open select list takes presses and keys the way a menu does.
+        if item.node.kind == "select" and state.menus[item.node.id] and (input.pressed(event) or event.type == "key") then
+            if event.type == "mouse" and ui.hit(plan, event.x, event.y) ~= item then
+                state.menus[item.node.id] = nil
+                return nil
+            end
+            return select_event(item, state, event)
+        end
         if item.node.kind == "menu" then
             local open: any = state.menus[item.node.id]
             if open and (input.pressed(event) or event.type == "key") then
@@ -716,6 +868,7 @@ function ui.event(plan: any, state: any, original: any): any
         if input.pressed(event) and item.node.id and not passive[item.node.kind] then state.focus = item.node.id end
         if item.node.kind == "list" or item.node.kind == "table" or item.node.kind == "tree" then return list_event(item, state, event) end
         if item.node.kind == "icons" then return icons_event(item, state, event) end
+        if item.node.kind == "select" then return select_event(item, state, event) end
         if (item.node.kind == "button" or item.node.kind == "checkbox") and input.pressed(event) then
             state.armed = {id = item.node.id, inside = true}
         end
@@ -802,6 +955,8 @@ function ui.event(plan: any, state: any, original: any): any
         local row = (index - 1) // columns + 1
         state.offsets[node.id] = scroll.reveal(item.offset, row, whole(item.rows_total), math.max(1, whole(item.page)))
         return {type = "select", id = node.id, index = index, value = items[index]}
+    elseif node.kind == "select" then
+        return select_event(item, state, event)
     elseif node.kind == "input" then
         local editing = state.editors[node.id] or {cursor = #editor.runes(node.text), selected = false}
         state.editors[node.id] = editing

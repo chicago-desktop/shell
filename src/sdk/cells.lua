@@ -6,6 +6,7 @@ local charts = require("charts")
 local text = require("text")
 local geometry = require("geometry")
 local editor = require("editor")
+local palette = require("palette")
 local whole = geometry.whole
 local cells = {}
 -- A cut is marked, as in pixels: text wider than its room loses its tail to
@@ -18,6 +19,45 @@ local function ellipsized(value: any, room: any): string
     if width <= 1 then return widgets.clip(shown, width) end
     return widgets.clip(shown, width - 1) .. "…"
 end
+-- The words of a text in lines of `width` cells, at most `limit` lines; the
+-- last line marks with "…" what did not fit. The same rule as `pixels.wrap`,
+-- measured in cells: a word longer than a line is cut by cells.
+local function wrapped(value: any, width: integer, limit: integer): any
+    local out: any = {}
+    if width <= 0 or limit <= 0 then return out end
+    local line = ""
+    for word in tostring(value or ""):gmatch("%S+") do
+        local candidate = line == "" and word or (line .. " " .. word)
+        if widgets.cells(candidate) <= width then
+            line = candidate
+        else
+            if line ~= "" then
+                if #out == limit - 1 then
+                    out[#out + 1] = ellipsized(candidate, width)
+                    return out
+                end
+                out[#out + 1] = line
+            end
+            local rest = word
+            while widgets.cells(rest) > width do
+                if #out == limit - 1 then
+                    out[#out + 1] = ellipsized(rest, width)
+                    return out
+                end
+                local part = widgets.clip(rest, width)
+                if part == "" then return out end
+                out[#out + 1] = part
+                rest = rest:sub(#part + 1)
+            end
+            line = rest
+        end
+    end
+    if line ~= "" and #out < limit then out[#out + 1] = line end
+    return out
+end
+-- An input's placeholder: grey on the field's own white, not the face's grey —
+-- a face-colored row inside a field reads as a disabled field.
+local placeholder_style = tty.style():foreground(palette.active.shadow):background(palette.active.field)
 function cells.rows(plan: any, interaction: any, width: any, height: any): any
     local canvas = tty.canvas(whole(math.max(1, width)), whole(math.max(1, height)))
     canvas:clear(widgets.styles.face:render(" "))
@@ -291,16 +331,28 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 local editing = interaction.editors[node.id]
                 label = editor.visible(editor.shown(node), editing, r.w)
                 style = focused and editing and editing.selected and widgets.styles.select or widgets.styles.field
+                local placeholder = ui.placeholder(node, focused)
+                if placeholder then label, style = placeholder, placeholder_style end
+            elseif node.kind == "select" then
+                -- A drop-down list: the chosen option's label on the field, the
+                -- ▾ button in the last column (drawn after the rows).
+                local option: any = (node.options or {})[whole(item.current)]
+                label = ellipsized(option and tostring(option.label or option.value or "") or "", math.max(0, r.w - 1))
+                style = widgets.styles.field
             end
             if node.disabled and node.kind ~= "button" then style = widgets.styles.face_dim end
             -- A multi-line label (`\n`): lines in a row, the block centered in
             -- the rectangle; a single-line one sits in the middle row, as before.
+            -- `wrap = true`: the words flow from the top row, one line per row.
             local lines: any = {}
-            if node.kind == "label" and label:find("\n", 1, true) then
+            local flows = node.kind == "label" and node.wrap == true
+            if flows then
+                lines = wrapped(label, whole(r.w), whole(r.h))
+            elseif node.kind == "label" and label:find("\n", 1, true) then
                 local value: string = label .. "\n"
                 for piece in string.gmatch(value, "(.-)\n") do lines[#lines + 1] = piece end
             end
-            local first = #lines > 0 and math.max(0, (r.h - #lines) // 2) or r.h // 2
+            local first = flows and 0 or (#lines > 0 and math.max(0, (r.h - #lines) // 2) or r.h // 2)
             for row = 0, r.h - 1 do
                 if node.kind == "button" and row == r.h // 2 then
                     -- An already rendered string: `fit` would repaint the edges.
@@ -308,6 +360,14 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 elseif #lines > 0 then
                     put(r.x, r.y + row, lines[row - first + 1] or "", r.w, style)
                 else put(r.x, r.y + row, row == r.h // 2 and label or "", r.w, style) end
+            end
+            if node.kind == "select" and r.w >= 2 then
+                local middle = r.y + r.h // 2
+                -- Focused, the chosen label is highlighted, as in Windows 95.
+                if focused and not node.disabled and label ~= "" then
+                    put(r.x, middle, label, widgets.cells(label), styles.select)
+                end
+                put(r.x + r.w - 1, middle, "▾", 1, node.disabled and styles.face_dim or styles.face)
             end
             if node.kind == "input" and focused then
                 local editing = interaction.editors[node.id]
@@ -319,8 +379,21 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             end
         end
     end
-    -- Open menus go on top of everything, hence after the rest.
+    -- Open menus and select lists go on top of everything, hence after the
+    -- rest. A select's list is its rows on the field's white, the cursor row
+    -- highlighted, straight under (or over) the field.
+    local menus: any = {}
     for _, item in ipairs(plan.overlays or {}) do
+        if item.node.kind == "select" then
+            local popup: any = item.popup
+            for position, row in ipairs(popup.rows) do
+                local line: any = row
+                put(popup.rect.x, popup.rect.y + position - 1, " " .. line.text, popup.rect.w,
+                    line.index == popup.cursor and styles.select or styles.field)
+            end
+        else menus[#menus + 1] = item end
+    end
+    for _, item in ipairs(menus) do
         local popup: any = item.popup
         local open: any = interaction.menus[item.node.id]
         local body = {}

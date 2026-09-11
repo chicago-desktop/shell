@@ -1026,6 +1026,180 @@ local function define_tests()
         end)
     end)
 
+    -- What the Connections window had to work around: a placeholder, a
+    -- drop-down list, a Yes/No question and a label that wraps. Cells are read
+    -- as row strings, pixels through a stub raster that records each caption,
+    -- where it starts and its color.
+    test.describe("Window SDK: placeholder, select, confirm and wrapped labels", function()
+        local CELL = {w = 10, h = 20}
+        local function face(): any
+            local files = assert(fs.get("app:system_fonts"))
+            return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
+        end
+        local function rows_of(plan: any, interaction: any, cols: integer, rows: integer): any
+            local out = {}
+            for index, row in ipairs(cells.rows(plan, interaction, cols, rows)) do
+                out[index] = (tostring(row):gsub("\27%[[%d;:]*m", ""))
+            end
+            return out
+        end
+        local function rows(tree: any, cols: integer, height: integer, interaction: any): any
+            return rows_of(ui.plan(tree, cols, height, interaction), interaction, cols, height)
+        end
+        local function captions(tree: any, cols: integer, height: integer, interaction: any, font: any): any
+            local drawn: any = {list = {}}
+            local raster: any = {fill = function() end, rect = function() end, set = function() end, blit = function() end,
+                text = function(_, x, y, caption, options)
+                    drawn.list[#drawn.list + 1] = {x = x, y = y, text = caption,
+                        color = type(options) == "table" and options.color or nil}
+                    return 0
+                end}
+            local store: any = {take = function() return raster, true end}
+            local placed, why = render.placement({id = "forms", state_revision = 1,
+                content_state = {sdk = 1, revision = 1, ui = tree, interaction = interaction}},
+                {x = 1, y = 1, cols = cols, rows = height}, CELL, {face = font}, store)
+            assert(placed, tostring(why))
+            return drawn.list
+        end
+        local function find(list: any, wanted: string): any
+            for _, entry in ipairs(list) do if entry.text == wanted then return entry end end
+            return nil
+        end
+        local function press(x: any, y: any): any
+            return {type = "mouse", action = "press", button = "left", x = x, y = y}
+        end
+        local function key(name: string): any
+            return {type = "key", action = "press", key_type = name, key = name}
+        end
+        local function trimmed(line: any): string
+            return (tostring(line or ""):gsub("%s+$", ""))
+        end
+
+        test.it("an empty input shows its placeholder in grey until it is focused, and never sends it", function()
+            local font = face()
+            local function tree(value: any): any
+                return {kind = "column", children = {
+                    {kind = "button", id = "first", size = 2, text = "First"},
+                    {kind = "input", id = "token", size = 2, text = value, placeholder = "e.g. 123:ABC"},
+                }}
+            end
+            test.not_nil(table.concat(rows(tree(""), 30, 4, ui.interaction()), "\n"):find("e.g. 123:ABC", 1, true),
+                "cells: an empty unfocused field shows the placeholder")
+            test.is_nil(table.concat(rows(tree("abc"), 30, 4, ui.interaction()), "\n"):find("e.g.", 1, true),
+                "cells: a value hides it")
+            local focused = ui.interaction()
+            focused.focus = "token"
+            test.is_nil(table.concat(rows(tree(""), 30, 4, focused), "\n"):find("e.g.", 1, true),
+                "cells: a focused field hides it")
+            local hint = find(captions(tree(""), 30, 4, ui.interaction(), font), "e.g. 123:ABC")
+            local value = find(captions(tree("abc"), 30, 4, ui.interaction(), font), "abc")
+            test.not_nil(hint, "pixels: the placeholder is drawn")
+            test.is_true(hint ~= nil and value ~= nil and hint.color ~= value.color, "pixels: in another color than a value")
+            test.is_nil(find(captions(tree(""), 30, 4, focused, font), "e.g. 123:ABC"), "pixels: a focused field hides it")
+            local plan = ui.plan(tree(""), 30, 4, focused)
+            local typed = ui.event(plan, focused, {type = "key", action = "press", key_type = "runes", key = "x"})
+            test.eq(typed and (typed.type .. ":" .. tostring(typed.value)), "change:x", "the typed text is the value, not the placeholder")
+        end)
+
+        test.it("a select opens under its field, chooses by a click or Enter, and steps with the arrows when closed", function()
+            local font = face()
+            local options = {{value = "a", label = "Alpha"}, {value = "b", label = "Beta"}, {value = "c", label = "Gamma"}}
+            local function tree(value: any): any
+                return {kind = "column", children = {
+                    {kind = "select", id = "kind", size = 2, value = value, options = options},
+                    {kind = "label", text = ""},
+                }}
+            end
+            local interaction = ui.interaction()
+            local plan = ui.plan(tree("b"), 30, 8, interaction)
+            test.eq(table.concat(plan.focusable, ","), "kind", "a select takes focus")
+            local field = plan.by_id.kind.rect
+            local row = field.y + field.h // 2
+            local shown = rows_of(plan, interaction, 30, 8)
+            test.not_nil(shown[row]:find("Beta", 1, true), "cells: the field shows the chosen label")
+            test.not_nil(shown[row]:find("▾", 1, true), "cells: the arrow button")
+            test.not_nil(find(captions(tree("b"), 30, 8, ui.interaction(), font), "Beta"), "pixels: the chosen label")
+
+            test.is_nil(ui.event(plan, interaction, press(field.x + 2, row)), "a click on the field opens, it is not a choice")
+            plan = ui.plan(tree("b"), 30, 8, interaction)
+            local popup = plan.by_id.kind.popup
+            test.not_nil(popup, "the list is open")
+            test.eq(popup.rect.y, row + 1, "the list starts straight under the field's row")
+            test.eq(popup.cursor, 2, "the cursor stands on the chosen option")
+            shown = rows_of(plan, interaction, 30, 8)
+            test.not_nil(shown[row + 1]:find("Alpha", 1, true), "cells: the first option under the field")
+            test.not_nil(shown[row + 3]:find("Gamma", 1, true), "cells: the third option")
+            local drawn = captions(tree("b"), 30, 8, interaction, font)
+            local gamma = find(drawn, "Gamma")
+            test.eq(gamma and (gamma.y - 1) // CELL.h + 1, row + 3, "pixels: the third option on its row")
+
+            local chosen = ui.event(plan, interaction, press(field.x + 2, row + 3))
+            test.eq(chosen and (chosen.type .. ":" .. chosen.id .. ":" .. tostring(chosen.value)), "change:kind:c",
+                "a click on a row chooses its value")
+            test.is_nil(interaction.menus.kind, "a choice closes the list")
+
+            plan = ui.plan(tree("b"), 30, 8, interaction)
+            interaction.focus = "kind"
+            local stepped = ui.event(plan, interaction, key("down"))
+            test.eq(stepped and stepped.value, "c", "closed: Down steps to the next value")
+            test.is_nil(ui.event(plan, interaction, key("enter")), "Enter opens")
+            test.not_nil(interaction.menus.kind, "the list is open after Enter")
+            plan = ui.plan(tree("b"), 30, 8, interaction)
+            ui.event(plan, interaction, key("up"))
+            plan = ui.plan(tree("b"), 30, 8, interaction)
+            local picked = ui.event(plan, interaction, key("enter"))
+            test.eq(picked and picked.value, "a", "open: Up and Enter choose Alpha")
+            ui.event(plan, interaction, key("enter"))
+            plan = ui.plan(tree("b"), 30, 8, interaction)
+            test.is_nil(ui.event(plan, interaction, key("esc")), "Esc is not a choice")
+            test.is_nil(interaction.menus.kind, "Esc closes the list")
+            test.is_nil(ui.event(plan, interaction, press(field.x + 2, row)), "reopen")
+            plan = ui.plan(tree("b"), 30, 8, interaction)
+            test.is_nil(ui.event(plan, interaction, press(field.x + 2, 8)), "a click elsewhere is swallowed")
+            test.is_nil(interaction.menus.kind, "and closes the list")
+            test.not_nil(ui.problem({kind = "select", id = "bad", options = "a,b"}), "options must be a list")
+        end)
+
+        test.it("ui.message takes buttons, OK alone stays the default, and ui.confirm is Yes and No with No the default", function()
+            local ok = ui.plan(ui.message({title = "About", lines = {"v1"}}), 40, 12, ui.interaction())
+            test.is_true(ok.by_id.message_ok ~= nil and ok.by_id.message_ok.node.default == true, "one OK, the default")
+            local plan = ui.plan(ui.message({title = "Delete?", buttons = {
+                {id = "yes", text = "Yes"}, {id = "no", text = "No", default = true}}}), 40, 12, ui.interaction())
+            test.is_nil(plan.by_id.message_ok, "the given buttons replace OK")
+            test.is_false(plan.by_id.yes.node.default == true, "Yes is not the default")
+            test.is_true(plan.by_id.no.node.default == true, "No is")
+            test.is_true(plan.by_id.yes.rect.x < plan.by_id.no.rect.x, "in the given order")
+            test.eq(plan.by_id.no.rect.x + plan.by_id.no.rect.w - 1, 39, "flush right inside the padding")
+            local confirm = ui.plan(ui.confirm({title = "Delete the connection?", yes = "delete", no = "keep"}), 40, 12, ui.interaction())
+            test.eq(confirm.by_id.delete.node.text .. "/" .. confirm.by_id.keep.node.text, "Yes/No")
+            test.is_true(confirm.by_id.keep.node.default == true, "No is the default of a question")
+            local save = ui.plan(ui.confirm({title = "Save?", default = "yes"}), 40, 12, ui.interaction())
+            test.is_true(save.by_id.yes.node.default == true and save.by_id.no.node.default ~= true, "default = \"yes\" moves it")
+        end)
+
+        test.it("a wrapped label flows by words into its height and cuts only the last line", function()
+            local text = "one two three four five six seven"
+            local tree = {kind = "column", children = {{kind = "label", size = 3, wrap = true, text = text}}}
+            local shown = rows(tree, 12, 3, ui.interaction())
+            test.eq(trimmed(shown[1]) .. "|" .. trimmed(shown[2]) .. "|" .. trimmed(shown[3]), "one two|three four|five six se…",
+                "cells: lines by words, the last one cut")
+            local short = rows({kind = "column", children = {{kind = "label", size = 3, wrap = true, text = "one two"}}},
+                12, 3, ui.interaction())
+            test.eq(trimmed(short[1]), "one two", "cells: text that fits is whole, on the top row")
+            local font = face()
+            local long = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda omicron sigma omega"
+            local drawn = captions({kind = "column", children = {{kind = "label", size = 3, wrap = true, text = long}}},
+                12, 3, ui.interaction(), font)
+            test.eq(#drawn, 4, "pixels: as many 15 px lines as 60 px hold")
+            for index, entry in ipairs(drawn) do
+                test.is_true(font:measure(entry.text) <= 12 * CELL.w - 4, "pixels: line " .. index .. " fits the width")
+                if index > 1 then test.eq(entry.y - drawn[index - 1].y, 15, "pixels: a 15 px step") end
+                local cut = entry.text:sub(-3) == "…"
+                test.eq(cut, index == #drawn, "pixels: only the last line is cut, line " .. index)
+            end
+        end)
+    end)
+
     test.describe("Window SDK ergonomics", function()
         test.it("app.main wraps app.run, and a bare context has watch, unwatch, after and close", function()
             test.eq(type(app.main({})), "function")

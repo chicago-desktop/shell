@@ -99,12 +99,25 @@ current data; `update` changes the model on a component's action.
   `\n` in the text makes a multi-line label: lines go at the font's step (15 px in
   pixels, one row per line in cells), the block centered in the rectangle; this way
   the two hint lines of a dialog do not drift a cell apart like two paragraphs.
+  `wrap = true` flows the text by words into the label's rectangle from the top:
+  lines of its width, as many as its height holds (one per row in cells, 15 px
+  apart in pixels), and only the last line is cut with "…". A wrapped label is
+  one paragraph: `\n` is not a hard break there.
 - `monitor`: `color` — a monitor screen in the desktop color, like the preview in
   "Display Properties"; in pixels a case with a bevel and a stand, in cells
   a face frame and a colored screen. Does not take focus, no `id` needed.
 - `image`: `image` (a name from the icon catalog), `icon` (a character for cells),
   `size_px` (32 by default). A dialog icon: a raster in pixels, a single character
   in cells. Does not take focus, no `id` needed.
+- `ui.message(spec)` is an in-window sheet — "Help → About", an object's
+  "Properties": `title`, `lines`, `image`/`icon`, and `buttons = {{id, text,
+  default}, …}` in that order at the right edge (by default one "OK" with the id
+  `spec.ok` or `"message_ok"`). A button is at least 10 cells; the default is the
+  declared one, else the only button. `ui.confirm(spec)` is the question: "Yes"
+  (`spec.yes`, id `"yes"` by default) and "No" (`spec.no`, `"no"`), "No" the
+  default unless `spec.default = "yes"`; `yes_text`/`no_text` rename them. The
+  window returns the sheet from `view` while it is open and closes it on the
+  button's `activate`.
 - Buttons in a row stand at the RIGHT edge (shell rule, 2026-09-09): the row says
   `align = "right"`, the buttons have a fixed `size` and follow each other through
   `gap`. That is how "Run…" does it.
@@ -121,6 +134,23 @@ current data; `update` changes the model on a component's action.
   `change.value` returns the new text, `activate.value`
   is the Enter confirmation. Supports UTF-8, arrows, Home/End, Backspace/Delete,
   Ctrl+A and paste. This is single-line input, not a text editor.
+  An optional `placeholder` is grey text shown while the value is empty and the
+  field is not focused (cells: grey on the field's white; pixels: the shadow
+  color). It is only drawn: never edited, never sent — `change.value` is what was
+  typed.
+- `select`: `id`, `value`, `options = {{value, label}, …}`, `disabled`. A drop-down
+  list: a field with the chosen option's label and a ▾ button. A click on it,
+  Enter or Space opens the list straight under the field (over it when more fits
+  there), with the cursor on the chosen option; ↑/↓ and Home/End move the cursor,
+  Enter, Space or a click on a row chooses, Esc, Tab or a click elsewhere closes.
+  Closed, ↑/↓ and Home/End change the value directly, as in Windows 95. A choice
+  is `change` with the option's `value`, only when it differs. The list is an
+  overlay, like a menu's; its rectangle is `ui.dropdown`, one for both renderers
+  and the hit test.
+- Form rules — `required`, `required_if`, validation messages — are out of scope:
+  the SDK draws the controls and reports what the person did, the window decides
+  what a valid form is (the Connections window checks its credential schema
+  itself and names the field in the status line).
 - `list`: `id`, `items`, `selected`, an optional `wheel_step` (3).
   An item is a string or `{id = ..., text = ...}`. `select` carries `index` (1-based)
   and `value`; Enter gives `activate`. Store the selection in the model in `update`.

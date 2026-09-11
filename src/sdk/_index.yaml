@@ -33,6 +33,7 @@ entries:
       editor: butschster.windows.sdk:editor
       widgets: butschster.windows.shell:widgets
       icons: butschster.windows.shell:icons
+      palette: butschster.windows.shell:palette
 
   - name: render
     kind: library.lua
