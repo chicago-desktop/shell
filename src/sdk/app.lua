@@ -141,12 +141,18 @@ local function escape(action: any): boolean
     return type(action) == "table" and action.type == "key" and action.key_type == "esc"
 end
 
+-- The SDK's own movement: the view already moved when these arrive (`end`
+-- after the wheel reached the bottom, `scroll` of a text view), so the frame is
+-- drawn whatever `update` answers. A window that returns false for actions it
+-- does not know would otherwise freeze its list at the last row but one.
+local REDRAWS: {[string]: boolean} = {["end"] = true, scroll = true}
+
 -- dispatch(definition, model, context, action) -> whether to redraw
 --
 -- `update` may return false: "nothing changed, do not draw". With
 -- `definition.close_on_escape`, Esc goes to `update` first — a window with an
 -- open sheet closes the sheet there — and closes the window only when `update`
--- did not take it (returned false).
+-- did not take it (returned false). `end` and `scroll` redraw regardless.
 function app.dispatch(definition: any, model: any, context: any, action: any): boolean
     if action == nil then return true end
     local closes = definition.close_on_escape == true and escape(action)
@@ -161,7 +167,7 @@ function app.dispatch(definition: any, model: any, context: any, action: any): b
     end
     local verdict = guarded(context, "update", definition.update, model, action, context)
     if closes and verdict == false then context.closing = true end
-    return verdict ~= false
+    return verdict ~= false or REDRAWS[tostring(action.type)] == true
 end
 
 -- main(definition) -> the `main` a window entry names. A window ends with

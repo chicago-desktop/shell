@@ -1490,6 +1490,175 @@ local function define_tests()
         end)
     end)
 
+    test.describe("Window SDK: the end of a list, and a read-only text", function()
+        local function face(): any
+            local files = assert(fs.get("app:system_fonts"))
+            return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
+        end
+        local function numbered(count: integer): any
+            local items = {}
+            for index = 1, count do items[index] = "item " .. index end
+            return items
+        end
+        local function wheel(y: integer): any
+            return {type = "mouse", action = "wheel", button = "wheel_down", x = 3, y = y}
+        end
+        local function key(name: string, key_type: string): any
+            return {type = "key", key = name, key_type = key_type, action = "press"}
+        end
+
+        test.it("a list says end when the wheel pushes down with its last row on screen", function()
+            local state = ui.interaction()
+            local tree = {kind = "list", id = "items", items = numbered(30)}
+            local plan = ui.plan(tree, 20, 10, state)
+            test.is_nil(ui.event(plan, state, wheel(4)), "far from the end the wheel only scrolls")
+            test.eq(state.offsets.items, 3)
+            state.offsets.items = 17
+            plan = ui.plan(tree, 20, 10, state)
+            local action: any = ui.event(plan, state, wheel(4))
+            test.not_nil(action)
+            test.eq(action.type, "end")
+            test.eq(action.id, "items")
+            test.eq(action.offset, 20, "the offset the wheel reached: the last page")
+            test.eq(action.total, 30)
+            test.eq(ui.event(plan, state, wheel(4)).type, "end", "pushing again at the end says it again")
+            test.is_nil(ui.event(plan, state, {type = "mouse", action = "wheel", button = "wheel_up", x = 3, y = 4}),
+                "the wheel up is not the end")
+            local short_plan = ui.plan({kind = "list", id = "short", items = numbered(4)}, 20, 10, state)
+            test.eq(ui.event(short_plan, state, wheel(2)).type, "end", "a list that fits is at its end")
+            test.is_nil(ui.event(short_plan, state, {type = "mouse", action = "wheel", button = "wheel_up", x = 3, y = 2}),
+                "the wheel up on a list that fits is still not the end")
+            test.is_nil(ui.event(ui.plan({kind = "list", id = "empty", items = {}}, 20, 10, state), state, wheel(2)),
+                "an empty list has no last row")
+        end)
+
+        test.it("a table counts its rows below the header", function()
+            local rows = {}
+            for index = 1, 12 do rows[index] = {id = "r" .. index, cells = {"row " .. index}} end
+            local state = ui.interaction()
+            local plan = ui.plan({kind = "table", id = "events", columns = {{title = "Name", weight = 1}}, rows = rows},
+                20, 6, state)
+            state.offsets.events = 6
+            local action: any = ui.event(plan, state, wheel(3))
+            test.eq(action.type, "end")
+            test.eq(action.offset, 7, "five rows under the header: the last page starts at 7")
+        end)
+
+        test.it("keys past the last row say end; reaching it is still a select", function()
+            local state = ui.interaction()
+            local tree = {kind = "list", id = "items", items = numbered(30), selected = 29}
+            local plan = ui.plan(tree, 20, 10, state)
+            state.focus = "items"
+            local reached: any = ui.event(plan, state, key("down", "down"))
+            test.eq(reached.type, "select")
+            test.eq(reached.index, 30)
+            tree.selected = 30
+            plan = ui.plan(tree, 20, 10, state)
+            state.focus = "items"
+            for _, pushed in ipairs({{"down", "down"}, {"page_down", "pgdown"}, {"end", "end"}}) do
+                local action: any = ui.event(plan, state, key(pushed[1], pushed[2]))
+                test.eq(action.type, "end", pushed[1] .. " at the last row")
+                test.eq(action.total, 30)
+            end
+            test.eq(ui.event(plan, state, key("up", "up")).index, 29)
+        end)
+
+        test.it("end and scroll are drawn even when update ignores them", function()
+            local definition = {update = function() return false end}
+            local context = app.context({})
+            test.is_true(app.dispatch(definition, {}, context, {type = "end", id = "items"}))
+            test.is_true(app.dispatch(definition, {}, context, {type = "scroll", id = "payload"}))
+            test.is_false(app.dispatch(definition, {}, context, {type = "select", id = "items"}),
+                "any other action keeps update's verdict")
+        end)
+
+        test.it("a text wraps by characters after a space, keeping its lines and indents", function()
+            local lines = ui.wrap_text("один два три", 8)
+            test.eq(#lines, 2)
+            test.eq(lines[1], "один ")
+            test.eq(lines[2], "два три")
+            test.eq(table.concat(ui.wrap_text("абвгдежз", 3), "|"), "абв|где|жз", "a word longer than the line is cut")
+            test.eq(table.concat(ui.wrap_text("a\n\nb", 10), "|"), "a||b", "an empty line stays")
+            test.eq(table.concat(ui.wrap_text("x\r\ny", 10), "|"), "x|y")
+            test.eq(ui.wrap_text("    \"key\": 1", 40)[1], "    \"key\": 1", "an indent stays")
+            test.eq(#ui.wrap_text(string.rep("w", 50), 10, false), 1, "wrap = false keeps a line whole")
+            test.eq(#ui.wrap_text("", 10), 1)
+        end)
+
+        test.it("a text with an id scrolls by lines — wheel, bar and keys, each a scroll action", function()
+            local rows = {}
+            for index = 1, 40 do rows[index] = "line " .. index end
+            local state = ui.interaction()
+            local tree = {kind = "text", id = "payload", text = table.concat(rows, "\n")}
+            local plan = ui.plan(tree, 30, 10, state)
+            local item: any = plan.by_id.payload
+            test.eq(#item.lines, 40)
+            test.eq(item.page, 10)
+            test.eq(item.bar.limit, 30, "forty lines on a page of ten")
+            test.eq(plan.focusable[1], "payload", "with an id it takes the focus")
+            local moved: any = ui.event(plan, state, wheel(3))
+            test.eq(moved.type, "scroll")
+            test.eq(moved.offset, 3)
+            test.eq(moved.total, 40)
+            test.eq(state.offsets.payload, 3)
+            state.focus = "payload"
+            test.eq(ui.event(plan, state, key("page_down", "pgdown")).offset, 13, "the keys count from the state, like the wheel")
+            test.eq(ui.event(plan, state, key("down", "down")).offset, 14)
+            test.eq(ui.event(plan, state, key("end", "end")).offset, 30)
+            test.eq(ui.event(plan, state, key("up", "up")).offset, 29)
+            test.eq(ui.event(plan, state, key("home", "home")).offset, 0)
+            test.is_nil(ui.event(plan, state, {type = "key", key = "x", key_type = "runes", action = "press"}),
+                "a letter is not the text's: it goes to the application")
+            state.offsets.payload = 0
+            plan = ui.plan(tree, 30, 10, state)
+            local arrow: any = ui.event(plan, state, {type = "mouse", action = "press", button = "left", x = 30, y = 10})
+            test.eq(arrow.type, "scroll", "the bar's down arrow")
+            test.eq(arrow.offset, 1)
+            test.is_nil(ui.event(plan, state, {type = "mouse", action = "press", button = "left", x = 5, y = 5}),
+                "a press on the text itself only focuses it")
+            local wide = ui.plan({kind = "text", id = "wide", text = string.rep("word ", 12)}, 30, 10, ui.interaction())
+            test.eq(#wide.by_id.wide.lines, 3, "wrapped by the width minus the bar and the air: 28 characters")
+            local edge = ui.plan({kind = "column", children = {
+                {kind = "text", id = "fits", text = string.rep("a", 28), size = 5},
+                {kind = "text", id = "over", text = string.rep("a", 29), size = 5},
+            }}, 30, 10, ui.interaction())
+            test.eq(#edge.by_id.fits.lines, 1, "28 characters are one line")
+            test.eq(#edge.by_id.over.lines, 2, "29 are two: the bar's column and the air are not text")
+        end)
+
+        test.it("a text without an id is inert: no focus, no scroll, no problem", function()
+            local state = ui.interaction()
+            local tree = {kind = "column", children = {{kind = "text", text = "a\nb\nc\nd"}, {kind = "button", id = "ok", text = "OK"}}}
+            test.is_nil(ui.problem(tree))
+            local plan = ui.plan(tree, 20, 4, state)
+            test.eq(#plan.focusable, 1, "only the button takes the focus")
+            test.is_nil(ui.event(plan, state, wheel(1)))
+            test.is_nil(next(state.offsets), "no offset is kept for it")
+            test.not_nil(ui.problem({kind = "column", children = {{kind = "text", id = "t", text = ""},
+                {kind = "text", id = "t", text = ""}}}), "an id, when given, is unique")
+        end)
+
+        test.it("both renderers draw the plan's lines from the offset", function()
+            local rows = {}
+            for index = 1, 20 do rows[index] = "line " .. index end
+            local interaction = ui.interaction()
+            interaction.offsets.payload = 3
+            local tree = {kind = "text", id = "payload", text = table.concat(rows, "\n")}
+            local plan = ui.plan(tree, 20, 4, interaction)
+            local first = (tostring(cells.rows(plan, interaction, 20, 4)[1]):gsub("\27%[[%d;:]*m", ""))
+            test.eq(first:sub(1, 7), " line 4", "cells: one cell in, from the offset")
+            local texts: any = {}
+            local raster: any = {fill = function() end, rect = function() end, set = function() end, blit = function() end,
+                text = function(_, x, y, caption) texts[#texts + 1] = tostring(caption); return 0 end}
+            local store: any = {take = function() return raster, true end}
+            assert(render.placement({id = "text", state_revision = 1, content_state = {sdk = 1, revision = 1,
+                interaction = interaction, ui = tree}}, {x = 1, y = 1, cols = 20, rows = 4}, {w = 10, h = 20},
+                {face = face()}, store))
+            test.eq(texts[1], "line 4", "pixels: the same lines from the same offset")
+            test.eq(#texts, 4, "a line per row, nothing else written")
+        end)
+    end)
+
     test.describe("Window SDK: client rows", function()
         local function face(): any
             local files = assert(fs.get("app:system_fonts"))

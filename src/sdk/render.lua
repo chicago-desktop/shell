@@ -587,6 +587,19 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 end
                 pixels.scrollbar(raster, x + w - bar_w, y, bar_w, h, item.bar, cell.h, math.min(bar_w, cell.h))
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
+            elseif node.kind == "text" then
+                -- The plan's lines, the same ones cells draw: the font never
+                -- re-wraps them, it only cuts what it does not fit.
+                raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
+                local lines: any = item.lines or {}
+                for row = 0, rect.h - 1 do
+                    local line: any = lines[item.offset + row + 1]
+                    if line ~= nil then
+                        text(x + cell.w, y + row * cell.h, w - cell.w - bar_w, cell.h, line, color.field_text)
+                    end
+                end
+                pixels.scrollbar(raster, x + w - bar_w, y, bar_w, h, item.bar, cell.h, math.min(bar_w, cell.h))
+                pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "list" then
                 raster:rect(whole(x), whole(y), whole(w), whole(h), node.disabled and color.face or color.field)
                 for row = 0, rect.h - 1 do

@@ -316,6 +316,15 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                     {room = cell.room, surface = "panel", selected = cell.selected and not node.disabled})
             end
             scrollbar(r.x + r.w - 1, r.y, r.h, item.offset, item.page, item.rows_total)
+        elseif node.kind == "text" then
+            -- A read-only text: the plan's lines (`item.lines`, already
+            -- wrapped by this width), one cell in, from the plan's offset.
+            local lines: any = item.lines or {}
+            for row = 0, r.h - 1 do
+                local line: any = lines[item.offset + row + 1]
+                put(r.x, r.y + row, line ~= nil and (" " .. tostring(line)) or "", r.w - 1, styles.field)
+            end
+            scrollbar(r.x + r.w - 1, r.y, r.h, item.offset, item.page, #lines)
         elseif node.kind == "list" then
             local ground = node.disabled and styles.face_dim or styles.field
             for row = 0, r.h - 1 do

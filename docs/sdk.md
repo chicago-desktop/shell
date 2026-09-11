@@ -210,6 +210,12 @@ current data; `update` changes the model on a component's action.
   that must be shown; it is applied once per value (the chat log sets
   `reveal = #items` and brings the new message into view without knocking the human's scrolling off).
   Row text starts one cell in, in both renderers.
+  When the wheel pushes down with the last row on screen, or ↓, Page Down or
+  End arrive with the last row already selected, the list says
+  `{type = "end", id, offset, total}` — the moment to load the next page, with no
+  polling of the offset. Reaching the last row by keys is still a `select`; only
+  pushing past it is `end`. Tables and trees say it the same way. `end` is drawn
+  even when `update` returns false: the view has already moved.
 - `table`: `id`, `columns`, `rows`, `selected`, `wheel_step`. A column is
   `{title, width | weight, align = "left" | "right"}`: `width` in cells
   fixes it, otherwise the remainder is divided by `weight`; one cell between columns.
@@ -223,6 +229,16 @@ current data; `update` changes the model on a component's action.
   end — the same in cells and pixels. `static = true` is a table nobody selects
   (the "name — value" pairs of a properties sheet): it needs no `id`, takes no
   focus and no clicks, and keeps no scroll offset.
+- `text`: `id?`, `text`, `wrap` (on by default), `wheel_step` (3). Read-only text
+  with its own vertical scroll — an event's payload, a log. The plan wraps it
+  ONCE by the rectangle's width in characters, minus the scrollbar and the cell
+  of air on the left, breaking after the last space that fits and keeping the
+  text's own lines and indents (`ui.wrap_text`); both renderers draw those lines,
+  so a window never pre-wraps by `context.width`. With an `id` it takes the
+  focus, the wheel, a press on its bar and ↑/↓/Page Up/Page Down/Home/End; every
+  move is `{type = "scroll", id, offset, total}`, drawn whatever `update` answers.
+  Without an `id` it is inert, like a `static` table, and stays at the top.
+  `wrap = false` keeps each line whole and the renderer cuts it.
 - `tree`: `id`, `rows`, `selected`, `wheel_step`. A row is a visible row of the
   flattened tree: `{id, label, depth, has_children, expanded, trail,
   kind = "folder" | "entry", image?}`; `trail` says, per ancestor level, whether that
@@ -355,7 +371,8 @@ actions, including `resize`, `tick`, `close` (the window is being closed from ou
 it cannot be cancelled, you can finish cleaning up) and `key` — a key that no component
 took (`key`, `key_type`, `alt`, `ctrl`, `shift`): that is how windows close on Esc and
 refresh on F5. Returning `false` from `update` means "nothing changed, do not
-redraw". For periodic data set `definition.interval = "1s"`; a one-shot timer is
+redraw" — except for `end` and `scroll`, which report a move the SDK has already
+made and are drawn regardless. For periodic data set `definition.interval = "1s"`; a one-shot timer is
 `context.after(duration, tag)`, and the action `{type = "timer", tag = tag}` arrives
 once. `definition.close_on_escape = true` closes the window on an Esc that `update`
 did not take (returned `false`): a window with an open sheet closes the sheet in

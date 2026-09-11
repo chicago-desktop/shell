@@ -10,15 +10,18 @@ local containers = {row = true, column = true, split = true}
 local leaves = {label = true, button = true, input = true, list = true, table = true, checkbox = true,
     statusbar = true, tabs = true, menu = true, image = true, field = true,
     group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true, monitor = true,
-    icons = true, select = true, slider = true, spectrum = true, radio = true}
+    icons = true, select = true, slider = true, spectrum = true, radio = true, text = true}
 -- Only the ones that take no input can live without an `id`.
 local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
     calendar = true, clock = true, monitor = true, spectrum = true}
 -- A node that takes no input: a passive kind, or a table declared `static` —
 -- pairs of "name — value" on a properties sheet, which nobody selects. Such a
 -- table needs no `id`, takes no focus and no clicks, and keeps no scroll offset.
+-- A `text` without an `id` is the same: it has nowhere to keep its offset, so
+-- it stays at the top and takes no input.
 local function inert(node: any): boolean
     return passive[node.kind] == true or (node.kind == "table" and node.static == true)
+        or (node.kind == "text" and node.id == nil)
 end
 -- The month grid: six weeks of seven days, a date or false. `first` is the
 -- weekday of the 1st, 0 = Monday; `days` is how many days the month has.
@@ -91,6 +94,40 @@ function ui.tree_columns(depth: any): any
     return {expander = indent, icon = indent + 2, label = indent + 4}
 end
 ui.entries = entries
+-- wrap_text(value, width, wrap) -> the lines of a `text` view
+--
+-- The lines the plan keeps for a read-only text and both renderers draw: the
+-- text's own lines, each broken after the last space that fits `width`
+-- characters (a word longer than a line is cut). Leading spaces stay, so
+-- indented text keeps its indent. `wrap = false` keeps every line whole; the
+-- renderer then cuts what does not fit. Width is counted in characters, the
+-- unit of a cell, in both renderers: pixels draw the same lines, never their own.
+function ui.wrap_text(value: any, width: any, wrap: any): {string}
+    local room = whole(math.max(1, whole(width)))
+    local out: {string} = {}
+    local source = (tostring(value or ""):gsub("\r\n", "\n"))
+    for line in (source .. "\n"):gmatch("(.-)\n") do
+        local runes: any = runes_of(line)
+        if wrap == false or #runes <= room then
+            out[#out + 1] = line
+        else
+            local start = 1
+            while start <= #runes do
+                local stop = start + room - 1
+                if stop >= #runes then
+                    stop = #runes
+                else
+                    local cut = stop
+                    while cut > start and runes[cut] ~= " " do cut = cut - 1 end
+                    if cut > start then stop = cut end
+                end
+                out[#out + 1] = table.concat(runes, "", start, stop)
+                start = stop + 1
+            end
+        end
+    end
+    return out
+end
 -- Cells of a text string (characters, not bytes): both tabs and menus are measured by them.
 local function cells_of(text: any): integer
     return #runes_of(text)
@@ -480,6 +517,18 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         if id ~= nil then interaction.offsets[id] = item.offset end
         item.bar = scroll.bar(item.offset, total, item.page, math.max(1, rect.h - item.header))
     end
+    if kind == "text" then
+        -- A read-only text: wrapped ONCE here, by the rect's width minus the
+        -- scrollbar's columns and the cell of air on the left, and both
+        -- renderers draw `item.lines`. The scroll unit is a line. Without an
+        -- `id` there is no offset to keep: the text stays at the top.
+        item.lines = ui.wrap_text(node.text, whole(rect.w) - whole(item.bar_cols) - 1, node.wrap)
+        local total = #item.lines
+        item.page = whole(math.max(1, whole(rect.h)))
+        item.offset = scroll.clamp(id ~= nil and interaction.offsets[id] or 0, total, item.page)
+        if id ~= nil then interaction.offsets[id] = item.offset end
+        item.bar = scroll.bar(item.offset, total, item.page, rect.h)
+    end
     plan.items[#plan.items + 1] = item
     if id then plan.by_id[id] = item end
     -- The menu is not part of the focus ring — as in Windows, it is reached with Alt and F10.
@@ -855,7 +904,14 @@ local function list_event(item: any, state: any, event: any): any
     local total, header = #rows, whole(item.header)
     local offset = scroll.clamp(state.offsets[node.id] or item.offset, total, item.page)
     if event.action == "wheel" then
-        state.offsets[node.id] = scroll.wheel(offset, event.button, total, item.page, node.wheel_step or 3)
+        local moved = scroll.wheel(offset, event.button, total, item.page, node.wheel_step or 3)
+        state.offsets[node.id] = moved
+        -- The wheel pushing down with the last row on screen is `end`: the
+        -- application may load the next page. It is the only thing the wheel
+        -- says, so a window learns it without polling the offset.
+        if event.button == "wheel_down" and total > 0 and moved >= scroll.limit(total, item.page) then
+            return {type = "end", id = node.id, offset = moved, total = total}
+        end
     elseif input.pressed(event) then
         local row = event.y - rect.y - header
         -- The table header is not a row: a click on it selects nothing.
@@ -887,6 +943,37 @@ local function list_event(item: any, state: any, event: any): any
         end
     end
     return nil
+end
+-- A read-only text scrolls by lines: the wheel, a press on the bar, and the
+-- arrows, Page Up/Down, Home and End while it has the focus. Every move is
+-- `scroll` with the new offset — an action, so the key does not reach the
+-- application as a bare `key`, and the SDK redraws it whatever `update` says.
+local function text_event(item: any, state: any, event: any): any
+    local node, rect = item.node, item.rect
+    local total, page = #(item.lines or {}), whole(item.page)
+    local offset = scroll.clamp(state.offsets[node.id] or item.offset, total, page)
+    if event.type == "mouse" then
+        if event.action == "wheel" then
+            offset = scroll.wheel(offset, event.button, total, page, node.wheel_step or 3)
+        elseif input.pressed(event) then
+            local bar_left = rect.x + rect.w - whole(item.bar_cols or 1)
+            if event.x < bar_left or item.bar.limit <= 0 then return nil end
+            local shifted, capture = scroll.pointer(offset, total, page,
+                {x = bar_left, y = rect.y, w = rect.x + rect.w - bar_left, h = rect.h}, nil, event)
+            offset = shifted
+            state.capture = capture and {id = node.id, grab = capture.grab} or nil
+        else
+            return nil
+        end
+    else
+        local key = input.key(event)
+        if key ~= "up" and key ~= "down" and key ~= "pgup" and key ~= "pgdown" and key ~= "home" and key ~= "end" then
+            return nil
+        end
+        offset = scroll.key(offset, key, total, page)
+    end
+    state.offsets[node.id] = offset
+    return {type = "scroll", id = node.id, offset = offset, total = total}
 end
 -- Icon grid: a click on a cell selects it, the application is free to treat a repeated click
 -- on an already selected one as a double click (`pointer = true`), a click on
@@ -1010,6 +1097,7 @@ function ui.event(plan: any, state: any, original: any): any
         local item = ui.hit(plan, event.x, event.y)
         if not item or item.node.disabled then return nil end
         if item.node.kind == "table" and item.node.static then return nil end
+        if item.node.kind == "text" and item.node.id == nil then return nil end
         if item.node.kind == "menu" then return menu_event(item, state, event) end
         if item.node.kind == "tabs" then
             if input.pressed(event) then state.focus = item.node.id end
@@ -1028,6 +1116,7 @@ function ui.event(plan: any, state: any, original: any): any
         -- the name of a single view kind.
         if input.pressed(event) and item.node.id and not passive[item.node.kind] then state.focus = item.node.id end
         if item.node.kind == "list" or item.node.kind == "table" or item.node.kind == "tree" then return list_event(item, state, event) end
+        if item.node.kind == "text" then return text_event(item, state, event) end
         if item.node.kind == "icons" then return icons_event(item, state, event) end
         if item.node.kind == "select" then return select_event(item, state, event) end
         if item.node.kind == "slider" then return slider_event(item, state, event) end
@@ -1079,6 +1168,11 @@ function ui.event(plan: any, state: any, original: any): any
                 return {type = "select", id = node.id, index = parent, value = rows[parent]}
             end
         end
+        -- Pushing past the last row — ↓, Page Down or End with the last row
+        -- already selected — is `end`, as the wheel at the bottom is.
+        if chosen == total and (key == "down" or key == "pgdown" or key == "end") then
+            return {type = "end", id = node.id, offset = whole(item.offset), total = total}
+        end
         if key == "home" then index = 1 elseif key == "end" then index = total
         -- With no selection an arrow selects the FIRST row instead of stepping from it:
         -- otherwise "down" in a fresh list skipped past the first one.
@@ -1117,6 +1211,8 @@ function ui.event(plan: any, state: any, original: any): any
         local row = (index - 1) // columns + 1
         state.offsets[node.id] = scroll.reveal(item.offset, row, whole(item.rows_total), math.max(1, whole(item.page)))
         return {type = "select", id = node.id, index = index, value = items[index]}
+    elseif node.kind == "text" and key then
+        return text_event(item, state, event)
     elseif node.kind == "select" then
         return select_event(item, state, event)
     elseif node.kind == "slider" then
