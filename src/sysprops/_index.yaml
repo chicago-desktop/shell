@@ -31,7 +31,6 @@ entries:
         - system.read
         - registry.get
         - registry.find
-        - registry.entry
       resources: "*"
       effect: allow
 

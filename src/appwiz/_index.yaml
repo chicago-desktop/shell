@@ -33,7 +33,6 @@ entries:
         - process.send
         - registry.get
         - registry.find
-        - registry.entry
         - fs.get
         - hub.cache.list
       resources: "*"

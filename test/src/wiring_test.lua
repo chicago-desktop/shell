@@ -313,6 +313,25 @@ local function define_tests()
             test.is_true(checked >= 2, "the shell's and the install panel's env policies were not found")
         end)
 
+        test.it("grants no registry.entry anywhere: it is not an action", function()
+            -- The runtime checks registry.get and nothing else on the
+            -- registry; `registry.entry` is the kind of a registry entry. A
+            -- policy that lists it reads as a right it does not grant, and the
+            -- next policy copies it. A rule over every policy of the module.
+            local found, err = registry.find({[".kind"] = "security.policy"})
+            test.is_nil(err)
+            local checked = 0
+            for _, entry in ipairs(found or {}) do
+                local id = tostring(entry.id)
+                if id:sub(1, #"butschster.windows") == "butschster.windows" then
+                    checked = checked + 1
+                    test.is_false(has(actions_of(entry), "registry.entry"),
+                        id .. " grants registry.entry, which is not an action")
+                end
+            end
+            test.is_true(checked > 0, "no policies of the module were found")
+        end)
+
         test.it("names one database for every migration and for the repository", function()
             -- The requirement writes meta.target_db into each migration it
             -- aims at; a migration it misses creates its table in app:db while

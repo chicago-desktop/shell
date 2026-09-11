@@ -55,7 +55,6 @@ entries:
         # shell keeps no copy of the list of its own.
         - registry.get
         - registry.find
-        - registry.entry
         - registry.apply
         # The layout is read and written at start (shortcuts for programs
         # with desktop true). Database access is checked as the action
@@ -181,7 +180,6 @@ entries:
         # purpose.
         - registry.get
         - registry.find
-        - registry.entry
         # The desktop layout. Database access is checked as the action
         # `db.get` on the resource identifier, not as `sql.*` — verified on
         # the base.
@@ -225,7 +223,6 @@ entries:
         - process.send
         - registry.get
         - registry.find
-        - registry.entry
       resources: "*"
       effect: allow
 
