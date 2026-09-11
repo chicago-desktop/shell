@@ -26,7 +26,11 @@ local function handler()
         return
     end
 
-    local answer, err, running = control.call("desktop.list", {})
+    -- Сырые кадры замера кадра — только по просьбе (`?frame_samples=1`):
+    -- сводка по последним двумстам кадрам едет всегда, она маленькая.
+    local answer, err, running = control.call("desktop.list", {
+        frame_samples = req:query("frame_samples") == "1",
+    })
     if not answer then
         res:set_status(http.STATUS.OK)
         res:write_json({success = true, running = running == true, error = err})
@@ -43,6 +47,10 @@ local function handler()
         -- Отчёт восстановления окон мастерской: skipped / restored / failed /
         -- names / error.
         restore = answer.restore,
+        -- Приборы кадра композитора: paint_ms/present_ms/trigger последнего
+        -- кадра и сводка `window` по последним кадрам. Без них ответ на
+        -- «почему тормозит» можно получить только на глаз.
+        frame = answer.frame,
     })
 end
 
