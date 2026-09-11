@@ -61,13 +61,29 @@ verify: setup check lint test
 # does not say so. `probes` rebuilds both; `check-probes` builds in memory and
 # fails when a combined.lua on disk differs — older than the harness or any
 # source it embeds. Neither is part of lint or verify: the probes are a tool,
-# not a gate. The Go binaries are built and run by hand (tools/*/README.md).
+# not a gate. `check-probes` also RUNS each probe once on its fresh
+# combined.lua — building the Go binary first when it is missing or older
+# than its main.go or go.mod — and fails on a non-zero exit, showing the tail
+# of the run. From 2026-09-08 to 2026-09-11 both probes built fine and
+# crashed on their first `require`, and `--check` alone could not say so.
 probes:
 	python3 tools/pixelprobe/build.py
 	python3 tools/themeprobe/build.py
+PROBES := pixelprobe themeprobe
 check-probes:
 	python3 tools/pixelprobe/build.py --check
 	python3 tools/themeprobe/build.py --check
+	@for probe in $(PROBES); do \
+		dir=tools/$$probe; \
+		if [ ! -x $$dir/$$probe ] || [ $$dir/main.go -nt $$dir/$$probe ] || [ $$dir/go.mod -nt $$dir/$$probe ]; then \
+			echo "building $$dir/$$probe"; (cd $$dir && go build -o $$probe .) || exit 1; \
+		fi; \
+		if (cd $$dir && ./$$probe combined.lua > last-run.log 2>&1); then \
+			echo "$$probe ran: $$(tail -n 1 $$dir/last-run.log)"; \
+		else \
+			echo "$$probe FAILED, tail of $$dir/last-run.log:"; tail -n 20 $$dir/last-run.log; exit 1; \
+		fi; \
+	done
 # PNG snapshots of the shell and the windows into test/shots. This is a
 # `wippy run` — it brings the application up — so a person runs it; lint and
 # test never do. The snapshots are evidence for the eye: no test compares them.

@@ -23,6 +23,8 @@ SRC = HERE.parent.parent / "src"
 # Order matters: each file is wrapped in place of its marker, and the markers
 # in harness.lua go in dependency order.
 MODULES = (
+    ("core", "geometry"),
+    ("core", "text"),
     ("core", "scroll"),
     ("shell", "palette"),
     ("shell", "glyphs"),

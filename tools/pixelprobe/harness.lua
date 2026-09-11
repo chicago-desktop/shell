@@ -206,6 +206,9 @@ require = function(name)
     error("no module " .. tostring(name))
 end
 
+-- The base's pure libraries: scroll needs geometry, widgets needs text.
+modules.geometry = dofile(BASE .. "core/geometry.lua")
+modules.text = dofile(BASE .. "core/text.lua")
 modules.scroll = dofile(BASE .. "core/scroll.lua")
 modules.sdk_render, modules.regedit_render = {}, {}
 modules.palette = dofile(BASE .. "shell/palette.lua")

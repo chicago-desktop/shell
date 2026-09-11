@@ -2,3 +2,5 @@
 combined.lua
 # Build binary.
 pixelprobe
+# Output of the last `make check-probes` run.
+last-run.log

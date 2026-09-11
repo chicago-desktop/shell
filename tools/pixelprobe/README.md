@@ -107,3 +107,23 @@ Two things worth knowing about this command:
   as an argument, and the report writes where it came from. Without an
   argument a fallback value is taken, and this is said in capital letters: the
   guess "8×16" is right often enough to look correct.
+
+## `make check-probes` runs the probes
+
+`make check-probes` (from the module root) does three things for both probes:
+
+1. rebuilds `combined.lua` in memory and fails when the one on disk is stale;
+2. builds the Go binary when it is missing or older than `main.go` or `go.mod`;
+3. RUNS the probe once on `combined.lua` and fails on a non-zero exit, printing
+   the last 20 lines of `last-run.log` (the full output stays in that file,
+   which git ignores).
+
+The third step exists because the first two were not enough. From 2026-09-08 to
+2026-09-11 both probes built without a complaint and crashed on their first
+`require`: the base's `widgets` and `scroll` had started needing `text` and
+`geometry`, and the harnesses did not load them. A stale-check passes on a
+probe that cannot run, so a probe that "builds" said nothing about the theme
+for three days. This probe fails its run itself when a check is violated
+(`error("pixelprobe failed")`); a crash fails it the same way.
+
+It is still not part of `lint` or `verify`: the probes are a tool, not a gate.

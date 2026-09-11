@@ -2,3 +2,5 @@
 combined.lua
 # Build binary.
 themeprobe
+# Output of the last `make check-probes` run.
+last-run.log

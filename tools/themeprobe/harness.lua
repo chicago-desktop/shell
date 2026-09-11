@@ -194,6 +194,25 @@ modules.registry = {
     get = function() return nil, "the probe does not go to the registry" end,
 }
 
+-- The viewers' file helpers need `fs` at load time; the probe opens no
+-- drives, so the stub refuses with a reason rather than answering empty.
+modules.fs = {
+    get = function() return nil, "the probe does not open drives" end,
+}
+-- And `json`, for the file argument format. Plain go-lua has no json module;
+-- no scene here encodes a file argument, and if one ever does, the probe
+-- must stop with the reason, not draw a picture built on a fake value.
+modules.json = {
+    encode = function() error("the probe does not encode json") end,
+    decode = function() error("the probe does not decode json") end,
+}
+
+-- The base's pure libraries that `widgets` needs: text measuring, and the
+-- scroll arithmetic, which itself needs geometry. build.py takes "core/" from
+-- ../kickside-module/src/desktop.
+modules.geometry = dofile(BASE .. "core/geometry.lua")
+modules.text = dofile(BASE .. "core/text.lua")
+modules.scroll = dofile(BASE .. "core/scroll.lua")
 modules.palette = dofile(BASE .. "shell/palette.lua")
 modules.glyphs = dofile(BASE .. "shell/glyphs.lua")
 modules.widgets = dofile(BASE .. "shell/widgets.lua")
@@ -236,6 +255,10 @@ local glyphs = modules.glyphs
 -- that, and dragging the registry in here would mean bringing half the runtime
 -- into the probe.
 modules.catalog = {find = function() return nil end}
+-- The explorer model opens files through the viewers' associations, and
+-- those read the file argument format.
+modules.files = dofile(BASE .. "viewers/files.lua")
+modules.associations = dofile(BASE .. "viewers/associations.lua")
 modules.model = dofile(BASE .. "explorer/model.lua")
 modules.render = dofile(BASE .. "explorer/render.lua")
 local model = modules.model
@@ -625,3 +648,9 @@ for _, ch in ipairs(glyphs.all()) do
 end
 print("")
 print("glyphs in the set: " .. #glyphs.all() .. ", wider than one cell: " .. #bad)
+-- The one check here that is not for the eye, so it fails like the pixel
+-- probe's: a printed count nobody reads is a check that cannot fail, and
+-- `make check-probes` judges a probe by its exit code.
+if #bad > 0 then
+    error("themeprobe failed: glyphs wider than one cell: " .. table.concat(bad, " "))
+end

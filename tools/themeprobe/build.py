@@ -26,6 +26,9 @@ SRC = HERE.parent.parent / "src"
 # and is checked the same way: a full-screen program cannot be looked at
 # otherwise at all.
 MODULES = (
+    ("core", "geometry"),
+    ("core", "text"),
+    ("core", "scroll"),
     ("shell", "palette"),
     ("shell", "glyphs"),
     ("shell", "widgets"),
@@ -33,13 +36,20 @@ MODULES = (
     ("shell", "menu_layout"),
     ("shell", "chrome"),
     ("programs", "catalog"),
+    ("viewers", "files"),
+    ("viewers", "associations"),
     ("explorer", "model"),
     ("explorer", "render"),
 )
 
 
 def wrapped(folder: str, name: str) -> str:
-    source = (SRC / folder / f"{name}.lua").read_text(encoding="utf-8")
+    path = SRC / folder / f"{name}.lua"
+    # "core" is the base's desktop libraries, taken from the neighbouring
+    # working copy — the same rule as the pixel probe's build.py.
+    if folder == "core":
+        path = SRC.parent.parent / "kickside-module" / "src" / "desktop" / f"{name}.lua"
+    source = path.read_text(encoding="utf-8")
     return "(function()\n" + source + "\nend)()"
 
 

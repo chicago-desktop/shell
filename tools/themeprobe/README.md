@@ -32,3 +32,7 @@ Character width is checked by a separate test in the suite — it measures
 `glyphs.all()` with the real `tty.text.width` inside the runtime. The two
 checks do not replace each other: this one says where the cells landed, that
 one says how many cells a character takes.
+
+`make check-probes` (from the module root) also builds and RUNS this probe once
+and fails on a non-zero exit — see `tools/pixelprobe/README.md`. The glyph-width
+check at the end now fails the run (`error`) instead of only printing a count.
