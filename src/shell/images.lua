@@ -47,6 +47,11 @@ images.STORE = "butschster.windows.shell:icon_files"
 images.WEATHER_STORE = "butschster.windows.shell:weather_files"
 images.WEATHER_PREFIX = "weather_"
 
+-- The wallpapers — original pictures drawn by `tools/wallpapers.py`, in the
+-- display module's folder (assets/wallpaper, MIT like the weather set). A
+-- wallpaper has no sizes: the theme draws it at 1:1, tiled or centred.
+images.WALLPAPER_STORE = "butschster.windows.display:wallpaper_files"
+
 -- The sizes the pack is built in. There are no other files in the folder,
 -- and asking for another size is the caller's mistake, not a reason to
 -- scale: `gfx` has no scaling on purpose, and a 16-color icon stretched by
@@ -182,6 +187,36 @@ function images.get(name: any, size: any): (any, any)
     if w ~= px or h ~= px then
         cache[key] = false
         return nil, string.format("icon %s is %dx%d, expected %dx%d", path, w, h, px, px)
+    end
+    cache[key] = raster
+    return raster, nil
+end
+
+-- wallpaper(file) -> raster or nil, reason
+--
+-- `wallpaper_*.png` from the wallpaper folder, decoded once and shared like an
+-- icon: whoever draws into it spoils it for everyone.
+function images.wallpaper(file: any): (any, any)
+    if type(file) ~= "string" or not file:match("^wallpaper_[%w_]+$") then
+        return nil, "no such wallpaper: " .. tostring(file)
+    end
+    local key = "wallpaper:" .. file
+    local cached: any = cache[key]
+    if cached ~= nil then
+        if cached == false then return nil, "wallpaper " .. file .. " not read (see the first failure)" end
+        return cached, nil
+    end
+    local opened, why = open_store(images.WALLPAPER_STORE)
+    if not opened then return nil, why end
+    local data, read_err = opened:readfile(file .. ".png")
+    if read_err or not data then
+        cache[key] = false
+        return nil, "wallpaper " .. file .. " not read: " .. tostring(read_err)
+    end
+    local raster, decode_err = gfx.image(data :: string)
+    if not raster then
+        cache[key] = false
+        return nil, "wallpaper " .. file .. " not decoded: " .. tostring(decode_err)
     end
     cache[key] = raster
     return raster, nil

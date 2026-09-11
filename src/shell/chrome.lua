@@ -295,6 +295,23 @@ function chrome.use_pattern(rows: any): boolean
     return true
 end
 
+-- use_wallpaper(file, mode) — the desktop wallpaper from "Display
+-- Properties": a picture of the wallpaper folder (`wallpaper_*`, read by
+-- `images.wallpaper`) and "tile" or "center"; nil for none. Pixels only, like
+-- the pattern, and for the same reason. Anything else is not accepted and
+-- returns false.
+chrome.wallpaper = nil
+function chrome.use_wallpaper(file: any, mode: any): boolean
+    if file == nil then
+        chrome.wallpaper = nil
+        return true
+    end
+    if type(file) ~= "string" or not file:match("^wallpaper_[%w_]+$") then return false end
+    if mode ~= "tile" and mode ~= "center" then return false end
+    chrome.wallpaper = {file = file, mode = mode}
+    return true
+end
+
 -- ─── Chrome geometry ─────────────────────────────────────────────────────
 
 -- The taskbar takes the bottom row and only that. The chrome takes nothing on

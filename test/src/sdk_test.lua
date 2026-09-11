@@ -1313,6 +1313,40 @@ local function define_tests()
         end)
     end)
 
+    test.describe("Window SDK: radio", function()
+        test.it("a radio button is chosen by a click, Space or Enter, and never unchosen by itself", function()
+            local tree = {kind = "row", children = {
+                {kind = "radio", id = "tile", size = 10, text = "Tile", checked = false},
+                {kind = "radio", id = "center", size = 10, text = "Center", checked = true},
+            }}
+            local interaction = ui.interaction()
+            local plan = ui.plan(tree, 20, 1, interaction)
+            test.eq(table.concat(plan.focusable, ","), "tile,center", "radio buttons take focus")
+            test.is_nil(ui.event(plan, interaction, {type = "mouse", action = "press", button = "left", x = 2, y = 1}))
+            local clicked = ui.event(plan, interaction, {type = "mouse", action = "release", button = "left", x = 2, y = 1})
+            test.eq(clicked and (clicked.type .. ":" .. clicked.id .. ":" .. tostring(clicked.value)), "change:tile:true", "a click chooses")
+            interaction.focus = "center"
+            test.is_nil(ui.event(plan, interaction, {type = "key", action = "press", key_type = "runes", key = " "}),
+                "choosing the chosen one again changes nothing")
+            interaction.focus = "tile"
+            local spaced = ui.event(plan, interaction, {type = "key", action = "press", key_type = "space", key = "space"})
+            test.eq(spaced and spaced.id, "tile", "Space chooses")
+            local row = (tostring(cells.rows(plan, interaction, 20, 1)[1]):gsub("\27%[[%d;:]*m", ""))
+            test.not_nil(row:find("( ) Tile", 1, true), "cells: an empty ring: " .. row)
+            test.not_nil(row:find("(•) Center", 1, true), "cells: the dot in the chosen one: " .. row)
+            local sets: any = {}
+            local raster: any = {fill = function() end, rect = function() end, blit = function() end, text = function() return 0 end,
+                set = function(_, x, y, color) sets[tostring(x) .. "," .. tostring(y)] = color end}
+            local store: any = {take = function() return raster, true end}
+            assert(render.placement({id = "radio", state_revision = 1, content_state = {sdk = 1, revision = 1, ui = tree}},
+                {x = 1, y = 1, cols = 20, rows = 1}, {w = 10, h = 20}, {}, store))
+            -- Each ring is 12×12, 4 px under the top of its 20 px row: the centre
+            -- of the first is (6, 10), of the second (106, 10).
+            test.eq(sets["106,10"], "#000000", "pixels: the chosen one has its black dot")
+            test.is_true(sets["6,10"] ~= nil and sets["6,10"] ~= "#000000", "pixels: the other one's well is empty")
+        end)
+    end)
+
     test.describe("Window SDK ergonomics", function()
         test.it("app.main wraps app.run, and a bare context has watch, unwatch, after and close", function()
             test.eq(type(app.main({})), "function")

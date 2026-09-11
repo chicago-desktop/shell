@@ -1152,6 +1152,63 @@ local function define_tests()
             chrome_pixels.fonts = nil
         end)
 
+        -- The wallpaper is drawn into the same strips. A tile continues from the
+        -- screen's corner across strips — rows 1 and 17 start 320 px apart,
+        -- ten 32 px tiles, so they are the same picture; a centred picture
+        -- leaves the top rows plain and fills the middle. A dragged window
+        -- re-sends only its own rows, as with the pattern.
+        test.it("a wallpaper is drawn into the row strips, tiled or centred, and a drag re-sends only its rows", function()
+            use_fonts()
+            local lines: any = {}
+            for _, case in ipairs({{"wallpaper_rivets", "tile"}, {"wallpaper_sky", "center"}}) do
+                local file, mode = case[1], case[2]
+                test.is_true(chrome.use_wallpaper(file, mode), file .. " " .. mode)
+                local state: any = {width = 80, height = 24, top = 1, bottom = 22, clock = "12:00", items = {},
+                    windows = {{id = "w1", title = "Notepad", x = 10, y = 5, w = 20, h = 8}}, focused_id = "w1"}
+                local first = chrome_pixels.paint(state, 10, 20)
+                local before: any, strip_png: any = {}, {}
+                local strips, first_px = 0, 0
+                for _, item in ipairs(first.placements) do
+                    before[item.id] = {raster = item.raster, version = item.raster:version()}
+                    local line = tostring(item.id):match("^desk:pattern:(%d+)$")
+                    if line then strip_png[math.tointeger(tonumber(line))] = assert(item.raster:encode("png")) end
+                    if tostring(item.id):find("desk:pattern:", 1, true) == 1 then
+                        strips = strips + 1
+                        first_px = first_px + item.cols * item.rows * 200
+                    end
+                end
+                test.is_true(strips >= 22, mode .. ": every desktop row has its strip")
+                if mode == "tile" then
+                    test.eq(strip_png[1], strip_png[17], "tile: the tile continues across strips — rows 1 and 17 match")
+                    test.is_true(strip_png[1] ~= strip_png[2], "tile: rows at another phase differ")
+                else
+                    test.eq(strip_png[1], strip_png[2], "center: the rows above the picture are plain desktop")
+                    test.is_true(strip_png[1] ~= strip_png[13], "center: the picture fills the middle rows")
+                end
+                state.windows[1].x = 40
+                local resent, resent_px = 0, 0
+                for _, item in ipairs(chrome_pixels.paint(state, 10, 20).placements) do
+                    local id = tostring(item.id)
+                    local was: any = before[id]
+                    if id:find("desk:pattern:", 1, true) == 1
+                        and (was == nil or was.raster ~= item.raster or was.version ~= item.raster:version()) then
+                        resent = resent + 1
+                        resent_px = resent_px + item.cols * item.rows * 200
+                        local line = math.tointeger(tonumber(id:match("^desk:pattern:(%d+)")))
+                        test.is_true(line ~= nil and line >= 5 and line <= 12, mode .. ": only the window's rows are re-sent: " .. id)
+                    end
+                end
+                test.is_true(resent > 0, mode .. ": the rows under the window change")
+                lines[#lines + 1] = string.format("%s %s: first frame %d strip placements, %d px; "
+                    .. "a 20x8 window dragged 30 columns: %d re-sent, %d px", file, mode, strips, first_px, resent, resent_px)
+            end
+            assert(assert(fs.get("app:shots")):writefile("wallpaper-cost.txt", "10x20 cells, 80x24 screen\n" .. table.concat(lines, "\n") .. "\n"))
+            test.is_false(chrome.use_wallpaper("rivets", "tile"), "a name outside the wallpaper folder is not a wallpaper")
+            test.is_false(chrome.use_wallpaper("wallpaper_rivets", "stretch"), "nor a mode Windows 95 did not have")
+            test.is_true(chrome.use_wallpaper(nil))
+            chrome_pixels.fonts = nil
+        end)
+
         test.it("a view that threw an error is a failure text in the window, not a crashed shell frame", function()
             use_fonts()
             -- `children` not as a list: `ui.plan` throws inside the view library.

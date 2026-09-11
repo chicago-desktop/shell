@@ -17,6 +17,7 @@ local palette = require("palette")
 local function fixture(): any
     local written = {}
     return {tab = 1, chosen = "#008080", saved = "#008080", pattern = "(None)", pattern_saved = "(None)",
+        wallpaper = "(None)", wallpaper_saved = "(None)", mode = "center", mode_saved = "center",
         info = {screen = {width = 100, height = 28}, cell = {w = 10, h = 20}, pixels = true},
         persist = function(settings: any) written[#written + 1] = settings; return true, nil end}, written
 end
@@ -168,6 +169,30 @@ local function define_tests()
                 test.is_true(change.px.x + change.px.w - 1 <= (page.rect.x + page.rect.w - 1) * cw, where .. ": inside the page")
                 test.is_true(change.node.disabled == true, where .. ": disabled")
             end
+        end)
+        test.it("choosing a wallpaper and how to show it writes both and previews it on the monitor", function()
+            local state, written = fixture()
+            local context = {width = 44, height = 22, close = function() end}
+            display.definition.update(state, {type = "select", id = "wallpapers", index = 2, value = {id = "Rivets", text = "Rivets"}}, context)
+            test.eq(state.wallpaper .. "/" .. state.mode, "Rivets/tile", "a wallpaper comes with the way it is meant to be shown")
+            display.definition.update(state, {type = "select", id = "wallpapers", index = 3, value = {id = "Sky", text = "Sky"}}, context)
+            test.eq(state.wallpaper .. "/" .. state.mode, "Sky/center", "a picture is centred, a tile tiled")
+            display.definition.update(state, {type = "change", id = "tile", value = true}, context)
+            test.eq(state.mode, "tile", "Tile is chosen by its radio button")
+            local plan = ui.plan(display.definition.view(state, context), 44, 22, ui.interaction())
+            test.is_true(plan.by_id.tile.node.checked == true and plan.by_id.center.node.checked ~= true, "one radio button at a time")
+            local monitor: any = nil
+            for _, item in ipairs(plan.items) do if item.node.kind == "monitor" then monitor = item end end
+            test.eq(tostring(monitor.node.wallpaper) .. ":" .. tostring(monitor.node.wallpaper_mode), "wallpaper_sky:tile",
+                "the monitor previews the choice")
+            test.is_true(plan.by_id.browse.node.disabled == true, "Browse… waits for a file dialog")
+            display.definition.update(state, {type = "activate", id = "apply"}, context)
+            test.eq(tostring(written[1].desktop_wallpaper) .. "/" .. tostring(written[1].wallpaper_mode), "Sky/tile")
+            test.is_nil(written[1].desktop_color, "only what changed is written")
+            display.definition.update(state, {type = "select", id = "wallpapers", index = 1, value = {id = "(None)"}}, context)
+            plan = ui.plan(display.definition.view(state, context), 44, 22, ui.interaction())
+            test.is_true(plan.by_id.tile.node.disabled == true and plan.by_id.center.node.disabled == true,
+                "no wallpaper, nothing to tile or center")
         end)
         test.it("choosing a color and a pattern, \"Apply\" and \"OK\" write through the substituted write", function()
             local state, written = fixture()

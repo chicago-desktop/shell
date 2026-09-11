@@ -350,6 +350,9 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             elseif node.kind == "checkbox" then
                 label = (node.checked and "[x] " or "[ ] ") .. label
                 if focused then style = widgets.styles.select end
+            elseif node.kind == "radio" then
+                label = (node.checked and "(•) " or "( ) ") .. label
+                if focused then style = widgets.styles.select end
             elseif node.kind == "input" then
                 local editing = interaction.editors[node.id]
                 label = editor.visible(editor.shown(node), editing, r.w)

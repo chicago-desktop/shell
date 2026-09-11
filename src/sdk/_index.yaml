@@ -47,6 +47,7 @@ entries:
       geometry: butschster.tui_desktop.desktop:geometry
       editor: butschster.windows.sdk:editor
       pixels: butschster.windows.shell:pixels
+      images: butschster.windows.shell:images
       palette: butschster.windows.shell:palette
       widgets: butschster.windows.shell:widgets
 

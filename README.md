@@ -5,6 +5,8 @@ New window applications: [SDK](docs/sdk.md),
 [audit of existing windows](docs/sdk-audit-2026-09-08.md).
 A declarative application needs only a registry entry and a component tree;
 its renderer does not need to be wired into the theme separately.
+What a frame costs, where the time goes and the rules that keep it cheap:
+[docs/perf.md](docs/perf.md).
 
 A teal desktop, gray windows with a bevelled frame and a blue title bar,
 a taskbar with a "Start" button, a list of open windows and a clock, a program menu
@@ -262,8 +264,13 @@ pixels (the numbers are in `src/display/window.lua`).
 
 - **Background** — the desktop pattern: the twenty Windows 95 8×8 tiles
   (`butschster.windows.display:patterns`, the original bits) in a list, and a monitor
-  preview (the SDK `monitor` component, which draws the pattern too). The Wallpaper
-  group stands there disabled until wallpapers exist.
+  preview (the SDK `monitor` component, which draws the pattern and the wallpaper
+  too). The Wallpaper group lists the shell's own wallpapers
+  (`butschster.windows.display:wallpapers`: pictures drawn by `tools/wallpapers.py`
+  into `assets/wallpaper`, MIT, shipped with the module) with "Display: Tile / Center"
+  radio buttons; a wallpaper comes with the way it is meant to be shown. "Browse…"
+  is disabled: there is no file dialog yet. The preview draws a wallpaper at 1:1 —
+  `gfx` has no scaling — so a centred picture shows its middle.
 - **Appearance** — the desktop color, where Windows 95 kept it: the color of the
   Desktop item.
 - **Screen Saver** — says it is not available.
@@ -272,9 +279,10 @@ pixels (the numbers are in `src/display/window.lua`).
   is forced by the runtime.
 
 "Apply" and "OK" write the choice into the shell's settings
-(`butschster_windows_settings`, keys `desktop_color` and `desktop_pattern`) and ask the
-compositor to reread the desktop (`desktop.refresh`); it repaints through
-`chrome.use_desktop` and `chrome.use_pattern` — one point each. An icon raster carries
+(`butschster_windows_settings`, keys `desktop_color`, `desktop_pattern`,
+`desktop_wallpaper` and `wallpaper_mode`) and ask the compositor to reread the desktop
+(`desktop.refresh`); it repaints through `chrome.use_desktop`, `chrome.use_pattern` and
+`chrome.use_wallpaper` — one point each. An icon raster carries
 the desktop color, and under a pattern its place, in its key, so it is repainted
 together with the desktop.
 
@@ -282,8 +290,11 @@ The pattern is pixels only. With one, the pixel desktop becomes rasters, and the
 shape follows the cost rule: ONE PLACEMENT PER DESKTOP ROW under the icons, cropped by
 the windows over it like an icon, so a window dragged over the desktop re-sends only the
 strips of the rows it covers (`chrome_test` measures it and writes
-`test/shots/pattern-cost.txt`). Without a pattern the desktop stays cells and costs
-nothing. Cells mode has no pattern: an 8×8 pixel tile has no place in a character cell,
+`test/shots/pattern-cost.txt`). The wallpaper is drawn into the same strips — a tile
+continues from the screen's corner, a picture is centred on the desktop, both at 1:1 —
+and costs the same (`test/shots/wallpaper-cost.txt`: 320 000 px for the first frame of
+an 80×24 screen at 10×20, 96 000 px when a 20×8 window is dragged over it). Without a
+pattern or a wallpaper the desktop stays cells and costs nothing. Cells mode has no pattern: an 8×8 pixel tile has no place in a character cell,
 and a dither character on every desktop cell would read as noise.
 
 The color from the database is validated on read (`#rrggbb`): an invalid string is not
@@ -412,6 +423,15 @@ Six findings of one night, and not one of them produced a failure. What they sha
 silence: **each half was right on its own, and so both sides
 looked tested.** Reading this before touching the code is cheaper than
 finding it all again.
+
+### `string.format("%x")` prints the hex of the number's TEXT here
+
+In this runtime `string.format("%02x", 255)` returns `"323535"` — the hex codes of
+the characters "2", "5", "5" — not `"ff"`. It fails no call and looks like a
+color: `"#" .. string.format("%02x%02x%02x", r, g, b)` builds a string that goes
+straight into a style or a raster as some other color, and the first sign is a
+spectrum that runs the wrong way. Build hex digits by hand (`ui.spectrum_color`
+does, and says why) and check a color by its value in a test, not by its look.
 
 ### The folder path is parsed by the CATALOG, and only by it
 
@@ -547,6 +567,41 @@ entries fail it — API functions, windows, and the deliberate `gfx` markers on
 libraries. Trimming them would also blind the check above, which reads only a
 process's own `modules`. The order is therefore: first make the rights check read
 the whole import closure, then trim the entries, then add the reverse check.
+
+### Runtime errors are userdata: read the kind, and `system.*` calls a refusal Invalid
+
+An error from a runtime module is userdata with `kind()`, `message()` and
+`details()`. `tostring(err)` keeps the text and loses the kind — and the kind is
+the only thing that tells "not allowed" from "not there". `env.get` marks a
+refusal `PermissionDenied`. `system.*` does not: it answers a permission refusal
+with `Invalid` and a message starting `permission denied`, and `Invalid` alone
+also means "empty host identifier". So a refusal from `system.*` is recognised
+by the kind AND the start of the message.
+
+Both rules live in one place each — `butschster.windows.config:environment`
+(`read`, `read_or`) and `butschster.windows.config:system` (`facts.denied`,
+`facts.reason`) — and windows call them instead of reading `env` or `system`
+themselves. Three windows each had their own `snapshot()` and each turned a
+refusal into a value: zero memory, "unnamed" node, "(none)" leader.
+
+### A window is told when it loses the keyboard
+
+The compositor never told a window it had lost focus. A button armed by a press
+whose release went to another window — or was lost when the window was
+minimized — stayed armed, and a release arriving later activated it; a captured
+scrollbar drag stayed captured the same way.
+
+The base now sends `{type = "focus", focused = false|true}` — the runtime's own
+terminal focus event — after the frame in which the top visible window changes:
+the window that lost the keyboard first, then the one that got it. A window that
+has not drawn its first frame is told on the next one. A PTY window forwards the
+event to its program, and the runtime's PTY proxy writes `\e[I`/`\e[O` only when
+the program asked for focus reports (mode 1004): bash gets nothing. The SDK
+drops what was armed or captured on `focused = false` (`app.focus`) and redraws
+only when something was held; an application's `update` does not see the event.
+
+The base side is in `kickside-module`'s working copy until its commit; checked
+by `window_focus_test` there and `sdk_focus_test` here.
 
 ## Pixel mode: who switches it on
 

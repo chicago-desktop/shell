@@ -5,6 +5,8 @@ local text_lib = require("text")
 local geometry = require("geometry")
 local editor = require("editor")
 local pixels = require("pixels")
+local images = require("images")
+local gfx = require("gfx")
 local widgets = require("widgets")
 local palette = require("palette")
 local whole = geometry.whole
@@ -406,6 +408,25 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                             end
                         end
                     end
+                    -- `wallpaper` (a file of the wallpaper folder) and
+                    -- `wallpaper_mode`: the picture over the screen at 1:1 —
+                    -- tiled, or centred and cut by the screen's edges (gfx has
+                    -- no scaling, so a large picture shows its middle).
+                    local found: any = type(node.wallpaper) == "string" and images.wallpaper(node.wallpaper) or nil
+                    if found then
+                        local picture = found :: gfx.Raster
+                        local iw, ih = picture:size()
+                        local screen = gfx.raster(screen_w, screen_h)
+                        screen:fill(tostring(node.color or color.desktop))
+                        if node.wallpaper_mode == "tile" then
+                            for ty = 1, screen_h, ih do
+                                for tx = 1, screen_w, iw do screen:blit(picture, tx, ty) end
+                            end
+                        else
+                            screen:blit(picture, (screen_w - iw) // 2 + 1, (screen_h - ih) // 2 + 1)
+                        end
+                        raster:blit(screen, left + 8, top + 8)
+                    end
                     -- Power indicator and stand.
                     raster:rect(left + body_w - 12, top + body_h - 5, 4, 2, "#00c000")
                     pixels.panel(raster, left + body_w // 2 - 12, top + body_h, 24, 4)
@@ -577,6 +598,33 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 pixels.button(raster, bx, by, bw, bh, {label = node.text, font = face_font,
                     default = ui.default_look(plan, node, focused), focused = focused, disabled = node.disabled,
                     pressed = node.pressed == true or (armed ~= nil and armed.id == node.id and armed.inside == true), color = node.ink}, cell)
+            elseif node.kind == "radio" then
+                -- The Windows 95 radio button, 12×12: an outer ring shadow above
+                -- and light below the diagonal, an inner ring black and face, a
+                -- white well, a black dot when chosen; grey when disabled.
+                local top = whole(y + (h - 12) // 2)
+                if w >= 12 and h >= 12 then
+                    for py = 0, 11 do
+                        for px = 0, 11 do
+                            local dx, dy = px - 5.5, py - 5.5
+                            local d = math.sqrt(dx * dx + dy * dy)
+                            local upper = px + py < 11
+                            local ink: any = nil
+                            if d < 6 and d >= 5 then ink = upper and color.shadow or color.light
+                            elseif d < 5 and d >= 4 then ink = upper and color.frame or color.face
+                            elseif d < 4 then
+                                ink = node.disabled and color.face or color.field
+                                if node.checked and d < 2 then ink = node.disabled and color.shadow or color.frame end
+                            end
+                            if ink then raster:set(whole(x + px), top + py, ink) end
+                        end
+                    end
+                end
+                text(x + 18, y, w - 18, h, node.text, node.disabled and color.shadow or color.face_text)
+                if focused and not node.disabled and font and w >= 22 and h >= 17 then
+                    local tw = math.min(whole(w - 18), whole(font:measure(tostring(node.text or ""))))
+                    pixels.focus_rect(raster, whole(x + 16), whole(y + (h - 17) // 2), tw + 4, 17)
+                end
             elseif node.kind == "checkbox" then
                 local top = whole(y + (h - 13) // 2)
                 if w >= 13 and h >= 13 then pixels.checkbox(raster, x, top, node.checked, node.disabled) end

@@ -10,7 +10,7 @@ local containers = {row = true, column = true, split = true}
 local leaves = {label = true, button = true, input = true, list = true, table = true, checkbox = true,
     statusbar = true, tabs = true, menu = true, image = true, field = true,
     group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true, monitor = true,
-    icons = true, select = true, slider = true, spectrum = true}
+    icons = true, select = true, slider = true, spectrum = true, radio = true}
 -- Only the ones that take no input can live without an `id`.
 local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
     calendar = true, clock = true, monitor = true, spectrum = true}
@@ -915,6 +915,12 @@ local function icons_event(item: any, state: any, event: any): any
 end
 local function activate(node: any): any
     if node.kind == "checkbox" then return {type = "change", id = node.id, value = not node.checked} end
+    -- A radio button is chosen, never unchosen by itself: the application
+    -- clears its neighbours. Choosing the chosen one again changes nothing.
+    if node.kind == "radio" then
+        if node.checked then return nil end
+        return {type = "change", id = node.id, value = true}
+    end
     return {type = "activate", id = node.id}
 end
 -- One spelling per key for every component. The runtime's terminal decoder
@@ -1009,7 +1015,7 @@ function ui.event(plan: any, state: any, original: any): any
         if item.node.kind == "icons" then return icons_event(item, state, event) end
         if item.node.kind == "select" then return select_event(item, state, event) end
         if item.node.kind == "slider" then return slider_event(item, state, event) end
-        if (item.node.kind == "button" or item.node.kind == "checkbox") and input.pressed(event) then
+        if (item.node.kind == "button" or item.node.kind == "checkbox" or item.node.kind == "radio") and input.pressed(event) then
             state.armed = {id = item.node.id, inside = true}
         end
         return nil
@@ -1028,7 +1034,7 @@ function ui.event(plan: any, state: any, original: any): any
     if not item then return nil end
     local node = item.node
     if node.kind == "tabs" then return tabs_event(item, state, event) end
-    if (node.kind == "button" or node.kind == "checkbox") and (key == "enter" or (key == "runes" and event.key == " ")) then
+    if (node.kind == "button" or node.kind == "checkbox" or node.kind == "radio") and (key == "enter" or (key == "runes" and event.key == " ")) then
         return activate(node)
     elseif (node.kind == "list" or node.kind == "table" or node.kind == "tree") and key then
         local rows = entries(node)

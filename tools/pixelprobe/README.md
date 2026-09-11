@@ -23,7 +23,8 @@ a probe run on an old one checks yesterday's theme and prints a clean map.
 `make check-probes` builds both probes in memory and fails when a file on disk
 differs from `harness.lua` plus the current sources (`build.py --check`).
 Neither target is part of `make lint` or `make verify`: the probes are a tool
-you run, not a gate.
+you run, not a gate. `make check-probes`
+also runs both probes once — see [below](#make-check-probes-runs-the-probes).
 
 ## What it asserts, not only shows
 

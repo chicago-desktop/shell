@@ -37,6 +37,7 @@ local menu_layout = require("menu_layout")
 local placements = require("placements")
 local palette = require("palette")
 local pixels = require("pixels")
+local images = require("images")
 local rasters = require("rasters")
 local widgets = require("widgets")
 local explorer_layout = require("explorer_layout")
@@ -346,17 +347,69 @@ local function tiled(raster: any, x0: any, y0: any, h: any)
     local xoff, yoff = (whole(x0) - 1) % 8, (whole(y0) - 1) % 8
     for at = 1 - yoff, whole(h), 8 do raster:blit(row, 1 - xoff, at) end
 end
-local function desktop_strips(cell: any, view: any, pattern: any): any
+
+-- The wallpaper (`chrome.use_wallpaper`): a picture of the shell's own
+-- wallpaper folder, over the color and the pattern — tiled from the screen's
+-- corner or centred on the desktop, at 1:1 (gfx has no scaling). It is the
+-- same strips as the pattern: the desktop becomes rasters when either is
+-- set, and a moved window re-sends only the rows it covers.
+local function backdrop_on(): boolean
+    return chrome.pattern ~= nil or chrome.wallpaper ~= nil
+end
+-- What the desktop behind a placement depends on — every strip and every
+-- icon background carries it in its key.
+local function backdrop_key(view: any): string
+    -- Cast on `chrome`: its `wallpaper` starts as nil, and the linter keeps
+    -- that type through an `any` local.
+    local chosen: any = (chrome :: any).wallpaper
+    return (chrome.pattern ~= nil and tostring(pattern_row.key) or "") .. "|"
+        .. (type(chosen) == "table" and (tostring(chosen.file) .. ":" .. tostring(chosen.mode)) or "") .. "|"
+        .. tostring(view.width) .. ":" .. tostring(view.top) .. "-" .. tostring(view.bottom) .. "|" .. tostring(color.desktop)
+end
+-- backdrop(raster, x0, y0, view, cell) — the desktop behind a raster whose
+-- top-left pixel is the screen pixel (x0, y0): the pattern, then the
+-- wallpaper. The raster is already filled with the desktop color.
+local function backdrop(raster: any, x0: any, y0: any, view: any, cell: any)
+    local rw, rh = raster:size()
+    if chrome.pattern ~= nil then tiled(raster, x0, y0, rh) end
+    local chosen: any = (chrome :: any).wallpaper
+    if type(chosen) ~= "table" then return end
+    local found: any = images.wallpaper(chosen.file)
+    if found == nil then return end
+    local picture = found :: gfx.Raster
+    local iw, ih = picture:size()
+    if iw < 1 or ih < 1 then return end
+    if chosen.mode == "tile" then
+        local xoff, yoff = (whole(x0) - 1) % iw, (whole(y0) - 1) % ih
+        for ty = 1 - yoff, whole(rh), ih do
+            for tx = 1 - xoff, whole(rw), iw do raster:blit(picture, tx, ty) end
+        end
+    else
+        local top = math.max(1, whole(view.top))
+        local desk_w = whole(view.width) * whole(cell.w)
+        local desk_h = (whole(view.bottom) - top + 1) * whole(cell.h)
+        local cx = (desk_w - iw) // 2 + 1
+        local cy = (top - 1) * whole(cell.h) + (desk_h - ih) // 2 + 1
+        raster:blit(picture, cx - whole(x0) + 1, cy - whole(y0) + 1)
+    end
+end
+local function desktop_strips(cell: any, view: any): any
     local w = whole(view.width)
     local top, bottom = math.max(1, whole(view.top)), whole(view.bottom)
     local out = {}
     if w < 1 or bottom < top then return out end
     local ch = whole(cell.h)
-    local key = pattern_raster(pattern, w * whole(cell.w))
+    if chrome.pattern ~= nil then pattern_raster(chrome.pattern, w * whole(cell.w)) end
+    local key = backdrop_key(view)
     for line = top, bottom do
+        -- The id keeps its first name: these strips were the pattern's, and
+        -- tests and the placement log read them by it.
         local id = "desk:pattern:" .. line
         local strip, dirty = store.take(id, w, 1, cell, key)
-        if dirty then tiled(strip, 1, (line - 1) * ch + 1, ch) end
+        if dirty then
+            strip:fill(color.desktop)
+            backdrop(strip, 1, (line - 1) * ch + 1, view, cell)
+        end
         out[#out + 1] = {id = id, raster = strip, x = 1, y = line, cols = w, rows = 1, layer = 0}
     end
     return out
@@ -380,20 +433,21 @@ end
 -- Every icon has its own placement on purpose. One raster for the whole
 -- desktop would cost forty-three milliseconds and would be resent on every
 -- keystroke in a window that covered even one of its rows.
-local function paint_icon(cell: any, item: any, selected, grid: any, x: any, y: any)
+local function paint_icon(cell: any, item: any, selected, grid: any, x: any, y: any, view: any)
     local id = "desk:" .. tostring(item.id)
     local cols = grid.w - 1
-    -- Under a pattern the background depends on the place too: the tile's
-    -- phase is the screen's, so a moved icon is a different raster.
+    -- Under a pattern or a wallpaper the background depends on the place too:
+    -- the tile's phase and the picture's position are the screen's, so a
+    -- moved icon is a different raster.
     local key = icon_key(item, selected)
-    if chrome.pattern ~= nil then key = key .. "\30" .. tostring(pattern_row.key) .. "@" .. tostring(x) .. "," .. tostring(y) end
+    if backdrop_on() then key = key .. "\30" .. backdrop_key(view) .. "@" .. tostring(x) .. "," .. tostring(y) end
     local raster, dirty = store.take(id, cols, grid.drawn, cell, key)
     if dirty then
         local box = pixels.box(1, 1, cols, grid.drawn, cell)
         -- The background matches the desktop fill; the parts of the raster
         -- covered by windows are cropped before placement.
         raster:rect(1, 1, box.w, box.h, color.desktop)
-        if chrome.pattern ~= nil then tiled(raster, (whole(x) - 1) * cell.w + 1, (whole(y) - 1) * cell.h + 1, box.h) end
+        if backdrop_on() then backdrop(raster, (whole(x) - 1) * cell.w + 1, (whole(y) - 1) * cell.h + 1, view, cell) end
         chrome_pixels.draw_icon(raster, box, item, selected)
     end
     return id, raster
@@ -424,9 +478,9 @@ function chrome_pixels.draw_icon(raster, box: any, item: any, selected)
         local width = whole(face:measure(line))
         local from = box.x + (box.w - width) // 2
         if selected then raster:rect(from - 2, at - 1, width + 4, 15, color.select_bg)
-        -- Over a pattern the caption stands on the desktop color, as in
-        -- Windows 95: the tile under the letters would eat them.
-        elseif chrome.pattern ~= nil then raster:rect(from - 2, at - 1, width + 4, 15, color.desktop) end
+        -- Over a pattern or a wallpaper the caption stands on the desktop
+        -- color, as in Windows 95: the picture under the letters would eat them.
+        elseif backdrop_on() then raster:rect(from - 2, at - 1, width + 4, 15, color.desktop) end
         local tint = selected and color.select_fg or color.desktop_text
         if item.broken and not selected then tint = color.desktop_broken end
         raster:text(from, at, line, {font = face, color = tint})
@@ -1043,10 +1097,9 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     local out = {}
     local hits: any = {desktop = {}, bars = {}, menu = {}}
 
-    -- The desktop pattern goes first of all: under the icons and everything.
-    local pattern: any = chrome.pattern
-    if pattern ~= nil and not view.bare then
-        for _, strip in ipairs(desktop_strips(cell, view, pattern)) do out[#out + 1] = strip end
+    -- The desktop pattern and wallpaper go first of all: under the icons and everything.
+    if backdrop_on() and not view.bare then
+        for _, strip in ipairs(desktop_strips(cell, view)) do out[#out + 1] = strip end
     end
 
     -- Desktop icons are under the windows, so they go first: the list order is
@@ -1066,7 +1119,7 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
         local x, y = chrome.desktop_spot(item, view.top, view.bottom, view.width, grid.drawn)
         if x then
             local selected = view.selected ~= nil and item.id == view.selected
-            local id, raster = paint_icon(cell, item, selected, grid, x, y)
+            local id, raster = paint_icon(cell, item, selected, grid, x, y, view)
             store.place(id, x, y)
             out[#out + 1] = {id = id, raster = raster, x = x, y = y,
                              cols = grid.w - 1, rows = grid.drawn, layer = 0}

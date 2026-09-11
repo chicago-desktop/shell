@@ -130,6 +130,8 @@ entries:
       icons: butschster.windows.shell:icons
       palette: butschster.windows.shell:palette
       pixels: butschster.windows.shell:pixels
+      # The wallpaper picture, read by name like an icon.
+      images: butschster.windows.shell:images
       rasters: butschster.windows.shell:rasters
       widgets: butschster.windows.shell:widgets
       explorer_layout: butschster.windows.explorer:render

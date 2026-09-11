@@ -31,6 +31,7 @@ local desktop = require("desktop")
 local repo = require("repo")
 local model = require("model")
 local patterns = require("patterns")
+local wallpapers = require("wallpapers")
 local geometry = require("geometry")
 local whole = geometry.whole
 
@@ -48,20 +49,36 @@ local function pattern_of(stored: any): string
     return patterns.NONE
 end
 
+-- A stored wallpaper name, or "(None)"; the picture's file of a name, or nil.
+local function wallpaper_of(stored: any): string
+    if type(stored) == "string" and wallpapers.find(stored) ~= nil then return stored end
+    return wallpapers.NONE
+end
+local function wallpaper_file(name: any): any
+    local entry: any = wallpapers.find(name)
+    return entry and entry.file or nil
+end
+
 function definition.init(args: any, context: any): any
     local stored, err = repo.setting("desktop_color")
     local chosen = model.valid(stored) and stored or model.DEFAULT
     local stored_pattern, perr = repo.setting("desktop_pattern")
     local pattern = pattern_of(stored_pattern)
-    local failure = err or perr
+    local stored_wallpaper, werr = repo.setting("desktop_wallpaper")
+    local stored_mode, merr = repo.setting("wallpaper_mode")
+    local wallpaper = wallpaper_of(stored_wallpaper)
+    local entry: any = wallpapers.find(wallpaper)
+    local mode = (stored_mode == "tile" or stored_mode == "center") and stored_mode or (entry and entry.mode or "center")
+    local failure = err or perr or werr or merr
     return {tab = 1, chosen = chosen, saved = chosen, pattern = pattern, pattern_saved = pattern,
+        wallpaper = wallpaper, wallpaper_saved = wallpaper, mode = mode, mode_saved = mode,
         info = screen_info(),
         failure = failure and ("settings not read: " .. tostring(failure)) or nil,
         -- The write and the request to the compositor are moved into a
         -- field: the test substitutes its own and checks that "Apply" calls
         -- them, without a database. `changes` names only what changed.
         persist = function(changes: any)
-            for _, key in ipairs({"desktop_color", "desktop_pattern"}) do
+            for _, key in ipairs({"desktop_color", "desktop_pattern", "desktop_wallpaper", "wallpaper_mode"}) do
                 if changes[key] ~= nil then
                     local _, werr = repo.set_setting(key, changes[key])
                     if werr then return nil, tostring(werr) end
@@ -75,11 +92,14 @@ end
 
 local function changed(state: any): boolean
     return state.chosen ~= state.saved or state.pattern ~= state.pattern_saved
+        or state.wallpaper ~= state.wallpaper_saved or state.mode ~= state.mode_saved
 end
 
--- The preview monitor: the desktop as it will be, pattern included.
-local function monitor(color: any, pattern: any): any
-    return {kind = "monitor", size = 6, size_px = 150, color = color, pattern = patterns.find(pattern)}
+-- The preview monitor: the desktop as it will be, pattern and wallpaper
+-- included. Four rows in cells, where the page is short.
+local function monitor(color: any, pattern: any, wallpaper: any, mode: any): any
+    return {kind = "monitor", size = 4, size_px = 150, color = color, pattern = patterns.find(pattern),
+        wallpaper = wallpaper_file(wallpaper), wallpaper_mode = mode}
 end
 
 -- A group's own button, under its list at the group's right edge: 92×23 px,
@@ -92,16 +112,25 @@ end
 
 local function background(state: any): any
     local page: any = {kind = "column", gap = 0, children = {
-        monitor(state.chosen, state.pattern),
+        monitor(state.chosen, state.pattern, state.wallpaper, state.mode),
         {kind = "row", gap = 1, gap_px = 11, children = {
             {kind = "group", title = "Pattern", children = {
                 {kind = "list", id = "patterns", items = patterns.items(), selected = state.pattern},
                 group_button("edit_pattern", "Edit Pattern…"),
             }},
             {kind = "group", title = "Wallpaper", children = {
-                {kind = "list", id = "wallpapers", items = {{id = patterns.NONE, text = patterns.NONE}},
-                    selected = patterns.NONE, disabled = true},
+                {kind = "list", id = "wallpapers", items = wallpapers.items(), selected = state.wallpaper},
                 group_button("browse", "Browse…"),
+                -- "Display: ( ) Tile (•) Center". The caption has size 0 in cells,
+                -- where the group is 16 columns and holds only the two buttons.
+                {kind = "row", size = 1, size_px = 20, gap = 0, gap_px = 6, children = {
+                    {kind = "label", size = 0, size_px = 50, text = "Display:"},
+                    {kind = "radio", id = "tile", size = 8, size_px = 60, text = "Tile", checked = state.mode == "tile",
+                        disabled = state.wallpaper == wallpapers.NONE},
+                    {kind = "radio", id = "center", text = "Center", checked = state.mode ~= "tile",
+                        disabled = state.wallpaper == wallpapers.NONE},
+                }},
+                {kind = "label", size = 1, text = "Browse needs a file dialog.", disabled = true},
             }},
         }},
     }}
@@ -125,7 +154,7 @@ end
 -- here, as the color of the Desktop.
 local function appearance(state: any): any
     return {kind = "column", gap = 0, children = {
-        monitor(state.chosen, state.pattern),
+        monitor(state.chosen, state.pattern, state.wallpaper, state.mode),
         {kind = "row", size = 2, size_px = 26, gap = 1, children = {
             {kind = "label", size = 7, size_px = 60, text = "Item:"},
             {kind = "select", id = "item", value = "desktop", options = {{value = "desktop", label = "Desktop"}}, disabled = true},
@@ -150,7 +179,8 @@ local function settings(state: any): any
     end
     return {kind = "column", gap = 0, children = {
         -- The monitor takes what the groups leave: the page is short at 16 px rows.
-        {kind = "monitor", color = state.saved, pattern = patterns.find(state.pattern_saved)},
+        {kind = "monitor", color = state.saved, pattern = patterns.find(state.pattern_saved),
+            wallpaper = wallpaper_file(state.wallpaper_saved), wallpaper_mode = state.mode_saved},
         {kind = "row", size = 4, size_px = 70, gap = 1, gap_px = 11, children = {
             {kind = "group", title = "Color palette", children = {
                 {kind = "select", id = "palette", size = 1, size_px = 21, value = "truecolor",
@@ -217,12 +247,15 @@ local function apply(state: any): boolean
     local settings_changed: any = {}
     if state.chosen ~= state.saved then settings_changed.desktop_color = state.chosen end
     if state.pattern ~= state.pattern_saved then settings_changed.desktop_pattern = state.pattern end
+    if state.wallpaper ~= state.wallpaper_saved then settings_changed.desktop_wallpaper = state.wallpaper end
+    if state.mode ~= state.mode_saved then settings_changed.wallpaper_mode = state.mode end
     local ok, err = state.persist(settings_changed)
     if not ok then
         state.failure = tostring(err)
         return false
     end
     state.saved, state.pattern_saved = state.chosen, state.pattern
+    state.wallpaper_saved, state.mode_saved = state.wallpaper, state.mode
     state.failure = nil
     return true
 end
@@ -235,6 +268,17 @@ function definition.update(state: any, action: any, context: any)
     elseif action.id == "patterns" and (action.type == "select" or action.type == "activate") then
         local item: any = action.value
         if type(item) == "table" then state.pattern = pattern_of(item.id) end
+    elseif action.id == "wallpapers" and (action.type == "select" or action.type == "activate") then
+        -- A wallpaper comes with the way it is meant to be shown; the radio
+        -- buttons change it afterwards.
+        local item: any = action.value
+        if type(item) == "table" then
+            state.wallpaper = wallpaper_of(item.id)
+            local entry: any = wallpapers.find(state.wallpaper)
+            if entry then state.mode = entry.mode end
+        end
+    elseif (action.id == "tile" or action.id == "center") and action.type == "change" then
+        state.mode = action.id
     elseif action.id == "apply" then apply(state)
     elseif action.id == "ok" then
         if apply(state) then context.close() end

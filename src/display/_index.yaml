@@ -22,6 +22,25 @@ entries:
       comment: The Windows 95 desktop patterns — 8×8 monochrome tiles as bit rows, the list of Display Properties, lookup by name.
     source: file://patterns.lua
 
+  # butschster.windows.display:wallpapers
+  - name: wallpapers
+    kind: library.lua
+    meta:
+      comment: The shell's own wallpapers — names, files and the way each is meant to be shown (tile or center).
+    source: file://wallpapers.lua
+
+  # butschster.windows.display:wallpaper_files
+  #
+  # The wallpapers as PNG, drawn by tools/wallpapers.py: the shell's own
+  # pixel art, MIT, shipped with the module (unlike assets/icons).
+  - name: wallpaper_files
+    kind: fs.directory
+    meta:
+      comment: The shell's own wallpapers as PNG — the pixel theme reads them as bytes through images.wallpaper.
+    base: module
+    directory: ./assets/wallpaper
+    auto_init: false
+
   # Permissions: read and write a setting in the shell database (`db.get` on
   # the resource, the database name comes from the environment), ask and
   # nudge the compositor.
@@ -75,3 +94,4 @@ entries:
       repo: butschster.windows.persist:repo
       model: butschster.windows.display:model
       patterns: butschster.windows.display:patterns
+      wallpapers: butschster.windows.display:wallpapers

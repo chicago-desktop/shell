@@ -144,6 +144,11 @@ current data; `update` changes the model on a component's action.
   focus.
 - `checkbox`: `id`, `text`, `checked`, `disabled`; `change.value` is the new boolean
   value on a click or Space. Store it in the model in `update`.
+- `radio`: `id`, `text`, `checked`, `disabled` — one option of a group. A click,
+  Space or Enter on an unchosen one gives `change` with `value = true`; on the
+  chosen one nothing — a radio button is never unchosen by itself, the
+  application clears its neighbours (their `checked` follows the model). In
+  pixels the Windows 95 12×12 ring with a dot, in cells `( )` and `(•)`.
 - `input`: `id`, `text`, an optional `password` (shows asterisks, one per
   character; the model and `change.value` keep the real text);
   `change.value` returns the new text, `activate.value`
@@ -369,6 +374,14 @@ sharing a local variable (see the test stand's CLAUDE.md).
 The compositor owns moving, sizing, window focus, minimizing,
 maximizing and stacking order. The application does not draw the outer frame,
 does not enter the alternate screen and does not write escape sequences to stdout.
+The compositor tells a window when it loses and regains the keyboard, with the
+runtime's terminal event `{type = "focus", focused = …}` — another window took
+focus, or this one was minimized. The SDK handles it itself: on `focused = false`
+it drops an armed button and a captured drag (`app.focus`), because the release
+they wait for now goes to another window, and redraws only when something was
+held. `update` does not receive it. A custom window reads the same event from
+`window_api.inputs()` or `tty.events()`.
+
 Both kinds of window receive `close`; after a common deadline the compositor terminates
 a process that has not finished. So `dispose` is not guaranteed on a crash or a
 forced stop. Long requests should be done outside the input handler: a synchronous

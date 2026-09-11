@@ -22,6 +22,7 @@ local seed = require("seed")
 local view = require("view")
 local repo = require("repo")
 local patterns = require("patterns")
+local wallpapers = require("wallpapers")
 local logon_screen = require("logon_screen")
 local logon_provider = require("logon_provider")
 
@@ -190,9 +191,28 @@ local function main()
         chrome.use_pattern(patterns.find(name))
     end
 
+    -- The wallpaper, the same way: a name and a mode in the settings, the
+    -- picture's file from the wallpaper list; a name nobody knows is none,
+    -- and a missing mode is the one the wallpaper is meant for.
+    local function apply_desktop_wallpaper()
+        local name, err = repo.setting("desktop_wallpaper")
+        local mode, merr = repo.setting("wallpaper_mode")
+        if err or merr then
+            log:warn("desktop wallpaper not read", {error = tostring(err or merr)})
+            return
+        end
+        local entry: any = wallpapers.find(name)
+        if entry == nil then
+            chrome.use_wallpaper(nil, nil)
+            return
+        end
+        chrome.use_wallpaper(entry.file, (mode == "tile" or mode == "center") and mode or entry.mode)
+    end
+
     local function desktop_items()
         apply_desktop_color()
         apply_desktop_pattern()
+        apply_desktop_wallpaper()
         -- The catalog is read BEFORE the layout: furniture is created from
         -- it, and reading the layout earlier would mean handing over a frame
         -- without the icons just created — they would appear only on the next
