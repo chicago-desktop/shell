@@ -145,6 +145,20 @@ not decoded, wrong size), subsequent ones refer to it.
 
 The file name is the icon name; there are no two lists.
 
+## The weather set: the module's own art in `assets/weather`
+
+`weather_sun`, `weather_sun_cloud`, `weather_cloud`, `weather_fog`,
+`weather_rain`, `weather_snow`, `weather_storm`, `weather_moon`,
+`weather_moon_cloud` — original pixel art in the Windows 95 palette, drawn by
+`tools/weather_icons.py` (rerun it to change one). They live in
+`assets/weather/{32,16}/` behind their own entry, `weather_files`, and NOT in
+`assets/icons`: that folder is excluded from the published package because of
+the Microsoft artwork, while these are MIT like the module and ship with it.
+`images.get` picks the folder by the `weather_` prefix; the names are in the
+same `images.NAMES`, so the pack test covers them too. The tray shows them
+beside a caption (`desktop.tray` with `image`), the weather window through the
+SDK `image` component.
+
 ## The directory is declared by the module, not by the application
 
 `icon_files` is an `fs.directory` with `base: module` and `directory: ./assets/icons`:

@@ -764,7 +764,7 @@ local function define_tests()
         -- items sit between the window buttons and the clock, against the
         -- clock, and each theme hits exactly where the plan puts them.
         local TRAY: any = {
-            {key = "weather", text = "+17°", entry = "app:weather"},
+            {key = "weather", text = "+17°", entry = "app:weather", icon = "☼", image = "weather_sun"},
             {key = "mail", text = "3 new", entry = "app:mail"},
         }
         -- A caption without `entry`: drawn in its slot, no hit.
@@ -821,7 +821,8 @@ local function define_tests()
             chrome.clock_entry = nil
             test.eq(#noted.tray, 2, "cells: a caption without an entry has no hit")
             local row = (tostring((canvas:rows() :: any)[24]):gsub("\27%[[%d;:]*m", ""))
-            test.is_true(row:find(" idle  +17°  3 new ", 1, true) ~= nil, "cells: the captions in order: " .. row)
+            test.is_true(row:find(" idle  ☼ +17°  3 new ", 1, true) ~= nil,
+                "cells: the captions in order, the glyph before its caption: " .. row)
 
             use_fonts()
             chrome_pixels.clock_entry = "app:clock"
@@ -836,10 +837,17 @@ local function define_tests()
             end
             local pixel_hits, with_tray = bar_png(TRAY)
             local _, without = bar_png({})
+            local plain_hits, no_image = bar_png({{key = "weather", text = "+17°", entry = "app:weather"}, TRAY[2]})
             chrome_pixels.clock_entry = nil
             chrome_pixels.fonts = nil
             same_tray_plan(pixel_hits, {task_min = 16, task_max = 16, clock = 9, clock_gap = 1}, "pixels")
             test.is_true(with_tray ~= without, "pixels: the tray captions are drawn")
+            -- The weather icon: a wider slot and a different picture.
+            test.is_true(with_tray ~= no_image, "pixels: the tray icon is drawn beside the caption")
+            local wide = split(pixel_hits).tray[1]
+            local narrow = split(plain_hits).tray[1]
+            test.is_true(wide.to - wide.from > narrow.to - narrow.from,
+                "pixels: an item with an image gets room for the icon")
         end)
 
         test.it("reserves the tray before window buttons and drops only what does not fit", function()
@@ -865,43 +873,53 @@ local function define_tests()
             test.eq(bare.tasks[3].to, 30)
         end)
 
-        -- The owner's rule (2026-09-11): no text next to Start while no window
-        -- is open. With a window, the status line is still where messages such
-        -- as "could not open: ..." are shown. The rule lives in the shared
-        -- layout, and each theme is checked on its own.
-        local STATUS = "could not open: app:gone"
+        -- The owner's rule (2026-09-11): the taskbar carries notices only —
+        -- "could not open: …" shows with and without windows, since it
+        -- happens exactly when nothing is open yet. The compositor's key
+        -- hint arrives as `status` and is never drawn by either theme.
+        local NOTICE = "could not open: app:gone"
+        local HINT = "alt+n bash · alt+o programs · ctrl+q quit"
 
-        test.it("cells: the status line shows beside a window and not on an empty taskbar", function()
-            local function row(windows: any): string
+        test.it("cells: the notice shows with and without windows, the status hint never", function()
+            local function row(windows: any, state: any): string
                 local canvas = tty.canvas(80, 24)
-                chrome.bars(canvas, 80, 24, {clock = "12:30", windows = windows, status = STATUS})
+                state.clock, state.windows = "12:30", windows
+                chrome.bars(canvas, 80, 24, state)
                 local rows: any = canvas:rows()
                 return (tostring(rows[24]):gsub("\27%[[%d;:]*m", ""))
             end
-            test.is_true(row({WINDOWS[1]}):find(STATUS, 1, true) ~= nil, "the status is shown beside a window")
-            test.is_nil(row({}):find("could not open", 1, true), "no windows, no text beside Start")
+            test.is_true(row({WINDOWS[1]}, {notice = NOTICE}):find(NOTICE, 1, true) ~= nil,
+                "the notice is shown beside a window")
+            test.is_true(row({}, {notice = NOTICE}):find(NOTICE, 1, true) ~= nil,
+                "the notice is shown on an empty taskbar too")
+            test.is_nil(row({WINDOWS[1]}, {status = HINT}):find("alt+n", 1, true), "the status hint is not drawn")
+            test.is_nil(row({}, {status = HINT}):find("alt+n", 1, true), "nor on an empty taskbar")
         end)
 
-        test.it("pixels: the status line shows beside a window and not on an empty taskbar", function()
-            local one, status = {WINDOWS[1]}, STATUS
+        test.it("pixels: the notice shows with and without windows, the status hint never", function()
+            local one = {WINDOWS[1]}
             use_fonts()
             -- Bytes are taken right after each frame: the store paints the next
             -- frame into the same buffer.
-            local function bar_png(windows: any, text: any): any
-                local painted = chrome_pixels.paint({width = 80, height = 24, bottom = 22, clock = "12:00",
-                    windows = windows, items = {}, status = text}, 10, 20)
+            local function bar_png(windows: any, state: any): any
+                state.width, state.height, state.bottom, state.clock = 80, 24, 22, "12:00"
+                state.windows, state.items = windows, {}
+                local painted = chrome_pixels.paint(state, 10, 20)
                 for _, image in ipairs(painted.placements) do
                     if image.id == "bars" then return assert(image.raster:encode("png")) end
                 end
                 return nil
             end
-            local shown, bare = bar_png(one, status), bar_png(one, nil)
-            local empty_with, empty_without = bar_png({}, status), bar_png({}, nil)
+            local shown, bare = bar_png(one, {notice = NOTICE}), bar_png(one, {})
+            local empty_with, empty_without = bar_png({}, {notice = NOTICE}), bar_png({}, {})
+            local hinted, empty_hinted = bar_png(one, {status = HINT}), bar_png({}, {status = HINT})
             chrome_pixels.fonts = nil
-            test.is_true(shown ~= bare, "the status is drawn beside a window")
-            test.eq(empty_with, empty_without, "no windows, no text beside Start")
-            test.is_nil(chrome.taskbar_layout(80, {}, {start = 11, gap = 1, clock = 9}).status,
-                "the layout gives an empty taskbar no status room")
+            test.is_true(shown ~= bare, "the notice is drawn beside a window")
+            test.is_true(empty_with ~= empty_without, "the notice is drawn on an empty taskbar too")
+            test.eq(hinted, bare, "the status hint is not drawn")
+            test.eq(empty_hinted, empty_without, "nor on an empty taskbar")
+            test.not_nil(chrome.taskbar_layout(80, {}, {start = 11, gap = 1, clock = 9}).status,
+                "the layout keeps notice room on an empty taskbar")
         end)
 
         test.it("places a desktop icon by one clipping rule and gives one hit table", function()
@@ -1018,7 +1036,7 @@ local function define_tests()
                 items = {{id = "icon", x = 2, y = 4, kind = "folder", title = "Folder"}},
                 windows = {{id = "w1", title = "Notepad", x = 30, y = 10, w = 40, h = 10}},
                 focused_id = "w1", failure = reason .. "alpha",
-                status = "could not open: app:gone — entry not found"}
+                notice = "could not open: app:gone — entry not found"}
             local painted = chrome_pixels.paint(state, 10, 20)
 
             -- The screenshot is for the eyes, from the same frame that is checked below.
@@ -1054,33 +1072,33 @@ local function define_tests()
             chrome_pixels.fonts = nil
         end)
 
-        test.it("the taskbar shows the status line between the windows and the clock", function()
+        test.it("the taskbar shows the notice between the windows and the clock", function()
             use_fonts()
             local state: any = {width = 80, height = 24, bottom = 22, clock = "12:00", items = {},
                 windows = {{id = "w1", title = "Notepad", x = 5, y = 3, w = 30, h = 10}}, focused_id = "w1"}
             local bare = png(chrome_pixels.paint(state, 10, 20), "bars")
 
-            state.status = "could not open: app:gone — entry not found"
+            state.notice = "could not open: app:gone — entry not found"
             local painted = chrome_pixels.paint(state, 10, 20)
             local shown = png(painted, "bars")
-            test.is_true(shown ~= bare, "the status line is not drawn")
+            test.is_true(shown ~= bare, "the notice is not drawn")
             local version = find(painted, "bars").raster:version()
             test.eq(find(chrome_pixels.paint(state, 10, 20), "bars").raster:version(), version,
-                "the same status — the taskbar is not repainted")
+                "the same notice — the taskbar is not repainted")
 
-            state.status = "could not open: app:gone — entry missing"
+            state.notice = "could not open: app:gone — entry missing"
             test.is_true(png(chrome_pixels.paint(state, 10, 20), "bars") ~= shown,
-                "a different end of the status — a different frame")
+                "a different end of the notice — a different frame")
 
             -- Tight: fewer than six cells between the window button and the clock.
-            state.width, state.status = 36, nil
+            state.width, state.notice = 36, nil
             local narrow = chrome_pixels.paint(state, 10, 20)
             local task = narrow.hits.bars[#narrow.hits.bars]
             test.eq(task.id, "w1")
             test.is_true(36 - 8 - (task.to + 1) < 6, "the scene must leave fewer than six cells")
             local empty = png(narrow, "bars")
-            state.status = "could not open: app:gone"
-            test.eq(png(chrome_pixels.paint(state, 10, 20), "bars"), empty, "when tight the status is not drawn")
+            state.notice = "could not open: app:gone"
+            test.eq(png(chrome_pixels.paint(state, 10, 20), "bars"), empty, "when tight the notice is not drawn")
             chrome_pixels.fonts = nil
         end)
 

@@ -579,8 +579,11 @@ end
 local TASK_SPAN = 16
 local CLOCK_SPAN = 9
 -- Room around a tray caption inside its cells, in pixels: three on each side
--- plus the rounding up to whole cells.
+-- plus the rounding up to whole cells. An item with an `image` also gets a
+-- 16 px icon and a gap before its caption.
 local TRAY_PAD = 8
+local TRAY_ICON = 16
+local TRAY_GAP = 3
 
 local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     local w, h = whole(state.width), whole(state.height)
@@ -588,9 +591,11 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     local top = h - rows + 1
     local face: any = type(fonts) == "table" and fonts.face or nil
     local bold: any = type(fonts) == "table" and fonts.bold or face
-    local status = type(state.status) == "string" and state.status or ""
+    -- Only `notice` is drawn: `status` used to carry the key hint, and
+    -- Windows 95 has no such text on the taskbar (owner's rule, 2026-09-11).
+    local notice = type(state.notice) == "string" and state.notice or ""
     local key = {tostring(w), tostring(state.clock or ""), tostring(state.focused_id or ""),
-                 (state.menu and not state.menu.anchor) and "open" or "closed", status}
+                 (state.menu and not state.menu.anchor) and "open" or "closed", notice}
     for _, window in ipairs(state.windows or {}) do
         key[#key + 1] = tostring(window.id) .. ":" .. tostring(window.title)
             .. ":" .. tostring(window.image) .. ":" .. tostring(window.minimized)
@@ -603,8 +608,10 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     for index, item in ipairs(tray) do
         local text = tostring(item.text or "")
         local px = face and whole(face:measure(text)) or #text * 7
+        local image = type(item.image) == "string" and item.image ~= "" and item.image or nil
+        if image then px = px + TRAY_ICON + TRAY_GAP end
         tray_widths[index] = (px + TRAY_PAD + cw - 1) // cw
-        key[#key + 1] = "tray:" .. text
+        key[#key + 1] = "tray:" .. tostring(image) .. ":" .. text
     end
     local bar, dirty = store.take("bars", w, rows, cell, table.concat(key, "\30"))
     local width, height = w * whole(cell.w), rows * whole(cell.h)
@@ -648,14 +655,14 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
         hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
             from = task.from, to = task.to, id = window.id}
     end
-    -- The status line — in what is left between the window buttons and the
-    -- clock, as in the cell theme (`chrome.bars`). Without it the
-    -- compositor's messages are lost — "could not open: …", the complaint
-    -- about a bad frame from the theme — which are shown nowhere else: the
-    -- terminal host's log is muted.
+    -- The notice — in what is left between the window buttons and the
+    -- notification area, as in the cell theme (`chrome.bars`). Without it
+    -- the compositor's messages are lost — "could not open: …", the
+    -- complaint about a bad frame from the theme — which are shown nowhere
+    -- else: the terminal host's log is muted.
     local room: any = plan.status
-    if dirty and face and status ~= "" and room then
-        local caption = pixels.ellipsize(face, status, (room.to - room.from + 1) * cell.w - 8)
+    if dirty and face and notice ~= "" and room then
+        local caption = pixels.ellipsize(face, notice, (room.to - room.from + 1) * cell.w - 8)
         if caption ~= "" then
             bar:text((room.from - 1) * cell.w + 5, button_y + (button_h - 15) // 2, caption,
                 {font = face, color = color.shadow})
@@ -675,8 +682,15 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
         local slot: any = entry
         local item: any = tray[slot.index]
         if dirty then
-            pixels.label(bar, (slot.from - 1) * cell.w + 1, button_y, (slot.to - slot.from + 1) * cell.w,
-                button_h, tostring(item.text or ""), face, color.face_text)
+            local left, span = (slot.from - 1) * cell.w + 1, (slot.to - slot.from + 1) * cell.w
+            -- The icon from the catalog first, the caption centred in the
+            -- rest; an item without `image` gets the whole slot for its text.
+            if type(item.image) == "string" and item.image ~= "" then
+                pixels.icon(bar, left + TRAY_PAD // 2, button_y + (button_h - TRAY_ICON) // 2,
+                    {kind = "window", image = item.image}, TRAY_ICON)
+                left, span = left + TRAY_ICON + TRAY_GAP, span - TRAY_ICON - TRAY_GAP
+            end
+            pixels.label(bar, left, button_y, span, button_h, tostring(item.text or ""), face, color.face_text)
         end
         if type(item.entry) == "string" and item.entry ~= "" then
             hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,

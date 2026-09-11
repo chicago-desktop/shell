@@ -597,11 +597,12 @@ function chrome.taskbar_layout(width: any, windows: any, metrics: any): any
         end
     end
 
-    -- No windows, no status line: on an empty taskbar the compositor's status
-    -- is its key hint, and the owner wants no text next to Start there
-    -- (2026-09-11). Both themes follow, because both take this plan.
+    -- What is left is the notice room: "could not open: …" is shown there,
+    -- and it happens exactly when no window is open yet, so an empty taskbar
+    -- keeps the room too. The compositor's key hint never goes there (owner's
+    -- rule, 2026-09-11): both themes draw `notice` and ignore `status`.
     local rest = w - used - reserve
-    if #list > 0 and rest >= STATUS_LEAST then plan.status = {from = used + 1, to = used + rest} end
+    if rest >= STATUS_LEAST then plan.status = {from = used + 1, to = used + rest} end
     if clock > 0 then plan.clock = {from = w - clock + 1, to = w} end
     plan.tray = {}
     local at = w - clock - tray_total
@@ -633,11 +634,17 @@ function chrome.bars(canvas, width: any, height: any, state)
     -- does not fit with its bevels, the clock goes without them.
     local clock = type(bar.clock) == "string" and bar.clock or ""
     local padded = " " .. clock .. " "
-    -- Tray items are plain captions with a space on each side, left of the
-    -- clock; the compositor sends them as `{key, text, entry}`.
+    -- Tray items are captions with a space on each side, left of the clock;
+    -- the compositor sends them as `{key, text, entry, icon, image}`. In
+    -- cells the picture is `icon` — one character before the caption.
     local tray: any = type(bar.tray) == "table" and bar.tray or {}
+    local tray_captions = {}
     local tray_widths = {}
-    for index, item in ipairs(tray) do tray_widths[index] = cells(" " .. tostring(item.text or "") .. " ") end
+    for index, item in ipairs(tray) do
+        local icon = type(item.icon) == "string" and item.icon ~= "" and (item.icon .. " ") or ""
+        tray_captions[index] = " " .. icon .. tostring(item.text or "")
+        tray_widths[index] = cells(tray_captions[index]) + 1
+    end
     local plan = chrome.taskbar_layout(w, bar.windows, {
         start = boxed and cells(label) + 2 or 1, gap = 1,
         task_min = TASK_MIN, task_max = TASK_MAX,
@@ -681,14 +688,15 @@ function chrome.bars(canvas, width: any, height: any, state)
         used = task.to
     end
 
-    -- The status line takes what is left. It no longer has a row of its own
-    -- — the taskbar took the only bottom one — and throwing it away would
-    -- mean losing messages like "could not open: …", which are shown nowhere
-    -- else.
-    local status = type(bar.status) == "string" and bar.status or ""
-    if status ~= "" and plan.status then
+    -- The notice takes what is left. It no longer has a row of its own —
+    -- the taskbar took the only bottom one — and throwing it away would mean
+    -- losing messages like "could not open: …", which are shown nowhere
+    -- else. Only `notice`: `status` used to carry the key hint, and Windows
+    -- 95 has no such text on the taskbar.
+    local notice = type(bar.notice) == "string" and bar.notice or ""
+    if notice ~= "" and plan.status then
         pad(plan.status.from - 1)
-        parts[#parts + 1] = fit(styles.face_dim, " " .. status, plan.status.to - plan.status.from + 1)
+        parts[#parts + 1] = fit(styles.face_dim, " " .. notice, plan.status.to - plan.status.from + 1)
         used = plan.status.to
     end
 
@@ -698,7 +706,7 @@ function chrome.bars(canvas, width: any, height: any, state)
         local slot: any = entry
         local item: any = tray[slot.index]
         pad(slot.from - 1)
-        parts[#parts + 1] = fit(styles.face, " " .. tostring(item.text or ""), slot.to - slot.from + 1)
+        parts[#parts + 1] = fit(styles.face, tray_captions[slot.index], slot.to - slot.from + 1)
         if type(item.entry) == "string" and item.entry ~= "" then
             hits[#hits + 1] = {row = row, from = slot.from, to = slot.to, entry = item.entry}
         end

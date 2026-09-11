@@ -40,6 +40,13 @@ local images = {}
 -- anything.
 images.STORE = "butschster.windows.shell:icon_files"
 
+-- The weather set — original pixel art drawn by `tools/weather_icons.py`,
+-- in its own folder: assets/icons is Microsoft artwork and is excluded from
+-- the published package, while these ship with the module. A name starting
+-- with `weather_` is read from here; everything else from `STORE`.
+images.WEATHER_STORE = "butschster.windows.shell:weather_files"
+images.WEATHER_PREFIX = "weather_"
+
 -- The sizes the pack is built in. There are no other files in the folder,
 -- and asking for another size is the caller's mistake, not a reason to
 -- scale: `gfx` has no scaling on purpose, and a 16-color icon stretched by
@@ -57,7 +64,18 @@ images.NAMES = {
     "regedit", "regedit_string", "regedit_binary",
     "key",
     "appwizard", "taskmgr", "console", "user", "display_properties", "notepad",
+    -- The weather set (assets/weather): day and night sky, clouds, fog,
+    -- rain, snow, a thunderstorm.
+    "weather_sun", "weather_sun_cloud", "weather_cloud", "weather_fog", "weather_rain",
+    "weather_snow", "weather_storm", "weather_moon", "weather_moon_cloud",
 }
+
+-- store_of(name) -> the registry id of the folder the icon is read from.
+function images.store_of(name: any): string
+    local text = tostring(name or "")
+    if text:sub(1, #images.WEATHER_PREFIX) == images.WEATHER_PREFIX then return images.WEATHER_STORE end
+    return images.STORE
+end
 
 local known = {}
 for _, name in ipairs(images.NAMES) do known[name] = true end
@@ -102,20 +120,21 @@ function images.name_for(item: any): (any, any)
     return BY_KIND[kind], nil
 end
 
-local store: any = nil
-local store_failure: any = nil
+-- One opened folder (or its remembered failure) per store id.
+local stores: any = {}
+local store_failures: any = {}
 local cache = {}
 
-local function open_store(): (any, any)
-    if store then return store, nil end
-    if store_failure then return nil, store_failure end
-    local opened, err = fs.get(images.STORE)
+local function open_store(id: string): (any, any)
+    if stores[id] then return stores[id], nil end
+    if store_failures[id] then return nil, store_failures[id] end
+    local opened, err = fs.get(id)
     if err or not opened then
-        store_failure = "icon folder not opened (" .. images.STORE .. "): " .. tostring(err)
-        return nil, store_failure
+        store_failures[id] = "icon folder not opened (" .. id .. "): " .. tostring(err)
+        return nil, store_failures[id]
     end
-    store = opened
-    return store, nil
+    stores[id] = opened
+    return opened, nil
 end
 
 -- get(name, size) -> raster or nil, reason
@@ -143,7 +162,7 @@ function images.get(name: any, size: any): (any, any)
         return cached, nil
     end
 
-    local opened, why = open_store()
+    local opened, why = open_store(images.store_of(name))
     if not opened then return nil, why end
 
     local path = tostring(px) .. "/" .. name .. ".png"
@@ -208,7 +227,7 @@ end
 -- forget() — reset the cache; needed by tests and by a change of folder,
 -- by no one else.
 function images.forget()
-    store, store_failure, cache, reported = nil, nil, {}, {}
+    stores, store_failures, cache, reported = {}, {}, {}, {}
 end
 
 return images

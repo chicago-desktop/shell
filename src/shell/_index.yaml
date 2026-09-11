@@ -171,6 +171,19 @@ entries:
     directory: ./assets/icons
     auto_init: false
 
+  # butschster.windows.shell:weather_files
+  #
+  # The weather icons — original pixel art (tools/weather_icons.py), MIT like
+  # the module, in a folder of their own so that the exclusion of the
+  # Microsoft artwork in wippy.yaml does not drop them from the package.
+  - name: weather_files
+    kind: fs.directory
+    meta:
+      comment: The shell's own weather icons as PNG 32×32 and 16×16 — the tray and the weather window draw them.
+    base: module
+    directory: ./assets/weather
+    auto_init: false
+
   # butschster.windows.shell:images
   #
   # Raster icons: name → file → decoded raster, with a per-process cache.

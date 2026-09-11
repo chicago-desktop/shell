@@ -400,7 +400,7 @@ local function main(spec)
             },
             selected = "f1",
             clock = "21:47",
-            status = "System Properties · 40x7 · windows: 2",
+            notice = "",
             menu = {open = {"Programs"}, cursor = 2, items = {
                 {entry = "app:calc", title = "Calculator", icon = "▣",
                  group = {"Programs"}},
@@ -439,7 +439,7 @@ local function main(spec)
             state.windows = {state.windows[2]}
             state.failure = "database is locked: SELECT id, x, y, image FROM butschster_windows_desktop"
                 .. " ORDER BY position; retry after the shell restarts"
-            state.status = "could not open: app:gone — entry not found"
+            state.notice = "could not open: app:gone — entry not found"
         elseif notice then
             state.menu = {items = {}}
             if notice == "failure" then state.menu.failure = "the registry is temporarily unavailable" end
