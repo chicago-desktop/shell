@@ -69,6 +69,7 @@ images.NAMES = {
     "regedit", "regedit_string", "regedit_binary",
     "key",
     "appwizard", "taskmgr", "console", "user", "display_properties", "notepad", "dialup",
+    "minesweeper",
     -- The weather set (assets/weather): day and night sky, clouds, fog,
     -- rain, snow, a thunderstorm.
     "weather_sun", "weather_sun_cloud", "weather_cloud", "weather_fog", "weather_rain",
