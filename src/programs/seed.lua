@@ -1,45 +1,49 @@
--- Что появляется на столе само и почему оно не появляется дважды.
+-- What appears on the desktop by itself, and why it does not appear twice.
 --
--- Два повода завести значок, и они разные по тому, КТО просит:
---   `ensure`  — программа объявила `desktop: true` в своей записи реестра;
---   `furnish` — оболочка ставит мебель первого запуска (см. `defaults`).
+-- There are two reasons to create an icon, and they differ by WHO asks:
+--   `ensure`  — a program declared `desktop: true` in its registry entry;
+--   `furnish` — the shell puts out first-run furniture (see `defaults`).
 --
--- Общее у них одно и главное: отметка о том, что значок уже предлагали, живёт
--- в отдельной таблице и не удаляется НИКОГДА. Пользователь убрал значок —
--- ярлык ушёл из раскладки, отметка осталась, и на следующем старте значок не
--- возвращается. Без отметки удаление значка не работало бы вовсе: он приходил
--- бы обратно каждый старт, и человек решил бы, что удаление сломано.
+-- They have one thing in common, and it is the main one: the mark that the
+-- icon has already been offered lives in a separate table and is NEVER
+-- deleted. The user removed the icon — the shortcut left the layout, the mark
+-- stayed, and on the next startup the icon does not come back. Without the
+-- mark, deleting an icon would not work at all: it would come back on every
+-- startup, and the person would decide that deletion is broken.
 --
--- МЕСТА ЗДЕСЬ НЕ ВЫБИРАЮТ. Строка пишется без координат, и это утверждение, а
--- не пропуск: оболочка раскладывает значки раньше, чем терминал сообщил свой
--- размер, поэтому выбранное ею место может оказаться за краем экрана — а
--- значок за краем не обрезается, он исчезает целиком и молча. Место выбирает
--- композитор в момент кадра, когда ширина известна.
+-- PLACES ARE NOT CHOSEN HERE. The row is written without coordinates, and
+-- that is a statement, not an omission: the shell lays out icons before the
+-- terminal has reported its size, so a place it chose could end up past the
+-- edge of the screen — and an icon past the edge is not clipped, it
+-- disappears entirely and silently. The place is chosen by the compositor at
+-- the moment of the frame, when the width is known.
 --
--- Отметка и ярлык пишутся одной транзакцией (`repo.offer`), отметка первой и
--- `ON CONFLICT DO NOTHING`: второй писатель получает «уже предлагали», а не
--- ошибку ключа и лишний значок, а отказ записи ярлыка откатывает и отметку —
--- значок не останется помеченным предложенным, но не предложенным.
+-- The mark and the shortcut are written in one transaction (`repo.offer`),
+-- the mark first and `ON CONFLICT DO NOTHING`: the second writer gets
+-- "already offered", not a key error and an extra icon, and a failure to
+-- write the shortcut rolls back the mark as well — an icon will not stay
+-- marked as offered but not offered.
 
 local repo = require("repo")
 
 local seed = {}
 
--- place(wanted) -> (созданные, nil) | (nil, причина)
+-- place(wanted) -> (created, nil) | (nil, reason)
 --
--- `wanted` — список {key, kind, entry, title}. `key` — то, по чему считается
--- «уже предлагали»: для программы это её запись, для мебели — собственный
--- ключ оболочки.
+-- `wanted` is a list of {key, kind, entry, title}. `key` is what "already
+-- offered" is counted by: for a program it is its entry, for furniture — the
+-- shell's own key.
 local function place(wanted: any)
     local seeded, serr = repo.seeded()
     if serr then return nil, "offered marks: " .. tostring(serr) end
 
-    -- Порядок обхода — тот, в котором пришёл список, поэтому два старта подряд
-    -- заводят значки одинаково, а композитор кладёт их в одни и те же ячейки.
+    -- The traversal order is the one the list came in, so two startups in a
+    -- row create icons the same way, and the compositor puts them into the
+    -- same cells.
     local created = {}
     for _, want in ipairs(type(wanted) == "table" and wanted or {}) do
-        -- Прочитанные отметки — дешёвый фильтр, а не решение: решает `offer`
-        -- в транзакции, и опоздавший писатель получает `false`.
+        -- The marks read here are a cheap filter, not the decision: `offer`
+        -- decides inside a transaction, and a late writer gets `false`.
         if not (seeded :: any)[want.key] then
             local item, cerr = repo.offer(want.key, {
                 kind = want.kind,
@@ -54,11 +58,11 @@ local function place(wanted: any)
     return created, nil
 end
 
--- furnish(objects) -> (созданные, nil) | (nil, причина)
+-- furnish(objects) -> (created, nil) | (nil, reason)
 --
--- Мебель первого запуска. Заводится ПЕРВОЙ, до программ: композитор кладёт
--- значки в том порядке, в каком их отдаёт раскладка, и мебель должна занять
--- начало колонки, как на настоящем столе.
+-- First-run furniture. It is created FIRST, before programs: the compositor
+-- lays out icons in the order the layout returns them, and the furniture
+-- must take the head of the column, as on a real desktop.
 function seed.furnish(objects: any)
     local wanted = {}
     for _, object in ipairs(type(objects) == "table" and objects or {}) do
@@ -73,11 +77,12 @@ function seed.furnish(objects: any)
     return created, err
 end
 
--- ensure(programs) -> (созданные, nil) | (nil, причина)
+-- ensure(programs) -> (created, nil) | (nil, reason)
 --
--- Идемпотентна: повторный вызов при неизменном каталоге ничего не пишет.
--- Поэтому её можно звать не только на старте — окно, собранное мастерской при
--- запущенной оболочке, получит свой значок, не дожидаясь перезапуска.
+-- Idempotent: a repeated call with an unchanged catalog writes nothing.
+-- Therefore it can be called not only at startup — a window built by the
+-- workshop while the shell is running gets its icon without waiting for a
+-- restart.
 function seed.ensure(programs: any)
     local wanted = {}
     for _, program in ipairs(type(programs) == "table" and programs or {}) do

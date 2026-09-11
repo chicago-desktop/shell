@@ -11,8 +11,9 @@ restarts (the compositor restores stored windows on boot), and can be replaced
 by building again under the same name.
 
 Canonical contracts: the [window SDK](../../docs/sdk.md) for the component tree
-and the base module README (`../kickside-module/README.md`, «Приложение можно
-собрать в работающем рантайме») for the storage and registry mechanics.
+and the base module README (`../kickside-module/README.md`, section "An
+application can be built in the running runtime") for the storage and registry
+mechanics.
 
 ## Tool
 

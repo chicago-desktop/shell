@@ -12,15 +12,16 @@ concurrency:
   group: verify-${{ github.ref }}
   cancel-in-progress: true
 
-# Здесь только то, что проверяемо без рантайма.
+# Only what can be checked without the runtime runs here.
 #
-# Полный `make verify` (линт и наборы) в CI не идёт и зелёным его не
-# притворяется. Ему нужна локальная сборка рантайма с модулем `gfx` — в
-# релизном wippy его нет, и модуль, объявляющий `gfx`, релизным рантаймом не
-# грузится вовсе, — и основа по соседству: `.wippy.yaml` подменяет
-# `butschster/tui-desktop` рабочей копией `../kickside-module`. Ни того, ни
-# другого у раннера нет. Зелёный прогон здесь значит «идентичность, ссылки,
-# документы и поздние local в порядке», а не «наборы прошли».
+# The full `make verify` (lint and suites) does not run in CI and does not
+# pretend to be green. It needs a local runtime build with the `gfx` module —
+# the release wippy does not have it, and a module that declares `gfx` does
+# not load at all under the release runtime — and the base next door:
+# `.wippy.yaml` replaces `butschster/tui-desktop` with the working copy
+# `../kickside-module`. The runner has neither. A green run here means
+# "identity, links, docs and late locals are in order", not "the suites
+# passed".
 jobs:
   module:
     runs-on: ubuntu-latest

@@ -1,10 +1,11 @@
--- Тело записи окна-вида.
+-- Body of a view window's entry.
 --
--- Окно с `window_content: pixels` композитор не запускает: рисует его тема,
--- данные приносит поставщик состояния. Запись при этом обязана быть
--- процессом — так её находит каталог, — и этот файл существует ради формы.
--- Если он всё же запущен, значит запись открыли не как вид; тогда он
--- просто ждёт, пока его погасят, и ничего не рисует.
+-- A window with `window_content: pixels` is not started by the compositor:
+-- the theme draws it, the state provider brings the data. The entry must
+-- still be a process — that is how the catalog finds it — and this file
+-- exists for the sake of that form. If it is started after all, the entry
+-- was opened not as a view; then it simply waits to be shut down and draws
+-- nothing.
 local channel = require("channel")
 local time = require("time")
 

@@ -1,77 +1,81 @@
--- Палитра оболочки: два набора одних и тех же имён.
+-- The shell palette: two sets of the same names.
 --
--- `exact` — точные цвета Windows 95, шестнадцатеричным RGB. Это набор по
--- умолчанию, и вот почему выбор сменился. Пока целью было «в духе Windows»,
--- базовые индексы 0–15 выигрывали: терминал берёт их из своей темы, и
--- оболочка садилась в неё, не споря. Цель теперь другая — свести кадр с
--- эталонным снимком. Тема терминала при этом не помощник, а помеха: его
--- «синий» и есть та самая величина, которая на разных темах разная, а мы
--- красим каждую ячейку сами, и подстраиваться больше не подо что.
+-- `exact` is the exact Windows 95 colors, as hexadecimal RGB. This is the
+-- default set, and here is why the choice changed. While the goal was "in the
+-- spirit of Windows", the base indexes 0-15 won: the terminal takes them from
+-- its theme, and the shell settled into it without arguing. The goal is
+-- different now: match the frame to a reference screenshot. The terminal
+-- theme is then not a helper but a hindrance: its "blue" is exactly the
+-- quantity that differs from theme to theme, and we paint every cell
+-- ourselves, so there is nothing left to adapt to.
 --
--- `basic` — тот же набор индексами, запасной путь: терминал без поддержки
--- truecolor покажет точный RGB приближением своей палитры, и на 16-цветном
--- это будет хуже, чем честные индексы. Переключается одной строкой в
--- chrome.lua (`local color = palette.basic`).
+-- `basic` is the same set as indexes, the fallback path: a terminal without
+-- truecolor support will show the exact RGB as an approximation from its
+-- palette, and on a 16-color one that is worse than honest indexes. It is
+-- switched with one line in chrome.lua (`local color = palette.basic`).
 --
--- ИМЕНА В ОБОИХ НАБОРАХ ОБЯЗАНЫ СОВПАДАТЬ. Ключ, забытый в `basic`,
--- обнаружится не отказом, а `nil` в стиле — то есть цветом «как получится»
--- у одной детали из двадцати, и заметят это через неделю. Проверяется
--- сравнением ключей: `palette.names()` отдаёт список для теста.
+-- THE NAMES IN BOTH SETS MUST MATCH. A key forgotten in `basic` shows up not
+-- as a failure but as `nil` in a style, that is, as a color "whatever
+-- happens" on one part out of twenty, and it gets noticed a week later. It
+-- is checked by comparing keys: `palette.names()` hands out the list for the
+-- test.
 --
---   0 чёрный    4 синий      8  тёмно-серый   12 ярко-синий
---   1 бордовый  5 пурпурный  9  красный       13 розовый
---   2 зелёный   6 бирюзовый  10 ярко-зелёный  14 голубой
---   3 оливковый 7 серебряный 11 жёлтый        15 белый
+--   0 black     4 blue       8  dark gray     12 bright blue
+--   1 maroon    5 purple     9  red           13 pink
+--   2 green     6 teal       10 bright green  14 light blue
+--   3 olive     7 silver     11 yellow        15 white
 
 local palette = {}
 
 palette.exact = {
     console_bg = "#000000",
     console_text = "#c0c0c0",
-    -- Экран прощания: чёрный и оранжевая надпись, как на «Теперь
-    -- питание компьютера можно отключить» в Windows 95.
+    -- Farewell screen: black with orange text, like "It's now safe to turn
+    -- off your computer" in Windows 95.
     farewell_bg = "#000000",
     farewell_text = "#ff8800",
-    -- Рабочий стол.
+    -- Desktop.
     desktop = "#008080",
     desktop_text = "#ffffff",
-    -- Подпись битого ярлыка: жёлтый виден и там, где значок не разобрать.
+    -- Caption of a broken shortcut: yellow is visible even where the icon
+    -- cannot be made out.
     desktop_broken = "#ffff00",
 
-    -- Лицо окна, панели задач и кнопок.
+    -- Face of the window, the taskbar and buttons.
     face = "#c0c0c0",
     face_text = "#000000",
 
-    -- Поле списка: белое с чёрным текстом. Значки внутри окна лежат на нём,
-    -- а не на лице — в проводнике Windows 95 это разные поверхности, и
-    -- подпись значка на сером выглядит как надпись на кнопке.
+    -- List field: white with black text. Icons inside a window lie on it,
+    -- not on the face: in the Windows 95 explorer these are different
+    -- surfaces, and an icon caption on gray looks like a label on a button.
     field = "#ffffff",
     field_text = "#000000",
 
-    -- Грани объёма. Светлая идёт сверху и слева, тёмная — снизу и справа;
-    -- поменяв их местами, получаем вдавленную деталь тем же кодом.
+    -- Bevel edges. The light one goes on top and left, the dark one on the
+    -- bottom and right; swapping them gives a sunken part with the same code.
     light = "#ffffff",
     shadow = "#808080",
-    -- Вторая тёмная грань крупных рамок и контур кнопки по умолчанию.
-    -- В Windows 95 их две, и различить их важно: #808080 — это объём,
-    -- #000000 — граница предмета.
+    -- The second dark edge of large frames and the outline of the default
+    -- button. Windows 95 has two of them, and telling them apart matters:
+    -- #808080 is depth, #000000 is the object's boundary.
     frame = "#000000",
 
-    -- Заголовок окна. Активное — тёмно-синий с белым полужирным,
-    -- неактивное — серое: разница по фону, а не по яркости текста, иначе
-    -- на тёмной теме терминала оба заголовка сливаются.
+    -- Window title. Active is dark blue with bold white, inactive is gray:
+    -- the difference is in the background, not in text brightness, otherwise
+    -- both titles merge on a dark terminal theme.
     title_active_bg = "#000080",
     title_active_fg = "#ffffff",
     title_idle_bg = "#808080",
     title_idle_fg = "#c0c0c0",
 
-    -- Выделение: подпись выбранного значка, пункт меню под курсором. Тот же
-    -- цвет, что у активного заголовка, — в Windows 95 это одна величина.
+    -- Selection: the caption of the selected icon, the menu item under the
+    -- cursor. The same color as the active title: in Windows 95 it is one
+    -- quantity.
     select_bg = "#000080",
     select_fg = "#ffffff",
 
-    -- Отказ. Бордовый, а не красный: красный на сером бликует и читается
-    -- как «горит», хотя сообщение всего лишь называет причину.
+    -- Failure. Maroon, not red: red on gray glares and reads as "on fire",
+    -- although the message merely names the reason.
     alert = "#800000",
 }
 
@@ -105,11 +109,11 @@ palette.basic = {
     alert = "1",
 }
 
--- Набор по умолчанию.
+-- The default set.
 palette.active = palette.exact
 
--- Имена цветов списком — чтобы тест мог сверить наборы между собой, а не
--- полагаться на то, что оба правили одновременно.
+-- Color names as a list, so the test can compare the sets with each other
+-- rather than rely on both having been edited at the same time.
 function palette.names()
     local out = {}
     for name in pairs(palette.exact) do out[#out + 1] = name end

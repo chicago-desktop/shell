@@ -1,18 +1,20 @@
--- Значок с подписью — один на всю оболочку.
+-- An icon with a caption, one for the whole shell.
 --
--- Отдельная библиотека, а не кусок темы, по одной причине: значок рисуют
--- ДВОЕ. Стол рисует его композитором, а окно «Мой компьютер» — само, изнутри
--- своего процесса, в свой tty. Повторённый у второго, он разошёлся бы с
--- первым на первой правке, и разошёлся бы ВИДОМ, а не отказом: внутри
--- Windows 95 оказался бы другой Windows 95, и заметили бы это через неделю.
+-- A separate library, not a piece of the theme, for one reason: the icon is
+-- drawn by TWO parties. The desktop draws it through the compositor, and the
+-- "My Computer" window draws it itself, from inside its own process, into its
+-- own tty. Repeated in the second, it would diverge from the first at the
+-- first edit, and diverge in LOOK, not as a failure: inside Windows 95 there
+-- would be a different Windows 95, and it would be noticed a week later.
 --
--- Отсюда форма функций: они принимают ЦЕЛЬ рисования, а не чей-то холст.
--- Целью годится любой `tty.canvas` — и тот, что держит композитор, и тот,
--- что окно заводит себе под свой viewport; это один и тот же тип, поэтому
--- сечение проходит здесь, а не по границе процессов.
+-- Hence the shape of the functions: they take the drawing TARGET, not
+-- someone's canvas. Any `tty.canvas` serves as a target, both the one the
+-- compositor holds and the one a window sets up for its own viewport; it is
+-- one and the same type, so the cut runs here, not along the process
+-- boundary.
 --
--- Поверхностей две, и их нельзя путать: на столе подпись белая на бирюзовом,
--- в окне — чёрная на белом поле списка.
+-- There are two surfaces, and they must not be confused: on the desktop the
+-- caption is white on teal, in a window it is black on the white list field.
 
 local tty = require("tty")
 
@@ -23,10 +25,11 @@ local color = palette.active
 
 local icons = {}
 
--- Ячейка значка. `w` и `h` — ШАГ сетки, `drawn` — сколько строк занято
--- рисунком. Числа разные нарочно: шагом раскладывают, по нарисованному
--- считают попадание. Возьми одно вместо другого — значки встанут вплотную,
--- и подпись одного упрётся в картинку следующего.
+-- The icon cell. `w` and `h` are the grid STEP, `drawn` is how many lines the
+-- picture takes. The numbers differ on purpose: the step lays icons out, the
+-- drawn part is what hits are computed from. Take one instead of the other
+-- and the icons will stand edge to edge, and the caption of one will run
+-- into the picture of the next.
 local CELL_W = 12
 local CELL_H = 4
 local CELL_DRAWN = 3
@@ -59,8 +62,9 @@ local surfaces = {
         back   = tty.style():background(color.field),
         icon   = tty.style():foreground(color.field_text):background(color.field),
         text   = tty.style():foreground(color.field_text):background(color.field),
-        -- На белом поле жёлтый не виден вовсе, поэтому битый здесь бордовый.
-        -- Цвет разный, признак один: значок ▨ плюс отличная от прочих подпись.
+        -- On the white field yellow is not visible at all, so broken is maroon
+        -- here. The color differs, the sign is the same: the ▨ icon plus a
+        -- caption that differs from the others.
         broken = tty.style():bold():foreground(color.alert):background(color.field),
         select = tty.style():bold():foreground(color.select_fg):background(color.select_bg),
     },
@@ -79,10 +83,10 @@ local function clip(text, room: any)
     return tty.text.truncate(tostring(text or ""), width)
 end
 
--- Перенос по словам. Вторым значением — признак того, что текст НЕ
--- поместился: слово длиннее строки пришлось резать или строк не хватило.
--- Без него «влезло» и «влезло наполовину» на выходе неразличимы, а разница
--- ровно в том, увидит человек имя целиком или нет.
+-- Word wrap. The second value is a flag that the text did NOT fit: a word
+-- longer than the line had to be cut, or there were not enough lines.
+-- Without it "fitted" and "half fitted" are indistinguishable on output, and
+-- the difference is exactly whether a person sees the whole name or not.
 function icons.wrap(text, room: any, limit: any)
     local width = whole(room)
     local max = whole(limit)
@@ -110,7 +114,7 @@ function icons.wrap(text, room: any, limit: any)
         else
             if not flush() then return out, true end
             if cells(word) > width then
-                -- Слово, которое само шире строки, переносить некуда.
+                -- A word that is itself wider than the line has nowhere to wrap.
                 overflow = true
                 line = clip(word, width)
             else
@@ -122,12 +126,12 @@ function icons.wrap(text, room: any, limit: any)
     return out, overflow
 end
 
--- caption_lines(title, room) — подпись так, как её нарисует значок.
+-- caption_lines(title, room): the caption the way the icon will draw it.
 --
--- Отдана наружу нарочно: повторить это правило у себя — значит завести
--- копию, которая разъедется молча, потому что тест на копии останется
--- зелёным, а на экране будет другое. Второе значение — «имя не
--- поместилось», по нему и проверяют мебель.
+-- Exposed on purpose: repeating this rule on your side means setting up a
+-- copy that will drift silently, because the test on the copy stays green
+-- while the screen shows something else. The second value is "the name did
+-- not fit", and that is what furniture is checked by.
 function icons.caption_lines(title, room: any)
     local width = whole(room)
     if width <= 0 then width = CELL_W end
@@ -143,28 +147,31 @@ local function centered(style, text, room: any)
         .. string.rep(" ", width - left - cells(body)))
 end
 
--- Значок: картинка строкой и подпись до двух строк под ней, по центру.
+-- Icon: the picture as a line and a caption of up to two lines under it,
+-- centered.
 --
--- Возвращает занятый прямоугольник — {from, to, top, bottom} — или nil,
--- если места не хватило. Попадание из него строит ВЫЗЫВАЮЩИЙ: у стола в
--- попадании едут entry, w, h и args, у окна — свой набор, и навязывать
--- одному форму другого значит сделать обоим неудобно.
+-- Returns the occupied rectangle, {from, to, top, bottom}, or nil if there
+-- was not enough room. The hit is built from it by the CALLER: the desktop's
+-- hit carries entry, w, h and args, the window's its own set, and imposing
+-- one's shape on the other makes things awkward for both.
 --
--- `state`: `selected` — выделен, `surface` — "desktop" или "panel",
--- `room` — ширина колонки, если она уже, чем ячейка (у правого края).
--- box(x, y, room) -> прямоугольник значка в ЯЧЕЙКАХ
+-- `state`: `selected` means selected, `surface` is "desktop" or "panel",
+-- `room` is the column width if it is narrower than the cell (at the right
+-- edge).
+-- box(x, y, room) -> the icon rectangle in CELLS
 --
--- Вынесено из отрисовки, потому что читателей стало двое: рисует `icons.cell`,
--- а раскладку окна считает `render.layout` — и считает ДО того, как что-то
--- нарисовано, потому что пиксельный бэкенд рисует не сюда.
+-- Pulled out of the drawing because it now has two readers: `icons.cell`
+-- draws, and `render.layout` computes the window layout, and computes it
+-- BEFORE anything is drawn, because the pixel backend does not draw here.
 --
--- Посчитай они порознь — попадание разъедется с рисунком на ячейку, и это
--- ровно тот дефект, из-за которого правило «рисование и хит-тест из одной
--- таблицы» здесь вообще появилось. Теперь таблица одна и она тут.
+-- If they computed it separately, the hit would drift from the drawing by a
+-- cell, and that is exactly the defect because of which the rule "drawing
+-- and hit-testing from one table" appeared here at all. Now there is one
+-- table and it is here.
 --
--- `room` — ширина колонки, `CELL_DRAWN` — сколько строк занимает рисунок.
--- Высота НЕ равна шагу сетки: шагом раскладывают, по нарисованному считают
--- попадание.
+-- `room` is the column width, `CELL_DRAWN` is how many lines the picture
+-- takes. The height is NOT equal to the grid step: the step lays icons out,
+-- the drawn part is what hits are computed from.
 function icons.box(x: any, y: any, room: any): any
     local col, row = whole(x), whole(y)
     local span = whole(room)
@@ -185,10 +192,11 @@ function icons.cell(target, x: any, y: any, item, state)
 
     local record: any = type(item) == "table" and item or {}
 
-    -- Битый ярлык виден и значком, и цветом подписи. Одного значка мало на
-    -- мелком шрифте, одного цвета — на монохромном терминале; пропасть же он
-    -- не имеет права: пропавший значок читается как «я его случайно удалил»,
-    -- битый — как «программы больше нет».
+    -- A broken shortcut is visible both by its icon and by the caption color.
+    -- The icon alone is not enough on a small font, the color alone not on a
+    -- monochrome terminal; and it has no right to disappear: a vanished icon
+    -- reads as "I deleted it by accident", a broken one as "the program is
+    -- gone".
     local broken = record.broken and true or false
     local glyph
     if broken then glyph = glyphs.icons.broken
@@ -198,9 +206,9 @@ function icons.cell(target, x: any, y: any, item, state)
 
     target:put(col, row, centered(surface.icon, glyph, span), span)
 
-    -- Выделение — инверсией по ТЕКСТУ, а не по всей колонке: в проводнике
-    -- Windows 95 синий прямоугольник обнимает подпись, и по нему видно, где
-    -- она кончается.
+    -- Selection is an inversion of the TEXT, not of the whole column: in the
+    -- Windows 95 explorer the blue rectangle hugs the caption, and it shows
+    -- where the caption ends.
     local caption = broken and surface.broken or surface.text
     if opts.selected then caption = surface.select end
 
@@ -220,7 +228,8 @@ function icons.cell(target, x: any, y: any, item, state)
     return box
 end
 
--- Стол перекрасили — стили значков в ячейках пересняты с палитры.
+-- The desktop was repainted: the icon cell styles are re-read from the
+-- palette.
 function icons.use_desktop()
     surfaces.desktop = desktop_surface()
 end

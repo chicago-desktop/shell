@@ -1,16 +1,16 @@
 version: "1.0"
 namespace: butschster.windows.regedit
 
-# Просмотрщик реестра в виде regedit Windows 95: дерево пространств имён и
-# записей, поля записи, путь в статусе. Только для чтения. Окно собрано на
-# SDK оболочки — дерево, таблица, меню и статус общие; своя здесь только
-# модель дерева.
+# A registry viewer in the look of Windows 95 regedit: a tree of namespaces
+# and entries, the entry's fields, the path in the status bar. Read-only. The
+# window is built on the shell SDK: the tree, table, menu and status bar are
+# shared; the only thing of its own here is the tree model.
 
 entries:
   - name: model
     kind: library.lua
     meta:
-      comment: Дерево реестра из списка записей, видимые строки, поля записи и путь — чистая сборка без обращений в реестр.
+      comment: The registry tree from a list of entries, visible rows, entry fields and the path — a pure build with no calls to the registry.
     source: file://model.lua
     imports:
       geometry: butschster.tui_desktop.desktop:geometry
@@ -30,7 +30,7 @@ entries:
       height: 24
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.regedit:window
-      comment: Просмотрщик реестра в виде regedit Windows 95 — дерево пространств имён и записей, поля записи, путь; только для чтения; окно на SDK оболочки.
+      comment: A registry viewer in the look of Windows 95 regedit — a tree of namespaces and entries, entry fields, the path; read-only; a window on the shell SDK.
     source: file://window.lua
     method: main
     modules:

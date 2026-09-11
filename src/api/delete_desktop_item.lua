@@ -1,16 +1,18 @@
--- DELETE /windows/desktop/{id} — убрать ярлык или папку стола.
+-- DELETE /windows/desktop/{id} — remove a desktop shortcut or folder.
 --
--- Ответ говорит, БЫЛА ли строка: «удалил несуществующее» и «удалил» — разные
--- ответы, иначе опечатка в идентификаторе выглядит успешным удалением.
+-- The answer says whether the row EXISTED: "deleted something nonexistent"
+-- and "deleted" are different answers, otherwise a typo in the identifier
+-- looks like a successful deletion.
 --
--- Удалённый ярлык программы с `desktop: true` НЕ возвращается на следующем
--- старте: отметка о том, что программу уже предлагали, лежит отдельно и при
--- удалении значка не трогается. Без этого удаление значка не работало бы
--- вовсе.
+-- A deleted shortcut of a program with `desktop: true` does NOT come back on
+-- the next start: the mark that the program has already been offered is kept
+-- separately and is not touched when the icon is deleted. Without this,
+-- deleting the icon would not work at all.
 --
--- Содержимое удалённой папки возвращается на стол, а не удаляется следом:
--- каскад унёс бы значки, которые пользователь в неё складывал, и восстановить
--- их было бы нечем. Ответ называет число вынесенных.
+-- The contents of a deleted folder return to the desktop instead of being
+-- deleted along with it: a cascade would carry off icons the user had put
+-- into it, and there would be nothing to restore them with. The answer names
+-- the number moved out.
 
 local http = require("http")
 local security = require("security")

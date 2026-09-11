@@ -1,18 +1,20 @@
--- Каталог программ: что можно запустить.
+-- The program catalog: what can be launched.
 --
--- Источник один — реестр: записи с `meta.type: tui_desktop.window`, тот же
--- тип, что читает основа, чтобы одна запись работала в обеих оболочках.
--- Своей копии списка оболочка не держит намеренно — копия означала бы, что
--- установленный модуль не появится в меню, пока кто-то не нажмёт «обновить».
+-- There is one source — the registry: entries with `meta.type:
+-- tui_desktop.window`, the same type the base reads, so that one entry works
+-- in both shells. The shell deliberately keeps no copy of the list of its own
+-- — a copy would mean that an installed module does not appear in the menu
+-- until someone presses "refresh".
 --
--- Что попадает в МЕНЮ, решает не этот файл: правила `meta.in_menu` и
--- `meta.window_type` живут в библиотеке основы, потому что по ним же основа
--- строит своё меню. Два чтения одной меты разъезжаются молча.
+-- What gets into the MENU is not decided by this file: the rules for
+-- `meta.in_menu` and `meta.window_type` live in the base's library, because
+-- the base builds its own menu by them too. Two readings of the same meta
+-- drift apart silently.
 --
--- Главное здесь — форма отказа. `list` возвращает РАЗНЫЕ значения на «реестр
--- не прочитан» (nil, причина) и на «программ нет» (пустой каталог, nil).
--- Слитые в одно, они отправляют человека искать ошибку в своём приложении,
--- где её нет.
+-- The main thing here is the shape of a failure. `list` returns DIFFERENT
+-- values for "the registry was not read" (nil, reason) and for "there are no
+-- programs" (an empty catalog, nil). Merged into one, they send the person to
+-- look for the error in their own application, where there is none.
 
 local registry = require("registry")
 local programs_meta = require("programs_meta")
@@ -22,30 +24,33 @@ local catalog = {}
 catalog.WINDOW_TYPE = "tui_desktop.window"
 catalog.DEFAULT_ICON = "▢"
 
--- Глубже трёх уровней меню в терминале не читается: на четвёртом подменю
--- уходит за правый край экрана. Лишние сегменты не отбрасывают программу, а
--- сводят её к третьему уровню — потерять программу хуже, чем потерять папку.
+-- A menu deeper than three levels is not readable in a terminal: at the
+-- fourth, the submenu runs off the right edge of the screen. Extra segments
+-- do not drop the program but collapse it to the third level — losing a
+-- program is worse than losing a folder.
 catalog.MAX_DEPTH = 3
 
--- Программа без `order` идёт после программ с ним, а между собой они
--- сортируются по алфавиту. Число выбрано заведомо большим любого разумного
--- порядка, но не бесконечностью: с ней сравнение двух безпорядковых программ
--- давало бы inf < inf = false в обе стороны, и порядок зависел бы от того,
--- в каком виде реестр вернул список.
+-- A program without `order` goes after the programs that have one, and among
+-- themselves they are sorted alphabetically. The number is chosen to be
+-- certainly larger than any reasonable order, but not infinity: with it, a
+-- comparison of two orderless programs would give inf < inf = false in both
+-- directions, and the order would depend on the form in which the registry
+-- returned the list.
 local NO_ORDER = 1e9
 
--- Папка для программы, которая папку не назвала. Корень «Пуска» — как в
--- Windows: две папки, «Выполнить…» и «Завершение работы»; программа, которая
--- хочет лежать на корне, говорит это явно — `group: ""`. Иначе каждое окно,
--- собранное мастерской по HTTP (у него `meta.group` нет и взяться неоткуда),
--- ложилось бы на корень, и корень рос с каждым таким окном.
+-- The folder for a program that did not name a folder. The root of "Start"
+-- is as in Windows: two folders, "Run…" and "Shut Down…"; a program that
+-- wants to sit on the root says so explicitly — `group: ""`. Otherwise every
+-- window built by the workshop over HTTP (it has no `meta.group` and nowhere
+-- to get one from) would land on the root, and the root would grow with every
+-- such window.
 catalog.DEFAULT_GROUP = "Programs"
 
--- "Служебные/Сеть" -> {"Служебные", "Сеть"}. Пустые сегменты выбрасываются:
--- "Служебные//Сеть" — это опечатка, а не безымянная папка посередине.
--- `nil` — папка не названа, и это `DEFAULT_GROUP`; пустая строка — названа
--- пустой, то есть корень. Различие нарочно: «не сказал» и «сказал: никакой»
--- — разные ответы.
+-- "System Tools/Network" -> {"System Tools", "Network"}. Empty segments are
+-- thrown away: "System Tools//Network" is a typo, not a nameless folder in
+-- the middle. `nil` — the folder was not named, and that is `DEFAULT_GROUP`;
+-- an empty string — it was named empty, that is, the root. The distinction
+-- is deliberate: "did not say" and "said: none" are different answers.
 local function parse_group(value: any)
     local out = {}
     if type(value) == "table" then
@@ -72,18 +77,20 @@ local function new_node(title: any, path: any)
     return { title = title, path = path, folders = {}, programs = {} }
 end
 
--- Папка заводится тем, что в неё что-то положили. Отдельной записи для папки
--- меню нет: папка без программ бессмысленна, а объявленная отдельно —
--- разъезжается со своим содержимым при удалении модуля.
+-- A folder comes into being by something being put into it. There is no
+-- separate entry for a menu folder: a folder without programs is
+-- meaningless, and one declared separately drifts apart from its contents
+-- when a module is removed.
 local function ensure_folder(node: any, name: any)
     for _, folder in ipairs(node.folders) do
         if folder.title == name then return folder end
     end
     local path = node.path == "" and name or (node.path .. "/" .. name)
     local folder = new_node(name, path)
-    -- Папке нужен свой порядок для сортировки рядом с программами; она
-    -- получает порядок самой ранней программы внутри — иначе группа
-    -- «Служебные» уезжала бы в конец только потому, что у неё нет order.
+    -- A folder needs an order of its own to be sorted next to programs; it
+    -- gets the order of the earliest program inside — otherwise the
+    -- "System Tools" group would drift to the end just because it has no
+    -- order.
     folder.order = NO_ORDER
     node.folders[#node.folders + 1] = folder
     return folder
@@ -98,16 +105,17 @@ end
 local function to_program(record: any)
     local meta = type(record.meta) == "table" and record.meta or {}
     local order = tonumber(meta.order)
-    -- Тип окна и признак «показывать в меню» читает библиотека ОСНОВЫ, а не
-    -- этот файл. Правило одно на две оболочки, и второе его чтение здесь
-    -- разошлось бы с первым молча — умолчание посчиталось бы по-разному в
-    -- меню и при открытии, и одно и то же окно выглядело бы диалогом из
-    -- «Пуска» и обычным окном с рабочего стола.
+    -- The window type and the "show in menu" flag are read by the BASE's
+    -- library, not by this file. The rule is one for two shells, and a second
+    -- reading of it here would silently diverge from the first — the default
+    -- would be computed differently in the menu and on opening, and one and
+    -- the same window would look like a dialog from "Start" and like an
+    -- ordinary window from the desktop.
     --
-    -- Ловушка, на которой уже ловились: `meta.in_menu` через `x and x.f or
-    -- nil` даёт РОВНО ОБРАТНЫЙ ответ — `false` уходит в ветку «значения нет»
-    -- и превращается в умолчание `true`, то есть окно, которое просили
-    -- спрятать, показывается.
+    -- A trap people have already fallen into: `meta.in_menu` via `x and x.f
+    -- or nil` gives EXACTLY THE OPPOSITE answer — `false` goes into the "no
+    -- value" branch and turns into the default `true`, that is, a window that
+    -- asked to be hidden is shown.
     local window_type, unknown = programs_meta.window_type(meta)
     return {
         entry = record.id,
@@ -119,52 +127,56 @@ local function to_program(record: any)
         order = order or NO_ORDER,
         icon = type(meta.icon) == "string" and meta.icon ~= "" and meta.icon or catalog.DEFAULT_ICON,
         image = type(meta.image) == "string" and meta.image ~= "" and meta.image or nil,
-        -- Значок ФАЙЛОВ программы, если он не её собственный (Блокнот —
-        -- блокнот, его файлы — текстовый документ). Читает associations.
+        -- The icon for the program's FILES, if it is not the program's own
+        -- (Notepad is a notepad, its files are a text document). Read by
+        -- associations.
         file_image = type(meta.file_image) == "string" and meta.file_image ~= "" and meta.file_image or nil,
         width = tonumber(meta.width),
         height = tonumber(meta.height),
         args = type(meta.args) == "string" and meta.args or nil,
-        -- Что программа открывает — реестр типов файлов собирается из этого
-        -- поля проводником; таблица как есть, разбирает её associations.
+        -- What the program opens — the file type registry is assembled from
+        -- this field by the explorer; the table as is, associations parses it.
         opens = type(meta.opens) == "table" and meta.opens or nil,
-        -- Разделитель меню после этой строки: так «Мой компьютер» на корне
-        -- отделён от папок под ним, как в Windows.
+        -- A menu separator after this line: this is how "My Computer" on the
+        -- root is separated from the folders below it, as in Windows.
         separator_after = meta.separator_after == true or nil,
-        -- `desktop` в реестре — просьба ВЫНЕСТИ ярлык на стол при первом
-        -- появлении, а не утверждение, что ярлык там есть. Есть он или нет,
-        -- знает только раскладка.
+        -- `desktop` in the registry is a request to PUT a shortcut on the
+        -- desktop on first appearance, not a statement that the shortcut is
+        -- there. Whether it is there or not, only the layout knows.
         desktop = meta.desktop == true or meta.desktop == "true",
-        -- Окно свойств программы: пункт «Свойства» в контекстном меню её
-        -- значка. Идентификатор записи, как `entry`; нет — нет и пункта.
+        -- The program's properties window: the "Properties" item in the
+        -- context menu of its icon. An entry identifier, like `entry`; none
+        -- means no item.
         properties = type(meta.properties) == "string" and meta.properties ~= "" and meta.properties or nil,
     }
 end
 
--- build(records) -> каталог
+-- build(records) -> catalog
 --
--- Отделено от чтения реестра нарочно: раскладка меню — чистое правило
--- («папки из meta.group, порядок из meta.order»), и проверять его надо без
--- живого реестра. Правило, проверяемое только через реестр, проверяется
--- один раз, а потом никогда.
+-- Separated from reading the registry on purpose: the menu layout is a pure
+-- rule ("folders from meta.group, order from meta.order"), and it has to be
+-- checked without a live registry. A rule checked only through the registry
+-- is checked once, and then never.
 --
--- Каталог: { programs = ВСЁ объявленное, tree = корень меню, warnings = … }.
+-- Catalog: { programs = EVERYTHING declared, tree = the menu root, warnings = … }.
 --
--- Два списка, а не один, и разница между ними существенна.
+-- Two lists, not one, and the difference between them matters.
 --
--- `programs` — весь каталог, включая скрытые. По нему ярлык находит свою
--- запись: ярлык на скрытое окно обязан работать, признак `in_menu` — про
--- меню, а не про запуск. Отфильтруй мы здесь — ярлык на столе стал бы битым,
--- и человек прочитал бы это как «программы больше нет».
+-- `programs` is the whole catalog, including hidden ones. A shortcut finds
+-- its entry by it: a shortcut to a hidden window must work, the `in_menu`
+-- flag is about the menu, not about launching. Were we to filter here, the
+-- shortcut on the desktop would become broken, and the person would read
+-- that as "the program is gone".
 --
--- `tree` — меню, и скрытых в нём нет.
+-- `tree` is the menu, and there are no hidden ones in it.
 --
--- ПАПКА, У КОТОРОЙ ВСЕ ДЕТИ СКРЫТЫ, В МЕНЮ НЕ ПОЯВЛЯЕТСЯ ВОВСЕ. Папка
--- заводится тем, что в неё что-то положили, и скрытую программу мы не
--- кладём — значит и папки не возникает. Так и надо: пустая папка в «Пуске» —
--- это пункт, который раскрывается в ничто, и первым вопросом будет, куда
--- делось её содержимое. Отдельной записи для папки меню нет, поэтому
--- «объявленная, но опустевшая» папка тут невозможна по устройству.
+-- A FOLDER WHOSE CHILDREN ARE ALL HIDDEN DOES NOT APPEAR IN THE MENU AT ALL.
+-- A folder comes into being by something being put into it, and we do not
+-- put a hidden program in — so no folder arises either. That is how it
+-- should be: an empty folder in "Start" is an item that opens into nothing,
+-- and the first question will be where its contents went. There is no
+-- separate entry for a menu folder, so a "declared, but emptied" folder is
+-- impossible here by design.
 function catalog.build(records: any)
     local programs = {}
     local warnings = {}
@@ -173,8 +185,9 @@ function catalog.build(records: any)
         if type(record.id) == "string" then
             local program = to_program(record)
             programs[#programs + 1] = program
-            -- Неизвестный тип окна не мешает показать программу, но должен
-            -- быть назван: опечатка в объявлении иначе живёт вечно.
+            -- An unknown window type does not prevent showing the program,
+            -- but it must be named: otherwise a typo in the declaration lives
+            -- forever.
             if program.unknown_type then
                 warnings[#warnings + 1] = {
                     entry = program.entry, window_type = program.unknown_type,
@@ -202,11 +215,12 @@ function catalog.build(records: any)
     return { programs = programs, tree = root, warnings = warnings }
 end
 
--- Программы, которым место в меню. Отдельной функцией, а не полем каталога:
--- список нужен ровно там, где человек ВЫБИРАЕТ программу, — в меню «Пуск» и
--- в папке «Программы» окна «Мой компьютер». Всюду, где программу ищут по
--- ссылке, нужен полный список, и подмени мы его — ярлык на скрытое окно
--- перестал бы открываться.
+-- Programs that belong in the menu. A separate function, not a catalog
+-- field: the list is needed exactly where the person CHOOSES a program — in
+-- the "Start" menu and in the "Programs" folder of the "My Computer" window.
+-- Everywhere a program is looked up by reference, the full list is needed,
+-- and were we to substitute it, a shortcut to a hidden window would stop
+-- opening.
 function catalog.listed(programs: any)
     local out = {}
     for _, program in ipairs(type(programs) == "table" and programs or {}) do
@@ -269,11 +283,12 @@ function catalog.taskbar_clock(): (any, any)
     return data.entry, nil
 end
 
--- list() -> (каталог, nil) | (nil, причина)
+-- list() -> (catalog, nil) | (nil, reason)
 --
--- Два исхода различимы по ПЕРВОМУ значению: пустой каталог — это таблица,
--- нечитаемый реестр — nil. Вернуть на отказ пустой список значило бы сказать
--- «программ нет» там, где верно «не смогли посмотреть».
+-- The two outcomes are distinguishable by the FIRST value: an empty catalog
+-- is a table, an unreadable registry is nil. Returning an empty list on a
+-- failure would mean saying "there are no programs" where the truth is "we
+-- could not look".
 function catalog.list()
     local found, err = registry.find({ ["meta.type"] = catalog.WINDOW_TYPE })
     if err then return nil, "catalog not read: " .. tostring(err) end
@@ -286,9 +301,9 @@ function catalog.list()
     return built, nil
 end
 
--- Программа по идентификатору записи. Нужна ярлыку: он хранит ссылку, а имя,
--- значок и размер окна берёт из реестра — программа обновилась, ярлык ведёт
--- на новую версию.
+-- A program by its entry identifier. A shortcut needs it: it stores a
+-- reference, and takes the name, the icon and the window size from the
+-- registry — the program got updated, the shortcut leads to the new version.
 function catalog.find(programs: any, entry)
     for _, program in ipairs(type(programs) == "table" and programs or {}) do
         if program.entry == entry then return program end

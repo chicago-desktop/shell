@@ -1,10 +1,10 @@
--- Раскладка рабочего стола на живой базе.
+-- The desktop layout on a live database.
 --
--- Проверяется то, из-за чего дефект был бы незаметен: круг «создал —
--- прочитал — подвинул — удалил», битый ярлык, который обязан остаться, и
--- удалённый ярлык, который обязан не вернуться. Последнее — единственный
--- способ убедиться, что удаление значка вообще работает: значок, приходящий
--- обратно каждый старт, выглядит не как правило, а как сломанное удаление.
+-- What is checked is what would make a defect invisible: the round "created
+-- — read — moved — deleted", a broken shortcut that must stay, and a deleted
+-- shortcut that must not come back. The last is the only way to make sure
+-- that deleting an icon works at all: an icon that comes back on every
+-- startup looks not like a rule but like broken deletion.
 local test = require("test")
 local repo = require("repo")
 local catalog = require("catalog")
@@ -17,194 +17,197 @@ local GHOST = "butschster.windows.test:ghost"
 
 local function define_tests()
     test.describe("butschster.windows layout", function()
-        test.it("переживает круг создал — прочитал — подвинул — удалил", function()
+        test.it("survives the round created — read — moved — deleted", function()
             local item, cerr = repo.create({
                 kind = repo.KIND_SHORTCUT,
                 entry = "butschster.windows.test:probe",
-                title = "Проба",
+                title = "Probe",
                 x = 2, y = 3,
             })
             test.is_nil(cerr)
-            test.not_nil(item, "созданный ярлык должен вернуться")
+            test.not_nil(item, "the created shortcut must be returned")
             test.eq(item.kind, "shortcut")
             test.eq(item.x, 2)
             test.eq(item.y, 3)
 
             local read, gerr = repo.get(item.id)
             test.is_nil(gerr)
-            test.not_nil(read, "ярлык должен читаться обратно")
-            test.eq(read.title, "Проба")
+            test.not_nil(read, "the shortcut must read back")
+            test.eq(read.title, "Probe")
             test.eq(read.entry, "butschster.windows.test:probe")
 
-            local moved, uerr = repo.update(item.id, {x = 5, y = 1, title = "Переименован"})
+            local moved, uerr = repo.update(item.id, {x = 5, y = 1, title = "Renamed"})
             test.is_nil(uerr)
-            test.not_nil(moved, "перемещение должно вернуть строку")
+            test.not_nil(moved, "a move must return the row")
             test.eq(moved.x, 5)
             test.eq(moved.y, 1)
-            test.eq(moved.title, "Переименован")
+            test.eq(moved.title, "Renamed")
 
-            -- Место переживает чтение, а не только ответ ручки: критерий
-            -- «значок оказывается там же» проверяется из базы.
+            -- The place survives a read, not just the handler's answer: the
+            -- criterion "the icon ends up in the same place" is checked from
+            -- the database.
             local again = repo.get(item.id)
             test.eq(again.x, 5)
             test.eq(again.y, 1)
 
             local gone, derr = repo.delete(item.id)
             test.is_nil(derr)
-            test.is_true(gone.existed, "удаление существующего ярлыка отвечает existed")
-            test.is_nil(repo.get(item.id), "удалённый ярлык не читается")
+            test.is_true(gone.existed, "deleting an existing shortcut answers existed")
+            test.is_nil(repo.get(item.id), "a deleted shortcut does not read")
         end)
 
-        test.it("отвечает, БЫЛА ли строка, а не просто «удалено»", function()
-            -- Иначе опечатка в идентификаторе выглядит успешным удалением, и
-            -- человек уходит уверенным, что убрал значок, который на месте.
-            local result, err = repo.delete("такого-идентификатора-нет")
+        test.it('answers whether the row EXISTED, not just "deleted"', function()
+            -- Otherwise a typo in the identifier looks like a successful
+            -- deletion, and the person leaves sure they removed an icon that
+            -- is still in place.
+            local result, err = repo.delete("no-such-identifier")
             test.is_nil(err)
-            test.is_false(result.existed, "удаление несуществующего не выдаёт себя за успех")
+            test.is_false(result.existed, "deleting a nonexistent row does not pass itself off as success")
         end)
 
-        test.it("выносит содержимое удалённой папки на стол, а не удаляет следом", function()
+        test.it("moves the contents of a deleted folder to the desktop instead of deleting them along with it", function()
             local folder = repo.create({kind = repo.KIND_FOLDER, title = "Folder", x = 0, y = 0})
             local inside = repo.create({
                 kind = repo.KIND_SHORTCUT,
                 entry = "butschster.windows.test:inside",
-                title = "Внутри",
+                title = "Inside",
                 parent_id = folder.id,
             })
             test.eq(repo.get(inside.id).parent_id, folder.id)
 
             local result = repo.delete(folder.id)
             test.is_true(result.existed)
-            test.eq(result.promoted, 1, "папка обязана сказать, сколько значков вынесла")
+            test.eq(result.promoted, 1, "the folder must say how many icons it moved out")
 
             local orphan = repo.get(inside.id)
-            test.not_nil(orphan, "каскад унёс бы значки, которые складывал пользователь")
-            test.is_nil(orphan.parent_id, "вынесенный значок лежит на столе")
+            test.not_nil(orphan, "a cascade would carry away the icons the user put in")
+            test.is_nil(orphan.parent_id, "the moved-out icon lies on the desktop")
 
             repo.delete(inside.id)
         end)
 
-        test.it("оставляет ярлык на исчезнувшую запись и помечает его битым", function()
-            -- Пропавший значок читается как «я его случайно удалил», битый —
-            -- как «программы больше нет». Это разные утверждения.
+        test.it("keeps a shortcut to a vanished entry and marks it broken", function()
+            -- A vanished icon reads as "I deleted it by accident", a broken
+            -- one as "the program is gone". These are different statements.
             local item = repo.create({
-                kind = repo.KIND_SHORTCUT, entry = GHOST, title = "Призрак", x = 9, y = 9,
+                kind = repo.KIND_SHORTCUT, entry = GHOST, title = "Ghost", x = 9, y = 9,
             })
 
             local found, cerr = catalog.list()
-            test.is_nil(cerr, "каталог харнесса читается, пусть и пустым")
-            test.is_nil(catalog.find(found.programs, GHOST), "записи в реестре нет")
+            test.is_nil(cerr, "the harness catalog reads, even if empty")
+            test.is_nil(catalog.find(found.programs, GHOST), "there is no entry in the registry")
 
             local rows = view.join({repo.get(item.id)}, found)
-            test.eq(#rows, 1, "ярлык обязан остаться в раскладке")
-            test.is_true(rows[1].broken, "и быть помечен битым")
+            test.eq(#rows, 1, "the shortcut must stay in the layout")
+            test.is_true(rows[1].broken, "and be marked broken")
             test.eq(rows[1].entry, GHOST)
 
-            -- Нечитаемый каталог не делает исправную программу битой: обвинить
-            -- её на основании непрочитанного каталога хуже, чем промолчать.
+            -- An unreadable catalog does not make a working program broken:
+            -- accusing it on the basis of an unread catalog is worse than
+            -- keeping silent.
             local blind = view.join({repo.get(item.id)}, nil)
-            test.is_nil(blind[1].broken, "без каталога признак битости не выставляется")
+            test.is_nil(blind[1].broken, "without a catalog the broken marker is not set")
 
             repo.delete(item.id)
         end)
     end)
 
     test.describe("butschster.windows desktop seeding", function()
-        test.it("выносит программу с desktop true один раз и не возвращает удалённый ярлык", function()
+        test.it("puts a program with desktop true on the desktop once and does not bring back a deleted shortcut", function()
             local program = {
                 entry = "butschster.windows.test:seeded",
-                title = "Автозначок",
+                title = "Auto icon",
                 desktop = true,
             }
 
             local created, err = seed.ensure({program})
             test.is_nil(err)
-            test.eq(#created, 1, "программа с desktop true обязана получить ярлык")
+            test.eq(#created, 1, "a program with desktop true must get a shortcut")
             local id = created[1].id
             test.eq(created[1].entry, program.entry)
 
-            -- Идемпотентность: повторный вызов при том же каталоге не пишет
-            -- ничего. Иначе каждое открытие меню задваивало бы значки.
+            -- Idempotence: a repeated call with the same catalog writes
+            -- nothing. Otherwise every menu opening would duplicate icons.
             local again, aerr = seed.ensure({program})
             test.is_nil(aerr)
-            test.eq(#again, 0, "второй проход не задваивает значок")
+            test.eq(#again, 0, "a second pass does not duplicate the icon")
 
-            -- Главное. Пользователь убрал значок — и он не возвращается ни на
-            -- одном последующем старте. Отметка о предложении живёт отдельно
-            -- и удалением ярлыка не трогается.
+            -- The main thing. The user removed the icon — and it does not come
+            -- back on any later startup. The mark of the offer lives
+            -- separately and is not touched by deleting the shortcut.
             local removed = repo.delete(id)
             test.is_true(removed.existed)
 
             local third, terr = seed.ensure({program})
             test.is_nil(terr)
-            test.eq(#third, 0, "удалённый ярлык не возвращается")
-            test.is_nil(repo.get(id), "и старой строки тоже нет")
+            test.eq(#third, 0, "a deleted shortcut does not come back")
+            test.is_nil(repo.get(id), "and the old row is gone too")
         end)
 
-        test.it("не трогает программу без desktop true", function()
+        test.it("does not touch a program without desktop true", function()
             local created, err = seed.ensure({
-                {entry = "butschster.windows.test:quiet", title = "Тихая"},
+                {entry = "butschster.windows.test:quiet", title = "Quiet"},
             })
             test.is_nil(err)
-            test.eq(#created, 0, "ярлык заводится только по просьбе программы")
+            test.eq(#created, 0, "a shortcut is created only at the program's request")
         end)
 
-        test.it("заводит автоматический значок БЕЗ координат", function()
-            -- Место здесь не выбирают: оболочка раскладывает значки раньше,
-            -- чем терминал сообщил размер, и выбранное ею место могло бы
-            -- оказаться за краем — а значок за краем не обрезается, он
-            -- исчезает целиком и молча.
+        test.it("creates an automatic icon WITHOUT coordinates", function()
+            -- Places are not chosen here: the shell lays out icons before the
+            -- terminal has reported its size, and a place it chose could end
+            -- up past the edge — and an icon past the edge is not clipped, it
+            -- disappears entirely and silently.
             --
-            -- Ноль вместо пустоты был бы худшим исходом: это МЕСТО, и значок
-            -- стал бы поставленным в левый верхний угол, то есть
-            -- неприкосновенным для композитора.
+            -- Zero instead of emptiness would be the worst outcome: it is a
+            -- PLACE, and the icon would become placed in the top-left corner,
+            -- that is, inviolable for the compositor.
             local created, err = seed.ensure({
-                {entry = "butschster.windows.test:unplaced", title = "Без места", desktop = true},
+                {entry = "butschster.windows.test:unplaced", title = "No place", desktop = true},
             })
             test.is_nil(err)
             test.eq(#created, 1)
-            test.is_nil(created[1].x, "координаты автоматического значка пусты")
+            test.is_nil(created[1].x, "an automatic icon's coordinates are empty")
             test.is_nil(created[1].y)
 
             local read = repo.get(created[1].id)
-            test.is_nil(read.x, "и остаются пустыми после чтения из базы")
+            test.is_nil(read.x, "and stay empty after reading from the database")
             test.is_nil(read.y)
 
             repo.delete(created[1].id)
         end)
 
-        test.it("делает значок поставленным, когда место названо", function()
-            -- Названное место неприкосновенно: с этого момента композитор
-            -- значок не перекладывает, даже если экран сузился и значок ушёл
-            -- за край. Так и в настоящей Windows 95 — ушедший за край значок
-            -- сам не возвращается.
+        test.it("makes an icon placed when a place is named", function()
+            -- A named place is inviolable: from this moment on the compositor
+            -- does not relay the icon, even if the screen got narrower and the
+            -- icon went past the edge. So it is in real Windows 95 too — an
+            -- icon that went past the edge does not come back by itself.
             local created = seed.ensure({
-                {entry = "butschster.windows.test:tobeplaced", title = "Поставят", desktop = true},
+                {entry = "butschster.windows.test:tobeplaced", title = "To be placed", desktop = true},
             })
             local id = created[1].id
-            test.is_nil(repo.get(id).x, "пока места не назвали, оно пусто")
+            test.is_nil(repo.get(id).x, "until a place is named, it is empty")
 
             local moved, err = repo.update(id, {x = 45, y = 9})
             test.is_nil(err)
             test.eq(moved.x, 45)
             test.eq(moved.y, 9)
-            test.eq(repo.get(id).x, 45, "место пережило запись")
+            test.eq(repo.get(id).x, 45, "the place survived the write")
 
             repo.delete(id)
         end)
 
-        test.it("отдаёт поставленные значки раньше тех, чьё место не назвали", function()
-            -- Порядок задан явно, потому что пустые координаты диалекты
-            -- сортируют по-разному: SQLite кладёт NULL в начало, PostgreSQL —
-            -- в конец. Без явного правила раскладка значков зависела бы от
-            -- того, на какой базе стоит стенд.
+        test.it("returns placed icons before those whose place was not named", function()
+            -- The order is set explicitly because dialects sort empty
+            -- coordinates differently: SQLite puts NULL at the start,
+            -- PostgreSQL at the end. Without an explicit rule the icon layout
+            -- would depend on which database the stand runs on.
             local placed = repo.create({
                 kind = repo.KIND_SHORTCUT, entry = "butschster.windows.test:order_placed",
-                title = "Поставленный", x = 30, y = 5,
+                title = "Placed", x = 30, y = 5,
             })
             local unplaced = repo.create({
                 kind = repo.KIND_SHORTCUT, entry = "butschster.windows.test:order_unplaced",
-                title = "Без места",
+                title = "No place",
             })
 
             local items = repo.list()
@@ -216,17 +219,17 @@ local function define_tests()
             test.not_nil(seen_placed)
             test.not_nil(seen_unplaced)
             test.is_true(seen_placed < seen_unplaced,
-                "значок с местом идёт раньше значка без места")
+                "an icon with a place comes before an icon without one")
 
             repo.delete(placed.id)
             repo.delete(unplaced.id)
         end)
     end)
 
-    -- Тело POST и PATCH стола (butschster.windows.api:desktop_body): то, что
-    -- ручки принимали, а стол потом не рисовал.
+    -- The desktop POST and PATCH body (butschster.windows.api:desktop_body):
+    -- what the handlers accepted and the desktop then did not draw.
     test.describe("desktop request bodies", function()
-        test.it("битый JSON и не-объект — отказ с причиной, а не пустой успешный PATCH", function()
+        test.it("broken JSON and a non-object are a failure with a reason, not an empty successful PATCH", function()
             local patch, why = desktop_body.update('{"title": ')
             test.is_nil(patch)
             test.is_true(tostring(why):find("body is not JSON", 1, true) == 1, tostring(why))
@@ -238,13 +241,14 @@ local function define_tests()
             test.is_true(tostring(cwhy):find("body is not JSON", 1, true) == 1, tostring(cwhy))
         end)
 
-        test.it("координата — конечное целое от 1 до 10000, и база не клеит бесконечность к углу", function()
+        test.it("a coordinate is a finite integer from 1 to 10000, and the database does not glue infinity to the corner", function()
             local cases = {
                 {'{"x": 1.5}', "x: a whole number"},
                 {'{"x": 0}', "x: between 1 and 10000"},
                 {'{"y": 10001}', "y: between 1 and 10000"},
                 {'{"x": "left"}', "x: a number"},
-                -- Строка «1e999» в go-lua не число вовсе: tonumber даёт nil.
+                -- The string "1e999" is not a number at all in go-lua:
+                -- tonumber gives nil.
                 {'{"x": "1e999"}', "x: a number"},
             }
             for _, case in ipairs(cases) do
@@ -252,23 +256,23 @@ local function define_tests()
                 test.is_nil(patch, case[1])
                 test.eq(why, case[2], case[1])
             end
-            -- Бесконечность приходит ЧИСЛОМ: JSON 1e999 или вызов из Lua.
+            -- Infinity arrives as a NUMBER: JSON 1e999 or a call from Lua.
             local _, huge = desktop_body.coordinate(math.huge)
             test.eq(huge, "a finite number")
             local _, nan = desktop_body.coordinate(0 / 0)
             test.eq(nan, "a finite number")
             local spec, why = desktop_body.create('{"kind": "shortcut", "entry": "app:x", "x": 1e999, "y": 2}')
-            test.is_nil(spec, "1e999 числом не проходит: " .. tostring(why))
+            test.is_nil(spec, "1e999 as a number does not pass: " .. tostring(why))
             local ok = desktop_body.update('{"x": 10000, "y": "7"}')
             test.eq(ok.x, 10000)
             test.eq(ok.y, 7)
             local item = repo.create({kind = repo.KIND_SHORTCUT, entry = "butschster.windows.test:inf",
                 title = "Inf", x = math.huge, y = 3})
-            test.is_nil(item.x, "бесконечность — не место, а не ноль")
+            test.is_nil(item.x, "infinity becomes no place, not a zero")
             repo.delete(item.id)
         end)
 
-        test.it("папка в папку не вкладывается — ни при создании, ни переносом", function()
+        test.it("a folder does not nest into a folder — neither on creation nor by moving", function()
             local spec, why = desktop_body.create('{"kind": "folder", "title": "A", "parent_id": "p1"}')
             test.is_nil(spec)
             test.eq(why, desktop_body.FOLDER_IN_FOLDER)
@@ -279,28 +283,29 @@ local function define_tests()
             test.is_nil(desktop_body.nest(repo.KIND_SHORTCUT, {id = "p1", kind = repo.KIND_FOLDER}))
         end)
 
-        test.it("parent_id: null — только ключ верхнего уровня, а не подстрока тела", function()
-            test.eq(desktop_body.update('{"parent_id": null}').parent_id, false, "вынести на стол")
+        test.it("parent_id: null is only a top-level key, not a substring of the body", function()
+            test.eq(desktop_body.update('{"parent_id": null}').parent_id, false, "move to the desktop")
             test.is_nil(desktop_body.update('{"title": "A", "meta": {"parent_id": null}}').parent_id,
-                "вложенный ключ — не наш")
+                "a nested key is not ours")
             test.is_nil(desktop_body.update('{"title": "\\"parent_id\\": null"}').parent_id,
-                "текст внутри строки — не ключ")
-            test.is_nil(desktop_body.update('{"title": "A"}').parent_id, "отсутствие поля — не трогать")
+                "text inside a string is not a key")
+            test.is_nil(desktop_body.update('{"title": "A"}').parent_id, "a missing field means leave alone")
         end)
 
-        test.it("entry и title — не длиннее 256 и 512 символов", function()
+        test.it("entry and title are at most 256 and 512 characters", function()
             local spec, why = desktop_body.create('{"kind": "shortcut", "entry": "' .. string.rep("e", 257) .. '"}')
             test.is_nil(spec)
             test.eq(why, "entry: at most 256 characters")
             local patch, twhy = desktop_body.update('{"title": "' .. string.rep("t", 513) .. '"}')
             test.is_nil(patch)
             test.eq(twhy, "title: at most 512 characters")
-            -- Потолок в символах: 512 кириллических (1024 байта) проходят.
+            -- The ceiling is in characters: 512 Cyrillic ones (1024 bytes)
+            -- pass.
             local cyrillic = string.rep("я", 512)
             test.eq(desktop_body.update('{"title": "' .. cyrillic .. '"}').title, cyrillic)
         end)
 
-        test.it("полный PATCH проходит проверку и доезжает до базы", function()
+        test.it("a full PATCH passes validation and reaches the database", function()
             local folder = repo.create({kind = repo.KIND_FOLDER, title = "Box"})
             local item = repo.create({kind = repo.KIND_SHORTCUT, entry = "butschster.windows.test:full_patch", title = "Before"})
             local patch, why = desktop_body.update(string.format(
@@ -313,47 +318,48 @@ local function define_tests()
             test.eq(moved.y, 3)
             test.eq(moved.parent_id, folder.id)
             local out = repo.update(item.id, desktop_body.update('{"parent_id": null}'))
-            test.is_nil(out.parent_id, "null выносит на стол")
+            test.is_nil(out.parent_id, "null moves it to the desktop")
             repo.delete(item.id)
             repo.delete(folder.id)
         end)
     end)
 
-    -- Второй писатель и отказ посередине: то, что без транзакций и
-    -- ON CONFLICT давало ошибку ключа, лишний значок или полтаблицы.
+    -- A second writer and a failure in the middle: what, without transactions
+    -- and ON CONFLICT, gave a key error, an extra icon or half a table.
     test.describe("persistence under a second writer", function()
-        test.it("двойное предложение одного значка — один ярлык и ни одной ошибки", function()
+        test.it("offering one icon twice gives one shortcut and not a single error", function()
             local key = "butschster.windows.test:offer_twice"
             local first, ferr = repo.offer(key, {kind = repo.KIND_SHORTCUT, entry = key, title = "Once"})
             test.is_nil(ferr, tostring(ferr))
             test.not_nil(first)
             local second, serr = repo.offer(key, {kind = repo.KIND_SHORTCUT, entry = key, title = "Once"})
             test.is_nil(serr, tostring(serr))
-            test.eq(second, false, "второй раз — «уже предлагали», а не ошибка ключа")
+            test.eq(second, false, 'the second time is "already offered", not a key error')
             local count = 0
             for _, item in ipairs(repo.list() or {}) do
                 if item.entry == key then count = count + 1 end
             end
-            test.eq(count, 1, "значок один")
+            test.eq(count, 1, "one icon")
             local again, merr = repo.mark_seeded(key)
             test.is_nil(merr, tostring(merr))
-            test.eq(again, false, "повторная отметка — false, а не ошибка")
+            test.eq(again, false, "a repeated mark is false, not an error")
             repo.delete(first.id)
         end)
 
-        test.it("настройка пишется и читается плейсхолдерами одного диалекта", function()
+        test.it("a setting is written and read with placeholders of one dialect", function()
             local _, err = repo.set_setting("test.dialect", "a")
             test.is_nil(err, tostring(err))
             repo.set_setting("test.dialect", "b")
             test.eq(repo.setting("test.dialect"), "b")
         end)
 
-        test.it("миграция 02: пересборка таблицы в транзакции откатывается целиком", function()
-            -- Раннер wippy/migration зовёт `up(tx)` внутри своей транзакции
-            -- и откатывает её на любой ошибке (migration.lua, execute_migration).
-            -- Здесь проверяется, что на этом драйвере DDL SQLite откатывается
-            -- вместе с ней: отказ после DROP не оставляет одну `_new`, и
-            -- повторный прогон начинается с исходной таблицы.
+        test.it("migration 02: rebuilding the table inside a transaction rolls back entirely", function()
+            -- The wippy/migration runner calls `up(tx)` inside its own
+            -- transaction and rolls it back on any error (migration.lua,
+            -- execute_migration). What is checked here is that on this driver
+            -- SQLite DDL rolls back together with it: a failure after DROP
+            -- does not leave a lone `_new`, and a rerun starts from the
+            -- original table.
             local db = assert(sql.get("app:db"))
             local kind = db:type()
             if kind ~= "sqlite" then db:release(); return end
@@ -375,12 +381,13 @@ local function define_tests()
             test.is_nil(ierr, tostring(ierr))
             local _, derr = tx:execute("DROP TABLE butschster_windows_desktop_items", {})
             test.is_nil(derr, tostring(derr))
-            -- Здесь миграция упала бы до RENAME — и раннер откатывает.
+            -- Here the migration would fail before RENAME — and the runner
+            -- rolls back.
             tx:rollback()
-            test.eq(count(), before, "исходная таблица цела со всеми строками")
+            test.eq(count(), before, "the original table is intact with all rows")
             local leftovers = assert(db:query(
                 "SELECT name FROM sqlite_master WHERE name = 'butschster_windows_desktop_items_new'", {}))
-            test.eq(#leftovers, 0, "`_new` не осталась")
+            test.eq(#leftovers, 0, "`_new` did not stay behind")
             db:release()
             repo.delete(marker.id)
         end)

@@ -1,13 +1,15 @@
--- «Свойства: Система» — окно свойств «Моего компьютера», как System
--- Properties в Windows 95: что за система, кому принадлежит, из чего
--- состоит компьютер. Три вкладки: «Общие», «Устройства», «Быстродействие».
+-- "System Properties" is the properties window of "My Computer", like
+-- System Properties in Windows 95: what the system is, who it belongs to,
+-- what the computer consists of. Three tabs: "General", "Device Manager",
+-- "Performance".
 --
--- Цифры снимаются с `system` под правами окна, записи — из реестра. Версии
--- рантайма наружу в Lua нет, поэтому «Система» называет узел и число
--- модулей, а не номер сборки: выдуманный номер был бы хуже отсутствующего.
+-- The numbers are taken from `system` under the window's permissions, the
+-- entries from the registry. The runtime version is not exposed to Lua, so
+-- "System" names the node and the number of modules, not a build number: an
+-- invented number would be worse than a missing one.
 --
--- Окно ничего не меняет: у него нет ни `registry.apply`, ни порождения
--- процессов; «ОК» и «Отмена» закрывают его одинаково.
+-- The window changes nothing: it has neither `registry.apply` nor process
+-- spawning; "OK" and "Cancel" close it the same way.
 local facts = require("facts")
 local registry = require("registry")
 local app = require("app")
@@ -18,9 +20,10 @@ local whole = geometry.whole
 
 local definition: any = {interval = "2s"}
 
--- Значение или причина на каждое поле — `butschster.windows.config:system`.
--- Прежде второе значение `system.*` отбрасывалось, а причина «hosts not read»
--- записывалась в поле, которое никто не читал: на экране было «(none)».
+-- A value or a reason for every field: `butschster.windows.config:system`.
+-- Previously the second value of `system.*` was discarded, and the reason
+-- "hosts not read" was written into a field nobody read: the screen showed
+-- "(none)".
 local function snapshot(from: any?): any
     local snap: any = facts.read({"memory", "goroutines", "cpu_count", "max_procs", "pid", "hostname", "cwd",
         "node_id", "node_role", "hosts", "modules"}, from)
@@ -39,10 +42,10 @@ local function snapshot(from: any?): any
     out.modules = type(snap.modules) == "table" and snap.modules or {}
     return out
 end
--- Для тестов: тот же снимок над подставным `system`.
+-- For tests: the same snapshot over a substituted `system`.
 definition.snapshot = snapshot
 
--- Поле или причина, почему его нет, или запасной текст.
+-- The field, or the reason why it is missing, or the fallback text.
 local function shown(snap: any, field: string, fallback: string): string
     if snap[field] ~= nil then return tostring(snap[field]) end
     local problems: any = type(snap.problems) == "table" and snap.problems or {}

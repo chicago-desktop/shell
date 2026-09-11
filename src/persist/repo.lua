@@ -1,24 +1,24 @@
--- Раскладка рабочего стола: ярлыки и папки стола.
+-- The desktop layout: desktop shortcuts and folders.
 --
--- Ярлык хранит ССЫЛКУ на запись реестра, а не код программы: программа
--- обновилась — ярлык ведёт на новую версию. Ссылка на исчезнувшую запись
--- остаётся строкой в таблице и помечается битой при чтении; убирать её молча
--- нельзя — пропавший значок читается как «я его случайно удалил», а битый
--- как «программы больше нет».
+-- A shortcut stores a REFERENCE to a registry entry, not program code: the
+-- program got updated — the shortcut leads to the new version. A reference
+-- to a vanished entry stays a row in the table and is marked broken on read;
+-- it must not be removed silently — a vanished icon reads as "I deleted it by
+-- accident", and a broken one as "the program is gone".
 
 local sql = require("sql")
 local environment = require("environment")
 local time = require("time")
 local uuid = require("uuid")
 
--- Значение по умолчанию в коде, переопределяемое окружением: ресурс базы
--- принадлежит приложению, а не модулю.
+-- A default value in code, overridable by the environment: the database
+-- resource belongs to the application, not to the module.
 --
--- Умолчание — через `read_or`, а не `read(...) or "app:db"`. Здесь было
--- второе, и второе значение `env.get` отбрасывалось: отказ по правам
--- превращался в «человек ничего не переназначал», и приложение, велевшее
--- хранить раскладку в другой базе, молча хранило её в `app:db`. Теперь отказ
--- называется в логе.
+-- The default goes through `read_or`, not `read(...) or "app:db"`. The
+-- second was here, and the second value of `env.get` was thrown away: a
+-- permission denial turned into "the person did not override anything", and
+-- an application that asked to keep the layout in another database silently
+-- kept it in `app:db`. Now the denial is named in the log.
 local DB_ID = environment.read_or("BUTSCHSTER_WINDOWS_DB_ID", "app:db")
 local ITEMS = "butschster_windows_desktop_items"
 local SETTINGS = "butschster_windows_settings"
@@ -29,8 +29,8 @@ local repo = {}
 repo.KIND_SHORTCUT = "shortcut"
 repo.KIND_FOLDER = "folder"
 
--- Соединение возвращается на КАЖДОМ пути, включая ошибку внутри работы:
--- потерянное соединение не даёт о себе знать, пока не кончится пул.
+-- The connection is returned on EVERY path, including an error inside the
+-- work: a lost connection gives no sign of itself until the pool runs out.
 local function with_db(work)
     local db, err = sql.get(DB_ID)
     if err or not db then return nil, err or ("database unavailable: " .. DB_ID) end
@@ -40,8 +40,8 @@ local function with_db(work)
     return result, work_err
 end
 
--- То же в транзакции: всё или ничего. Работа, вернувшая причину или
--- упавшая, откатывается; соединение возвращается на каждом пути.
+-- The same inside a transaction: all or nothing. Work that returned a reason
+-- or crashed is rolled back; the connection is returned on every path.
 local function with_tx(work)
     local db, err = sql.get(DB_ID)
     if err or not db then return nil, err or ("database unavailable: " .. DB_ID) end
@@ -67,16 +67,18 @@ local function now_stamp()
     return time.now():utc():format(time.RFC3339)
 end
 
--- Координаты — целые: ячейка сетки, а не доля экрана. tonumber даёт number,
--- а колонка INTEGER, и дробное значение доехало бы до базы молча.
+-- Coordinates are integers: a grid cell, not a fraction of the screen.
+-- tonumber gives a number, while the column is INTEGER, and a fractional
+-- value would reach the database silently.
 --
--- Пусто здесь — это ЗНАЧЕНИЕ, а не отсутствие данных: «место никто не
--- называл». Поэтому нуля вместо nil тут быть не может ни на одном пути: ноль —
--- это место, и он приклеил бы значок к левому верхнему углу вместо того, чтобы
--- отдать его композитору на раскладку.
+-- Empty here is a VALUE, not an absence of data: "nobody named a place".
+-- Therefore there can be no zero instead of nil here on any path: zero is a
+-- place, and it would glue the icon to the top-left corner instead of handing
+-- it to the compositor for layout.
 --
--- Бесконечность и NaN — тоже не место: `math.floor(inf)` целым не становится,
--- и прежнее `or 0` приклеивало такой значок к углу вопреки правилу выше.
+-- Infinity and NaN are not a place either: `math.floor(inf)` does not become
+-- an integer, and the former `or 0` glued such an icon to the corner, against
+-- the rule above.
 local function cell(value: any)
     if value == nil then return nil end
     local number = tonumber(value)
@@ -89,9 +91,9 @@ local function to_item(row: any)
     return {
         id = record.id,
         kind = record.kind,
-        -- Пустая строка и NULL приезжают из разных диалектов одинаково по
-        -- смыслу — «записи нет», — поэтому нормализуются в nil здесь, а не
-        -- в каждом читателе.
+        -- An empty string and NULL arrive from different dialects meaning the
+        -- same thing — "no entry" — so they are normalized to nil here, not in
+        -- every reader.
         entry = (type(record.entry) == "string" and record.entry ~= "") and record.entry or nil,
         parent_id = (type(record.parent_id) == "string" and record.parent_id ~= "") and record.parent_id or nil,
         title = record.title,
@@ -102,17 +104,17 @@ local function to_item(row: any)
     }
 end
 
--- Весь стол разом, включая содержимое папок: оболочка рисует и стол, и окна
--- папок из одного чтения, а отдельные запросы на каждую папку означали бы
--- кадр, собранный из разных моментов времени.
+-- The whole desktop at once, including folder contents: the shell draws both
+-- the desktop and the folder windows from one read, and separate queries for
+-- each folder would mean a frame assembled from different moments in time.
 --
--- Порядок задан явно и до последнего поля. `(x IS NULL)` первым — потому что
--- пустые координаты диалекты сортируют по-разному (SQLite кладёт NULL в
--- начало, PostgreSQL по возрастанию — в конец), и раскладка значков зависела
--- бы от того, на какой базе стоит стенд. `created_at, id` в хвосте — потому
--- что порядок значков БЕЗ координат решает, в какие ячейки их положит
--- композитор: сортировка по имени переставляла бы их при переименовании
--- программы.
+-- The order is set explicitly and down to the last field. `(x IS NULL)` comes
+-- first because dialects sort empty coordinates differently (SQLite puts NULL
+-- at the start, PostgreSQL in ascending order at the end), and the icon
+-- layout would depend on which database the stand runs on. `created_at, id`
+-- at the tail because the order of icons WITHOUT coordinates decides which
+-- cells the compositor puts them into: sorting by name would reshuffle them
+-- when a program is renamed.
 function repo.list()
     return with_db(function(db)
         local rows, err = db:query(
@@ -135,18 +137,18 @@ function repo.get(id)
     end)
 end
 
--- create(item) -> (item, nil) | (nil, причина)
+-- create(item) -> (item, nil) | (nil, reason)
 --
--- Идентификатор чеканится здесь, а не приходит снаружи: ярлык — объект
--- состояния, и позволить вызывающему назвать его id значит позволить ему
--- переписать чужой ярлык, промахнувшись именем.
+-- The identifier is minted here and does not come from outside: a shortcut
+-- is a state object, and letting the caller name its id means letting it
+-- overwrite someone else's shortcut by getting the name wrong.
 --
--- Без `x`/`y` строка пишется БЕЗ координат, и это не пропуск, а утверждение:
--- место выберет композитор, когда узнает ширину экрана. Подставь мы здесь
--- ноль — значок стал бы «поставленным в левый верхний угол», и переложить его
--- было бы уже нельзя.
--- Одна вставка строки на соединение или транзакцию — её зовут и `create`, и
--- `offer`, чтобы две записи одной строки не разошлись.
+-- Without `x`/`y` the row is written WITHOUT coordinates, and that is not an
+-- omission but a statement: the compositor will choose the place when it
+-- learns the screen width. Were we to put zero here, the icon would become
+-- "placed in the top-left corner", and it could no longer be relaid.
+-- One row insert for either a connection or a transaction — both `create`
+-- and `offer` call it, so that two writers of the same row do not diverge.
 local function insert_item(conn: any, item: any): (any, any)
     local id, uerr = uuid.v7()
     if not id then return nil, "id: " .. tostring(uerr) end
@@ -177,18 +179,18 @@ function repo.create(item)
     return with_db(function(db) return insert_item(db, item) end)
 end
 
--- update(id, patch) -> (item, nil) | (false, nil) | (nil, причина)
+-- update(id, patch) -> (item, nil) | (false, nil) | (nil, reason)
 --
--- `false` означает «такой строки нет» и отличается от отказа базы: иначе
--- опечатка в идентификаторе выглядит успешным перемещением.
+-- `false` means "no such row" and differs from a database failure: otherwise
+-- a typo in the identifier looks like a successful move.
 --
--- В patch трактуются только названные поля. `parent_id = false` — просьба
--- вынести из папки на стол: nil здесь означал бы «не трогать», и вынести
--- значок было бы нечем.
+-- Only the named fields in patch are interpreted. `parent_id = false` is a
+-- request to take the item out of a folder onto the desktop: nil here would
+-- mean "leave alone", and there would be no way to take the icon out.
 --
--- Названное место делает значок ПОСТАВЛЕННЫМ: с этого момента композитор его
--- не перекладывает, даже если экран сузился и значок ушёл за край. Так и
--- задумано — место, названное человеком, неприкосновенно.
+-- A named place makes the icon PLACED: from this moment on the compositor
+-- does not relay it, even if the screen got narrower and the icon went past
+-- the edge. That is by design — a place named by a person is inviolable.
 function repo.update(id, patch: any)
     return with_db(function(db)
         local rows, err = db:query("SELECT * FROM " .. ITEMS .. " WHERE id = $1", { id })
@@ -223,17 +225,20 @@ function repo.update(id, patch: any)
     end)
 end
 
--- delete(id) -> (результат, nil) | (nil, причина)
+-- delete(id) -> (result, nil) | (nil, reason)
 --
--- Результат говорит, БЫЛА ли строка: `existed = false` — это не отказ, но и
--- не успех удаления, иначе опечатка в идентификаторе выглядит успехом.
+-- The result says whether the row EXISTED: `existed = false` is not a
+-- failure, but not a successful deletion either, otherwise a typo in the
+-- identifier looks like success.
 --
--- Содержимое удалённой папки не удаляется вместе с ней, а возвращается на
--- стол. Каскад здесь означал бы, что снятая папка уносит с собой значки,
--- которые пользователь в неё складывал, — и восстановить их нечем.
+-- The contents of a deleted folder are not deleted with it but returned to
+-- the desktop. A cascade here would mean that a removed folder carries away
+-- the icons the user had been putting into it — and there is nothing to
+-- restore them from.
 --
--- В транзакции: вынести детей и снять папку — одно действие. Отказ между
--- ними оставлял бы детей на столе при живой папке или папку без детей.
+-- In a transaction: moving the children out and removing the folder are one
+-- action. A failure between them would leave the children on the desktop
+-- with the folder still alive, or the folder without its children.
 function repo.delete(id)
     return with_tx(function(db)
         local rows, err = db:query("SELECT * FROM " .. ITEMS .. " WHERE id = $1", { id })
@@ -262,21 +267,22 @@ function repo.delete(id)
     end)
 end
 
--- ─── Отметка «эту программу мы уже предлагали» ───────────────────────────
+-- ─── The mark "we have already offered this program" ─────────────────────
 --
--- Живёт отдельно от раскладки и не удаляется никогда. Только благодаря
--- этому удаление значка работает: ярлык ушёл, отметка осталась, и программа
--- с `desktop: true` не выносится на стол вновь на следующем старте.
+-- Lives separately from the layout and is never deleted. Only thanks to this
+-- does deleting an icon work: the shortcut left, the mark stayed, and a
+-- program with `desktop: true` is not put onto the desktop again on the next
+-- startup.
 
--- ─── Настройки оболочки ───────────────────────────────────────────────────
+-- ─── Shell settings ──────────────────────────────────────────────────────
 --
--- Ключ — значение, строкой. Отсутствие строки — nil без ошибки: «не
--- настраивали» и «база недоступна» различаются вторым значением.
+-- Key — value, as a string. A missing row is nil without an error: "never
+-- configured" and "database unavailable" are told apart by the second value.
 function repo.setting(key: any)
     return with_db(function(db)
-        -- Плейсхолдеры `$n`, как во всём файле: `?` принимает только SQLite,
-        -- а переписывания плейсхолдеров в модуле `sql` рантайма нет, так что
-        -- на postgres эти два запроса не выполнялись вовсе.
+        -- `$n` placeholders, as in the whole file: `?` is accepted only by
+        -- SQLite, and the runtime's `sql` module does no placeholder
+        -- rewriting, so on postgres these two queries did not run at all.
         local rows, err = db:query("SELECT value FROM " .. SETTINGS .. " WHERE key = $1 LIMIT 1", {tostring(key)})
         if err then return nil, tostring(err) end
         local first: any = type(rows) == "table" and rows[1] or nil
@@ -309,10 +315,10 @@ function repo.seeded()
     end)
 end
 
--- Одна вставка отметки: `ON CONFLICT DO NOTHING`, а не «проверить, потом
--- вставить». Между проверкой и вставкой второй писатель успевал вставить
--- свою, и первый падал на первичном ключе. Сколько строк легло, говорит
--- `rows_affected`: одна — отметили сейчас, ноль — уже была.
+-- One mark insert: `ON CONFLICT DO NOTHING`, not "check, then insert".
+-- Between the check and the insert a second writer managed to insert its own,
+-- and the first one failed on the primary key. How many rows landed is told
+-- by `rows_affected`: one — marked just now, zero — it was already there.
 local function claim(conn: any, entry: any): (any, any)
     local result, err = conn:execute(
         "INSERT INTO " .. SEEDED .. " (entry, seeded_at) VALUES ($1, $2) ON CONFLICT (entry) DO NOTHING",
@@ -321,20 +327,20 @@ local function claim(conn: any, entry: any): (any, any)
     return type(result) == "table" and (tonumber(result.rows_affected) or 0) > 0, nil
 end
 
--- Отметить программу предложенной. Повторный вызов не отказ: отметка — это
--- утверждение о прошлом, и второй раз оно всё так же верно (`false`).
+-- Mark a program as offered. A repeated call is not a failure: the mark is a
+-- statement about the past, and the second time it is just as true (`false`).
 function repo.mark_seeded(entry)
     return with_db(function(db) return claim(db, entry) end)
 end
 
--- offer(key, item) -> (ярлык, nil) | (false, nil) | (nil, причина)
+-- offer(key, item) -> (shortcut, nil) | (false, nil) | (nil, reason)
 --
--- Предложить значок один раз: отметка и ярлык — в одной транзакции, и
--- отметка ставится ПЕРВОЙ. Кто вставил отметку, тот и заводит ярлык; второй
--- писатель (два старта подряд, мастерская при запущенной оболочке) получает
--- `false` — «уже предлагали», — а не ошибку первичного ключа и лишний
--- значок. Отказ записи ярлыка откатывает и отметку: значок не останется
--- «предложенным, но не предложенным».
+-- Offer an icon once: the mark and the shortcut are in one transaction, and
+-- the mark is set FIRST. Whoever inserted the mark creates the shortcut; the
+-- second writer (two startups in a row, the workshop while the shell is
+-- running) gets `false` — "already offered" — not a primary key error and an
+-- extra icon. A failure to write the shortcut rolls back the mark as well:
+-- an icon will not stay "offered but not offered".
 function repo.offer(key: any, item: any)
     return with_tx(function(tx)
         local claimed, cerr = claim(tx, key)

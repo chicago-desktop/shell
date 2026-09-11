@@ -1,6 +1,6 @@
--- «Свойства: Система»: дерево устройств собирается по префиксу вида,
--- пустые группы остаются с пометкой, раскладка трёх вкладок без пересечений,
--- дерево раскрывается и выбирается, «ОК» закрывает.
+-- "System Properties": the device tree is assembled by kind prefix, empty
+-- groups stay with a mark, the three tabs are laid out without overlaps, the
+-- tree expands and selects, "OK" closes.
 local test = require("test")
 local model = require("model")
 local ui = require("ui")
@@ -12,7 +12,7 @@ local function fixture(tab: any): any
         memory = {alloc = 100 * 1024 * 1024, heap_in_use = 200 * 1024 * 1024, heap_sys = 300 * 1024 * 1024,
             heap_released = 10 * 1024 * 1024, num_gc = 5, sys = 320 * 1024 * 1024},
         hosts = {{id = "app:processes", workers = 4, processes = 64, executed = 1000}},
-        modules = {{name = "gfx", description = "пиксели"}, {name = "tty", description = "терминал"}}}
+        modules = {{name = "gfx", description = "pixels"}, {name = "tty", description = "terminal"}}}
     local records = {
         {id = "app:db", kind = "db.sql.sqlite"}, {id = "app:fs", kind = "fs.directory"},
         {id = "app:api", kind = "http.service"}, {id = "app:router", kind = "http.router"},
@@ -24,7 +24,7 @@ end
 
 local function define_tests()
     test.describe("System Properties model", function()
-        test.it("раскладывает записи реестра по префиксу вида, пустые группы помечает", function()
+        test.it("lays out registry entries by kind prefix, marks empty groups", function()
             local state = fixture(2)
             local rows = model.flatten(state.tree, state.expanded)
             local labels = {}
@@ -37,17 +37,17 @@ local function define_tests()
             test.eq(labels[8], "HTTP (2)")
             test.eq(labels[11], "Terminals (none)")
             test.eq(labels[12], "Lua modules (2)")
-            test.eq(#rows, 14, "cron не попадает ни в одну группу и не теряет соседей")
+            test.eq(#rows, 14, "cron falls into no group and does not lose its neighbours")
             test.eq(rows[3].depth, 2)
             test.is_true(rows[3].detail:find("workers 4", 1, true) ~= nil)
-            -- Свёрнутая группа прячет детей, но остаётся сама.
+            -- A collapsed group hides its children but stays itself.
             state.expanded.http = nil
             local folded = model.flatten(state.tree, state.expanded)
             test.eq(#folded, 12)
         end)
     end)
     test.describe("System Properties on the SDK", function()
-        test.it("раскладывает три вкладки без пересечений и держит кнопки", function()
+        test.it("lays out three tabs without overlaps and keeps the buttons", function()
             for tab = 1, 3 do
                 for _, dims in ipairs({{58, 22}, {50, 18}}) do
                     local plan = ui.plan(sysprops.definition.view(fixture(tab), {width = dims[1], height = dims[2]}), dims[1], dims[2], ui.interaction())
@@ -64,7 +64,7 @@ local function define_tests()
                                     local r = item.rect
                                     test.is_true(r.x + r.w <= b.rect.x or b.rect.x + b.rect.w <= r.x
                                         or r.y + r.h <= b.rect.y or b.rect.y + b.rect.h <= r.y,
-                                        "пересечение " .. tostring(item.node.kind) .. "/" .. tostring(b.node.kind) .. " на вкладке " .. tab)
+                                        "overlap " .. tostring(item.node.kind) .. "/" .. tostring(b.node.kind) .. " on tab " .. tab)
                                 end
                             end
                         end
@@ -74,13 +74,13 @@ local function define_tests()
             local plan = ui.plan(sysprops.definition.view(fixture(2), {width = 58, height = 22}), 58, 22, ui.interaction())
             test.is_true(#plan.by_id.devices.node.rows >= 12)
         end)
-        test.it("дерево раскрывается и выбирается, ОК закрывает", function()
+        test.it("the tree expands and selects, OK closes", function()
             local state = fixture(2)
             local closed = 0
             local context = {width = 58, height = 22, close = function() closed = closed + 1 end}
             local rows = model.flatten(state.tree, state.expanded)
             sysprops.definition.update(state, {type = "toggle", id = "devices", index = 2, value = rows[2]}, context)
-            test.is_true(not state.expanded.hosts, "группа свёрнута")
+            test.is_true(not state.expanded.hosts, "the group is collapsed")
             sysprops.definition.update(state, {type = "select", id = "devices", index = 3, value = rows[3]}, context)
             test.eq(state.selected, "host:app:processes")
             local plan = ui.plan(sysprops.definition.view(state, context), 58, 22, ui.interaction())
@@ -94,9 +94,10 @@ local function define_tests()
     end)
 
     test.describe("System Properties reading the runtime", function()
-        test.it("не прочитанные хосты — причина вместо «(none)», отказ по правам назван", function()
-            -- Подставной `system`: хосты отказаны так, как отказывает настоящий
-            -- модуль (Invalid и «permission denied: …»), остальное отвечает.
+        test.it("unread hosts show the reason instead of \"(none)\", the permission denial is named", function()
+            -- A substituted `system`: hosts are denied the way the real module
+            -- denies them (Invalid and "permission denied: …"), the rest
+            -- answers.
             local fake: any = {
                 memory = {stats = function() return {alloc = 1, heap_in_use = 1, heap_sys = 1}, nil end},
                 runtime = {goroutines = function() return 5, nil end, cpu_count = function() return 4, nil end,
@@ -111,14 +112,14 @@ local function define_tests()
             }
             local snap: any = sysprops.definition.snapshot(fake)
             test.eq(snap.problems.hosts, "process hosts: permission denied: system.read on hosts")
-            test.eq(snap.hostname, "stand", "ответившее поле держит значение")
+            test.eq(snap.hostname, "stand", "a field that answered keeps its value")
             local tree = model.tree(snap, {})
             local label: any = nil
             for _, row in ipairs(model.flatten(tree, model.expanded_all(tree))) do
                 if row.id == "hosts" then label = row.label end
             end
             test.is_true(tostring(label):find("permission denied", 1, true) ~= nil, tostring(label))
-            test.is_nil(tostring(label):find("(none)", 1, true), "не прочитали — не «нет»")
+            test.is_nil(tostring(label):find("(none)", 1, true), "not read is not \"none\"")
         end)
     end)
 end

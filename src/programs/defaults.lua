@@ -1,35 +1,35 @@
--- Мебель рабочего стола: то, что стоит на столе при первом запуске.
+-- Desktop furniture: what stands on the desktop at first launch.
 --
--- Отличается от `desktop: true` тем, КТО просит. Там просит сама программа,
--- объявляя это в своей записи; здесь просит оболочка, потому что пустой стол
--- при первом запуске не объясняет, что с ним делать.
+-- It differs from `desktop: true` by WHO asks. There, the program itself
+-- asks, declaring it in its entry; here, the shell asks, because an empty
+-- desktop at first launch does not explain what to do with it.
 --
--- Заводится только то, за чем что-то стоит. Значок-бутафория («Корзина»)
--- выглядит как работающая часть системы, и первое, что о нём спросят, —
--- почему он не работает; ответ «он просто нарисован» дороже, чем
--- отсутствующий значок. «Сетевое окружение» здесь не стоит по другой
--- причине: за ним есть окно, и оно просит стол само — `desktop: true` в
--- своей записи.
+-- Only what has something behind it is created. A prop icon ("Recycle Bin")
+-- looks like a working part of the system, and the first thing people will
+-- ask about it is why it does not work; the answer "it is just painted on"
+-- costs more than a missing icon. "Network Neighborhood" is not here for a
+-- different reason: there is a window behind it, and it asks for the desktop
+-- itself — `desktop: true` in its own entry.
 --
--- Отметка о том, что мебель уже предлагали, лежит в той же таблице
--- `butschster_windows_desktop_seeded`, что и отметки программ, поэтому
--- выброшенный человеком значок не возвращается — ни на одном последующем
--- старте. Ключи здесь начинаются с «!», которого в идентификаторе записи
--- реестра быть не может (там всегда `namespace:name`): так ключ мебели
--- заведомо не столкнётся с ключом программы в одной колонке.
+-- The mark that the furniture has already been offered lives in the same
+-- table `butschster_windows_desktop_seeded` as the programs' marks, so an
+-- icon the person threw away does not come back — on any later startup.
+-- Keys here start with "!", which cannot appear in a registry entry
+-- identifier (that is always `namespace:name`): so a furniture key is
+-- guaranteed not to collide with a program key in the same column.
 
 local catalog = require("catalog")
 
 local defaults = {}
 
--- «Мой компьютер» — своё окно оболочки, а не обозреватель основы. Оно
--- показывает то, из чего стенд состоит: диски из реестра, программы каталога,
--- рабочий стол и открытые окна.
+-- "My Computer" is the shell's own window, not the base's browser. It shows
+-- what the stand consists of: drives from the registry, catalog programs,
+-- the desktop and open windows.
 --
--- Раньше здесь стоял `butschster.tui_desktop.apps:commander` — окно,
--- собранное мастерской основы. Ярлык на него уезжал бы вместе с чужой
--- мастерской, и «Мой компьютер» переставал бы заводиться МОЛЧА: отсутствующая
--- программа здесь пропускается, а не отмечается.
+-- This used to be `butschster.tui_desktop.apps:commander` — a window built by
+-- the base's workshop. A shortcut to it would leave together with someone
+-- else's workshop, and "My Computer" would stop being created SILENTLY: a
+-- missing program is skipped here, not marked.
 local MY_COMPUTER = "butschster.windows.explorer:window"
 
 defaults.ITEMS = {
@@ -37,25 +37,28 @@ defaults.ITEMS = {
         key = "!furniture:my_computer",
         kind = "shortcut",
         entry = MY_COMPUTER,
-        -- Имя своё, а не программы, даже когда они совпадают: собственное
-        -- имя ярлыка живёт в строке раскладки и переживает переименование
-        -- программы, а взятое у записи менялось бы вместе с ней.
+        -- The name is its own, not the program's, even when they coincide:
+        -- the shortcut's own name lives in the layout row and survives the
+        -- program being renamed, while one taken from the entry would change
+        -- along with it.
         title = "My Computer",
     },
-    -- Папки «Программы» на столе больше нет — решение владельца 2026-09-09:
-    -- программы живут в «Пуске», а папка на столе дублировала его и пустой
-    -- стояла. У кого она уже стоит, ключ `!furniture:programs` остаётся в
-    -- отметках предложенного, и обратно она не заведётся.
+    -- There is no "Programs" folder on the desktop any more — the owner's
+    -- decision of 2026-09-09: programs live in "Start", and the folder on the
+    -- desktop duplicated it and stood empty. Where it already stands, the
+    -- `!furniture:programs` key stays among the offered marks, and it will
+    -- not be created back.
 }
 
--- resolve(programs) -> список к заведению
+-- resolve(programs) -> list to create
 --
--- Ярлык на программу, которой в каталоге НЕТ, пропускается и не отмечается
--- предложенным. Завести его битым значило бы поставить на стол сломанный
--- значок при первом же запуске и объяснить это нечем; пропустить —
--- значит завести его тогда, когда программа появится.
+-- A shortcut to a program that is NOT in the catalog is skipped and not
+-- marked as offered. Creating it broken would mean putting a broken icon on
+-- the desktop at the very first launch with nothing to explain it by;
+-- skipping it means creating it when the program appears.
 --
--- Папке проверять нечего: она объект состояния, за ней не стоит запись.
+-- A folder has nothing to check: it is a state object, no entry stands
+-- behind it.
 function defaults.resolve(programs: any)
     local out = {}
     for _, item in ipairs(defaults.ITEMS) do

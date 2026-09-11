@@ -1,13 +1,14 @@
--- Каталог программ: папки меню из meta.group, порядок из meta.order.
+-- The program catalog: menu folders from meta.group, order from meta.order.
 --
--- Правило раскладки меню проверяется без живого реестра — на записях,
--- собранных здесь же. Правило, проверяемое только через реестр, проверяется
--- один раз, а потом никогда: подставить в реестр запись с нужной группой
--- дороже, чем не проверить.
+-- The menu layout rule is checked without a live registry — on entries
+-- assembled right here. A rule checked only through the registry is checked
+-- once, and then never: putting an entry with the needed group into the
+-- registry costs more than not checking.
 --
--- Отдельно закреплено главное свойство `list`: пустой каталог и нечитаемый
--- реестр возвращаются РАЗНЫМИ значениями. Одинаковые, они отправляют человека
--- искать ошибку в своём приложении, где её нет.
+-- Separately pinned is the main property of `list`: an empty catalog and an
+-- unreadable registry are returned as DIFFERENT values. The same, they send
+-- the person to look for the error in their own application, where there is
+-- none.
 local test = require("test")
 local catalog = require("catalog")
 local view = require("view")
@@ -26,12 +27,13 @@ local function define_tests()
         test.eq(entry, "app:grouped_probe")
     end)
 
-        test.it("сохраняет meta.image до стола, меню и проводника", function()
+        test.it("keeps meta.image all the way to the desktop, the menu and the explorer", function()
             for _, name in ipairs({"printer", "unknown_icon"}) do
-                -- `group = ""` держит программу на корне: проверка про значок,
-                -- а первая строка корня иначе была бы папкой по умолчанию.
+                -- `group = ""` keeps the program on the root: the check is
+                -- about the icon, and otherwise the first line of the root
+                -- would be the default folder.
                 local built = catalog.build({record("app:printer", {
-                    type = "tui_desktop.window", title = "Печать", image = name, group = "",
+                    type = "tui_desktop.window", title = "Print", image = name, group = "",
                 })})
                 local items = {{id = "print", kind = "shortcut", entry = "app:printer"}}
                 test.eq(built.programs[1].image, name)
@@ -43,10 +45,10 @@ local function define_tests()
             end
         end)
 
-        test.it("объявление стенда даёт значок одному entry, сохраняя meta.image программы", function()
+        test.it("a stand declaration gives an icon to exactly one entry, keeping the program's meta.image", function()
             local built = catalog.build({
-                record("app:a", {title = "Одинаковое имя"}),
-                record("app:b", {title = "Одинаковое имя", image = "printer"}),
+                record("app:a", {title = "Same name"}),
+                record("app:b", {title = "Same name", image = "printer"}),
             })
             local ok, why = catalog.assign_images(built.programs, {{data = {images = {
                 ["app:a"] = "clock", ["app:b"] = "calculator",
@@ -63,7 +65,7 @@ local function define_tests()
             test.not_nil(why)
         end)
 
-        test.it("читает значки стенда из реестра и одинаково передаёт их столу и Пуску", function()
+        test.it("reads the stand's icons from the registry and passes them identically to the desktop and to Start", function()
             local found, why = catalog.list()
             test.is_nil(why)
             local probe = catalog.find(found.programs, "app:grouped_probe")
@@ -76,192 +78,196 @@ local function define_tests()
             test.eq(computer.image, "my_computer")
         end)
 
-        test.it("собирает папки меню из meta.group", function()
+        test.it("builds menu folders from meta.group", function()
             local built = catalog.build({
-                record("app:net", {type = "tui_desktop.window", title = "Сеть",
-                    group = "Служебные/Связь"}),
-                record("app:disk", {type = "tui_desktop.window", title = "Диск",
-                    group = "Служебные"}),
-                record("app:root", {type = "tui_desktop.window", title = "Корень", group = ""}),
-                record("app:plain", {type = "tui_desktop.window", title = "Безымянная"}),
+                record("app:net", {type = "tui_desktop.window", title = "Network",
+                    group = "System Tools/Comms"}),
+                record("app:disk", {type = "tui_desktop.window", title = "Disk",
+                    group = "System Tools"}),
+                record("app:root", {type = "tui_desktop.window", title = "Root", group = ""}),
+                record("app:plain", {type = "tui_desktop.window", title = "Unnamed"}),
             })
 
-            -- Корень — только по явному `group = ""`. Программа, не назвавшая
-            -- папку, ложится в DEFAULT_GROUP: иначе каждое окно из мастерской
-            -- (у него `meta.group` взяться неоткуда) росло бы корнем.
-            test.eq(#built.tree.programs, 1, "на корне только та, что попросила корень")
-            test.eq(built.tree.programs[1].title, "Корень")
+            -- The root only by an explicit `group = ""`. A program that did not
+            -- name a folder lands in DEFAULT_GROUP: otherwise every window from
+            -- the workshop (it has nowhere to get `meta.group` from) would grow
+            -- as a root.
+            test.eq(#built.tree.programs, 1, "only the one that asked for the root is on the root")
+            test.eq(built.tree.programs[1].title, "Root")
 
-            test.eq(#built.tree.folders, 2, "папка заводится тем, что в неё положили")
+            test.eq(#built.tree.folders, 2, "a folder comes into being by what was put into it")
             local default = built.tree.folders[1]
-            test.eq(default.title, catalog.DEFAULT_GROUP, "безымянная — в папке по умолчанию")
-            test.eq(default.programs[1].title, "Безымянная")
+            test.eq(default.title, catalog.DEFAULT_GROUP, "the unnamed one goes into the default folder")
+            test.eq(default.programs[1].title, "Unnamed")
             local service = built.tree.folders[2]
-            test.eq(service.title, "Служебные")
+            test.eq(service.title, "System Tools")
             test.eq(#service.programs, 1)
-            test.eq(service.programs[1].title, "Диск")
-            test.eq(#service.folders, 1, "вложенная папка приходит из пути")
-            test.eq(service.folders[1].title, "Связь")
-            test.eq(service.folders[1].path, "Служебные/Связь")
-            test.eq(service.folders[1].programs[1].title, "Сеть")
+            test.eq(service.programs[1].title, "Disk")
+            test.eq(#service.folders, 1, "the nested folder comes from the path")
+            test.eq(service.folders[1].title, "Comms")
+            test.eq(service.folders[1].path, "System Tools/Comms")
+            test.eq(service.folders[1].programs[1].title, "Network")
         end)
 
-        test.it("сводит путь глубже трёх уровней к третьему, а не теряет программу", function()
-            -- Глубже меню в терминале не читается, но потерять программу хуже,
-            -- чем потерять папку: её было бы нечем запустить и негде искать.
+        test.it("collapses a path deeper than three levels to the third instead of losing the program", function()
+            -- A deeper menu is not readable in a terminal, but losing a program
+            -- is worse than losing a folder: there would be nothing to launch it
+            -- with and nowhere to look for it.
             local built = catalog.build({
-                record("app:deep", {type = "tui_desktop.window", title = "Глубокая",
-                    group = "А/Б/В/Г/Д"}),
+                record("app:deep", {type = "tui_desktop.window", title = "Deep",
+                    group = "A/B/C/D/E"}),
             })
             local program = built.programs[1]
-            test.eq(#program.group, 3, "путь сводится к трём уровням")
-            test.eq(program.group[3], "В")
+            test.eq(#program.group, 3, "the path is collapsed to three levels")
+            test.eq(program.group[3], "C")
         end)
 
-        test.it("выбрасывает пустые сегменты пути", function()
-            -- «Служебные//Сеть» — опечатка, а не безымянная папка посередине.
+        test.it("throws away empty path segments", function()
+            -- "System Tools//Network" is a typo, not a nameless folder in the
+            -- middle.
             local built = catalog.build({
-                record("app:x", {type = "tui_desktop.window", title = "Икс",
-                    group = "Служебные//Сеть"}),
+                record("app:x", {type = "tui_desktop.window", title = "Ex",
+                    group = "System Tools//Network"}),
             })
             test.eq(#built.programs[1].group, 2)
-            test.eq(built.programs[1].group[2], "Сеть")
+            test.eq(built.programs[1].group[2], "Network")
         end)
 
-        test.it("ставит order впереди алфавита, а безпорядковые — по алфавиту", function()
+        test.it("puts order ahead of the alphabet, and orderless ones alphabetically", function()
             local built = catalog.build({
-                record("app:b", {type = "tui_desktop.window", title = "Бета"}),
-                record("app:a", {type = "tui_desktop.window", title = "Альфа"}),
-                record("app:z", {type = "tui_desktop.window", title = "Зет", order = 1}),
+                record("app:b", {type = "tui_desktop.window", title = "Beta"}),
+                record("app:a", {type = "tui_desktop.window", title = "Alpha"}),
+                record("app:z", {type = "tui_desktop.window", title = "Zed", order = 1}),
             })
-            test.eq(built.programs[1].title, "Зет", "order идёт первым")
-            test.eq(built.programs[2].title, "Альфа")
-            test.eq(built.programs[3].title, "Бета")
+            test.eq(built.programs[1].title, "Zed", "order goes first")
+            test.eq(built.programs[2].title, "Alpha")
+            test.eq(built.programs[3].title, "Beta")
         end)
 
-        test.it("подставляет значок и имя, когда их не объявили", function()
+        test.it("substitutes an icon and a name when they were not declared", function()
             local built = catalog.build({record("app:bare", {type = "tui_desktop.window"})})
             local program = built.programs[1]
-            test.eq(program.title, "app:bare", "без title именем служит идентификатор")
+            test.eq(program.title, "app:bare", "without a title the identifier serves as the name")
             test.eq(program.icon, catalog.DEFAULT_ICON)
-            test.is_false(program.desktop, "ярлык на столе заводится только по просьбе")
+            test.is_false(program.desktop, "a desktop shortcut is created only on request")
         end)
 
-        test.it("читает desktop как просьбу, а не как утверждение", function()
+        test.it("reads desktop as a request, not as a statement", function()
             local built = catalog.build({
                 record("app:d", {type = "tui_desktop.window", desktop = true}),
             })
             test.is_true(built.programs[1].desktop)
         end)
 
-        test.it("различает пустой каталог и нечитаемый реестр", function()
-            -- В харнессе окон не зарегистрировано, поэтому list обязан вернуть
-            -- ТАБЛИЦУ и nil-причину. Отказ выглядел бы иначе: nil и строка.
-            -- Это и есть критерий приёмки №4 на уровне библиотеки.
+        test.it("tells an empty catalog from an unreadable registry", function()
+            -- No windows are registered in the harness, so list must return a
+            -- TABLE and a nil reason. A failure would look different: nil and a
+            -- string. This is acceptance criterion No. 4 at the library level.
             local found, err = catalog.list()
-            test.is_nil(err, "пустой каталог — не отказ")
-            test.not_nil(found, "пустой каталог всё равно таблица")
-            test.not_nil(found.programs, "и в ней есть список программ")
-            test.not_nil(found.tree, "и корень меню")
+            test.is_nil(err, "an empty catalog is not a failure")
+            test.not_nil(found, "an empty catalog is still a table")
+            test.not_nil(found.programs, "and it has a list of programs")
+            test.not_nil(found.tree, "and a menu root")
         end)
 
-        test.it("не теряет программы, пришедшие без идентификатора", function()
-            -- Запись без id запустить нечем: она пропускается молча, но и
-            -- соседей за собой не уносит.
+        test.it("does not lose programs when one arrives without an identifier", function()
+            -- An entry without an id has nothing to launch it by: it is skipped
+            -- silently, but it does not take its neighbors with it either.
             local built = catalog.build({
-                {kind = "process.lua", meta = {type = "tui_desktop.window", title = "Без id"}},
-                record("app:ok", {type = "tui_desktop.window", title = "С id"}),
+                {kind = "process.lua", meta = {type = "tui_desktop.window", title = "No id"}},
+                record("app:ok", {type = "tui_desktop.window", title = "With id"}),
             })
             test.eq(#built.programs, 1)
             test.eq(built.programs[1].entry, "app:ok")
         end)
 
-        test.it("не показывает в меню того, кто просил себя спрятать", function()
-            -- Признак про МЕНЮ, а не про запуск: программа остаётся в
-            -- каталоге, и ярлык на неё продолжает работать. Отфильтруй мы её
-            -- из каталога — ярлык на столе стал бы битым, и человек прочитал
-            -- бы это как «программы больше нет».
+        test.it("does not show in the menu one that asked to be hidden", function()
+            -- The flag is about the MENU, not about launching: the program
+            -- stays in the catalog, and a shortcut to it keeps working. Were
+            -- we to filter it out of the catalog, the shortcut on the desktop
+            -- would become broken, and the person would read that as "the
+            -- program is gone".
             local built = catalog.build({
-                {id = "app:visible", meta = {type = "tui_desktop.window", title = "Видимая", group = ""}},
-                {id = "app:hidden", meta = {type = "tui_desktop.window", title = "Скрытая",
+                {id = "app:visible", meta = {type = "tui_desktop.window", title = "Visible", group = ""}},
+                {id = "app:hidden", meta = {type = "tui_desktop.window", title = "Hidden",
                                             group = "", in_menu = false}},
             })
-            test.eq(#built.programs, 2, "каталог держит обе")
-            test.eq(#built.tree.programs, 1, "в меню только одна")
+            test.eq(#built.programs, 2, "the catalog keeps both")
+            test.eq(#built.tree.programs, 1, "only one in the menu")
             test.eq(built.tree.programs[1].entry, "app:visible")
             test.not_nil(catalog.find(built.programs, "app:hidden"),
-                "ярлык обязан находить скрытую программу")
+                "a shortcut must find the hidden program")
 
             local listed = catalog.listed(built.programs)
-            test.eq(#listed, 1, "«Программы» в «Моём компьютере» — тот же выбор, что и меню")
+            test.eq(#listed, 1, '"Programs" in "My Computer" is the same choice as the menu')
         end)
 
-        test.it("читает in_menu полем, а не через and-or", function()
-            -- Ловушка тише, чем кажется: `meta.in_menu` через `x and x.f or
-            -- nil` даёт РОВНО ОБРАТНЫЙ ответ — false уходит в ветку «значения
-            -- нет» и превращается в умолчание true, то есть окно, которое
-            -- просили спрятать, показывается.
+        test.it("reads in_menu as a field, not through and-or", function()
+            -- The trap is quieter than it seems: `meta.in_menu` via `x and x.f
+            -- or nil` gives EXACTLY THE OPPOSITE answer — false goes into the
+            -- "no value" branch and turns into the default true, that is, a
+            -- window that asked to be hidden is shown.
             local strings = catalog.build({
                 {id = "app:yaml", meta = {type = "tui_desktop.window", in_menu = "false"}},
             })
             test.eq(#strings.tree.programs, 0,
-                "строка «false» приезжает из YAML и значит то же самое")
+                'the string "false" arrives from YAML and means the same thing')
         end)
 
-        test.it("не заводит в меню папку, у которой все дети скрыты", function()
-            -- Пустая папка в «Пуске» — это пункт, который раскрывается в
-            -- ничто, и первым вопросом будет, куда делось её содержимое.
-            -- Папка заводится тем, что в неё положили; скрытую программу мы
-            -- не кладём — значит и папки не возникает.
+        test.it("does not create a menu folder whose children are all hidden", function()
+            -- An empty folder in "Start" is an item that opens into nothing,
+            -- and the first question will be where its contents went. A folder
+            -- comes into being by what was put into it; we do not put a hidden
+            -- program in — so no folder arises either.
             local built = catalog.build({
-                {id = "app:tool", meta = {type = "tui_desktop.window", title = "Служебное",
-                                          group = "Служебные/Внутреннее", in_menu = false}},
+                {id = "app:tool", meta = {type = "tui_desktop.window", title = "Utility",
+                                          group = "System Tools/Internal", in_menu = false}},
             })
-            test.eq(#built.tree.folders, 0, "папки без содержимого в меню нет")
-            test.eq(#built.programs, 1, "но сама программа в каталоге есть")
+            test.eq(#built.tree.folders, 0, "there is no folder without contents in the menu")
+            test.eq(#built.programs, 1, "but the program itself is in the catalog")
         end)
 
-        test.it("называет неизвестный тип окна, но программу показывает", function()
-            -- Запись объявлена кем-то другим, и опечатка в одном поле не
-            -- повод спрятать окно, которое в остальном исправно. Но
-            -- неназванная опечатка живёт вечно.
+        test.it("names an unknown window type but shows the program", function()
+            -- The entry is declared by someone else, and a typo in one field is
+            -- no reason to hide a window that is otherwise working. But an
+            -- unnamed typo lives forever.
             local built = catalog.build({
                 {id = "app:odd", meta = {type = "tui_desktop.window", window_type = "popup"}},
                 {id = "app:fine", meta = {type = "tui_desktop.window", window_type = "dialog"}},
             })
-            test.eq(#built.tree.folders, 1, "обе без папки — в папке по умолчанию")
-            test.eq(#built.tree.folders[1].programs, 2, "показываются обе")
+            test.eq(#built.tree.folders, 1, "both without a folder go into the default folder")
+            test.eq(#built.tree.folders[1].programs, 2, "both are shown")
             test.eq(#built.warnings, 1)
             test.eq(built.warnings[1].entry, "app:odd")
             test.eq(built.warnings[1].window_type, "popup")
 
             test.eq(catalog.find(built.programs, "app:odd").window_type, "app",
-                "неизвестный тип считается обычным окном")
+                "an unknown type counts as an ordinary window")
             test.eq(catalog.find(built.programs, "app:fine").window_type, "dialog")
         end)
 
-        test.it("собирает папку из настоящей записи реестра", function()
-            -- До этого места каталог проверялся только на выдуманных
-            -- таблицах: в харнессе не было ни одной записи с `meta.group`.
-            -- Промежуток между реестром и деревом папок был зелёным и ни разу
-            -- не пройденным, и дефект жил именно в нём.
+        test.it("builds a folder from a real registry entry", function()
+            -- Until this point the catalog was checked only on made-up tables:
+            -- the harness had not a single entry with `meta.group`. The gap
+            -- between the registry and the folder tree was green and never
+            -- once walked, and the defect lived exactly in it.
             local found, err = catalog.list()
-            test.is_nil(err, "каталог обязан прочитаться")
+            test.is_nil(err, "the catalog must be readable")
             test.not_nil(found)
 
             local probe = catalog.find(found.programs, "app:grouped_probe")
-            test.not_nil(probe, "запись с группой обязана быть в каталоге харнесса")
-            test.eq(#probe.group, 2, "путь обязан приехать РАЗОБРАННЫМ, а не строкой")
-            test.eq(probe.group[1], "Служебные")
-            test.eq(probe.group[2], "Проверка")
+            test.not_nil(probe, "the entry with a group must be in the harness catalog")
+            test.eq(#probe.group, 2, "the path must arrive PARSED, not as a string")
+            test.eq(probe.group[1], "System Tools")
+            test.eq(probe.group[2], "Probe")
 
             local outer = nil
             for _, folder in ipairs(found.tree.folders) do
-                if folder.title == "Служебные" then outer = folder end
+                if folder.title == "System Tools" then outer = folder end
             end
-            test.not_nil(outer, "папка обязана появиться в дереве")
-            test.eq(#outer.folders, 1, "и вложенная в неё тоже")
-            test.eq(outer.folders[1].title, "Проверка")
+            test.not_nil(outer, "the folder must appear in the tree")
+            test.eq(#outer.folders, 1, "and the one nested in it too")
+            test.eq(outer.folders[1].title, "Probe")
         end)
     end)
 end

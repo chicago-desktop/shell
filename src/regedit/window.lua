@@ -1,13 +1,15 @@
--- Просмотрщик реестра — окно на SDK оболочки, вид regedit Windows 95.
+-- The registry viewer: a window on the shell SDK, in the look of Windows 95
+-- regedit.
 --
--- Единственное место, где просмотрщик читает реестр, — и читает только:
--- в его политике нет `registry.apply`, и это не забывчивость (FR-004 §3.4):
--- правка записи — это правка работающего приложения, ей место в панели
--- управления под своим актором.
+-- The only place where the viewer reads the registry, and it only reads:
+-- its policy has no `registry.apply`, and that is not forgetfulness (FR-004
+-- §3.4): editing an entry is editing the running application, and that
+-- belongs in the control panel under its own actor.
 --
--- Реестр читается один раз при открытии; F5 перечитывает. Дерево, панель
--- значений, строка меню и статус — компоненты SDK; собственных раскладки,
--- контроллера и красок больше нет. Дерево строит и сплющивает `model`.
+-- The registry is read once on opening; F5 rereads it. The tree, the values
+-- pane, the menu bar and the status bar are SDK components; there is no
+-- longer its own layout, controller or paint. `model` builds and flattens the
+-- tree.
 local json = require("json")
 local registry = require("registry")
 
@@ -30,8 +32,8 @@ end
 
 local window: any = {}
 
--- Сеанс из готового списка записей — тот же, что строит `init`, но без
--- реестра: так его собирают тесты и снимки.
+-- A session from a ready list of entries, the same one `init` builds, but
+-- without the registry: this is how tests and screenshots assemble it.
 function window.session(records: any, failure: any): any
     local root = model.build(records or {})
     local expanded: any = {}
@@ -100,7 +102,7 @@ function definition.update(state: any, action: any, context: any)
     elseif action.type == "activate" and action.id == "about_ok" then
         state.about = false
     elseif state.about then
-        -- Лист «О программе» закрывается Esc, а не всё окно.
+        -- Esc closes the "About" sheet, not the whole window.
         if action.type == "key" and action.key_type == "esc" then state.about = false
         else return false end
     elseif action.id == "tree" and action.type == "select" then

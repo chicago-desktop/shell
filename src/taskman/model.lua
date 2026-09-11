@@ -1,19 +1,20 @@
--- Диспетчер задач: чистая модель.
+-- Task Manager: the pure model.
 --
--- Всё, что можно посчитать без рантайма, считается здесь и проверяется
--- прямо: история измерений, график блочными символами, форматы чисел,
--- раскладка вкладок. Окно только снимает цифры и рисует то, что отсюда
--- вернулось. Разойдись раскладка с рисованием — щелчок по вкладке попадал бы
--- на соседнюю; поэтому прямоугольники считает одна функция, а рисует и
--- проверяет попадания её результат.
+-- Everything that can be computed without the runtime is computed here and
+-- checked directly: measurement history, the graph in block characters,
+-- number formats, the tab layout. The window only takes the numbers and
+-- draws what came back from here. If the layout diverged from the drawing, a
+-- click on a tab would land on the neighbouring one; that is why one
+-- function computes the rectangles, and both drawing and hit checks use its
+-- result.
 
 local charts = require("charts")
 
 local model = {}
 
--- Вкладки. Порядок — как на кадре диспетчера: приложения, процессы,
--- быстродействие; четвёртая вместо «Сети» — узел, потому что сеть у нас
--- это кластер рантайма, а не сетевые адаптеры.
+-- Tabs. The order is as in the Task Manager screenshot: applications,
+-- processes, performance; the fourth, instead of "Networking", is the node,
+-- because for us the network is the runtime cluster, not network adapters.
 model.TABS = {
     {id = "apps", text = "Applications"},
     {id = "procs", text = "Processes"},
@@ -26,12 +27,13 @@ local whole = geometry.whole
 
 model.whole = whole
 
--- ─── История ─────────────────────────────────────────────────────────────
+-- ─── History ─────────────────────────────────────────────────────────────
 
--- push(history, value, cap) — добавить измерение, держать не больше cap.
+-- push(history, value, cap): add a measurement, keep no more than cap.
 --
--- История живёт от старого к новому; график читает её справа налево, чтобы
--- последнее измерение стояло у правого края, как на кадре.
+-- The history runs from old to new; the graph reads it right to left, so
+-- that the latest measurement stands at the right edge, as in the
+-- screenshot.
 function model.push(history: any, value: any, cap: any)
     local list: any = type(history) == "table" and history or {}
     list[#list + 1] = tonumber(value) or 0
@@ -40,16 +42,17 @@ function model.push(history: any, value: any, cap: any)
     return list
 end
 
--- ─── График ──────────────────────────────────────────────────────────────
+-- ─── Graph ───────────────────────────────────────────────────────────────
 --
--- Столбцы блочными символами и круглый потолок переехали в SDK
--- (`butschster.windows.sdk:charts`): график нужен любому окну с историей
--- числа. Здесь остались имена, по которым их зовут тесты и окно.
+-- Columns in block characters and the round ceiling moved to the SDK
+-- (`butschster.windows.sdk:charts`): any window with a history of a number
+-- needs a graph. What stayed here are the names by which the tests and the
+-- window call them.
 model.LEVELS = {"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
 model.graph = charts.graph
 model.round_ceiling = charts.round_ceiling
 
--- ─── Форматы ─────────────────────────────────────────────────────────────
+-- ─── Formats ─────────────────────────────────────────────────────────────
 
 function model.megabytes(bytes: any): string
     local n = tonumber(bytes) or 0
@@ -64,7 +67,7 @@ function model.bytes(value: any): string
     return model.megabytes(n)
 end
 
--- uptime(seconds) -> "0:08:21" или "3 д 04:15:02"
+-- uptime(seconds) -> "0:08:21" or "3d 04:15:02"
 function model.uptime(seconds: any): string
     local total = math.max(0, whole(seconds))
     local days = total // 86400
@@ -77,11 +80,12 @@ function model.uptime(seconds: any): string
     return string.format("%d:%02d:%02d", hours, minutes, secs)
 end
 
--- epoch_seconds(stamp) -> секунды Unix из числа неизвестной размерности.
+-- epoch_seconds(stamp) -> Unix seconds from a number of unknown unit.
 --
--- Рантайм отдаёт started_at числом, а в чём — секунды, миллисекунды или
--- наносекунды — зависит от того, кто заполнял. Порядок величины различает их
--- надёжно: секунд с 1970 года меньше 10¹¹, миллисекунд меньше 10¹⁴.
+-- The runtime returns started_at as a number, and what it is in (seconds,
+-- milliseconds or nanoseconds) depends on who filled it in. The order of
+-- magnitude tells them apart reliably: there are fewer than 10¹¹ seconds
+-- since 1970, fewer than 10¹⁴ milliseconds.
 function model.epoch_seconds(stamp: any): number
     local n = tonumber(stamp) or 0
     if n > 1e17 then return n / 1e9 end
@@ -90,20 +94,20 @@ function model.epoch_seconds(stamp: any): number
     return n
 end
 
--- short_pid(pid) -> хвост идентификатора, чтобы влезал в колонку
+-- short_pid(pid) -> the tail of the identifier, so that it fits the column
 function model.short_pid(pid: any): string
     local text = tostring(pid or "")
     if #text <= 12 then return text end
     return "…" .. text:sub(-11)
 end
 
--- ─── Процессы ────────────────────────────────────────────────────────────
+-- ─── Processes ───────────────────────────────────────────────────────────
 
--- processes(list) -> отсортированные строки {pid, source, state, steps, host, started}
+-- processes(list) -> sorted rows {pid, source, state, steps, host, started}
 --
--- Сортировка по источнику, потом по pid: список, который прыгает при каждом
--- обновлении, нельзя читать. По шагам сортировал бы «кто активнее», но
--- активность меняется каждую секунду, и строка уезжала бы из-под глаз.
+-- Sorting by source, then by pid: a list that jumps on every refresh cannot
+-- be read. Sorting by steps would sort by "who is more active", but activity
+-- changes every second, and a row would slide out from under your eyes.
 function model.processes(list: any): any
     local out = {}
     for _, item in ipairs(type(list) == "table" and list or {}) do
@@ -124,7 +128,7 @@ function model.processes(list: any): any
     return out
 end
 
--- oldest_start(rows) -> самое раннее started, или nil
+-- oldest_start(rows) -> the earliest started, or nil
 function model.oldest_start(rows: any): any
     local oldest: any = nil
     for _, row in ipairs(type(rows) == "table" and rows or {}) do

@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
-"""Собрать combined.lua — сцены пробника плюс настоящие файлы темы.
+"""Build combined.lua — the probe scenes plus the real theme files.
 
-Модули склеиваются в один файл нарочно: go-lua в этой сборке не даёт ни
-`dofile`, ни `loadfile`, ни `load`, поэтому загрузить библиотеку с диска
-изнутри Lua нечем. Каждый файл темы заворачивается в вызов функции — он и
-так кончается `return`, — и кладётся в таблицу, которую отдаёт подменённый
-`require`.
+The modules are glued into one file on purpose: go-lua in this build provides
+neither `dofile`, nor `loadfile`, nor `load`, so from inside Lua there is
+nothing to load a library from disk with. Each theme file is wrapped in a
+function call — it ends in `return` anyway — and put into the table that the
+substituted `require` returns.
 
-Пути считаются от расположения этого файла, а не от текущего каталога:
-пробник запускают и из корня модуля, и из своей папки.
+Paths are computed from the location of this file, not from the current
+directory: the probe is run both from the module root and from its own folder.
 """
 
 import pathlib
 
 HERE = pathlib.Path(__file__).resolve().parent
 SRC = HERE.parent.parent / "src"
-# Файлы темы и файлы окна «Мой компьютер». Второе здесь потому, что содержимое
-# окна — такие же строки и арифметика, как тема, и проверяется тем же способом:
-# полноэкранную программу иначе не посмотреть вовсе.
+# Theme files and the files of the "My Computer" window. The latter are here
+# because the window content is the same strings and arithmetic as the theme,
+# and is checked the same way: a full-screen program cannot be looked at
+# otherwise at all.
 MODULES = (
     ("shell", "palette"),
     ("shell", "glyphs"),
@@ -40,11 +41,11 @@ def main() -> None:
     for folder, name in MODULES:
         marker = f'dofile(BASE .. "{folder}/{name}.lua")'
         if marker not in text:
-            raise SystemExit(f"в harness.lua нет метки для {folder}/{name}")
+            raise SystemExit(f"harness.lua has no marker for {folder}/{name}")
         text = text.replace(marker, wrapped(folder, name))
     out = HERE / "combined.lua"
     out.write_text(text, encoding="utf-8")
-    print(f"собрано: {out}")
+    print(f"built: {out}")
 
 
 if __name__ == "__main__":

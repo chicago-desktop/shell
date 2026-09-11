@@ -1,6 +1,6 @@
 organization: butschster
 module: windows
-description: Оболочка терминального десктопа в стиле Windows 95 — бирюзовый рабочий стол, панель задач с «Пуском» и часами, меню программ из реестра и раскладка ярлыков, которую двигает пользователь.
+description: A Windows 95-style shell for the terminal desktop — a teal desktop, a taskbar with the "Start" button and a clock, a program menu built from the registry, and a shortcut layout that the user moves around.
 license: MIT
 repository: https://github.com/wippy-projects/windows
 homepage: https://wippy.ai
@@ -24,9 +24,11 @@ exclude:
   - "test/stubs/**"
   - "test/stubs:**"
   - "src/**/stubs/**"
-  # Значки Windows 95/98 — артворк Microsoft, под MIT не подпадают (docs/icons.md,
-  # «Лицензия»). Исключены PNG, а не весь `assets/**`: `SOURCE.md` едет, и
-  # каталог `icon_files` в опубликованном модуле есть. Без каталога запись
-  # `fs.directory` с `auto_init: false` рантайм не создаёт (NewFS → OpenRoot),
-  # а без PNG `images.get` отказывает с причиной и значки рисуются примитивами.
+  # Windows 95/98 icons are Microsoft artwork and do not fall under MIT
+  # (docs/icons.md, "License"). The PNGs are excluded, not the whole
+  # `assets/**`: `SOURCE.md` ships, and the `icon_files` directory exists in the
+  # published module. Without the directory the runtime does not create the
+  # `fs.directory` entry with `auto_init: false` (NewFS → OpenRoot), whereas
+  # without the PNGs `images.get` refuses with a reason and the icons are drawn
+  # with primitives.
   - "assets/icons/**/*.png"

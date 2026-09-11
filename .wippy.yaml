@@ -1,9 +1,10 @@
 version: "1.0"
 
-# butschster/tui-desktop в Hub ещё не опубликован, поэтому основа берётся из
-# рабочей копии по соседству. Условие снятия: как только основа опубликована,
-# эту замену убрать и оставить разрешение по версии из wippy.lock — иначе
-# модуль собирается только на машине, где рядом лежит нужный каталог.
+# butschster/tui-desktop is not published to the Hub yet, so the base is taken
+# from the neighboring working copy. Removal condition: as soon as the base is
+# published, remove this replacement and keep resolution by the version from
+# wippy.lock — otherwise the module builds only on a machine that has the
+# required directory right next to it.
 workspace:
   replacements:
     butschster/tui-desktop: ../kickside-module

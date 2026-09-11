@@ -1,15 +1,17 @@
--- Просмотр картинок: поставщик состояния.
+-- Image viewer: state provider.
 --
--- Живая половина окна-вида (FR-005 §4б). Композитор запускает его с тремя
--- аргументами — своим именем, номером окна и аргументом открытия — и дальше
--- поставщик сам: читает файл под своими правами, толкает состояние, а на
--- ввод, который композитор пересылает ему сообщением `window.input`,
--- отвечает новым состоянием. Рисует не он.
+-- The live half of a view window (FR-005 §4b). The compositor starts it with
+-- three arguments — its own name, the window number and the open argument —
+-- and from then on the provider is on its own: it reads the file under its
+-- own permissions, pushes the state, and answers input, which the compositor
+-- forwards to it as a `window.input` message, with a new state. It does not
+-- draw.
 --
--- Картинка едет в состоянии целиком, base64. Это плата за то, что у
--- композитора нет права на диски: он получает байты от того, у кого право
--- есть, и не получает права. Файл больше `files.MAX_IMAGE` не открывается —
--- с причиной, а не пустым окном.
+-- The picture travels in the state whole, as base64. This is the price for
+-- the compositor having no permission on drives: it receives the bytes from
+-- whoever has the permission, and does not receive the permission. A file
+-- larger than `files.MAX_IMAGE` is not opened — with a reason, not with an
+-- empty window.
 
 local base64 = require("base64")
 local channel = require("channel")
@@ -27,8 +29,9 @@ local PAN_STEP = 48
 local geometry = require("geometry")
 local whole = geometry.whole
 
--- Подпись — то, что видно в любом режиме, включая ячейки, где картинку
--- показать нечем. Поэтому она собирается здесь, а не в отрисовке.
+-- The caption is what is visible in any mode, including cells, where there
+-- is no way to show the picture. That is why it is assembled here and not in
+-- the drawing.
 local function caption(state: any): string
     if state.failure then return tostring(state.failure) end
     local how = state.mode == "zoom" and string.format("%d%%", whole((tonumber(state.zoom) or 1) * 100))
@@ -85,9 +88,9 @@ local function main(desktop, window_id, args, viewport: any)
 
     push()
 
-    -- Ввод меняет только способ показа. Файл прочитан один раз: картинка не
-    -- меняется от нажатия клавиши, а перечитывать её на каждое — значит
-    -- держать диск занятым ради прокрутки.
+    -- Input changes only the display mode. The file is read once: the picture
+    -- does not change from a key press, and rereading it on each one means
+    -- keeping the drive busy for the sake of scrolling.
     local function handle(event: any): boolean
         if type(event) ~= "table" or state.failure then return false end
         if event.type == "key" and event.action ~= "release" then

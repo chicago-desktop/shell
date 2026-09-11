@@ -22,8 +22,8 @@ SOFTWARE.
 
 ---
 
-Значки в `assets/icons` — артворк Microsoft. У репозитория-источника лицензии
-нет вовсе. Модуль объявлен MIT, и значки под него не подпадают. Каталог
-годится для локального стенда и в опубликованный модуль не входит: `wippy.yaml`
-исключает `assets/icons/**/*.png`. Подробности — docs/icons.md, раздел
-«Лицензия», и assets/icons/SOURCE.md.
+The icons in `assets/icons` are Microsoft artwork. The source repository has
+no license at all. The module is declared MIT, and the icons do not fall under
+it. The directory is suitable for a local test stand and is not part of the
+published module: `wippy.yaml` excludes `assets/icons/**/*.png`. Details:
+docs/icons.md, section "License", and assets/icons/SOURCE.md.

@@ -1,13 +1,13 @@
--- Объекты «Моего компьютера».
+-- The objects of "My Computer".
 --
--- Проверяется правило, а не картинка: что окно показывает сам стенд, что
--- диски берутся у реестра как есть, что двойной щелчок описан намерением, а не
--- выполнен по дороге, и что «пусто» ни в одном месте не подменяет
--- «не прочитали».
+-- What is checked is the rule, not the picture: that the window shows the
+-- running system itself, that drives are taken from the registry as they
+-- are, that a double click is described by an intent rather than carried out
+-- along the way, and that "empty" nowhere stands in for "not read".
 --
--- Здесь только чистая сборка — ни базы, ни реестра. Что записи `fs.*`
--- действительно находятся, а содержимое действительно читается, проверяет
--- sources_test на живом реестре.
+-- Only the pure assembly here — neither database nor registry. That `fs.*`
+-- entries are really found and their contents are really read is checked by
+-- sources_test on the live registry.
 local test = require("test")
 local model = require("model")
 
@@ -20,14 +20,14 @@ end
 
 local function define_tests()
     test.describe("butschster.windows explorer", function()
-        test.it("оставляет корень пустым, когда файловых систем нет", function()
+        test.it("leaves the root empty when there are no filesystems", function()
             test.eq(#model.root({}), 0)
         end)
 
-        test.it("делает диском каждую запись fs, ничего не заводя сам", function()
-            -- Диск, объявленный установленным модулем, обязан появиться сам.
-            -- Своя таблица дисков означала бы, что он не появится, пока
-            -- кто-то не впишет его руками.
+        test.it("makes a drive of every fs entry without creating anything itself", function()
+            -- A drive declared by an installed module must appear by itself.
+            -- A table of drives of our own would mean that it does not
+            -- appear until someone writes it in by hand.
             local drives = model.drives({
                 {id = "wippy.facade:public_files", kind = "fs.directory"},
                 {id = "keeper:ui_static_fs", kind = "fs.embed"},
@@ -36,32 +36,32 @@ local function define_tests()
 
             local first = by_id(drives, "keeper:ui_static_fs")
             test.eq(first.kind, "drive")
-            test.eq(first.title, "ui_static_fs", "подписью служит имя записи")
+            test.eq(first.title, "ui_static_fs", "the entry name serves as the caption")
             test.eq(first.open.path, "drive/keeper:ui_static_fs")
             test.is_true(first.detail:find("fs.embed", 1, true) ~= nil,
-                "вид записи — это ответ на «почему он только на чтение»")
+                "the entry kind is the answer to \"why is it read-only\"")
         end)
 
-        test.it("подписывает полным именем диски, которых иначе не различить", function()
-            -- Два одинаковых значка рядом — это не подпись, а загадка.
-            -- Полным именем подписываются ОБА: подпись, зависящая от порядка
-            -- чтения реестра, менялась бы сама по себе.
+        test.it("captions with the full name the drives that cannot be told apart otherwise", function()
+            -- Two identical icons side by side are not a caption but a riddle.
+            -- BOTH get the full name: a caption that depends on the order the
+            -- registry is read in would change by itself.
             local drives = model.drives({
                 {id = "keeper:ui_static_fs", kind = "fs.directory"},
                 {id = "vlad.doom:ui_static_fs", kind = "fs.directory"},
                 {id = "app:one_of_a_kind", kind = "fs.directory"},
             })
-            -- Пробелом, а не двоеточием: подпись переносится по пробелам, и
-            -- «keeper ui_static_fs» ложится двумя строками, где первая
-            -- читается целиком, а «keeper:ui_static_fs» обрезается в
-            -- «keeper:ui_st» — ровно там, где начинается различие.
+            -- With a space, not a colon: the caption wraps at spaces, and
+            -- "keeper ui_static_fs" lays out as two lines where the first
+            -- reads in full, while "keeper:ui_static_fs" is cut to
+            -- "keeper:ui_st" — exactly where the difference begins.
             test.eq(by_id(drives, "keeper:ui_static_fs").title, "keeper ui_static_fs")
             test.eq(by_id(drives, "vlad.doom:ui_static_fs").title, "vlad.doom ui_static_fs")
             test.eq(by_id(drives, "app:one_of_a_kind").title, "one_of_a_kind",
-                "однозначное имя удлинять незачем")
+                "there is no point in lengthening an unambiguous name")
         end)
 
-        test.it("в корне только FS, без папок оболочки", function()
+        test.it("has only FS in the root, without shell folders", function()
             local root = model.root({{id = "app:probe", kind = "fs.directory"}})
             test.eq(#root, 1)
             test.eq(root[1].id, "app:probe")
@@ -71,22 +71,22 @@ local function define_tests()
             end
         end)
 
-        test.it("читает путь одинаково для щелчка и для кнопки «Вверх»", function()
-            -- Разойдись они — «Вверх» уводила бы не туда, куда ведёт двойной
-            -- щелчок, и разошлись бы они молча.
+        test.it("reads a path the same way for a click and for the \"Up\" button", function()
+            -- Were they to diverge, "Up" would lead somewhere other than where
+            -- a double click leads, and they would diverge silently.
             test.eq(model.parse(model.ROOT).view, "root")
             test.eq(model.parse("desktop").view, "desktop")
             test.eq(model.parse("desktop/f1").id, "f1")
             test.eq(model.parse("drive/app:fs").id, "app:fs",
-                "двоеточие принадлежит идентификатору записи, а не пути")
+                "the colon belongs to the entry id, not to the path")
             test.is_nil(model.parse("drive/app:fs").sub)
             test.eq(model.parse("drive/app:fs/ui/dist").sub, "ui/dist")
-            test.eq(model.parse("что-то другое").view, "unknown",
-                "молчаливый откат к корню превратил бы опечатку в переход")
+            test.eq(model.parse("something else").view, "unknown",
+                "a silent fallback to the root would turn a typo into a navigation")
         end)
 
-        test.it("поднимает на уровень выше, а не сразу в корень", function()
-            test.is_nil(model.parent(model.ROOT), "выше корня некуда")
+        test.it("goes one level up, not straight to the root", function()
+            test.is_nil(model.parent(model.ROOT), "there is nowhere above the root")
             test.eq(model.parent("programs"), model.ROOT)
             test.eq(model.parent("desktop/f1"), "desktop")
             test.eq(model.parent("drive/app:fs"), model.ROOT)
@@ -94,24 +94,24 @@ local function define_tests()
             test.eq(model.parent("drive/app:fs/ui/dist"), "drive/app:fs/ui")
         end)
 
-        test.it("не обещает открыть файл, которого нечем открыть", function()
-            -- Просмотрщика файлов нет. Намерение «открыть» было бы обещанием,
-            -- которое некому исполнить, а двойной щелчок по нему —
-            -- бездействием, неотличимым от незамеченного.
+        test.it("does not promise to open a file that has nothing to open it with", function()
+            -- There is no file viewer. An intent to "open" would be a promise
+            -- that nobody can keep, and a double click on it would be
+            -- inaction indistinguishable from an unnoticed click.
             local objects = model.files({
                 {name = "app.js", type = "file"},
                 {name = "ui", type = "directory"},
                 {name = "README.md", type = "file"},
             }, "drive/app:fs")
 
-            test.eq(objects[1].title, "ui", "папки раньше файлов, как в проводнике")
+            test.eq(objects[1].title, "ui", "folders before files, as in Explorer")
             test.eq(objects[1].open.path, "drive/app:fs/ui")
-            test.eq(objects[2].title, "README.md", "дальше по имени")
+            test.eq(objects[2].title, "README.md", "then by name")
             test.is_nil(objects[2].open)
             test.is_nil(objects[3].open)
         end)
 
-        test.it("не превращает процессы и данные реестра в диски", function()
+        test.it("does not turn registry processes and data into drives", function()
             local root = model.root({
                 {id = "app:files", kind = "fs.directory"},
                 {id = "app:embedded", kind = "fs.embed"},
@@ -124,12 +124,13 @@ local function define_tests()
             test.not_nil(by_id(root, "app:embedded"))
         end)
 
-        test.it("описывает двойной щелчок намерением, а не действием", function()
-            -- Окно не порождает процессов и не открывает соседей само: оно
-            -- просит об этом композитор. Намерение, собранное в одном месте,
-            -- не даёт окну решать по дороге, что значит «открыть».
+        test.it("describes a double click by an intent, not by an action", function()
+            -- The window does not spawn processes and does not open its
+            -- neighbours by itself: it asks the compositor to do it. An
+            -- intent gathered in one place keeps the window from deciding
+            -- along the way what "open" means.
             local programs = model.programs({
-                {entry = "app:clock", title = "Часы", icon = "◷", width = 30, height = 6},
+                {entry = "app:clock", title = "Clock", icon = "◷", width = 30, height = 6},
             })
             test.eq(#programs, 1)
             local open = programs[1].open
@@ -139,13 +140,13 @@ local function define_tests()
             test.eq(open.h, 6)
         end)
 
-        test.it("поднимает открытое окно, а не открывает второе такое же", function()
-            -- Список показывает то, что уже на экране; «открыть» здесь значит
-            -- «показать». Второе окно того же вида было бы не тем, о чём
-            -- просили двойным щелчком по строке списка.
+        test.it("raises an open window rather than opening a second one of the same kind", function()
+            -- The list shows what is already on screen; "open" here means
+            -- "show". A second window of the same kind would not be what was
+            -- asked for by a double click on a row of the list.
             local windows = model.windows({
                 {id = "w1", title = "bash"},
-                {id = "w2", title = "Часы", minimized = true},
+                {id = "w2", title = "Clock", minimized = true},
             })
             test.eq(windows[1].open.action, "raise")
             test.eq(windows[1].open.id, "w1")
@@ -153,67 +154,68 @@ local function define_tests()
             test.eq(windows[2].detail, "minimized")
         end)
 
-        test.it("показывает битый ярлык битым и не даёт его открыть", function()
-            -- Пропавшая строка читается как «я его случайно удалил», битая —
-            -- как «программы больше нет». А открывать нечего: записи нет, и
-            -- намерение открыть было бы обещанием, которое некому исполнить.
+        test.it("shows a broken shortcut as broken and does not let it be opened", function()
+            -- A missing row reads as "I deleted it by accident", a broken one
+            -- as "the program is gone". And there is nothing to open: there
+            -- is no entry, and an intent to open would be a promise that
+            -- nobody can keep.
             local objects = model.desktop({
-                {id = "s1", kind = "shortcut", entry = "app:ghost", title = "Призрак"},
+                {id = "s1", kind = "shortcut", entry = "app:ghost", title = "Ghost"},
             }, {})
             test.eq(#objects, 1)
             test.eq(objects[1].icon, model.BROKEN_ICON)
-            test.is_nil(objects[1].open, "у битого ярлыка нечего открывать")
+            test.is_nil(objects[1].open, "a broken shortcut has nothing to open")
             test.is_true(objects[1].detail:find("no program", 1, true) ~= nil,
-                "причина названа текстом, а не оставлена на догадку")
+                "the reason is named in text, not left to guessing")
         end)
 
-        test.it("не выдаёт исправный ярлык за битый, когда каталог не прочитан", function()
-            -- Обвинить исправную программу на основании непрочитанного
-            -- каталога хуже, чем промолчать. Но и открывать вслепую нельзя:
-            -- размеров окна взять неоткуда.
+        test.it("does not pass a working shortcut off as broken when the catalog is not read", function()
+            -- Accusing a working program on the basis of an unread catalog
+            -- is worse than staying silent. But opening blindly is not
+            -- allowed either: there is nowhere to take the window size from.
             local blind = model.desktop({
-                {id = "s1", kind = "shortcut", entry = "app:real", title = "Настоящий"},
+                {id = "s1", kind = "shortcut", entry = "app:real", title = "Real"},
             }, nil)
             test.eq(#blind, 1)
-            test.eq(blind[1].title, "Настоящий")
+            test.eq(blind[1].title, "Real")
         end)
 
-        test.it("открывает папку стола её собственным окном", function()
+        test.it("opens a desktop folder in its own window", function()
             local objects = model.desktop({
                 {id = "f1", kind = "folder", title = "Programs"},
             }, {})
             test.eq(objects[1].kind, "folder")
             test.eq(objects[1].open.action, "folder")
             test.is_true(objects[1].open.path:find("f1", 1, true) ~= nil,
-                "путь обязан называть саму папку, иначе откроется не та")
+                "the path must name the folder itself, otherwise the wrong one opens")
         end)
     end)
 
-    -- Канал ответов у окна один. Основа отказывает командам без ожидания —
-    -- open, focus, state — тем же каналом, с пометкой `unsolicited`. Окно,
-    -- читавшее всё подряд как ответ на `desktop.list`, клало отказ открыть
-    -- программу в папку «Открытые окна» и стирало список, а на экране не было
-    -- ничего.
-    test.describe("ответы композитора", function()
-        test.it("незапрошенный отказ не трогает список окон и попадает в строку состояния", function()
+    -- The window has one reply channel. The base refuses commands without
+    -- waiting — open, focus, state — over the same channel, marked
+    -- `unsolicited`. A window that read everything as a reply to
+    -- `desktop.list` put a refusal to open a program into the "Open Windows"
+    -- folder and erased the list, and there was nothing on screen.
+    test.describe("compositor replies", function()
+        test.it("an unsolicited refusal does not touch the window list and goes to the status bar", function()
             local listed = {{id = "w1", title = "bash"}}
             local state: any = {windows = listed}
             test.eq(model.take_reply(state, {ok = false, error = "no such entry: app:gone",
                 command = "desktop.open", unsolicited = true}), "notice")
-            test.eq(state.windows, listed, "список окон тот же")
-            test.is_nil(state.windows_error, "отказ открыть — не отказ дать список")
+            test.eq(state.windows, listed, "the window list is the same")
+            test.is_nil(state.windows_error, "a refusal to open is not a refusal to give the list")
             test.eq(state.notice, "did not open: no such entry: app:gone")
             model.take_reply(state, {ok = false, error = "no window w9",
                 command = "desktop.focus", unsolicited = true})
-            test.eq(state.notice, "did not start: no window w9", "та же форма, что у отказа сразу")
+            test.eq(state.notice, "did not start: no window w9", "the same form as for an immediate refusal")
             model.take_reply(state, {ok = false, error = "gone", command = "desktop.state", unsolicited = true})
             test.eq(state.notice, "desktop.state refused: gone")
             test.eq(state.windows, listed)
             test.eq(model.refusal("desktop.open", "x"), "did not open: x",
-                "окно зовёт ту же функцию, когда отказ приходит сразу")
+                "the window calls the same function when the refusal comes immediately")
         end)
 
-        test.it("ответ на desktop.list по-прежнему заполняет список", function()
+        test.it("a reply to desktop.list still fills the list", function()
             local state: any = {windows_error = "old"}
             test.eq(model.take_reply(state, {ok = true, command = "desktop.list",
                 windows = {{id = "w1", title = "bash"}}}), "list")
@@ -224,11 +226,11 @@ local function define_tests()
             test.eq(state.windows_error, "busy")
         end)
 
-        test.it("чужой ответ не выдаётся за список", function()
+        test.it("someone else's reply is not passed off as the list", function()
             local listed = {{id = "w1"}}
             local state: any = {windows = listed}
             test.is_nil(model.take_reply(state, {ok = true, command = "desktop.open", window = {id = "w2"}}))
-            test.is_nil(model.take_reply(state, {ok = true, windows = {}}), "без command — не ответ на list")
+            test.is_nil(model.take_reply(state, {ok = true, windows = {}}), "without command it is not a reply to list")
             test.is_nil(model.take_reply(state, nil))
             test.eq(state.windows, listed)
             test.is_nil(state.notice)

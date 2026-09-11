@@ -1,29 +1,29 @@
--- Раскладка рабочего стола оболочки.
+-- The shell's desktop layout.
 --
--- Здесь лежит только то, что двигает пользователь: где значок, как он назван,
--- в какой папке стола. Список программ здесь НЕ лежит — его объявляет реестр,
--- и хранить его копию значило бы, что установленный модуль не появится, пока
--- кто-то не нажмёт «обновить».
+-- Only what the user moves lives here: where an icon is, what it is called,
+-- which desktop folder it is in. The list of programs does NOT live here — it
+-- is declared by the registry, and keeping a copy of it would mean that an
+-- installed module does not appear until someone presses "refresh".
 --
--- Таблицы две, и это не дробление одной.
+-- There are two tables, and this is not one table split up.
 --
--- `desktop_items` — раскладка: строку создаёт и удаляет пользователь.
--- `desktop_seeded` — история предложений: строку создаёт оболочка, когда
--- впервые выносит на стол программу с `desktop: true`, и НИКОГДА не удаляет.
--- Именно из-за этого удаление значка работает: ярлык ушёл из раскладки, а
--- отметка «эту программу мы уже предлагали» осталась, и на следующем старте
--- значок не возвращается.
+-- `desktop_items` is the layout: the user creates and deletes rows.
+-- `desktop_seeded` is the history of offers: the shell creates a row when it
+-- first puts a program with `desktop: true` on the desktop, and NEVER deletes
+-- it. This is exactly why deleting an icon works: the shortcut left the
+-- layout, but the mark "we have already offered this program" stayed, and on
+-- the next startup the icon does not come back.
 --
--- Слить их в одну таблицу отметкой «удалён» нельзя без цены: тогда каждый
--- запрос раскладки обязан фильтровать надгробия, и один пропущенный фильтр
--- рисует на столе значок-призрак. Из отдельной таблицы надгробие в раскладку
--- не просочится.
+-- Merging them into one table with a "deleted" mark is not possible without
+-- a price: then every layout query has to filter out tombstones, and one
+-- missed filter draws a ghost icon on the desktop. From a separate table a
+-- tombstone will not leak into the layout.
 --
--- ВАЖНО ТОМУ, КТО БУДЕТ ЧИСТИТЬ БАЗУ: `desktop_seeded` — НЕ кэш. Её нельзя
--- опустошить «чтобы освежить»: очистка вернёт человеку все ярлыки, которые он
--- когда-либо выбросил, и выглядеть это будет не как чужая уборка, а как
--- сломанное удаление значков. Строки здесь маленькие и не растут ни от чего,
--- кроме появления новых программ.
+-- IMPORTANT FOR WHOEVER CLEANS THE DATABASE: `desktop_seeded` is NOT a cache.
+-- It must not be emptied "to refresh things": clearing it will give the
+-- person back every shortcut they have ever thrown away, and it will look not
+-- like someone else's cleanup but like broken icon deletion. The rows here
+-- are small and grow from nothing except the appearance of new programs.
 
 return require("migration").define(function()
     migration("Create butschster_windows desktop layout tables", function()

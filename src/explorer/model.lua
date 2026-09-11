@@ -1,31 +1,33 @@
--- Что показывает «Мой компьютер».
+-- What "My Computer" shows.
 --
--- Диски — это записи `fs.*` реестра, и заводить их не надо: почти каждый
--- установленный модуль привозит свою файловую систему, и на стенде их
--- десятки. Окно их ПОКАЗЫВАЕТ. Отсюда оба правила разом: диск, объявленный
--- установленным модулем, появляется сам, без правки в оболочке; а диска,
--- которого нет в реестре, здесь не будет — нарисованный `C:` был бы
--- предметом, которого не существует, и первым вопросом было бы, почему он не
--- открывается.
+-- Drives are the `fs.*` entries of the registry, and there is no need to
+-- create them: almost every installed module brings its own filesystem, and
+-- on the running system there are dozens of them. The window SHOWS them.
+-- Hence both rules at once: a drive declared by an installed module appears
+-- by itself, with no edit in the shell; and a drive that is not in the
+-- registry will not be here — a painted `C:` would be an object that does
+-- not exist, and the first question would be why it does not open.
 --
--- Корень показывает только диски. Для открытых напрямую папок стола и
--- служебных путей остаются отдельные модели источников; оболочка их читает
--- по другим поводам:
+-- The root shows only drives. For desktop folders opened directly and for
+-- service paths separate source models remain; the shell reads them for
+-- other purposes:
 --
---   Программы      — каталог реестра, тот же, что наполняет меню «Пуск»
---   Рабочий стол   — своя раскладка, ярлыки и папки стола
---   Открытые окна  — то, что сейчас на экране, у композитора основы
+--   Programs       — the registry catalog, the same one that fills the "Start" menu
+--   Desktop        — our own layout, desktop shortcuts and folders
+--   Open Windows   — what is on screen right now, held by the base's compositor
 --
--- Чего здесь намеренно НЕТ: прогонов, работ бриджа, битов контент-машины.
--- Читать чужие таблицы напрямую значило бы завести зависимость от схем
--- модулей, от которых оболочка не зависит, — и сломаться на их первой
--- миграции, молча и не у себя. Модуль, желающий показать своё, объявляет окно
--- записью с `meta.type: tui_desktop.window`, и оно появляется в «Программах»
--- само. Это тот же принцип, на котором стоит весь модуль: объявляет реестр.
+-- What is deliberately NOT here: runs, bridge jobs, content-machine beats.
+-- Reading other modules' tables directly would mean taking a dependency on
+-- the schemas of modules the shell does not depend on — and breaking on
+-- their first migration, silently and not in our own code. A module that
+-- wants to show its own data declares a window as an entry with
+-- `meta.type: tui_desktop.window`, and it appears in "Programs" by itself.
+-- This is the same principle the whole module stands on: the registry
+-- declares.
 --
--- Разбиение на чистую сборку и чтение источников — то же, что в каталоге:
--- правило, проверяемое только через живую базу, проверяется один раз, а потом
--- никогда.
+-- The split into a pure assembly and reading the sources is the same as in
+-- the catalog: a rule that can be checked only against a live database gets
+-- checked once, and then never.
 
 local catalog = require("catalog")
 local associations = require("associations")
@@ -46,21 +48,21 @@ model.DRIVE_ICON = "▦"
 model.DIR_ICON = "▤"
 model.FILE_ICON = "▫"
 
--- Путь — строка, и её грамматика вся здесь, потому что читают её трое: окно
--- (чтобы знать, что рисовать), источники (чтобы знать, что читать) и кнопка
--- «Вверх» (чтобы знать, куда возвращаться). Разойдись они — «Вверх» уводила
--- бы не туда, куда ведёт двойной щелчок.
+-- A path is a string, and its whole grammar is here, because three parties
+-- read it: the window (to know what to draw), the sources (to know what to
+-- read) and the "Up" button (to know where to go back to). Were they to
+-- diverge, "Up" would lead somewhere other than where a double click leads.
 --
---   ""                    корень «Моего компьютера»
---   "programs"            каталог программ
---   "desktop"             рабочий стол, верхний уровень
---   "desktop/<id>"        папка стола
---   "windows"             открытые окна
---   "drive/<запись>"      корень файловой системы из реестра
---   "drive/<запись>/<путь>"  каталог внутри неё
+--   ""                    the root of "My Computer"
+--   "programs"            the program catalog
+--   "desktop"             the desktop, top level
+--   "desktop/<id>"        a desktop folder
+--   "windows"             open windows
+--   "drive/<entry>"       the root of a filesystem from the registry
+--   "drive/<entry>/<path>"  a directory inside it
 --
--- Идентификатор записи реестра — всегда `namespace:name`, и косой черты в нём
--- быть не может; на этом и стоит разбор пути внутри диска.
+-- A registry entry id is always `namespace:name`, and there can be no slash
+-- in it; parsing the path inside a drive relies on exactly that.
 function model.parse(path: any)
     local text = type(path) == "string" and path or ""
 
@@ -78,19 +80,21 @@ function model.parse(path: any)
         return {view = "drive", id = drive, sub = inside}
     end
 
-    -- Неизвестный путь — это не корень. Молчаливый откат к корню превратил бы
-    -- опечатку в успешный переход, и человек решил бы, что папка пуста.
+    -- An unknown path is not the root. A silent fallback to the root would
+    -- turn a typo into a successful navigation, and a person would decide
+    -- that the folder is empty.
     return {view = "unknown"}
 end
 
--- parent(path) -> путь на уровень выше | nil, если выше некуда
+-- parent(path) -> the path one level up | nil if there is nowhere higher
 --
--- Тем же разбором, что и `parse`: кнопка «Вверх», считающая путь своей
--- формулой, разъедется с двойным щелчком, и разойдутся они молча.
--- address(path) -> строка адреса, как её показала бы Windows: `Мой компьютер`,
--- `Мой компьютер\Программы`, `app:app_fs\src\app`. Диск называется своей
--- записью реестра — другого имени у него нет, а придуманная буква обещала
--- бы то, чего не существует.
+-- By the same parsing as `parse`: an "Up" button that computes the path by
+-- its own formula will drift apart from the double click, and they will
+-- drift apart silently.
+-- address(path) -> the address string as Windows would show it: `My Computer`,
+-- `My Computer\Programs`, `app:app_fs\src\app`. A drive is named by its
+-- registry entry — it has no other name, and an invented letter would
+-- promise something that does not exist.
 function model.address(path: any): string
     local where: any = model.parse(path)
     if where.view == "root" then return "My Computer" end
@@ -106,10 +110,10 @@ function model.address(path: any): string
     return tostring(path or "")
 end
 
--- ancestors(path) -> список {title, path} от корня до текущей папки.
+-- ancestors(path) -> a list of {title, path} from the root to the current folder.
 --
--- Это содержимое выпадающего списка адресной строки: каждая строка — куда
--- можно перейти одним щелчком. Последняя — сама папка.
+-- These are the contents of the address bar's dropdown list: each line is a
+-- place you can go to with one click. The last one is the folder itself.
 function model.ancestors(path: any): any
     local chain: any = {}
     local at: any = path
@@ -143,13 +147,14 @@ function model.parent(path: any)
     return model.ROOT
 end
 
--- Объект: что видно (title, icon, detail) и что происходит по двойному щелчку
--- (open). Двойной, а не одиночный: программа, стартующая с одного клика, —
--- ловушка, и в настоящей Windows её тоже нет.
+-- An object: what is visible (title, icon, detail) and what happens on a
+-- double click (open). Double, not single: a program that starts on one
+-- click is a trap, and real Windows does not have it either.
 --
--- `open` описывает НАМЕРЕНИЕ, а не выполняет его: окно не порождает процессов
--- и не открывает соседей само, оно просит об этом композитор. Разбор намерения
--- живёт в одном месте, и окно не решает по дороге, что значит «открыть».
+-- `open` describes an INTENT, it does not carry it out: the window does not
+-- spawn processes and does not open its neighbours by itself, it asks the
+-- compositor to do it. Interpreting the intent lives in one place, and the
+-- window does not decide along the way what "open" means.
 local function object(fields: any)
     return {
         id = fields.id,
@@ -162,29 +167,30 @@ local function object(fields: any)
     }
 end
 
--- Диски: записи `fs.directory` и `fs.embed` реестра как они есть.
+-- Drives: the registry's `fs.directory` and `fs.embed` entries as they are.
 --
--- Своей таблицы дисков нет и быть не может — она означала бы, что модуль,
--- привёзший файловую систему, не появится здесь, пока кто-то не впишет его
--- руками. Поэтому список ровно такой, каким его отдал реестр.
+-- There is no table of drives of our own and there cannot be — it would mean
+-- that a module that brought a filesystem does not appear here until someone
+-- writes it in by hand. So the list is exactly what the registry returned.
 --
--- Подпись — имя записи, а не полный идентификатор: `wippy.facade:public_files`
--- в двенадцать ячеек подписи не помещается и обрезается ровно там, где
--- начинается различие.
+-- The caption is the entry name, not the full id: `wippy.facade:public_files`
+-- does not fit into a twelve-cell caption and gets cut exactly where the
+-- difference begins.
 --
--- Но имя не всегда различает: `ui_static_fs` привозят сразу несколько
--- модулей, и два одинаковых значка рядом — это не подпись, а загадка. Тогда
--- к имени добавляется пространство имён, и добавляется ПРОБЕЛОМ, а не
--- двоеточием: подпись переносится по пробелам, и `keeper ui_static_fs`
--- ложится двумя строками, где хотя бы первая читается целиком, а
--- `keeper:ui_static_fs` обрезается в `keeper:ui_st` — то есть ровно там, где
--- начинается различие, ради которого его и удлинили.
+-- But the name does not always tell them apart: `ui_static_fs` is brought by
+-- several modules at once, and two identical icons side by side are not a
+-- caption but a riddle. Then the namespace is added to the name, and it is
+-- added with a SPACE, not a colon: the caption wraps at spaces, and
+-- `keeper ui_static_fs` lays out as two lines where at least the first reads
+-- in full, while `keeper:ui_static_fs` is cut to `keeper:ui_st` — that is,
+-- exactly where the difference begins, the very difference it was lengthened
+-- for.
 --
--- Удлиняются ОБА совпавших имени, а не второе: подпись, зависящая от порядка
--- чтения реестра, меняется сама по себе.
+-- BOTH matching names are lengthened, not just the second: a caption that
+-- depends on the order the registry is read in changes by itself.
 --
--- Полный идентификатор при этом не теряется: он в `detail`, а `detail`
--- выделенного объекта окно показывает в статусной строке.
+-- The full id is not lost in the process: it is in `detail`, and the window
+-- shows the `detail` of the selected object in the status bar.
 function model.drives(records: any)
     local seen: any = {}
     local drives: any = {}
@@ -201,9 +207,9 @@ function model.drives(records: any)
         end
     end
 
-    -- Порядок задан здесь и не наследуется от реестра: список, порядок
-    -- которого решает чужая выдача, переставляет значки сам по себе, и
-    -- человек, привыкший к месту, каждый раз ищет заново.
+    -- The order is set here and not inherited from the registry: a list whose
+    -- order is decided by someone else's output rearranges the icons by
+    -- itself, and a person used to a place searches anew every time.
     table.sort(drives, function(left, right) return left.id < right.id end)
 
     local out = {}
@@ -214,9 +220,9 @@ function model.drives(records: any)
             kind = "drive",
             title = ambiguous and (drive.space .. " " .. drive.name) or drive.name,
             icon = model.DRIVE_ICON,
-            -- Вид записи — это ответ на «почему он не открывается»: `fs.embed`
-            -- вморожен в модуль и доступен только на чтение, `fs.directory` —
-            -- настоящий каталог на диске.
+            -- The entry kind is the answer to "why doesn't it open": `fs.embed`
+            -- is frozen into the module and is read-only, `fs.directory` is a
+            -- real directory on disk.
             detail = drive.id .. " · " .. tostring(drive.kind or "fs"),
             open = {action = "folder", path = "drive/" .. drive.id},
         })
@@ -224,15 +230,16 @@ function model.drives(records: any)
     return out
 end
 
--- Содержимое каталога внутри диска. `entries` — то, что отдал `readdir`:
--- имя и вид, и больше ничего. Размера здесь нет намеренно — за ним пришлось
--- бы делать `stat` на каждую строку, то есть сотню обращений к диску ради
--- колонки, которой в значках всё равно нет.
+-- The contents of a directory inside a drive. `entries` is what `readdir`
+-- returned: a name and a kind, and nothing more. There is deliberately no
+-- size here — it would require a `stat` on every row, that is, a hundred disk
+-- accesses for the sake of a column that icons do not have anyway.
 --
--- Файл открывает программа из реестра типов (`associations.open`). У файла,
--- которого нечем открыть, намерения нет: оно было бы обещанием, которое
--- некому исполнить. Причина лежит в `detail`, и на двойной щелчок окно
--- говорит её тем же способом, что и про любой другой отказ.
+-- A file is opened by a program from the file type registry
+-- (`associations.open`). A file that has nothing to open it with has no
+-- intent: it would be a promise that nobody can keep. The reason lies in
+-- `detail`, and on a double click the window tells it the same way as it
+-- tells any other refusal.
 function model.files(entries: any, path: any, drive: any, sub: any, programs: any)
     local rows = {}
     for _, entry in ipairs(type(entries) == "table" and entries or {}) do
@@ -242,16 +249,16 @@ function model.files(entries: any, path: any, drive: any, sub: any, programs: an
         end
     end
 
-    -- Папки раньше файлов, дальше по имени — как в проводнике. Порядок,
-    -- взятый у файловой системы, у каждой свой.
+    -- Folders before files, then by name — as in Explorer. An order taken
+    -- from the filesystem is different for each one.
     table.sort(rows, function(left, right)
         if left.dir ~= right.dir then return left.dir end
         return left.name < right.name
     end)
 
     local base = type(path) == "string" and path or ""
-    -- Путь ВНУТРИ диска — то, что получит программа; `path` — это адрес
-    -- папки в проводнике, у него другая форма.
+    -- The path INSIDE the drive is what the program will get; `path` is the
+    -- folder's address in Explorer, it has a different form.
     local inside = (type(sub) == "string" and sub ~= "") and ("/" .. sub) or ""
     local out = {}
     for _, row in ipairs(rows) do
@@ -265,9 +272,10 @@ function model.files(entries: any, path: any, drive: any, sub: any, programs: an
                 open = {action = "folder", path = base .. "/" .. row.name},
             })
         else
-            -- Файл открывает программа из реестра типов, и она же даёт ему
-            -- значок. Файл, который нечем открыть, говорит об этом в
-            -- подробностях и не открывается — вместо тишины на двойной щелчок.
+            -- A file is opened by a program from the file type registry, and
+            -- that program also gives it its icon. A file that has nothing to
+            -- open it with says so in its details and does not open — instead
+            -- of silence on a double click.
             local file_path = inside .. "/" .. row.name
             local open, why = associations.open(programs, drive, file_path)
             out[#out + 1] = object({
@@ -290,9 +298,9 @@ function model.root(records: any)
     return model.drives(records)
 end
 
--- Программы каталога. Плоско, без папок меню: в окне проводника папки меню
--- были бы вторым деревом рядом с деревом «Мой компьютер», и человек не понял
--- бы, в каком из них он находится.
+-- The catalog's programs. Flat, without menu folders: in an Explorer window
+-- menu folders would be a second tree next to the "My Computer" tree, and a
+-- person would not understand which of them they are in.
 function model.programs(programs: any)
     local out = {}
     for _, program in ipairs(type(programs) == "table" and programs or {}) do
@@ -316,9 +324,9 @@ function model.programs(programs: any)
     return out
 end
 
--- Ярлыки и папки стола. Битый ярлык виден и здесь, и по той же причине:
--- пропавшая строка читается как «я его случайно удалил», битая — как
--- «программы больше нет».
+-- Desktop shortcuts and folders. A broken shortcut is visible here too, and
+-- for the same reason: a missing row reads as "I deleted it by accident", a
+-- broken one as "the program is gone".
 function model.desktop(items: any, programs: any)
     local out = {}
     for _, item in ipairs(type(items) == "table" and items or {}) do
@@ -329,8 +337,8 @@ function model.desktop(items: any, programs: any)
                 title = item.title,
                 icon = "▤",
                 detail = "desktop folder",
-                -- Папка стола открывается своим окном, а не этим: у неё своё
-                -- содержимое и своя раскладка.
+                -- A desktop folder is opened in its own window, not in this
+                -- one: it has its own contents and its own layout.
                 open = {action = "folder", path = "desktop/" .. tostring(item.id)},
             })
         else
@@ -357,9 +365,9 @@ function model.desktop(items: any, programs: any)
     return out
 end
 
--- Открытые окна. Двойной щелчок поднимает окно, а не открывает второе такое
--- же: список показывает то, что уже на экране, и «открыть» здесь значит
--- «показать».
+-- Open windows. A double click raises the window rather than opening a second
+-- one of the same kind: the list shows what is already on screen, and "open"
+-- here means "show".
 function model.windows(windows: any)
     local out = {}
     for _, window in ipairs(type(windows) == "table" and windows or {}) do
@@ -375,20 +383,22 @@ function model.windows(windows: any)
     return out
 end
 
--- ─── ответы композитора ──────────────────────────────────────────────────
+-- ─── compositor replies ──────────────────────────────────────────────────
 --
--- Канал ответов у окна один, и приезжает в него не только ответ на
--- `desktop.list`. Команды без ожидания — `desktop.open`, `desktop.focus`,
--- `desktop.state` — композитор отказывает тем же каналом, с пометкой
--- `unsolicited` (основа, `refuse`). Окно, читавшее всё подряд как список,
--- принимало отказ открыть программу за «список окон не прочитан»: причина
--- ложилась в папку, на которую никто не смотрел, а на экране не было ничего.
+-- The window has one reply channel, and it receives more than the reply to
+-- `desktop.list`. Commands without waiting — `desktop.open`, `desktop.focus`,
+-- `desktop.state` — are refused by the compositor over the same channel,
+-- marked `unsolicited` (the base, `refuse`). A window that read everything as
+-- a list took a refusal to open a program for "the window list was not
+-- read": the reason went into a folder nobody was looking at, and there was
+-- nothing on screen.
 
 local NO_REASON = "the compositor refused without a reason"
 
--- Как отказ называется в строке состояния. Одна таблица и для отказа,
--- пришедшего сразу (композитор не найден), и для пришедшего потом каналом:
--- две формулировки одного отказа читались бы как два разных.
+-- How a refusal is named in the status bar. One table both for a refusal that
+-- arrives immediately (compositor not found) and for one that arrives later
+-- over the channel: two wordings of one refusal would read as two different
+-- ones.
 local REFUSED: any = {["desktop.open"] = "did not open", ["desktop.focus"] = "did not start"}
 
 function model.refusal(command: any, reason: any): string
@@ -399,9 +409,10 @@ end
 
 -- take_reply(state, body) -> "list" | "notice" | nil
 --
--- "list" — пришёл список окон или отказ его дать, папку надо перечитать;
--- "notice" — отказ другой команде: он лёг в строку состояния, список не
--- тронут; nil — ответ не на вопрос этого окна, класть его некуда.
+-- "list" — the window list or a refusal to give it arrived, the folder must
+-- be re-read; "notice" — a refusal for another command: it went into the
+-- status bar, the list is untouched; nil — the reply is not to this window's
+-- question, there is nowhere to put it.
 function model.take_reply(state: any, body: any): any
     if type(body) ~= "table" then return nil end
     if body.unsolicited or (body.ok == false and body.command ~= "desktop.list") then

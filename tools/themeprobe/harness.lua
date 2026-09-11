@@ -1,13 +1,15 @@
--- Пробник темы: подменяет `tty` чистой реализацией на Lua и печатает холст
--- текстом. Проверяет ровно то, что нельзя увидеть в коде, — куда легли
--- ячейки и совпали ли попадания с рисунком.
+-- Theme probe: substitutes `tty` with a pure-Lua implementation and prints
+-- the canvas as text. It checks exactly what cannot be seen in the code —
+-- where the cells landed and whether the hits matched the drawing.
 --
--- Написан вместе с темой butschster/windows, чтобы проверять её, не поднимая
--- стенд: стенд один на всех, а разъехавшаяся на ячейку рамка видна только на
--- кадре. Оговорка про ширину символов — в README рядом, и она обязана ехать
--- вместе с инструментом.
+-- Written together with the butschster/windows theme to check it without
+-- bringing up the stand: there is one stand for everyone, and a frame that is
+-- off by a cell is visible only in a rendered frame. The caveat about
+-- character width is in the README next to it, and it must travel together
+-- with the tool.
 
--- Метки для build.py: строки ниже он заменяет телом самих файлов темы.
+-- Markers for build.py: it replaces the lines below with the bodies of the
+-- theme files themselves.
 local BASE = "src/shell/"
 
 local M1, M2, M3 = "\1", "\2", "\3"
@@ -25,7 +27,7 @@ local function visible(s)
         if ch == M1 then
             repeat i = i + 1 until i > #list or list[i] == M2
         elseif ch == M3 then
-            -- конец стиля
+            -- end of style
         else
             out[#out+1] = ch
         end
@@ -34,7 +36,7 @@ local function visible(s)
     return out
 end
 
--- ─── стиль ───────────────────────────────────────────────────────────────
+-- ─── style ───────────────────────────────────────────────────────────────
 local function new_style(spec)
     local self = {}
     local function copy(extra)
@@ -59,7 +61,7 @@ local function new_style(spec)
     return self
 end
 
--- ─── холст ───────────────────────────────────────────────────────────────
+-- ─── canvas ──────────────────────────────────────────────────────────────
 local function new_canvas(w, h)
     local cell, style = {}, {}
     for y = 1, h do
@@ -160,35 +162,36 @@ tty.text = {
 }
 tty.canvas = function(w, h) return new_canvas(w, h) end
 
--- ─── загрузка темы ───────────────────────────────────────────────────────
+-- ─── theme loading ───────────────────────────────────────────────────────
 local modules = {tty = tty}
 local saved_require = require
 require = function(name)
     if modules[name] then return modules[name] end
     if saved_require then return saved_require(name) end
-    error("нет модуля " .. tostring(name))
+    error("no module " .. tostring(name))
 end
 
--- Правила `meta.in_menu` и `meta.window_type` живут в библиотеке ОСНОВЫ, в
--- соседнем репозитории. Тянуть её сюда пробник не станет: путь до чужого
--- дерева — это то, из-за чего инструмент работает на одной машине.
+-- The rules for `meta.in_menu` and `meta.window_type` live in the BASE
+-- library, in the neighboring repository. The probe will not pull it in here:
+-- a path into someone else's tree is what makes a tool work on only one
+-- machine.
 --
--- Заглушка отвечает УМОЛЧАНИЯМИ и ничем больше, а пробник ни `in_menu`, ни
--- `window_type` не рассматривает: их проверяет набор тестов на настоящей
--- библиотеке. Стаб, который начнёт решать за неё, разойдётся с ней — и
--- покажет меню, которого на стенде не будет.
+-- The stub answers with DEFAULTS and nothing more, and the probe looks at
+-- neither `in_menu` nor `window_type`: those are checked by the test suite on
+-- the real library. A stub that starts deciding for it will diverge from it —
+-- and will show a menu that will not exist on the stand.
 modules.programs_meta = {
     DEFAULT_TYPE = "app",
     window_type = function() return "app", nil end,
     in_menu = function() return true end,
 }
 
--- Реестр пробнику не нужен: он зовёт только `catalog.build`, чистую сборку.
--- Заглушка отвечает ОТКАЗОМ, а не пустотой — если кто-то позовёт `list`, это
--- должно быть видно, а не выглядеть как «программ нет».
+-- The probe does not need the registry: it calls only `catalog.build`, a pure
+-- assembly. The stub answers with a REFUSAL, not with emptiness — if someone
+-- calls `list`, that must be visible, not look like "there are no programs".
 modules.registry = {
-    find = function() return nil, "пробник в реестр не ходит" end,
-    get = function() return nil, "пробник в реестр не ходит" end,
+    find = function() return nil, "the probe does not go to the registry" end,
+    get = function() return nil, "the probe does not go to the registry" end,
 }
 
 modules.palette = dofile(BASE .. "shell/palette.lua")
@@ -199,15 +202,16 @@ local chrome = dofile(BASE .. "shell/chrome.lua")
 modules.catalog = dofile(BASE .. "programs/catalog.lua")
 local catalog = modules.catalog
 
--- Пункты меню собираются НАСТОЯЩИМ каталогом, а не пишутся руками.
+-- Menu items are assembled by the REAL catalog, not written by hand.
 --
--- Писались руками, и пробник повторял контракт по памяти: он слал `group`
--- СТРОКОЙ, а каталог давно кладёт туда разобранный список. Из-за этого
--- расхождения папки в меню не заводились на стенде, а в пробнике заводились —
--- то есть инструмент показывал не то, что покажет оболочка.
+-- They used to be written by hand, and the probe repeated the contract from
+-- memory: it sent `group` as a STRING, while the catalog has long put a parsed
+-- list there. Because of this divergence, menu folders were not created on the
+-- stand but were created in the probe — that is, the tool showed something
+-- other than what the shell would show.
 --
--- Теперь путь тот же, что у оболочки: запись реестра → `catalog.build` →
--- пункты. Разойтись с ней пробнику больше нечем.
+-- Now the path is the same as the shell's: registry entry → `catalog.build` →
+-- items. The probe has nothing left to diverge from it by.
 local function menu_items(records)
     local built = catalog.build(records)
     local items = {}
@@ -226,16 +230,17 @@ local function program(id, title, group, icon)
 end
 local glyphs = modules.glyphs
 
--- Каталог программ — заглушка, и только он. `model` зовёт его в одном месте,
--- чтобы отличить битый ярлык от исправного; сценам ниже это не нужно, а
--- тащить сюда реестр значило бы завести в пробнике половину рантайма.
+-- The program catalog is a stub, and only it. `model` calls it in one place,
+-- to tell a broken shortcut from a working one; the scenes below do not need
+-- that, and dragging the registry in here would mean bringing half the runtime
+-- into the probe.
 modules.catalog = {find = function() return nil end}
 modules.model = dofile(BASE .. "explorer/model.lua")
 modules.render = dofile(BASE .. "explorer/render.lua")
 local model = modules.model
 local render = modules.render
 
--- ─── печать ──────────────────────────────────────────────────────────────
+-- ─── printing ────────────────────────────────────────────────────────────
 local function show(title, canvas, w, h, hits)
     print("")
     print("┌── " .. title .. " (" .. w .. "×" .. h .. ")")
@@ -254,33 +259,34 @@ local function show(title, canvas, w, h, hits)
             end
             marks[x] = letters[key]
         end
-        local wide = #visible(rows[y]) ~= w and "  ◄ ШИРИНА " .. #visible(rows[y]) or ""
+        local wide = #visible(rows[y]) ~= w and "  ◄ WIDTH " .. #visible(rows[y]) or ""
         print(string.format("%3d|%s|%s%s", y, rows[y], table.concat(marks), wide))
     end
-    print("    легенда фг:фон — " .. table.concat(legend, ", "))
+    print("    legend fg:bg — " .. table.concat(legend, ", "))
     if hits then
         for _, hit in ipairs(hits) do
-            local what = hit.action or hit.id or (hit.open and ("раскрыть " .. table.concat(hit.open, "/")) or ("открыть " .. tostring(hit.index)))
+            local what = hit.action or hit.id or (hit.open and ("expand " .. table.concat(hit.open, "/")) or ("open " .. tostring(hit.index)))
             local under = {}
             local row = canvas:rows()[hit.row] or ""
             local list = visible(row)
             for x = hit.from, hit.to do under[#under+1] = list[x] or "?" end
-            print(string.format("    попадание строка %d, %d..%d → %s   под ним: [%s]",
+            print(string.format("    hit row %d, %d..%d → %s   beneath it: [%s]",
                 hit.row, hit.from, hit.to, what, table.concat(under)))
         end
     end
 end
 
--- ─── сцены ───────────────────────────────────────────────────────────────
+-- ─── scenes ──────────────────────────────────────────────────────────────
 local function scene(w, h, opts)
     local canvas = tty.canvas(w, h)
     local layout = chrome.layout(w, h)
-    -- Состояние стола передаётся ОБЯЗАТЕЛЬНО, даже когда его нет.
+    -- The desk state is passed ALWAYS, even when there is none.
     --
-    -- Раньше здесь стояло `chrome.fill(canvas, w, h)` без четвёртого
-    -- аргумента, и три сцены, названные «значки рабочего стола», рисовали
-    -- пустоту: значки не появлялись ни разу, а заголовок сцены обещал их.
-    -- Пробник, врущий умолчанием, хуже отсутствующего — на него ссылаются.
+    -- This used to read `chrome.fill(canvas, w, h)` without the fourth
+    -- argument, and three scenes named "desktop icons" drew emptiness: the
+    -- icons did not appear even once, while the scene title promised them.
+    -- A probe that lies by default is worse than a missing one — people cite
+    -- it.
     local desk_hits = chrome.fill(canvas, w, h, opts.desk or {})
     if opts.empty then
         chrome.empty_desktop(canvas, w, h, opts.empty)
@@ -305,112 +311,112 @@ local function scene(w, h, opts)
 end
 
 local content = {}
-for i = 1, 10 do content[i] = "строка содержимого " .. i end
+for i = 1, 10 do content[i] = "content line " .. i end
 
 scene(96, 24, {
-    title = "рабочий стол: два окна, панель задач",
+    title = "desktop: two windows, taskbar",
     windows = {
-        {x = 4, y = 2, w = 40, h = 10, title = "Свёрнутый сосед", rows = content},
-        {x = 20, y = 6, w = 52, h = 12, title = "Командная строка — bash", rows = content, focused = true},
+        {x = 4, y = 2, w = 40, h = 10, title = "Minimized neighbor", rows = content},
+        {x = 20, y = 6, w = 52, h = 12, title = "Command Prompt — bash", rows = content, focused = true},
     },
     state = {
         windows = {
-            {id = "w1", title = "Свёрнутый сосед"},
-            {id = "w2", title = "Командная строка"},
-            {id = "w3", title = "Часы", minimized = true},
+            {id = "w1", title = "Minimized neighbor"},
+            {id = "w2", title = "Command Prompt"},
+            {id = "w3", title = "Clock", minimized = true},
         },
         focused_id = "w2",
         clock = "21:47",
-        status = "Командная строка · 50×10 · окон: 3",
+        status = "Command Prompt · 50×10 · windows: 3",
     },
 })
 
 scene(96, 24, {
-    title = "меню «Пуск» с папками",
+    title = "Start menu with folders",
     state = {
-        windows = {{id = "w2", title = "Командная строка"}},
+        windows = {{id = "w2", title = "Command Prompt"}},
         focused_id = "w2", clock = "21:47", menu_open = true,
     },
     menu = {items = menu_items({
-        program("app:calc", "Калькулятор", nil, "▣"),
-        program("app:ping", "Пинг", "Служебные/Сеть"),
-        program("app:trace", "Трассировка", "Служебные/Сеть"),
-        program("app:sysinfo", "Сведения о системе", "Служебные"),
-        program("app:notepad", "Блокнот"),
-        program("app:deep", "Глубоко", "А/Б/В/Г"),
+        program("app:calc", "Calculator", nil, "▣"),
+        program("app:ping", "Ping", "System Tools/Network"),
+        program("app:trace", "Traceroute", "System Tools/Network"),
+        program("app:sysinfo", "System Information", "System Tools"),
+        program("app:notepad", "Notepad"),
+        program("app:deep", "Deep", "A/B/C/D"),
     })},
 })
 
 scene(96, 14, {
-    title = "отказ реестра назван причиной",
+    title = "registry refusal is named by its reason",
     state = {clock = "21:47", menu_open = true},
     menu = {items = {}, failure = "registry.find: permission denied for actor butschster.windows.shell:shell"},
 })
 
 scene(96, 12, {
-    title = "пустой каталог",
+    title = "empty catalog",
     state = {clock = "21:47", menu_open = true},
     menu = {items = {}},
 })
 
 scene(28, 10, {
-    title = "экран уже панели: кнопки окон исчезли",
-    empty = "alt+n — окно с bash · ctrl+q — выход",
+    title = "screen narrower than the taskbar: window buttons disappeared",
+    empty = "alt+n — window with bash · ctrl+q — exit",
     state = {
-        windows = {{id = "w1", title = "Одно"}, {id = "w2", title = "Два"}},
-        focused_id = "w1", clock = "21:47", status = "нет окон",
+        windows = {{id = "w1", title = "One"}, {id = "w2", title = "Two"}},
+        focused_id = "w1", clock = "21:47", status = "no windows",
     },
 })
 
 scene(14, 8, {
-    title = "совсем узко",
-    state = {windows = {{id = "w1", title = "Одно"}}, focused_id = "w1", clock = "21:47"},
+    title = "very narrow",
+    state = {windows = {{id = "w1", title = "One"}}, focused_id = "w1", clock = "21:47"},
 })
 
 
 scene(60, 14, {
-    title = "значки рабочего стола, среди них битый",
+    title = "desktop icons, one of them broken",
     desk = {top = 1, bottom = 13, items = {
-        {id = "s1", kind = "shortcut", entry = "app:calc", title = "Калькулятор", icon = "▣", x = 3, y = 2, w = 28, h = 15},
-        {id = "s2", kind = "shortcut", entry = "app:notepad", title = "Блокнот", x = 3, y = 5},
-        {id = "f1", kind = "folder", title = "Мои документы", x = 3, y = 8},
-        {id = "s3", kind = "shortcut", entry = "app:gone", title = "Старая программа", x = 18, y = 2, broken = true},
+        {id = "s1", kind = "shortcut", entry = "app:calc", title = "Calculator", icon = "▣", x = 3, y = 2, w = 28, h = 15},
+        {id = "s2", kind = "shortcut", entry = "app:notepad", title = "Notepad", x = 3, y = 5},
+        {id = "f1", kind = "folder", title = "My Documents", x = 3, y = 8},
+        {id = "s3", kind = "shortcut", entry = "app:gone", title = "Old program", x = 18, y = 2, broken = true},
     }},
     state = {clock = "21:47", windows = {}},
 })
 
 scene(60, 12, {
-    title = "раскладка стола не прочитана",
+    title = "desktop layout could not be read",
     desk = {top = 1, bottom = 11, failure = "db: no such table: butschster_windows_desktop_items"},
     state = {clock = "21:47"},
 })
 
 scene(50, 12, {
-    title = "каталог длиннее экрана",
+    title = "catalog longer than the screen",
     state = {clock = "21:47", menu_open = true},
     menu = {items = menu_items((function()
         local list = {}
-        for i = 1, 20 do list[i] = program("app:p" .. i, "Программа " .. i) end
+        for i = 1, 20 do list[i] = program("app:p" .. i, "Program " .. i) end
         return list
     end)())},
 })
 
 
 scene(70, 20, {
-    title = "эталон: колонка значков слева и окно с полной рамкой",
+    title = "reference: icon column on the left and a window with a full frame",
     desk = {top = 1, bottom = 19, selected = "s2", items = {
-        {id = "s1", kind = "shortcut", entry = "app:computer", title = "Мой компьютер", icon = "▣", x = 2, y = 1},
-        {id = "s2", kind = "shortcut", entry = "app:network", title = "Сетевое окружение", x = 2, y = 5},
-        {id = "f1", kind = "folder", title = "Мои документы", x = 2, y = 9},
-        {id = "s3", kind = "shortcut", entry = "app:bin", title = "Корзина", x = 2, y = 13},
-        {id = "s4", kind = "shortcut", entry = "app:gone", title = "Старая программа", x = 2, y = 17, broken = true},
+        {id = "s1", kind = "shortcut", entry = "app:computer", title = "My Computer", icon = "▣", x = 2, y = 1},
+        {id = "s2", kind = "shortcut", entry = "app:network", title = "Network Neighborhood", x = 2, y = 5},
+        {id = "f1", kind = "folder", title = "My Documents", x = 2, y = 9},
+        {id = "s3", kind = "shortcut", entry = "app:bin", title = "Recycle Bin", x = 2, y = 13},
+        {id = "s4", kind = "shortcut", entry = "app:gone", title = "Old program", x = 2, y = 17, broken = true},
     }},
     windows = {
         {x = 18, y = 3, w = 44, h = 12, title = "Welcome", focused = true, rows = {
-            "Добро пожаловать в Windows 95",
+            "Welcome to Windows 95",
             "",
-            "Совет дня: чтобы открыть меню, нажмите",
-            "кнопку «Пуск» в левом нижнем углу.",
+            "Tip of the day: to open the menu, click",
+            "the Start button in the lower-left corner.",
         }},
     },
     state = {
@@ -419,73 +425,74 @@ scene(70, 20, {
     },
 })
 
--- Примитивы диалога печатаются отдельно: у них нет своего места в контракте,
--- их зовут те, кто рисует внутренность окна.
+-- The dialog primitives are printed separately: they have no place of their
+-- own in the contract, they are called by whoever draws the inside of a
+-- window.
 do
     local canvas = tty.canvas(44, 7)
     canvas:clear(M1 .. "0:#c0c0c0" .. M2 .. " " .. M3)
     canvas:put(2, 1, chrome.etched(40), 40)
-    canvas:put(2, 3, chrome.button("ОК", {default = true, accel = 1}), 40)
-    canvas:put(12, 3, chrome.button("Отмена", {accel = 1}), 40)
-    canvas:put(24, 3, chrome.button("Далее", {pressed = true}), 40)
+    canvas:put(2, 3, chrome.button("OK", {default = true, accel = 1}), 40)
+    canvas:put(12, 3, chrome.button("Cancel", {accel = 1}), 40)
+    canvas:put(24, 3, chrome.button("Next", {pressed = true}), 40)
     chrome.field(canvas, 2, 5, 40, 3)
-    canvas:put(3, 6, M1 .. "0:#c0c0c0" .. M2 .. " утопленное поле списка" .. M3, 38)
-    show("примитивы диалога: этчед, кнопки, поле", canvas, 44, 7, nil)
-    print("    ширина кнопки ОК по chrome.button_width: " .. chrome.button_width("ОК", {default = true})
-        .. ", нарисовано: " .. #visible(chrome.button("ОК", {default = true, accel = 1})))
+    canvas:put(3, 6, M1 .. "0:#c0c0c0" .. M2 .. " sunken list field" .. M3, 38)
+    show("dialog primitives: etched, buttons, field", canvas, 44, 7, nil)
+    print("    OK button width per chrome.button_width: " .. chrome.button_width("OK", {default = true})
+        .. ", drawn: " .. #visible(chrome.button("OK", {default = true, accel = 1})))
 end
 
 print("")
-print("insets окна: " .. (function()
+print("window insets: " .. (function()
     local i = chrome.window_insets()
     return "top=" .. i.top .. " bottom=" .. i.bottom .. " left=" .. i.left .. " right=" .. i.right
 end)())
 local grid = chrome.icon_grid()
 print("chrome.icon_grid(): w=" .. grid.w .. " h=" .. grid.h .. " left=" .. grid.left .. " drawn=" .. grid.drawn)
-print("сетка значков: ICON_W=" .. chrome.ICON_W .. " ICON_H=" .. chrome.ICON_H .. " ICON_LEFT=" .. chrome.ICON_LEFT)
+print("icon grid: ICON_W=" .. chrome.ICON_W .. " ICON_H=" .. chrome.ICON_H .. " ICON_LEFT=" .. chrome.ICON_LEFT)
 
 
--- Подпись значка: что отдаёт chrome.caption_lines на настоящих именах.
+-- Icon caption: what chrome.caption_lines returns for real names.
 print("")
-print("caption_lines (колонка " .. chrome.icon_grid().w .. "):")
-for _, title in ipairs({"Мой компьютер", "Программы", "Сетевое окружение", "Корзина",
-                        "Сверхдлинноеимябезпробелов", "Мой компьютер и всё остальное"}) do
+print("caption_lines (column " .. chrome.icon_grid().w .. "):")
+for _, title in ipairs({"My Computer", "Programs", "Network Neighborhood", "Recycle Bin",
+                        "Superlongnamewithoutspaces", "My Computer and everything else"}) do
     local lines, overflow = chrome.caption_lines(title)
     print(string.format("  %-32s → [%s]%s", title,
-        table.concat(lines, "] ["), overflow and "  НЕ ПОМЕСТИЛОСЬ" or ""))
+        table.concat(lines, "] ["), overflow and "  DID NOT FIT" or ""))
 end
 
 
 scene(96, 20, {
-    title = "каскад «Пуска»: раскрыты Программы → Стандартные, курсор на второй строке",
+    title = "Start cascade: Programs → Accessories expanded, cursor on the second row",
     state = {clock = "21:47", menu_open = true, windows = {}},
-    menu = {open = {"Программы", "Стандартные"}, cursor = 2, items = menu_items({
-        program("app:calc", "Калькулятор", "Программы/Стандартные", "▣"),
-        program("app:notepad", "Блокнот", "Программы/Стандартные"),
-        program("app:paint", "Графический редактор", "Программы/Стандартные"),
-        program("app:ping", "Пинг", "Программы/Связь"),
-        program("app:bash", "Сеанс MS-DOS", "Программы"),
-        program("app:explorer", "Проводник", "Программы"),
-        program("app:docs", "Документы"),
-        program("app:settings", "Настройка"),
-        program("app:shutdown", "Завершение работы"),
+    menu = {open = {"Programs", "Accessories"}, cursor = 2, items = menu_items({
+        program("app:calc", "Calculator", "Programs/Accessories", "▣"),
+        program("app:notepad", "Notepad", "Programs/Accessories"),
+        program("app:paint", "Paint", "Programs/Accessories"),
+        program("app:ping", "Ping", "Programs/Communications"),
+        program("app:bash", "MS-DOS Prompt", "Programs"),
+        program("app:explorer", "Windows Explorer", "Programs"),
+        program("app:docs", "Documents"),
+        program("app:settings", "Settings"),
+        program("app:shutdown", "Shut Down"),
     })},
 })
 
--- Три типа окна: состав кнопок заголовка выбирает тема по `window_type`,
--- который кладёт композитор. Под каждым набором печатается попадание — оно и
--- есть доказательство, что нажимается ровно то, что нарисовано.
+-- Three window types: the theme picks the set of title buttons by
+-- `window_type`, which the compositor puts in. Under each set the hit is
+-- printed — it is the proof that exactly what is drawn is what gets pressed.
 scene(72, 18, {
-    title = "три типа окна: app, dialog, tool",
+    title = "three window types: app, dialog, tool",
     windows = {
-        {x = 2, y = 1, w = 34, h = 6, title = "Обычное окно", window_type = "app",
-         focused = true, rows = {"свернуть, развернуть, закрыть"}},
-        {x = 2, y = 8, w = 34, h = 6, title = "Свойства системы", window_type = "dialog",
-         rows = {"справка и закрыть"}},
-        {x = 38, y = 1, w = 32, h = 6, title = "Палитра", window_type = "tool",
-         rows = {"только закрыть"}},
-        {x = 38, y = 8, w = 32, h = 6, title = "Тип с опечаткой", window_type = "popup",
-         rows = {"неизвестный тип — это app"}},
+        {x = 2, y = 1, w = 34, h = 6, title = "Ordinary window", window_type = "app",
+         focused = true, rows = {"minimize, maximize, close"}},
+        {x = 2, y = 8, w = 34, h = 6, title = "System Properties", window_type = "dialog",
+         rows = {"help and close"}},
+        {x = 38, y = 1, w = 32, h = 6, title = "Palette", window_type = "tool",
+         rows = {"close only"}},
+        {x = 38, y = 8, w = 32, h = 6, title = "Type with a typo", window_type = "popup",
+         rows = {"an unknown type is app"}},
     },
     state = {clock = "21:47", windows = {}},
 })
@@ -496,20 +503,20 @@ do
         {window_type = "tool"}, {window_type = "popup"}, {},
     }
     print("")
-    print("состав кнопок заголовка по типу окна:")
+    print("title button set by window type:")
     for _, spec in ipairs(samples) do
         local set, width = chrome.buttons_for(spec)
         local ids = {}
         for _, button in ipairs(set) do ids[#ids+1] = button.id end
-        print(string.format("  %-10s → %-28s ширина %d",
-            tostring(spec.window_type or "не назван"), table.concat(ids, ", "), width))
+        print(string.format("  %-10s → %-28s width %d",
+            tostring(spec.window_type or "not named"), table.concat(ids, ", "), width))
     end
 
-    -- Попадание считается по тем же числам, что и рисование. Здесь это видно
-    -- глазом: под каждой нарисованной кнопкой печатается то, что вернёт
-    -- title_button_at.
+    -- The hit is computed from the same numbers as the drawing. Here it can be
+    -- seen by eye: under each drawn button, what title_button_at returns is
+    -- printed.
     for _, window_type in ipairs({"app", "dialog", "tool"}) do
-        local window = {x = 1, y = 1, w = 34, h = 6, title = "Окно",
+        local window = {x = 1, y = 1, w = 34, h = 6, title = "Window",
                         window_type = window_type, rows = {}}
         local canvas = tty.canvas(34, 6)
         chrome.window(canvas, window, true)
@@ -525,12 +532,12 @@ do
     end
 end
 
--- ─── «Мой компьютер»: содержимое рисует само окно ────────────────────────
+-- ─── "My Computer": the window draws its own content ─────────────────────
 --
--- Рамки вокруг него здесь нет нарочно: композитор отдаёт окну прямоугольник
--- ВНУТРИ рамки, и то, что рисует окно, начинается с первой строки этого
--- прямоугольника. Нарисуй пробник рамку — он проверял бы не то, что окно
--- отдаёт композитору.
+-- There is no frame around it here on purpose: the compositor gives the window
+-- the rectangle INSIDE the frame, and what the window draws starts on the
+-- first row of that rectangle. Were the probe to draw a frame, it would be
+-- checking something other than what the window gives the compositor.
 local function window_scene(w, h, title, view)
     local canvas = tty.canvas(w, h)
     local hits = render.window(canvas, view, w, h)
@@ -541,13 +548,13 @@ local function window_scene(w, h, title, view)
     for _, cell in ipairs(hits.cells) do
         local object = view.objects[cell.index] or {}
         flat[#flat+1] = {row = cell.top, from = cell.from, to = cell.to,
-                         id = "значок " .. tostring(object.title)}
+                         id = "icon " .. tostring(object.title)}
     end
     show(title, canvas, w, h, flat)
 end
 
-window_scene(64, 20, "«Мой компьютер»: диски из реестра и папки оболочки", {
-    title = "Мой компьютер",
+window_scene(64, 20, "My Computer: drives from the registry and shell folders", {
+    title = "My Computer",
     selected = 2,
     objects = model.root({programs = 12, desktop = 3, windows = 2}, model.drives({
         {id = "app:app_fs", kind = "fs.directory"},
@@ -558,7 +565,7 @@ window_scene(64, 20, "«Мой компьютер»: диски из реест�
     })),
 })
 
-window_scene(64, 16, "внутри диска: папки раньше файлов, у файла нечего открыть", {
+window_scene(64, 16, "inside a drive: folders before files, a file has nothing to open", {
     title = "app:app_fs",
     selected = 4,
     objects = model.files({
@@ -570,49 +577,50 @@ window_scene(64, 16, "внутри диска: папки раньше файл�
     }, "drive/app:app_fs"),
 })
 
-window_scene(64, 12, "диск объявлен, но не открылся — причина, а не пустота", {
-    title = "Мой компьютер",
-    failure = "диск не открылся: filesystem not found: app:gone_fs",
+window_scene(64, 12, "drive declared but did not open — a reason, not emptiness", {
+    title = "My Computer",
+    failure = "drive did not open: filesystem not found: app:gone_fs",
     objects = {},
 })
 
-window_scene(64, 12, "прочитали не всё, и об этом сказано", {
+window_scene(64, 12, "not everything was read, and that is said", {
     title = "app:huge_fs",
-    notice = "показаны первые 500",
+    notice = "showing the first 500",
     objects = model.files({
         {name = "0001.log", type = "file"},
         {name = "0002.log", type = "file"},
     }, "drive/app:huge_fs"),
 })
 
--- Столько дисков на стенде и есть. Без прокрутки окно показало бы первые
--- десять и промолчало про остальные — то есть соврало бы счётчиком внизу.
+-- That is how many drives the stand actually has. Without scrolling the
+-- window would show the first ten and keep quiet about the rest — that is, it
+-- would lie with the counter at the bottom.
 local many = {}
 for i = 1, 68 do
-    many[i] = {id = "модуль" .. i .. ":fs", kind = "fs.directory"}
+    many[i] = {id = "module" .. i .. ":fs", kind = "fs.directory"}
 end
 
-window_scene(64, 20, "дисков больше, чем помещается: полоса и ползунок", {
-    title = "Мой компьютер",
+window_scene(64, 20, "more drives than fit: scrollbar and thumb", {
+    title = "My Computer",
     selected = 1,
     objects = model.root({}, model.drives(many)),
 })
 
-window_scene(64, 20, "та же сетка, прокрученная к концу", {
-    title = "Мой компьютер",
+window_scene(64, 20, "the same grid scrolled to the end", {
+    title = "My Computer",
     offset = 99,
     objects = model.root({}, model.drives(many)),
 })
 
-window_scene(30, 10, "окно уже одной колонки значков", {
-    title = "Мой компьютер",
+window_scene(30, 10, "window narrower than one icon column", {
+    title = "My Computer",
     objects = model.root({}, model.drives({{id = "app:app_fs", kind = "fs.directory"}})),
 })
 
--- ─── проверка набора символов ────────────────────────────────────────────
+-- ─── glyph set check ─────────────────────────────────────────────────────
 local bad = {}
 for _, ch in ipairs(glyphs.all()) do
     if tty.text.width(ch) ~= 1 then bad[#bad+1] = ch end
 end
 print("")
-print("символов в наборе: " .. #glyphs.all() .. ", шире одной ячейки: " .. #bad)
+print("glyphs in the set: " .. #glyphs.all() .. ", wider than one cell: " .. #bad)

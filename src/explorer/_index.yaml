@@ -1,36 +1,37 @@
 version: "1.0"
 namespace: butschster.windows.explorer
 
-# «Мой компьютер» — окно, показывающее сам стенд.
+# "My Computer" — a window that shows the running system itself.
 #
-# Диски приходят из реестра. Записи `fs.directory` и `fs.embed` привозит почти
-# каждый установленный модуль, и заводить их не надо — надо показать. Отсюда
-# оба правила разом. Диск, объявленный установленным модулем, появляется сам,
-# без правки в оболочке. Диска, которого в реестре нет, здесь не будет —
-# нарисованный C: был бы предметом, которого не существует, и первым вопросом
-# было бы, почему он не открывается.
+# Drives come from the registry. `fs.directory` and `fs.embed` entries are
+# brought by almost every installed module, and there is no need to create
+# them — only to show them. Hence both rules at once. A drive declared by an
+# installed module appears by itself, with no edit in the shell. A drive that
+# is not in the registry will not be here — a painted C: would be an object
+# that does not exist, and the first question would be why it does not open.
 #
-# Чужих таблиц окно не читает. Прогоны, работы бриджа и биты контент-машины
-# принадлежат модулям, от которых оболочка не зависит; прочитай она их схемы
-# напрямую — сломалась бы на их первой миграции, молча и не у себя. Модуль,
-# желающий показать своё, объявляет окно записью с `meta.type` равным
-# `tui_desktop.window`, и оно появляется в «Программах» само.
+# The window does not read other modules' tables. Runs, bridge jobs and
+# content-machine beats belong to modules the shell does not depend on; were
+# it to read their schemas directly, it would break on their first migration,
+# silently and not in its own code. A module that wants to show its own data
+# declares a window as an entry with `meta.type` equal to
+# `tui_desktop.window`, and it appears in "Programs" by itself.
 #
-# ЛОВУШКА ЭТОГО ФАЙЛА. Двоеточие с пробелом внутри незакавыченного значения
-# YAML читает как начало новой пары, и отказ приходит от загрузчика записей с
-# указанием на файл, а не на фразу.
+# THE TRAP OF THIS FILE. A colon followed by a space inside an unquoted value
+# is read by YAML as the start of a new pair, and the failure comes from the
+# entry loader pointing at the file, not at the phrase.
 
 entries:
   # butschster.windows.explorer:model
   - name: model
     kind: library.lua
     meta:
-      comment: Объекты «Моего компьютера» — чистая сборка из прочитанного, без единого обращения в базу и реестр.
+      comment: The objects of "My Computer" — a pure assembly from what was read, without a single call to the database or the registry.
     source: file://model.lua
     modules:
       - registry
     imports:
-      # Реестр типов файлов: программа для расширения и её значок.
+      # File type registry: the program for an extension and its icon.
       associations: butschster.windows.viewers:associations
       catalog: butschster.windows.programs:catalog
 
@@ -38,12 +39,12 @@ entries:
   - name: sources
     kind: library.lua
     meta:
-      comment: Чтение источников для «Моего компьютера»; список открытых окон приносит сам процесс окна, а не эта библиотека.
+      comment: Reading the sources for "My Computer"; the list of open windows is brought by the window process itself, not by this library.
     source: file://sources.lua
     modules:
-      # `fs` — чтобы прочитать содержимое диска записью реестра, а не путём
-      # на машине. Что именно открывается, решает политика окна, а не этот
-      # список.
+      # `fs` — to read a drive's contents by a registry entry, not by a path
+      # on the machine. What exactly gets opened is decided by the window's
+      # policy, not by this list.
       - fs
       - registry
       - sql
@@ -57,14 +58,15 @@ entries:
 
   # butschster.windows.explorer:render
   #
-  # Вид содержимого окна отдельно от процесса окна — по той же границе, по
-  # которой тема отделена от композитора: здесь только строки и арифметика.
-  # Поэтому кадр смотрится пробником `tools/themeprobe`, не поднимая ни окна,
-  # ни стенда, а полноэкранную программу иначе не проверить вовсе.
+  # The look of the window contents is separate from the window process —
+  # along the same boundary that separates the theme from the compositor:
+  # only strings and arithmetic here. That is why a frame can be viewed with
+  # the `tools/themeprobe` probe without starting either the window or the
+  # runtime, and a full-screen program cannot be checked any other way.
   - name: render
     kind: library.lua
     meta:
-      comment: Содержимое «Моего компьютера» — строка меню, панель инструментов, поле значков и статусная строка; попадания возвращает та же функция, что рисует.
+      comment: The contents of "My Computer" — menu bar, toolbar, icon field and status bar; the hits are returned by the same function that draws.
     source: file://render.lua
     modules:
       - tty
@@ -75,17 +77,18 @@ entries:
 
   # butschster.windows.explorer:render_pixels
   #
-  # Второй бэкенд того же вида. Отдельной записью, а не веткой внутри
-  # `render`, потому что `render` обязан грузиться там, где модуля `gfx` нет
-  # вовсе: оболочка должна работать в обычном xterm, и путь в ячейках не имеет
-  # права умирать вместе с графикой. Запись, объявившая `gfx`, на таком
-  # рантайме не грузится — не «без пикселей», а целиком.
+  # The second backend of the same view. A separate entry, not a branch
+  # inside `render`, because `render` must load where the `gfx` module does
+  # not exist at all: the shell has to work in a plain xterm, and the cell
+  # path has no right to die together with graphics. An entry that declared
+  # `gfx` does not load on such a runtime — not "without pixels", but
+  # entirely.
   #
-  # Правило: `gfx` объявляет только тот, кто без него не существует.
+  # Rule: `gfx` is declared only by whoever does not exist without it.
   - name: render_pixels
     kind: library.lua
     meta:
-      comment: Пиксельные краски «Моего компьютера» — раскладку и попадания берёт готовыми у render, растры у хранилища; кадр нарезан по строкам, чтобы выделение значка не перерисовывало меню.
+      comment: Pixel painting for "My Computer" — takes the layout and hits ready-made from render, rasters from the store; the frame is sliced by rows so that selecting an icon does not repaint the menu.
     source: file://render_pixels.lua
     modules:
       - gfx
@@ -97,13 +100,14 @@ entries:
 
   # butschster.windows.explorer:window
   #
-  # Само окно. Обычная программа реестра — оболочка находит его тем же
-  # `registry.find`, что и всё остальное, и в меню «Пуск» оно попадает без
-  # единой правки в каталоге.
+  # The window itself. An ordinary registry program — the shell finds it with
+  # the same `registry.find` as everything else, and it gets into the "Start"
+  # menu without a single edit in the catalog.
   #
-  # Модули перечислены объединением: и те, что нужны самому окну, и те, что
-  # нужны его библиотекам. Право, а не список модулей, решает, что окну
-  # доступно, — политика ниже даёт читать и просить, но не порождать.
+  # The modules are listed as a union: both those the window itself needs and
+  # those its libraries need. The permission, not the module list, decides
+  # what the window can access — the policy below lets it read and ask, but
+  # not spawn.
   - name: window
     kind: process.lua
     meta:
@@ -113,23 +117,24 @@ entries:
       pixel_render: butschster.windows.explorer:render_pixels
       pixel_state: butschster.windows.explorer:state
       icon: "▣"
-      # Значков в ряд помещается ширина минус две ячейки, делённая на шаг
-      # сетки в двенадцать. Шестьдесят четыре — это пять колонок, то есть
-      # ряд дисков, а не колонка.
-      # Панель Windows 95 — тринадцать кнопок и четыре разделителя, 69 ячеек;
-      # в 64 не помещались «Список», «Таблица» и «Обновить».
+      # The number of icons that fit in a row is the width minus two cells,
+      # divided by the grid step of twelve. Sixty-four is five columns, that
+      # is, a row of drives rather than a column.
+      # The Windows 95 toolbar is thirteen buttons and four separators, 69
+      # cells; in 64 "List", "Details" and "Refresh" did not fit.
       width: 72
       height: 22
-      # В «Пуске» НЕ показывается — решение владельца 2026-09-09: «Мой
-      # компьютер» открывается со стола, как в Windows, а ярлык на скрытую
-      # программу работает (`in_menu` — про меню, не про запуск). `group: ""`
-      # оставлен на случай, если его вернут: тогда он ляжет на корень, сверху.
+      # NOT shown in "Start" — owner's decision 2026-09-09: "My Computer" is
+      # opened from the desktop, as in Windows, and a shortcut to a hidden
+      # program works (`in_menu` is about the menu, not about launching).
+      # `group: ""` is kept in case it is brought back: then it will go to
+      # the root, at the top.
       in_menu: false
       order: 5
       group: ""
-      # «Свойства» в контекстном меню значка — «Свойства: Система».
+      # "Properties" in the icon's context menu is "System Properties".
       properties: butschster.windows.sysprops:window
-      comment: Окно «Мой компьютер» — файловые системы из реестра и их содержимое; общий контроллер для режима ячеек и пиксельного вида.
+      comment: The "My Computer" window — the filesystems from the registry and their contents; a shared controller for the cell mode and the pixel view.
     source: file://window.lua
     method: main
     modules:
@@ -147,10 +152,10 @@ entries:
     imports:
       scrolling: butschster.tui_desktop.desktop:scroll
       geometry: butschster.tui_desktop.desktop:geometry
-      # Просьбы к композитору — библиотекой основы, а не своим протоколом.
-      # Имя композитора она читает из контекста процесса; своя константа
-      # работала бы только под нашей оболочкой и молча промахивалась бы под
-      # любой другой.
+      # Requests to the compositor go through the base library, not our own
+      # protocol. It reads the compositor's name from the process context; a
+      # constant of our own would work only under our shell and would
+      # silently miss under any other.
       desktop: butschster.tui_desktop.desktop:window_api
       model: butschster.windows.explorer:model
       render: butschster.windows.explorer:render
@@ -159,7 +164,7 @@ entries:
   - name: state
     kind: process.lua
     meta:
-      comment: Состояние пиксельного проводника; тот же контроллер и права, что у окна в ячейках.
+      comment: State of the pixel explorer; the same controller and permissions as the cell window.
     source: file://window.lua
     method: main
     modules:
@@ -177,10 +182,10 @@ entries:
     imports:
       scrolling: butschster.tui_desktop.desktop:scroll
       geometry: butschster.tui_desktop.desktop:geometry
-      # Просьбы к композитору — библиотекой основы, а не своим протоколом.
-      # Имя композитора она читает из контекста процесса; своя константа
-      # работала бы только под нашей оболочкой и молча промахивалась бы под
-      # любой другой.
+      # Requests to the compositor go through the base library, not our own
+      # protocol. It reads the compositor's name from the process context; a
+      # constant of our own would work only under our shell and would
+      # silently miss under any other.
       desktop: butschster.tui_desktop.desktop:window_api
       model: butschster.windows.explorer:model
       render: butschster.windows.explorer:render

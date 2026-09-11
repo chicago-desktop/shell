@@ -1,28 +1,29 @@
 version: "1.0"
 namespace: butschster.windows.security
 
-# Права разделены на две, а не слиты в одну «всё можно»: оболочке нужно
-# порождать окна и запускать программы, ручкам раскладки — только прочитать
-# реестр и базу. Ручка, умеющая порождать процессы, рано или поздно это
-# сделает не тем, кем надо.
+# Permissions are split in two rather than merged into one "anything goes":
+# the shell needs to spawn windows and run programs, the layout endpoints
+# only need to read the registry and the database. An endpoint that can
+# spawn processes will sooner or later do it as the wrong one.
 
 entries:
   # butschster.windows.security:shell_runtime
   #
-  # Права самой оболочки. Список повторяет права композитора основы: оболочка
-  # ЕСТЬ композитор, вызванный со своей темой, и всё, что он делает, он делает
-  # под этим актором.
+  # The shell's own permissions. The list repeats the base compositor's
+  # permissions: the shell IS the compositor, called with its own theme, and
+  # everything it does, it does under this actor.
   #
-  # `registry.apply` здесь есть, и это не оплошность. Окна, собранные
-  # мастерской, возвращает в реестр сам композитор — платформа запрещает
-  # менять реестр фоновым процессам группы `wippy.security:process`, и
-  # сервис-восстановитель молча не сделал бы ничего. Оболочка, поднятая одна,
-  # без этого права показала бы меню без окон мастерской и не объяснила бы,
-  # почему их нет. Отказ восстановления виден в GET /windows/status.
+  # `registry.apply` is here, and it is not an oversight. Windows built by the
+  # workshop are returned to the registry by the compositor itself — the
+  # platform forbids background processes of the `wippy.security:process`
+  # group from changing the registry, and a restorer service would silently
+  # do nothing. A shell brought up on its own without this permission would
+  # show a menu without the workshop windows and would not explain why they
+  # are missing. The restore failure is visible in GET /windows/status.
   - name: shell_runtime
     kind: security.policy
     meta:
-      comment: Права оболочки — порождать окна с грантом на viewport, гасить их, запускать программы под PTY, читать каталог из реестра и раскладку из базы.
+      comment: Shell permissions — spawn windows with a grant on the viewport, shut them down, run programs under a PTY, read the catalog from the registry and the layout from the database.
     policy:
       actions:
         - process.context
@@ -35,55 +36,58 @@ entries:
         - process.registry
         - process.registry.register
         - process.registry.unregister
-        # Вход в систему (butschster.windows.logon): окна порождаются под
-        # актором вошедшего — подмена личности потомка требует отдельного
-        # права; функция входа приложения зовётся через funcs; токен сессии
-        # превращается в актора хранилищем токенов. Оболочке при этом НЕ
-        # выдаётся доступ к базе пользователей: пароль проверяет функция
-        # приложения под своим актором.
+        # Logon (butschster.windows.logon): windows are spawned under the
+        # actor of the logged-on user — substituting a child's identity
+        # requires a separate permission; the application's logon function
+        # is called through funcs; the session token is turned into an actor
+        # by the token store. The shell is NOT given access to the users
+        # database for this: the password is checked by the application's
+        # function under its own actor.
         - process.security
         - funcs.call
         - security.token_store.get
         - security.token.validate
         - exec.get
         - exec.run
-        # Каталог программ читается из реестра по meta.type — своей копии
-        # списка оболочка не держит.
+        # The program catalog is read from the registry by meta.type — the
+        # shell keeps no copy of the list of its own.
         - registry.get
         - registry.find
         - registry.entry
         - registry.apply
-        # Раскладка читается и пишется на старте (ярлыки для программ с
-        # desktop true). Доступ к базе проверяется как действие `db.get` на
-        # идентификатор ресурса, а не как `sql.*` — проверено на основе.
+        # The layout is read and written at start (shortcuts for programs
+        # with desktop true). Database access is checked as the action
+        # `db.get` on the resource identifier, not as `sql.*` — verified on
+        # the base.
         - db.get
-        # Прочитать окружение. Модуль `env` объявлен у записи, а действия не
-        # было — и `env.get_all` молча отдавал ПУСТУЮ таблицу, потому что
-        # кладёт в неё только разрешённые ключи и на отказ не жалуется. То
-        # есть просьба человека включить пиксельный режим выглядела как
-        # «человек не просил».
+        # Read the environment. The `env` module was declared on the entry,
+        # but the action was not — and `env.get_all` silently returned an
+        # EMPTY table, because it puts only permitted keys into it and does
+        # not complain about the denial. That is, a person's request to turn
+        # on pixel mode looked like "the person did not ask".
         #
-        # ОБЪЯВЛЕННЫЙ МОДУЛЬ БЕЗ ВЫДАННОГО ПРАВА ВЫГЛЯДИТ КАК МОДУЛЬ,
-        # КОТОРОМУ НЕЧЕГО СКАЗАТЬ. Это не про env — это про любой модуль в
-        # любой политике здесь.
+        # A DECLARED MODULE WITHOUT A GRANTED PERMISSION LOOKS LIKE A MODULE
+        # THAT HAS NOTHING TO SAY. This is not about env — it is about any
+        # module in any policy here.
         - env.get
-        # Шрифт пиксельной темы. Приезжает БАЙТАМИ, а не путём: чтение файла
-        # управляется правами процесса, и модуль, открывающий пути сам, был бы
-        # дорогой мимо них. Без этого права пиксельный режим не включается и
-        # называет причину — оболочка при этом поднимается в ячейках.
+        # The pixel theme's font. It arrives as BYTES, not as a path: reading
+        # a file is governed by the process's permissions, and a module that
+        # opened paths by itself would be a road around them. Without this
+        # permission pixel mode does not turn on and names the reason — the
+        # shell then comes up in cells.
         - fs.get
       resources: "*"
       effect: allow
 
   # butschster.windows.security:shell_storage
   #
-  # Права ручек раскладки: прочитать каталог и прочитать-записать свои строки.
-  # Ни порождения процессов, ни запуска программ здесь нет — ручки раскладку
-  # двигают, окна открывает оболочка.
+  # Permissions of the layout endpoints: read the catalog and read-write
+  # their own rows. There is no process spawning and no program running here
+  # — the endpoints move the layout, the shell opens the windows.
   - name: shell_storage
     kind: security.policy
     meta:
-      comment: Права ручек раскладки — чтение каталога из реестра и работа со своими строками в базе.
+      comment: Permissions of the layout endpoints — reading the catalog from the registry and working with their own rows in the database.
     policy:
       actions:
         - process.context
@@ -91,15 +95,16 @@ entries:
         - registry.find
         - registry.entry
         - db.get
-        # Ресурс базы называется окружением (BUTSCHSTER_WINDOWS_DB_ID), и без
-        # этого права названная человеком база молча подменялась бы
-        # умолчанием: `env.get_all` не жалуется, он просто не кладёт ключ.
-        # Обнаружилось бы это тем, что «раскладка не сохраняется».
+        # The database resource is named by the environment
+        # (BUTSCHSTER_WINDOWS_DB_ID), and without this permission the database
+        # a person named would be silently replaced by the default:
+        # `env.get_all` does not complain, it just does not put the key in.
+        # It would be discovered by "the layout is not saved".
         - env.get
-        # Раскладку композитор перечитывает по команде: ручка обязана его
-        # толкнуть, иначе значок появится только после перезапуска. Права
-        # ровно на это — найти адресата и послать сообщение; порождать
-        # процессы ручка по-прежнему не может.
+        # The compositor rereads the layout on command: the endpoint must
+        # nudge it, otherwise the icon appears only after a restart.
+        # Permissions for exactly that — find the addressee and send a
+        # message; the endpoint still cannot spawn processes.
         - process.registry
         - process.send
       resources: "*"
@@ -107,54 +112,59 @@ entries:
 
   # butschster.windows.security:explorer_window
   #
-  # Права окна «Мой компьютер». Порождать процессы и запускать программы оно
-  # НЕ может — ни `spawn`, ни `exec` здесь нет, и это главное в списке.
-  # Открыть соседнее окно окно может только просьбой к композитору, который
-  # решает сам; окно с правом порождать процессы рано или поздно запустит не
-  # то, чем ему открыли файл.
+  # Permissions of the "My Computer" window. It can NOT spawn processes or run
+  # programs — there is neither `spawn` nor `exec` here, and that is the main
+  # thing in the list. The window can open a neighbouring window only by
+  # asking the compositor, which decides by itself; a window with permission
+  # to spawn processes will sooner or later launch something other than what
+  # the file was opened with.
   #
-  # `fs.get` — чтобы показать содержимое диска. Диск здесь — запись реестра, а
-  # не путь на машине, и открывается он именно как запись; доступ к машине
-  # мимо реестра этим правом не даётся.
+  # `fs.get` — to show the contents of a drive. A drive here is a registry
+  # entry, not a path on the machine, and it is opened precisely as an entry;
+  # this permission gives no access to the machine past the registry.
   - name: explorer_window
     kind: security.policy
     meta:
-      comment: Права окна «Мой компьютер» — прочитать реестр, раскладку и содержимое дисков и попросить композитор открыть окно; порождать процессы и запускать программы оно не может.
+      comment: Permissions of the "My Computer" window — read the registry, the layout and drive contents and ask the compositor to open a window; it cannot spawn processes or run programs.
     policy:
       actions:
         - process.context
-        # Спросить композитор про открытые окна и попросить открыть новое.
-        # Найти адресата и послать сообщение — всё; ответ приходит в свой
-        # inbox и разбирается циклом самого окна.
+        # Ask the compositor about open windows and ask it to open a new one.
+        # Find the addressee and send a message — that is all; the answer
+        # arrives in its own inbox and is handled by the window's own loop.
         - process.registry
         - process.send
-        # Каталог программ и список дисков — оба из реестра, оба только на
-        # чтение. `registry.apply` здесь нет намеренно.
+        # The program catalog and the list of drives — both from the
+        # registry, both read-only. `registry.apply` is absent here on
+        # purpose.
         - registry.get
         - registry.find
         - registry.entry
-        # Раскладка стола. Доступ к базе проверяется как действие `db.get` на
-        # идентификатор ресурса, а не как `sql.*` — проверено на основе.
+        # The desktop layout. Database access is checked as the action
+        # `db.get` on the resource identifier, not as `sql.*` — verified on
+        # the base.
         - db.get
-        # Содержимое диска.
+        # Drive contents.
         - fs.get
-        # Ресурс базы называется окружением, и модуль `env` у записи объявлен.
-        # Без этого права `env.get_all` молча отдаёт пустую таблицу — он
-        # кладёт в неё только разрешённые ключи и на отказ не жалуется.
+        # The database resource is named by the environment, and the `env`
+        # module is declared on the entry. Without this permission
+        # `env.get_all` silently returns an empty table — it puts only
+        # permitted keys into it and does not complain about the denial.
         - env.get
       resources: "*"
       effect: allow
 
   # butschster.windows.security:shell_endpoint_access
-  # Поставщик состояния окна-вида (FR-005 §4б): свой узкий актор, отдельный
-  # от композитора. Ему нужно прочитать контекст, найти композитор по имени и
-  # послать ему состояние — и ничего больше: ни реестра, ни базы, ни файлов.
-  # Поставщик, которому нужен диск, объявляет свою политику, а не расширяет
-  # эту: её носят все виды, и часы не должны уметь читать файлы.
+  # State provider of a view window (FR-005 §4b): its own narrow actor,
+  # separate from the compositor. It needs to read the context, find the
+  # compositor by name and send it the state — and nothing more: no registry,
+  # no database, no files. A provider that needs a drive declares its own
+  # policy rather than extending this one: all views carry it, and a clock
+  # must not be able to read files.
   - name: view_state
     kind: security.policy
     meta:
-      comment: Права поставщика состояния окна-вида — контекст процесса, имя композитора в реестре процессов и отправка ему состояния.
+      comment: Permissions of a view window's state provider — process context, the compositor's name in the process registry, and sending it the state.
     policy:
       actions:
         - process.context
@@ -163,13 +173,14 @@ entries:
       resources: "*"
       effect: allow
 
-  # Поставщик просмотрщика реестра: то же, что у вида, плюс ЧТЕНИЕ реестра.
-  # `registry.apply` здесь нет и не будет (FR-004 §3.4): просмотрщик ничего
-  # не меняет, а правка записи — дело панели управления под своим актором.
+  # Provider of the registry viewer: the same as a view, plus READING the
+  # registry. `registry.apply` is not here and will not be (FR-004 §3.4): the
+  # viewer changes nothing, and editing an entry is the business of the
+  # control panel under its own actor.
   - name: regedit_state
     kind: security.policy
     meta:
-      comment: Права поставщика просмотрщика реестра — контекст, отправка композитору и чтение реестра; записи в реестр нет намеренно.
+      comment: Permissions of the registry viewer provider — context, sending to the compositor, and reading the registry; no writing to the registry, on purpose.
     policy:
       actions:
         - process.context
@@ -184,7 +195,7 @@ entries:
   - name: shell_endpoint_access
     kind: security.policy
     meta:
-      comment: Аутентифицированные пользователи приложения могут обращаться к ручкам оболочки.
+      comment: Authenticated users of the application may call the shell endpoints.
     groups: []
     policy:
       resources:
@@ -196,7 +207,7 @@ entries:
   - name: user_security_scope
     kind: ns.requirement
     meta:
-      comment: Группа безопасности приложения, которой открыт доступ к ручкам оболочки.
+      comment: The application security group that is given access to the shell endpoints.
     targets:
       - entry: butschster.windows.security:shell_endpoint_access
         path: ".groups +="

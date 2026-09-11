@@ -1,42 +1,45 @@
 local scroll = require("scroll")
--- Как выглядит содержимое «Моего компьютера».
+-- What the contents of "My Computer" look like.
 --
--- Отделено от процесса окна по той же границе, по которой тема отделена от
--- композитора: здесь только строки и арифметика, ни одного обращения в
--- рантайм. Поэтому кадр можно посмотреть пробником, не поднимая ни окна, ни
--- стенда, — а полноэкранную программу иначе не проверить вовсе.
+-- Separated from the window process along the same boundary that separates
+-- the theme from the compositor: only strings and arithmetic here, not a
+-- single call into the runtime. That is why a frame can be viewed with a
+-- probe without starting either the window or the runtime — and a
+-- full-screen program cannot be checked any other way.
 --
--- ─── ОДНА РАСКЛАДКА, ДВА БЭКЕНДА ────────────────────────────────────────
+-- ─── ONE LAYOUT, TWO BACKENDS ───────────────────────────────────────────
 --
--- Файл разделён на три части, и разделение не косметическое.
+-- The file is split into three parts, and the split is not cosmetic.
 --
---   `render.layout`  — ЧТО и ГДЕ. Чистые числа: строки, поле, сетка,
---                      прямоугольники значков, попадания. Ни одной краски.
---   `render.cells`   — рисует символами в холст `tty`.
---   `render.pixels`  — рисует пикселями в растры.
+--   `render.layout`  — WHAT and WHERE. Pure numbers: rows, field, grid,
+--                      icon rectangles, hits. Not a single paint.
+--   `render.cells`   — draws with characters into a `tty` canvas.
+--   `render.pixels`  — draws with pixels into rasters.
 --
--- Оболочка обязана работать в обычном xterm, где графики нет вовсе (FR-005
--- §8б), и умереть там молча она не имеет права. Значит бэкендов два, и цена
--- второго уплачена ровно тем, что раскладка у них общая.
+-- The shell must work in a plain xterm, where there are no graphics at all
+-- (FR-005 §8b), and it has no right to die there silently. So there are two
+-- backends, and the price of the second is paid precisely by their layout
+-- being shared.
 --
--- ПОПАДАНИЯ СЧИТАЕТ РАСКЛАДКА, А НЕ ОТРИСОВКА. Раньше их возвращал тот, кто
--- рисовал, — и это было верно, пока рисующий был один. С двумя рисующими
--- «одна таблица» означает уже не «функция, которая рисует», а раскладку: два
--- бэкенда, считающие попадания каждый по-своему, разъедутся молча, и щелчок
--- попадёт на соседа в одном из двух режимов.
+-- HITS ARE COMPUTED BY THE LAYOUT, NOT BY THE DRAWING. They used to be
+-- returned by whoever drew — and that was right while there was one drawer.
+-- With two drawers "one table" no longer means "the function that draws" but
+-- the layout: two backends that each compute hits their own way will drift
+-- apart silently, and a click will land on a neighbour in one of the two
+-- modes.
 --
--- Прямоугольник значка при этом всё равно берётся у `icons.box` — той же
--- функции, которой пользуется `icons.cell`, когда рисует.
+-- The icon rectangle is still taken from `icons.box` — the same function
+-- `icons.cell` uses when it draws.
 
 local icons = require("icons")
 local widgets = require("widgets")
 
 local render = {}
 
--- Строка меню: в ней только пункты, у которых есть действие, и действия те
--- же, что у кнопок панели и клавиш. «Правки» нет — вырезать и вставлять
--- проводнику нечем. Пункт — `{id, title}`; окно исполняет его той же
--- функцией, что и кнопку панели с таким `id`.
+-- The menu bar: it has only items that have an action, and the actions are
+-- the same as those of the toolbar buttons and keys. There is no "Edit" —
+-- Explorer has nothing to cut and paste. An item is `{id, title}`; the window
+-- executes it with the same function as the toolbar button with that `id`.
 render.MENU = {
     {text = "File", accel = 1, items = {{id = "close", title = "Close"}}},
     {text = "View", accel = 1, items = {{id = "refresh", title = "Refresh"}}},
@@ -46,12 +49,14 @@ render.MENU = {
     {text = "Help", accel = 1, items = {{id = "about", title = "About My Computer"}}},
 }
 
--- Панель окна папки Windows 95: назад, вперёд, вверх · вырезать, копировать,
--- вставить · отменить · удалить, свойства · четыре вида. Работают назад и
--- вперёд по истории окна и вверх. Остальные объявлены `disabled` и рисуются
--- выцветшими, как в Windows 95, где они серые, пока нечего вырезать: панель
--- не меняет форму. Щелчок по выцветшей молчит — как в Windows.
--- Подписей нет — панель одна строка, и с подписями она не влезает в окно.
+-- The toolbar of a Windows 95 folder window: back, forward, up · cut, copy,
+-- paste · undo · delete, properties · four views. Back and forward through
+-- the window's history and up work. The rest are declared `disabled` and
+-- drawn faded, as in Windows 95, where they are grey while there is nothing
+-- to cut: the toolbar does not change shape. A click on a faded one is
+-- silent — as in Windows.
+-- There are no captions — the toolbar is one row, and with captions it does
+-- not fit into the window.
 render.TOOLS = {
     {id = "back", icon = "←", title = "Back"},
     {id = "forward", icon = "→", title = "Forward"},
@@ -71,42 +76,45 @@ render.TOOLS = {
     {id = "view_list", icon = "≡", title = "List", disabled = true},
     {id = "view_details", icon = "☷", title = "Details", disabled = true},
 }
--- «Обновить» на панели Windows 95 нет — оно в меню «Вид» и на F5 (и здесь
--- ещё Ctrl+R). Кнопка не поместилась бы: панель — 64 ячейки, окно — 70.
+-- There is no "Refresh" on the Windows 95 toolbar — it is in the "View" menu
+-- and on F5 (and here also Ctrl+R). The button would not fit: the toolbar is
+-- 64 cells, the window is 70.
 
--- Строки, занятые не содержимым: строка меню, панель инструментов, статусная
--- строка. Объявлено числами, а не посчитано по месту, чтобы поле и попадания
--- считались из одного источника.
+-- Rows occupied by something other than contents: menu bar, toolbar, status
+-- bar. Declared as numbers rather than computed in place, so that the field
+-- and the hits are computed from one source.
 render.MENU_ROW = 1
 render.TOOL_ROW = 2
--- Адресная строка — своя строка под панелью (как в Windows 98; в 95 это
--- выпадающий список на самой панели, но в ячейках он туда не помещается).
+-- The address bar is its own row under the toolbar (as in Windows 98; in 95
+-- it is a dropdown list on the toolbar itself, but in cells it does not fit
+-- there).
 render.ADDRESS_ROW = 3
 render.FIELD_TOP = 4
 
--- Просвет между колонками значков. ШАГ сетки и ШИРИНА рисунка — разные числа,
--- и здесь это видно глазом: подпись, занявшая колонку целиком, упирается в
--- подпись соседа, и две становятся одной нечитаемой строкой. На столе такого
--- нет, потому что там место значку называет человек или композитор; сетку
--- строит только это окно, ему и держать просвет.
+-- The gap between icon columns. The grid STEP and the picture WIDTH are
+-- different numbers, and here it is visible to the eye: a caption that took
+-- up the whole column runs into the neighbour's caption, and the two become
+-- one unreadable line. The desktop does not have this, because there an
+-- icon's place is named by a person or the compositor; only this window
+-- builds a grid, so it is the one to keep the gap.
 render.GAP = 1
 
--- layout(view, width, height) -> план
+-- layout(view, width, height) -> plan
 --
--- План — единственная таблица, из которой считают оба бэкенда:
+-- The plan is the only table both backends compute from:
 --
---   rows      номера строк: меню, панель инструментов, поле, статусная
---   field     прямоугольник поля списка, в ячейках
---   inner     его внутренность, куда ложатся значки
---   shape     сетка: колонки, ряды, всего рядов, с какого начинать
---   tools     кнопки панели инструментов, с попаданиями
---   menu_hits заголовки строки меню; menu_popup — раскрытый список, если есть
---   cells     значки: индекс объекта, его место и его попадание
---   scroll    полоса прокрутки, если она нужна
---   status    два поля статусной строки, уже готовым текстом
+--   rows      row numbers: menu, toolbar, field, status
+--   field     the rectangle of the list field, in cells
+--   inner     its interior, where the icons go
+--   shape     the grid: columns, rows, total rows, which one to start from
+--   tools     toolbar buttons, with hits
+--   menu_hits menu bar titles; menu_popup — the open list, if any
+--   cells     icons: the object index, its place and its hit
+--   scroll    the scrollbar, if it is needed
+--   status    the two fields of the status bar, as ready-made text
 --
--- Ни одного обращения к холсту и ни одной краски: план считается и когда
--- рисовать некуда.
+-- Not a single call to the canvas and not a single paint: the plan is
+-- computed even when there is nowhere to draw.
 -- Shared by the pixel state provider and the painter. Hits remain cell-aligned.
 function render.pixel_metrics(cell_w: any, cell_h: any): any
     local cw, ch = math.max(1, widgets.whole(cell_w)), math.max(1, widgets.whole(cell_h))
@@ -116,7 +124,7 @@ function render.pixel_metrics(cell_w: any, cell_h: any): any
             drawn = (66 + ch - 1) // ch},
         padding = 0, address_row = 2 + tool_rows, field_top = 2 + tool_rows + address_rows,
         address_rows = address_rows, tool_rows = tool_rows,
-        -- Кнопка панели 23×22 px, как в Windows 95; место — целые ячейки.
+        -- A toolbar button is 23×22 px, as in Windows 95; its place is whole cells.
         tool_span = math.max(1, (24 + cw - 1) // cw),
         scroll_cols = math.max(1, (16 + cw - 1) // cw),
         arrow_rows = math.max(1, (16 + ch - 1) // ch), icon_size = 32}
@@ -141,9 +149,9 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
         width = w, height = h,
         rows = {menu = render.MENU_ROW, tool = render.TOOL_ROW,
                 field = field_top, status = h},
-        -- Высота панели — из метрик, а не «всё между меню и полем»: в ячейках
-        -- между ними лежит ещё адресная строка, и панель в две строки ловила
-        -- бы её щелчки.
+        -- The toolbar height comes from the metrics, not "everything between
+        -- the menu and the field": in cells the address bar also lies between
+        -- them, and a two-row toolbar would catch its clicks.
         tool_rows = widgets.whole(sizing.tool_rows or 1), icon_size = sizing.icon_size or 16,
         field = {x = 1, y = field_top, w = w, h = field_h},
         inner = {x = inner_x, y = inner_y, w = inner_w, h = inner_h},
@@ -152,9 +160,9 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
         cells = {},
         scroll = nil,
         failure = state.failure,
-        -- Адресная строка: строка — из метрик у пикселей, константа у ячеек;
-        -- попадания поля, кнопки ▾ и строк списка считаются ЗДЕСЬ и одни на
-        -- оба бэкенда.
+        -- The address bar: its row comes from the metrics for pixels and from
+        -- a constant for cells; the hits of the field, the ▾ button and the
+        -- list rows are computed HERE and are the same for both backends.
         address = {
             row = widgets.whole(sizing.address_row or render.ADDRESS_ROW),
             rows = widgets.whole(sizing.address_rows or 1),
@@ -163,8 +171,9 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
             open = state.address_open == true,
         },
     }
-    -- Строка меню: заголовки раскладывает та же функция, что их рисует в
-    -- ячейках; раскрытый список лежит под заголовком поверх всего остального.
+    -- The menu bar: the titles are laid out by the same function that draws
+    -- them in cells; the open list lies under its title on top of everything
+    -- else.
     plan.menu_hits = widgets.menu_hits(1, render.MENU_ROW, w, render.MENU)
     local open_menu: any = nil
     for _, hit in ipairs(plan.menu_hits) do
@@ -179,7 +188,7 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
         for _, item in ipairs(items) do room = math.max(room, widgets.cells(item.title) + 4) end
         room = math.min(room, w)
         local from = math.max(1, math.min(open_menu.from, w - room + 1))
-        -- Верхняя рамка списка — строка под меню, пункты ниже неё.
+        -- The list's top frame is the row under the menu, the items below it.
         local rows = widgets.dropdown_hits(from, render.MENU_ROW + 1, room, #items)
         for index, row in ipairs(rows) do row.id = items[index].id end
         plan.menu_popup = {index = open_menu.index, items = items, hits = rows, from = from, width = room}
@@ -195,13 +204,13 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
             field.to - field.from + 1, #plan.address.items)
     end
 
-    -- Панель инструментов раскладывается той же функцией, что её рисует:
-    -- ширина кнопки считается по подписи, и своя формула здесь дала бы
-    -- кнопку на ячейку левее, чем выглядит.
+    -- The toolbar is laid out by the same function that draws it: a button's
+    -- width is computed from its caption, and a formula of our own here would
+    -- give a button one cell to the left of where it appears.
     if plan.tool_rows > 0 then plan.tools = widgets.toolbar_hits(1, render.TOOL_ROW, w, render.TOOLS, sizing.tool_span) end
     for _, button in ipairs(plan.tools) do
         button.bottom_row = button.row + plan.tool_rows - 1
-        -- Взведённая мышью кнопка нарисована вдавленной до отпускания.
+        -- A button armed by the mouse is drawn sunken until release.
         if state.armed_tool ~= nil and button.id == state.armed_tool then button.pressed = true end
     end
 
@@ -222,8 +231,8 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
             if row >= 0 and row < shape.rows then
                 local x = inner_x + column * grid.w
                 local y = inner_y + row * grid.h
-                -- Прямоугольник — у `icons.box`, той же функции, которой
-                -- пользуется `icons.cell`, когда рисует.
+                -- The rectangle comes from `icons.box`, the same function
+                -- `icons.cell` uses when it draws.
                 local box: any = icons.box(x, y, grid.w - render.GAP)
                 if sizing.grid then
                     box = {from = x, to = x + grid.w - render.GAP - 1,
@@ -244,16 +253,17 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
         plan.shape = render.shape(width, height, #objects, state.offset, metrics)
     end
 
-    -- Счётчик — содержимое окна, а не хрома: он пересчитывается на каждое
-    -- открытие папки, и канал «окно сообщает теме свою строку» означал бы,
-    -- что композитор знает про устройство чужого окна.
+    -- The counter is window contents, not chrome: it is recomputed on every
+    -- folder opening, and a channel "the window tells the theme its line"
+    -- would mean that the compositor knows about the structure of someone
+    -- else's window.
     local count = state.failure and "—" or (tostring(#objects) .. " object(s)")
 
-    -- Правое поле рассказывает про то, на что смотрят. Порядок не
-    -- произвольный: замечание важнее выделенного объекта, а выделенный объект
-    -- важнее заголовка, который и так виден в рамке окна. Так `detail`
-    -- перестаёт быть данными, которые некому показать: полный идентификатор
-    -- диска не помещается в подпись, а здесь помещается.
+    -- The right field talks about what is being looked at. The order is not
+    -- arbitrary: a notice matters more than the selected object, and the
+    -- selected object matters more than the title, which is visible in the
+    -- window frame anyway. This way `detail` stops being data nobody can be
+    -- shown: a drive's full id does not fit into a caption, but here it fits.
     local right: any = state.notice
     if not right and widgets.whole(state.selected) > 0 then
         local chosen: any = objects[state.selected]
@@ -264,10 +274,10 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
     return plan
 end
 
--- Попадания из плана. Собраны в одном месте, чтобы бэкенду не приходилось их
--- пересобирать: пересоберёт — разойдётся. Полосы прокрутки здесь нет: щелчок
--- по ней окно разбирает `scroll.pointer` по `plan.scroll`, той же геометрией,
--- что у списков SDK.
+-- Hits from the plan. Gathered in one place so that a backend does not have
+-- to rebuild them: if it rebuilds them, it will diverge. There is no
+-- scrollbar here: the window resolves a click on it with `scroll.pointer`
+-- over `plan.scroll`, with the same geometry as SDK lists.
 function render.hits(plan: any): any
     local address: any = plan.address or {}
     local popup: any = plan.menu_popup or {}
@@ -283,11 +293,11 @@ function render.hits(plan: any): any
     return out
 end
 
--- ─── бэкенд ячеек ────────────────────────────────────────────────────────
+-- ─── cell backend ────────────────────────────────────────────────────────
 
 -- cells(canvas, plan) -> {cells = …, tools = …, menu = …, …}
 --
--- Рисует символами. Попадания НЕ считает — берёт из плана.
+-- Draws with characters. Does NOT compute hits — takes them from the plan.
 function render.cells(canvas, plan: any): any
     local hits = render.hits(plan)
 
@@ -296,8 +306,9 @@ function render.cells(canvas, plan: any): any
     widgets.menu_bar(canvas, 1, plan.rows.menu, plan.width, plan.menu)
     widgets.toolbar(canvas, 1, plan.rows.tool, plan.width, render.TOOLS)
 
-    -- Поле списка: вдавленная рамка от темы, белая изнанка своя. Значки
-    -- лежат на белом, как в проводнике, а не на сером лице панели.
+    -- The list field: a sunken frame from the theme, a white inside of our
+    -- own. Icons lie on white, as in Explorer, not on the grey face of the
+    -- panel.
     widgets.field(canvas, plan.field.x, plan.field.y, plan.field.w, plan.field.h)
 
     local inner: any = plan.inner
@@ -328,8 +339,8 @@ function render.cells(canvas, plan: any): any
         {text = plan.status.detail},
     })
 
-    -- Адресная строка и её список рисуются последними: список ложится
-    -- поверх поля, и рисовать его раньше значило бы закрасить его значками.
+    -- The address bar and its list are drawn last: the list lies over the
+    -- field, and drawing it earlier would mean painting over it with icons.
     if plan.address then
         widgets.address_bar(canvas, 1, plan.address.row, plan.width, plan.address.text)
         if plan.address.dropdown and #plan.address.dropdown > 0 then
@@ -339,7 +350,7 @@ function render.cells(canvas, plan: any): any
         end
     end
 
-    -- Раскрытое меню — поверх и адреса, и поля.
+    -- The open menu — on top of both the address and the field.
     if plan.menu_popup then
         widgets.dropdown(canvas, plan.menu_popup.from, plan.rows.menu + 1, plan.menu_popup.width,
             plan.menu_popup.items, 0)
@@ -350,27 +361,29 @@ end
 
 -- window(canvas, view, width, height) -> {cells = …, tools = …, scroll = …}
 --
--- Прежний вход, оставленный окну: раскладка плюс бэкенд ячеек.
+-- The former entry point, kept for the window: layout plus the cell backend.
 --
 -- `view`: objects, title, failure, notice, selected, offset.
 --
--- `failure` — «не прочитали», и тогда объектов нет вовсе. `notice` — третье
--- состояние между ним и «показано всё»: прочитали, но не всё, или двойной
--- щелчок не сработал. Замечание не прячет объектов и не выдаёт себя за отказ.
+-- `failure` is "not read", and then there are no objects at all. `notice` is
+-- a third state between it and "everything is shown": read, but not
+-- everything, or a double click did not work. A notice does not hide objects
+-- and does not pass itself off as a failure.
 function render.window(canvas, view: any, width: any, height: any)
     local plan = render.layout(view, width, height)
     local hits = render.cells(canvas, plan)
     return hits
 end
 
--- Раскладка сетки: сколько колонок, сколько рядов видно, сколько их всего и
--- с какого начинать. Считается ОДИН раз и здесь — потому что этими же числами
--- живут клавиши «вверх» и «вниз» (они ходят по сетке, а не по списку) и
--- прокрутка. Посчитанные в трёх местах, они разъезжаются, и стрелка вниз
--- уводит выделение за край видимого.
+-- The grid layout: how many columns, how many rows are visible, how many
+-- there are in total and which one to start from. Computed ONCE and here —
+-- because the "up" and "down" keys (they move through the grid, not through
+-- the list) and scrolling live by these same numbers. Computed in three
+-- places, they drift apart, and the down arrow takes the selection past the
+-- edge of what is visible.
 --
--- `first` приходит в `state.offset` и здесь ЗАЖИМАЕТСЯ: окно, которое сузили
--- после прокрутки, иначе показало бы пустоту ниже последнего ряда.
+-- `first` arrives in `state.offset` and is CLAMPED here: a window narrowed
+-- after scrolling would otherwise show emptiness below the last row.
 function render.shape(width: any, height: any, count: any, offset: any, metrics: any?): any
     local sizing: any = type(metrics) == "table" and metrics or {}
     local grid = sizing.grid or icons.grid()
@@ -383,14 +396,15 @@ function render.shape(width: any, height: any, count: any, offset: any, metrics:
     local inner_w = w - padding * 2
     local inner_h = h - field_top - padding * 2
 
-    -- ШАГ сетки и ВЫСОТА рисунка — разные числа, и здесь это стоит целого
-    -- ряда: шаг четыре строки, рисунок три, и последнему ряду просвет под
-    -- собой не нужен — под ним рамка поля. Считай по шагу — и в поле из
-    -- пятнадцати строк поместились бы три ряда вместо четырёх, а четвёртый
-    -- уехал бы под прокрутку, которой без него не было бы вовсе.
+    -- The grid STEP and the picture HEIGHT are different numbers, and here
+    -- that is worth a whole row: the step is four rows, the picture three,
+    -- and the last row does not need a gap below it — the field frame is
+    -- under it. Count by the step, and a field of fifteen rows would fit
+    -- three rows instead of four, and the fourth would go under a scroll that
+    -- would not exist at all without it.
     local rows = (inner_h - grid.drawn) // grid.h + 1
-    -- Ноль — это «рисунок не помещается целиком». Не единица: ряд, которому
-    -- не хватило строки, залез бы на статусную строку и остался бы там.
+    -- Zero means "the picture does not fit entirely". Not one: a row that
+    -- was short of a line would climb onto the status bar and stay there.
     if rows < 0 or inner_h < grid.drawn then rows = 0 end
 
     local function columns_in(room: any): integer
@@ -403,10 +417,10 @@ function render.shape(width: any, height: any, count: any, offset: any, metrics:
     local total = (total_objects + columns - 1) // columns
     local scrolling = total > rows
 
-    -- Появившаяся полоса забирает колонку, и в оставшуюся ширину может
-    -- поместиться на одну колонку значков меньше — от чего рядов станет
-    -- больше. Второй проход это и учитывает; третьего не нужно: полоса уже
-    -- есть, и уже, чем на одну колонку, поле не станет.
+    -- A scrollbar that appeared takes a column, and the remaining width may
+    -- fit one column of icons fewer — which makes more rows. The second pass
+    -- accounts for exactly that; a third is not needed: the bar is already
+    -- there, and the field will not get narrower by more than one column.
     if scrolling then
         columns = columns_in(inner_w - (sizing.scroll_cols or 1))
         total = (total_objects + columns - 1) // columns
@@ -421,9 +435,9 @@ function render.shape(width: any, height: any, count: any, offset: any, metrics:
     }
 end
 
--- Сколько объектов помещается в ряд. Клавишам «влево» и «вправо» этого не
--- нужно, а «вверх» и «вниз» ходят по сетке — на столько же, на сколько её
--- разложили.
+-- How many objects fit in a row. The "left" and "right" keys do not need
+-- this, but "up" and "down" move through the grid — by as much as it was
+-- laid out.
 function render.columns(width: any, height: any, count: any): integer
     local shape: any = render.shape(width, height, count, 0)
     return (math.tointeger(shape.columns) or 1)

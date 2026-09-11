@@ -1,4 +1,4 @@
-# Собирается build.py из harness.lua и текущих файлов темы.
+# Assembled by build.py from harness.lua and the current theme files.
 combined.lua
-# Двоичный файл сборки.
+# Build binary.
 pixelprobe

@@ -1,24 +1,25 @@
 version: "1.0"
 namespace: butschster.windows.api
 
-# Ручки оболочки: каталог программ на чтение и раскладка рабочего стола на
-# чтение и запись.
+# Shell endpoints: the program catalog for reading, and the desktop layout
+# for reading and writing.
 #
-# Ручки на СОЗДАНИЕ программы здесь нет и не будет. Программы объявляет
-# реестр — установкой модуля или сборкой окна через мастерскую основы
-# (POST /tui-desktop/apps). Своя ручка создания означала бы второй источник
-# истины рядом с реестром, и разошлись бы они на первом удалении модуля.
+# There is no endpoint to CREATE a program here, and there will not be one.
+# Programs are declared by the registry — by installing a module or by
+# building a window through the base workshop (POST /tui-desktop/apps). A
+# creation endpoint of our own would mean a second source of truth next to
+# the registry, and the two would diverge on the first module removal.
 
 entries:
   # butschster.windows.api:control
   #
-  # Раскладку композитор перечитывает по команде, а не каждый кадр, поэтому
-  # ручка, изменившая строку, обязана его толкнуть. Иначе значок появляется
-  # только после перезапуска, и ручка выглядит не сработавшей.
+  # The compositor rereads the layout on command, not every frame, so an
+  # endpoint that changed a row is obliged to nudge it. Otherwise the icon
+  # appears only after a restart, and the endpoint looks like it did not work.
   - name: control
     kind: library.lua
     meta:
-      comment: Найти оболочку по имени, послать команду, дождаться ответа. Погашенная оболочка отличается от неответившей.
+      comment: Find the shell by name, send a command, wait for the answer. A shell that is shut down is told apart from one that did not answer.
     source: file://control.lua
     modules:
       - channel
@@ -29,7 +30,7 @@ entries:
   - name: list_programs
     kind: function.lua
     meta:
-      comment: GET /windows/programs — каталог из реестра, папки меню и порядок. Отказ реестра отдаётся как отказ, а не как пустой список.
+      comment: GET /windows/programs — the catalog from the registry, menu folders and order. A registry failure is returned as a failure, not as an empty list.
     source: file://list_programs.lua
     method: handler
     modules:
@@ -44,7 +45,7 @@ entries:
   - name: list_programs.endpoint
     kind: http.endpoint
     meta:
-      comment: Каталог программ за аутентифицированным роутером.
+      comment: The program catalog behind the authenticated router.
       router: app:api
     method: GET
     func: list_programs
@@ -54,7 +55,7 @@ entries:
   - name: list_desktop
     kind: function.lua
     meta:
-      comment: GET /windows/desktop — ярлыки и папки стола; ярлык на исчезнувшую запись помечен битым, а не убран.
+      comment: GET /windows/desktop — desktop shortcuts and folders; a shortcut to a vanished entry is marked broken, not removed.
     source: file://list_desktop.lua
     method: handler
     modules:
@@ -75,7 +76,7 @@ entries:
   - name: list_desktop.endpoint
     kind: http.endpoint
     meta:
-      comment: Раскладка стола за аутентифицированным роутером.
+      comment: The desktop layout behind the authenticated router.
       router: app:api
     method: GET
     func: list_desktop
@@ -83,12 +84,13 @@ entries:
 
   # butschster.windows.api:desktop_body
   #
-  # Тело POST и PATCH стола — разбор и проверка одним местом, без HTTP и базы,
-  # чтобы каждый отказ проверялся тестом без сервера.
+  # The body of desktop POST and PATCH — parsing and validation in one place,
+  # without HTTP or the database, so that every refusal is checked by a test
+  # without a server.
   - name: desktop_body
     kind: library.lua
     meta:
-      comment: Проверка тела запросов стола — JSON-объект, конечные целые координаты, потолки длины, папка не вкладывается в папку, null только у ключа верхнего уровня.
+      comment: Validation of desktop request bodies — a JSON object, finite whole coordinates, length caps, a folder does not nest in a folder, null only on a top-level key.
     source: file://desktop_body.lua
     modules:
       - json
@@ -99,7 +101,7 @@ entries:
   - name: create_desktop_item
     kind: function.lua
     meta:
-      comment: POST /windows/desktop — завести ярлык или папку стола.
+      comment: POST /windows/desktop — create a desktop shortcut or folder.
     source: file://create_desktop_item.lua
     method: handler
     modules:
@@ -124,7 +126,7 @@ entries:
   - name: create_desktop_item.endpoint
     kind: http.endpoint
     meta:
-      comment: Создание ярлыка или папки стола за аутентифицированным роутером.
+      comment: Creating a desktop shortcut or folder behind the authenticated router.
       router: app:api
     method: POST
     func: create_desktop_item
@@ -134,7 +136,7 @@ entries:
   - name: update_desktop_item
     kind: function.lua
     meta:
-      comment: PATCH /windows/desktop/{id} — переместить или переименовать; entry и kind не меняются.
+      comment: PATCH /windows/desktop/{id} — move or rename; entry and kind do not change.
     source: file://update_desktop_item.lua
     method: handler
     modules:
@@ -157,7 +159,7 @@ entries:
   - name: update_desktop_item.endpoint
     kind: http.endpoint
     meta:
-      comment: Перемещение и переименование за аутентифицированным роутером.
+      comment: Moving and renaming behind the authenticated router.
       router: app:api
     method: PATCH
     func: update_desktop_item
@@ -167,7 +169,7 @@ entries:
   - name: delete_desktop_item
     kind: function.lua
     meta:
-      comment: DELETE /windows/desktop/{id} — убрать ярлык или папку; ответ говорит, была ли строка.
+      comment: DELETE /windows/desktop/{id} — remove a shortcut or folder; the answer says whether the row existed.
     source: file://delete_desktop_item.lua
     method: handler
     modules:
@@ -188,7 +190,7 @@ entries:
   - name: delete_desktop_item.endpoint
     kind: http.endpoint
     meta:
-      comment: Удаление ярлыка или папки за аутентифицированным роутером.
+      comment: Deleting a shortcut or folder behind the authenticated router.
       router: app:api
     method: DELETE
     func: delete_desktop_item
@@ -196,12 +198,13 @@ entries:
 
   # butschster.windows.api:shell_status
   #
-  # Отчёт восстановления окон мастерской виден только здесь: лог терминального
-  # хоста заглушён, и отказ, рассказанный в лог, не рассказан никому.
+  # The restore report for workshop windows is visible only here: the
+  # terminal host log is muted, and a failure told to the log is told to
+  # no one.
   - name: shell_status
     kind: function.lua
     meta:
-      comment: GET /windows/status — жива ли оболочка, её окна и отчёт восстановления окон мастерской.
+      comment: GET /windows/status — whether the shell is alive, its windows, and the restore report for workshop windows.
     source: file://shell_status.lua
     method: handler
     modules:
@@ -218,7 +221,7 @@ entries:
   - name: shell_status.endpoint
     kind: http.endpoint
     meta:
-      comment: Состояние оболочки за аутентифицированным роутером.
+      comment: Shell state behind the authenticated router.
       router: app:api
     method: GET
     func: shell_status

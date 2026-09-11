@@ -1,12 +1,14 @@
--- PATCH /windows/desktop/{id} — переместить или переименовать.
+-- PATCH /windows/desktop/{id} — move or rename.
 --
--- Меняются только раскладочные поля: место, имя, папка. `entry` и `kind`
--- неизменны намеренно — сменить запись у ярлыка значит подменить программу
--- под тем же значком, и человек запустил бы не то, что видит.
+-- Only layout fields change: place, name, folder. `entry` and `kind` are
+-- immutable on purpose — changing a shortcut's entry means swapping the
+-- program under the same icon, and a person would launch something other
+-- than what they see.
 --
--- `parent_id: null` в теле — просьба вынести значок из папки на стол.
--- Отсутствие поля означает «не трогать»; без этого различия вынести значок
--- было бы нечем. Что в теле допустимо, решает `desktop_body`.
+-- `parent_id: null` in the body is a request to move the icon out of the
+-- folder onto the desktop. An absent field means "leave alone"; without this
+-- distinction there would be no way to move an icon out. What is allowed in
+-- the body is decided by `desktop_body`.
 
 local http = require("http")
 local security = require("security")
@@ -44,8 +46,8 @@ local function handler()
     local patch, why = desktop_body.update(req:body())
     if not patch then return bad(res, tostring(why)) end
 
-    -- Перенос в папку: что кладут, решает вид самого значка, поэтому он
-    -- читается здесь, до записи.
+    -- Moving into a folder: what is being put in is decided by the kind of
+    -- the icon itself, so it is read here, before the write.
     if type(patch.parent_id) == "string" then
         local item, ierr = repo.get(id)
         if ierr then return failed(res, "reading the shortcut: " .. tostring(ierr)) end
@@ -68,8 +70,8 @@ local function handler()
         return
     end
 
-    -- Композитор перечитывает раскладку по команде: без неё значок остался
-    -- бы на прежнем месте до перезапуска.
+    -- The compositor rereads the layout on command: without it the icon would
+    -- stay in its old place until a restart.
     res:set_status(http.STATUS.OK)
     res:write_json({success = true, item = item, shell = control.refresh()})
 end

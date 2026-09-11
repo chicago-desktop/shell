@@ -1,27 +1,28 @@
 version: "1.0"
 namespace: butschster.windows.sysprops
 
-# «Свойства: Система» — окно свойств «Моего компьютера», как System
-# Properties в Windows 95. Открывается пунктом «Свойства» контекстного меню
-# значка (`meta.properties` у записи проводника) и из «Пуск → Настройка».
+# "System Properties" is the properties window of "My Computer", like System
+# Properties in Windows 95. It opens from the "Properties" item of the icon's
+# context menu (`meta.properties` on the explorer entry) and from "Start →
+# Settings".
 
 entries:
   # butschster.windows.sysprops:model
   - name: model
     kind: library.lua
     meta:
-      comment: Чистая модель «Свойств системы» — дерево устройств стенда из снимка рантайма и записей реестра, видимые строки, подписи.
+      comment: The pure model of "System Properties" — the stand's device tree from a runtime snapshot and registry entries, visible rows, captions.
     source: file://model.lua
     imports:
       geometry: butschster.tui_desktop.desktop:geometry
 
-  # Права: читать рантайм и реестр, спросить композитор и опубликовать ему
-  # состояние. Ни писать в реестр, ни порождать процессы окно не может — это
-  # окно свойств, а не панель управления.
+  # Permissions: read the runtime and the registry, ask the compositor and
+  # publish state to it. The window can neither write to the registry nor
+  # spawn processes: it is a properties window, not a control panel.
   - name: window_scope
     kind: security.policy
     meta:
-      comment: Права «Свойств системы» — прочитать рантайм и реестр, опубликовать состояние композитору; ничего не менять.
+      comment: Permissions of "System Properties" — read the runtime and the registry, publish state to the compositor; change nothing.
     policy:
       actions:
         - process.context
@@ -50,7 +51,7 @@ entries:
       height: 24
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.sysprops:window
-      comment: Свойства системы — узел и модули рантайма, хосты, файловые системы, базы и HTTP из реестра, память и горутины; окно на SDK оболочки, только чтение.
+      comment: System Properties — the runtime node and modules, hosts, file systems, databases and HTTP from the registry, memory and goroutines; a window on the shell SDK, read-only.
     source: file://window.lua
     method: main
     modules:

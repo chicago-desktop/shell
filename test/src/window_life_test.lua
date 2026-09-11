@@ -1,9 +1,9 @@
--- Окна-программы живут после запуска.
+-- Program windows stay alive after launch.
 --
--- Композитор открывает окно, окно умирает на первом кадре — и снаружи это
--- «щёлкнул, ничего не открылось»: причина уходит в заглушённый лог. Здесь
--- окно запускается напрямую, с грантом на viewport, и событие его выхода
--- читается как текст. Так нашлись оба `utf8.codes`.
+-- The compositor opens a window, the window dies on its first frame — and from outside this is
+-- "clicked, nothing opened": the reason goes into the muted log. Here
+-- the window is launched directly, with a viewport grant, and its exit event
+-- is read as text. That is how both `utf8.codes` were found.
 local test = require("test")
 local channel = require("channel")
 local process = require("process")
@@ -32,8 +32,8 @@ local function exit_of(entry: string, argument: any): string
     local deadline = time.after("4s")
     while true do
         local picked = channel.select({lifecycle:case_receive(), deadline:case_receive()})
-        if picked.channel == deadline then return "жив через 4 с (ок)" end
-        if not picked.ok then return "канал событий закрылся" end
+        if picked.channel == deadline then return "alive after 4 s (ok)" end
+        if not picked.ok then return "event channel closed" end
         local event: any = picked.value
         if event.kind == process.event.EXIT and tostring(event.from) == tostring(pid) then
             return "EXIT: " .. dump(event, 0)
@@ -42,15 +42,15 @@ local function exit_of(entry: string, argument: any): string
 end
 
 local function define_tests()
-    test.describe("окна-программы живут после запуска", function()
-        test.it("Диспетчер задач не умирает на первом кадре", function()
+    test.describe("program windows stay alive after launch", function()
+        test.it("Task Manager does not die on the first frame", function()
             local outcome = exit_of("butschster.windows.taskman:window", nil)
-            test.is_true(outcome:find("жив", 1, true) ~= nil, "Диспетчер задач: " .. outcome)
+            test.is_true(outcome:find("alive", 1, true) ~= nil, "Task Manager: " .. outcome)
         end)
-        test.it("Блокнот не умирает на первом кадре", function()
+        test.it("Notepad does not die on the first frame", function()
             local outcome = exit_of("butschster.windows.viewers:notepad",
                 '{"drive":"butschster.windows.shell:icon_files","path":"/SOURCE.md"}')
-            test.is_true(outcome:find("жив", 1, true) ~= nil, "Блокнот: " .. outcome)
+            test.is_true(outcome:find("alive", 1, true) ~= nil, "Notepad: " .. outcome)
         end)
     end)
 end

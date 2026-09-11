@@ -1,11 +1,12 @@
--- «Свойства: Система», чистая модель: дерево устройств стенда из снимка
--- рантайма и записей реестра, видимые строки дерева, подписи.
+-- "System Properties", the pure model: the stand's device tree from a
+-- runtime snapshot and registry entries, the visible rows of the tree,
+-- captions.
 --
--- «Устройства» здесь — то, из чего рантайм состоит и что видно снаружи
--- без прав на запись: хосты процессов, файловые системы, базы, HTTP,
--- терминалы и модули Lua. Записи реестра раскладываются по ПРЕФИКСУ вида:
--- список видов у рантайма открытый, и перечислять их по одному значило бы
--- терять новые молча.
+-- "Devices" here are what the runtime consists of and what is visible from
+-- outside without write permissions: process hosts, file systems,
+-- databases, HTTP, terminals and Lua modules. Registry entries are laid out
+-- by the PREFIX of their kind: the runtime's list of kinds is open, and
+-- enumerating them one by one would mean losing new ones silently.
 local geometry = require("geometry")
 local whole = geometry.whole
 
@@ -13,7 +14,7 @@ local model = {}
 
 model.TABS = {{text = "General"}, {text = "Device Manager"}, {text = "Performance"}}
 
--- Группы дерева в порядке показа: подпись, префикс вида записи реестра.
+-- Tree groups in display order: caption, prefix of the registry entry kind.
 model.GROUPS = {
     {key = "hosts", label = "Process hosts"},
     {key = "fs", label = "File systems", prefix = "fs."},
@@ -27,11 +28,12 @@ local function node(key: any, label: any, kind: any): any
     return {key = tostring(key), label = tostring(label), kind = tostring(kind or "folder"), children = {}}
 end
 
--- tree(snapshot, records) -> корень дерева
+-- tree(snapshot, records) -> the tree root
 --
--- `snapshot` — то, что сняло окно с `system`; `records` — записи реестра
--- (`{id, kind}`). Пустая группа остаётся в дереве с пометкой «нет»: пропасть
--- она не может, иначе «баз нет» было бы неотличимо от «не прочитано».
+-- `snapshot` is what the window took from `system`; `records` are registry
+-- entries (`{id, kind}`). An empty group stays in the tree marked "none": it
+-- cannot vanish, otherwise "there are no databases" would be
+-- indistinguishable from "not read".
 function model.tree(snapshot: any, records: any): any
     local snap: any = type(snapshot) == "table" and snapshot or {}
     local root = node("root", tostring(snap.hostname or "Computer"), "computer")
@@ -65,8 +67,9 @@ function model.tree(snapshot: any, records: any): any
         end
         table.sort(branch.children, function(left, right) return left.label < right.label end)
         branch.count = #branch.children
-        -- Не прочитали — не «нет»: вместо «(none)» причина, и она же — строка
-        -- состояния под деревом, где целиком помещается текст отказа.
+        -- Not read is not "none": instead of "(none)" the reason, and it is
+        -- also the status line under the tree, where the whole failure text
+        -- fits.
         local problems: any = type(snap.problems) == "table" and snap.problems or {}
         if group.key == "hosts" or group.key == "modules" then
             branch.problem = problems[group.key]
@@ -77,7 +80,7 @@ function model.tree(snapshot: any, records: any): any
     return root
 end
 
--- flatten(root, expanded) -> видимые строки для компонента `tree`
+-- flatten(root, expanded) -> visible rows for the `tree` component
 function model.flatten(root: any, expanded: any): any
     local rows = {}
     local open: any = type(expanded) == "table" and expanded or {}
@@ -108,8 +111,8 @@ function model.flatten(root: any, expanded: any): any
     return rows
 end
 
--- Раскрыть корень и все группы: так окно открывается с деревом, а не с
--- одной строкой, которую ещё надо догадаться раскрыть.
+-- Expand the root and all groups: this way the window opens with a tree,
+-- not with one line that you still have to guess to expand.
 function model.expanded_all(root: any): any
     local out: any = {}
     out[root.key] = true
@@ -117,7 +120,7 @@ function model.expanded_all(root: any): any
     return out
 end
 
--- Строка дерева по идентификатору — для подписи под деревом.
+-- A tree row by identifier, for the caption under the tree.
 function model.row(rows: any, id: any): any
     for _, row in ipairs(rows) do
         local line: any = row

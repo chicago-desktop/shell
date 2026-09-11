@@ -1,5 +1,6 @@
--- Спецификация запуска через штатное PTY-окно основы; прав на запуск нет.
--- Редактор строки у диалога больше не свой: его даёт `sdk:editor`.
+-- The launch spec through the base module's standard PTY window; there are
+-- no launch permissions. The dialog's line editor is no longer its own: it
+-- comes from `sdk:editor`.
 local model = {}
 model.PTY = "butschster.tui_desktop.desktop:window_pty"
 

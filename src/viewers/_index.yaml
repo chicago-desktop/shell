@@ -1,27 +1,28 @@
 version: "1.0"
 namespace: butschster.windows.viewers
 
-# Просмотрщики: Блокнот для текста и просмотр картинок.
+# Viewers: Notepad for text and the image viewer.
 #
-# Оба открываются из проводника по файлу, и оба получают файл одним и тем же
-# аргументом — строкой из `files.encode`. Разница в устройстве: Блокнот —
-# окно в ячейках, рисует себя сам в свой viewport; картинка — окно-вид
-# (`window_content: pixels`), которое рисует тема в процессе композитора,
-# а данные приносит отдельный поставщик со своими правами. Картинку в
-# ячейках показать нечем: размещения едут только в кадре физической
-# поверхности.
+# Both are opened from the explorer on a file, and both receive the file as
+# one and the same argument — the string from `files.encode`. The difference
+# is in how they are built: Notepad is a cell window that draws itself into
+# its own viewport; the picture is a view window (`window_content: pixels`),
+# drawn by the theme in the compositor process, while the data is brought by
+# a separate provider with its own permissions. There is no way to show a
+# picture in cells: placements travel only in the frame of the physical
+# surface.
 #
-# Реестр типов файлов здесь же: программа объявляет `meta.opens` — какие
-# расширения она открывает, — и проводник собирает по каталогу таблицу
-# «расширение → запись». Отдельной таблицы нет и не нужно.
+# The file-type registry lives here too: a program declares `meta.opens` —
+# which extensions it opens — and the explorer assembles from the catalog a
+# table "extension → entry". There is no separate table, and none is needed.
 
 entries:
-  # ─── Библиотеки ──────────────────────────────────────────────────────
+  # ─── Libraries ───────────────────────────────────────────────────────
   # butschster.windows.viewers:files
   - name: files
     kind: library.lua
     meta:
-      comment: Файл на диске реестра — аргумент окна одной строкой (JSON с диском и путём), расширение, чтение байтов через fs с потолком.
+      comment: A file on a registry drive — the window argument as one string (JSON with drive and path), the extension, reading bytes through fs with a cap.
     source: file://files.lua
     modules:
       - fs
@@ -31,19 +32,20 @@ entries:
   - name: associations
     kind: library.lua
     meta:
-      comment: Реестр типов файлов — программа объявляет meta.opens, таблица «расширение → запись» собирается из каталога; спор за расширение называется, а не решается молча.
+      comment: File-type registry — a program declares meta.opens, the "extension → entry" table is assembled from the catalog; a dispute over an extension is named, not settled silently.
     source: file://associations.lua
     imports:
       files: butschster.windows.viewers:files
 
   # butschster.windows.viewers:picture_render
   #
-  # Чистая отрисовка окна-вида: зовёт тема в процессе композитора. Прав у
-  # неё нет и не нужно — картинка приезжает в состоянии окна.
+  # Pure drawing of the view window: called by the theme in the compositor
+  # process. It has no permissions and needs none — the picture arrives in
+  # the window state.
   - name: picture_render
     kind: library.lua
     meta:
-      comment: Просмотр картинок, отрисовка — вписать или показать в масштабе, один растр кадра на окно, переотправка только при изменении.
+      comment: Image viewer, drawing — fit or show at a zoom, one frame raster per window, resent only on change.
     source: file://picture_render.lua
     imports:
       geometry: butschster.tui_desktop.desktop:geometry
@@ -51,14 +53,15 @@ entries:
       - base64
       - gfx
 
-  # ─── Права ───────────────────────────────────────────────────────────
-  # Окна просмотрщиков читают диск и больше ничего: ни реестра, ни базы, ни
-  # процессов. `fs.get` на `*` — потому что диском может быть любая из
-  # записей `fs.*` реестра, и какую откроет человек, заранее не известно.
+  # ─── Permissions ─────────────────────────────────────────────────────
+  # Viewer windows read a drive and nothing else: no registry, no database,
+  # no processes. `fs.get` on `*` — because the drive can be any of the
+  # registry's `fs.*` entries, and which one a person opens is not known in
+  # advance.
   - name: viewer_scope
     kind: security.policy
     meta:
-      comment: Права просмотрщиков — прочитать файл с диска реестра. Порождать процессы, читать реестр и базу они не могут.
+      comment: Viewer permissions — read a file from a registry drive. They cannot spawn processes or read the registry and the database.
     policy:
       actions:
         - process.context
@@ -66,11 +69,12 @@ entries:
       resources: "*"
       effect: allow
 
-  # Поставщику картинки нужно ещё найти композитор и послать ему состояние.
+  # The picture provider additionally needs to find the compositor and send
+  # it the state.
   - name: provider_scope
     kind: security.policy
     meta:
-      comment: Права поставщика состояния — прочитать файл с диска и послать состояние композитору.
+      comment: State provider permissions — read a file from a drive and send the state to the compositor.
     policy:
       actions:
         - process.context
@@ -80,15 +84,15 @@ entries:
       resources: "*"
       effect: allow
 
-  # ─── Блокнот ─────────────────────────────────────────────────────────
+  # ─── Notepad ─────────────────────────────────────────────────────────
   # butschster.windows.viewers:notepad
   - name: notepad
     kind: process.lua
     meta:
       type: tui_desktop.window
       title: Notepad
-      # Сама программа — блокнот с карандашом (w98_notepad); её файлы в
-      # проводнике — текстовый документ, как в Windows.
+      # The program itself is a notepad with a pencil (w98_notepad); its files
+      # in the explorer are a text document, as in Windows.
       image: notepad
       file_image: text_document
       icon: "▤"
@@ -96,9 +100,9 @@ entries:
       order: 40
       width: 64
       height: 20
-      # Что открывает. Проводник собирает по этому полю реестр типов.
+      # What it opens. The explorer assembles the type registry from this field.
       opens: [txt, md, log, csv, json, yaml, yml, lua, ini, conf, toml, xml, html, css, js, ts, go, py, sh]
-      comment: Блокнот — просмотр текстового файла с диска реестра, только чтение; строки не переносятся, прокрутка стрелками и колесом.
+      comment: Notepad — view a text file from a registry drive, read-only; lines do not wrap, scrolling with the arrows and the wheel.
     source: file://notepad.lua
     method: main
     modules:
@@ -116,17 +120,18 @@ entries:
       files: butschster.windows.viewers:files
       widgets: butschster.windows.shell:widgets
 
-  # ─── Просмотр картинок ───────────────────────────────────────────────
+  # ─── Image viewer ────────────────────────────────────────────────────
   # butschster.windows.viewers:picture
   #
-  # Окно-вид. Процесса внутри нет: рисует тема через `render`, данные
-  # приносит `state`. Источник — заглушка ради формы записи.
+  # A view window. There is no process inside: the theme draws through
+  # `render`, `state` brings the data. The source is a stub for the sake of
+  # the entry's form.
   - name: picture
     kind: process.lua
     meta:
       type: tui_desktop.window
       title: Image Viewer
-      # В «Пуске» бесполезен: открывается только файлом из проводника.
+      # Useless in "Start": it is opened only by a file from the explorer.
       in_menu: false
       image: document
       icon: "▦"
@@ -138,7 +143,7 @@ entries:
       render: butschster.windows.viewers:picture_render
       state: butschster.windows.viewers:picture_state
       opens: [png, gif, jpg, jpeg]
-      comment: Просмотр картинок — PNG, GIF, JPEG с диска реестра; вписывает в окно или показывает в масштабе со сдвигом. Только в пиксельном режиме.
+      comment: Image viewer — PNG, GIF, JPEG from a registry drive; fits into the window or shows at a zoom with panning. Pixel mode only.
     source: file://idle_window.lua
     method: main
     modules:
@@ -149,7 +154,7 @@ entries:
   - name: picture_state
     kind: process.lua
     meta:
-      comment: Поставщик состояния просмотра картинок — читает файл под своими правами, шлёт композитору картинку и способ показа, меняет способ по вводу.
+      comment: State provider for the image viewer — reads the file under its own permissions, sends the compositor the picture and the display mode, changes the mode on input.
     source: file://picture_state.lua
     method: main
     modules:

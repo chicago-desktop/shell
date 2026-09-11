@@ -1,9 +1,9 @@
--- Экран входа: маска пароля, порядок Enter, отказ и повтор, отмена, снимок.
+-- Logon screen: password mask, Enter order, refusal and retry, cancel, snapshot.
 --
--- Диалог гоняется на ПОДДЕЛЬНОМ экране: события — свой канал, заполненный
--- заранее, кадр — холст в памяти. Проверка пароля — заглушка, которая
--- записывает, что ей дали: так видно, что после отказа поле пароля пустое,
--- а имя осталось.
+-- The dialog is run on a FAKE screen: events are its own channel, filled in
+-- advance, the frame is an in-memory canvas. The password check is a stub
+-- that records what it was given: that way it is visible that after a
+-- refusal the password field is empty, while the name stayed.
 local test = require("test")
 local channel = require("channel")
 local tty = require("tty")
@@ -41,7 +41,7 @@ local function feed(events: any, list: any)
     for _, event in ipairs(list) do assert(events:send(event)) end
 end
 
--- Принимает и холст, и готовый список строк (`cells.rows` отдаёт второе).
+-- Accepts both a canvas and a ready list of rows (`cells.rows` returns the latter).
 local function joined(canvas: any): string
     local rows: any = type(canvas) == "table" and canvas or canvas:rows()
     local out = {}
@@ -51,18 +51,18 @@ end
 
 local function define_tests()
     test.describe("Welcome to Windows", function()
-        test.it("маскирует пароль звёздочками, оставляя настоящее значение в дереве", function()
+        test.it("masks the password with asterisks, keeping the real value in the tree", function()
             local tree = screen_lib.tree({user = "pb", password = "secret", busy = false})
             local interaction = ui.interaction()
             local plan = ui.plan(tree, 52, 7, interaction)
             local shown = joined(cells.rows(plan, interaction, 52, 7))
-            test.is_true(shown:find("******", 1, true) ~= nil, "звёздочек нет")
+            test.is_true(shown:find("******", 1, true) ~= nil, "no asterisks")
             test.is_nil(shown:find("secret", 1, true))
-            test.is_true(shown:find("pb", 1, true) ~= nil, "имя пользователя не показано")
+            test.is_true(shown:find("pb", 1, true) ~= nil, "user name not shown")
             test.eq(plan.by_id["password"].node.text, "secret")
         end)
 
-        test.it("Enter в имени ведёт в пароль; отказ очищает пароль, второй заход входит", function()
+        test.it("Enter in the name leads to the password; a refusal clears the password, the second attempt logs on", function()
             local events = channel.new(64)
             feed(events, runes("pb"))
             feed(events, {{type = "key", key = "enter"}})
@@ -75,7 +75,7 @@ local function define_tests()
             local identity, why = screen_lib.run(screen, function(login, password)
                 attempts[#attempts + 1] = {login = login, password = password}
                 if password == "right" then return {actor = "A", scope = "S", context = {user_id = "u1"}}, nil end
-                return nil, "Неверный пароль"
+                return nil, "Wrong password"
             end)
             test.is_nil(why)
             test.not_nil(identity)
@@ -84,12 +84,12 @@ local function define_tests()
             test.eq(attempts[1].login, "pb")
             test.eq(attempts[1].password, "wrong")
             test.eq(attempts[2].login, "pb")
-            -- Пароль после отказа пуст: «wrongright» означал бы, что поле не очищено.
+            -- The password after a refusal is empty: "wrongright" would mean the field was not cleared.
             test.eq(attempts[2].password, "right")
-            test.is_true(screen.frames >= 6, "кадров меньше, чем нажатий")
+            test.is_true(screen.frames >= 6, "fewer frames than key presses")
         end)
 
-        test.it("не зовёт проверку с пустым именем и показывает подсказку", function()
+        test.it("does not call the check with an empty name and shows a hint", function()
             local events = channel.new(8)
             feed(events, {{type = "key", key = "enter"}, {type = "key", key = "esc"}})
             local screen = fake_screen(events, false)
@@ -97,41 +97,41 @@ local function define_tests()
             local identity, why = screen_lib.run(screen, function() called = true; return nil, "x" end)
             test.is_nil(identity)
             test.eq(why, "logon cancelled")
-            test.is_true(not called, "проверка вызвана с пустым именем")
+            test.is_true(not called, "check called with an empty name")
             test.is_true(joined(screen.canvas):find("Type a user name.", 1, true) ~= nil)
         end)
 
-        test.it("Esc и «Отмена» отказывают без проверки; закрытый терминал называет причину", function()
+        test.it("Esc and 'Cancel' refuse without a check; a closed terminal names the reason", function()
             local events = channel.new(8)
             feed(events, {{type = "key", key = "esc"}})
-            local _, why = screen_lib.run(fake_screen(events, false), function() error("не должна зваться") end)
+            local _, why = screen_lib.run(fake_screen(events, false), function() error("must not be called") end)
             test.eq(why, "logon cancelled")
 
             events = channel.new(8)
-            -- Tab: имя → пароль → OK → Отмена, затем Enter.
+            -- Tab: name → password → OK → Cancel, then Enter.
             feed(events, {{type = "key", key = "tab"}, {type = "key", key = "tab"}, {type = "key", key = "tab"},
                 {type = "key", key = "enter"}})
-            _, why = screen_lib.run(fake_screen(events, false), function() error("не должна зваться") end)
+            _, why = screen_lib.run(fake_screen(events, false), function() error("must not be called") end)
             test.eq(why, "logon cancelled")
 
             events = channel.new(8)
             events:close()
-            _, why = screen_lib.run(fake_screen(events, false), function() error("не должна зваться") end)
+            _, why = screen_lib.run(fake_screen(events, false), function() error("must not be called") end)
             test.eq(why, "the terminal closed before logon")
         end)
 
-        test.it("рисует диалог в ячейках как окно темы: заголовок, поля, кнопки", function()
+        test.it("draws the dialog in cells as a theme window: title, fields, buttons", function()
             local events = channel.new(8)
             events:close()
             local screen = fake_screen(events, false)
             screen_lib.run(screen, function() return nil, "x" end)
             local shown = joined(screen.canvas)
             for _, expected in ipairs({screen_lib.TITLE, "User name:", "Password:", "OK", "Cancel"}) do
-                test.is_true(shown:find(expected, 1, true) ~= nil, "нет: " .. expected)
+                test.is_true(shown:find(expected, 1, true) ~= nil, "missing: " .. expected)
             end
         end)
 
-        test.it("рисует диалог пикселями через paint темы и отдаёт снимок", function()
+        test.it("draws the dialog in pixels through the theme's paint and produces a snapshot", function()
             local font_files = assert(fs.get("app:system_fonts"))
             local face = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local bold = assert(gfx.font(assert(font_files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
@@ -148,7 +148,7 @@ local function define_tests()
             test.eq(why, "the terminal closed before logon")
             local painted: any = screen.painted
             test.not_nil(painted)
-            test.is_true(#painted.placements > 0, "размещений нет")
+            test.is_true(#painted.placements > 0, "no placements")
 
             local ids = {}
             local shot = assert(gfx.raster(100 * 10, 30 * 20))
@@ -157,9 +157,9 @@ local function define_tests()
                 ids[item.id] = true
                 shot:blit(item.raster, (item.x - 1) * 10 + 1, (item.y - 1) * 20 + 1)
             end
-            test.is_true(ids["win:logon:head"] == true, "нет заголовка окна")
-            test.is_true(ids["win:logon:sdk"] == true, "нет клиента SDK")
-            test.is_nil(ids["bars"], "панель задач нарисована на экране входа")
+            test.is_true(ids["win:logon:head"] == true, "no window title")
+            test.is_true(ids["win:logon:sdk"] == true, "no SDK client")
+            test.is_nil(ids["bars"], "taskbar drawn on the logon screen")
             assert(assert(fs.get("app:shots")):writefile("logon.png", assert(shot:encode("png"))))
         end)
     end)

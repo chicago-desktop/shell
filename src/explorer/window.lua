@@ -1,19 +1,20 @@
--- «Мой компьютер» — окно, показывающее сам стенд.
+-- "My Computer" — a window that shows the running system itself.
 --
--- Рисует ТОЛЬКО своё содержимое: строку меню, панель инструментов, поле со
--- значками и статусную строку. Рамка, заголовок и кнопки заголовка — хром, он
--- за темой; композитор отдаёт окну весь прямоугольник внутри рамки, и что там
--- нарисовано — дело окна.
+-- It draws ONLY its own contents: the menu bar, the toolbar, the icon field
+-- and the status bar. The frame, the title and the title buttons are chrome,
+-- they belong to the theme; the compositor gives the window the whole
+-- rectangle inside the frame, and what is drawn there is the window's
+-- business.
 --
--- Примитивы общие с темой (`widgets`, `icons`): свои значило бы завести
--- вторую, чуть другую кнопку, и внутри окна Windows 95 оказалась бы другая
--- Windows. Разошлись бы они видом, а не отказом, — то есть заметили бы через
--- неделю.
+-- The primitives are shared with the theme (`widgets`, `icons`): our own
+-- would mean creating a second, slightly different button, and inside the
+-- Windows 95 window there would be a different Windows. They would diverge
+-- in looks, not in a failure — that is, it would be noticed a week later.
 --
--- Окно не читает ни базы, ни реестра само: и то, и другое — через `sources`,
--- под правами своей политики. Своих процессов оно не порождает: `spawn` и
--- `exec` ему не выданы, и открыть соседнее окно оно может только просьбой к
--- композитору.
+-- The window reads neither the database nor the registry by itself: both go
+-- through `sources`, under the permissions of its policy. It does not spawn
+-- processes of its own: it is not granted `spawn` and `exec`, and it can open
+-- a neighbouring window only by a request to the compositor.
 
 local channel = require("channel")
 local time = require("time")
@@ -26,21 +27,24 @@ local scrolling = require("scrolling")
 local geometry = require("geometry")
 local sources = require("sources")
 
--- Имени композитора здесь нет и быть не должно. Оно приезжает окну в
--- контексте процесса, и читает его `window_api` основы; своя константа
--- работала бы только под нашей оболочкой и молча промахивалась бы под любой
--- другой — а `open` ответа не ждёт, так что промах выглядел бы как успех.
+-- The compositor's name is not here and must not be. It arrives to the
+-- window in the process context, and the base's `window_api` reads it; a
+-- constant of our own would work only under our shell and would silently
+-- miss under any other — and `open` does not wait for a reply, so a miss
+-- would look like success.
 
--- Тот же порог, что у композитора на столе: одинаковый двойной щелчок в двух
--- местах одной оболочки — это не совпадение чисел, а одно поведение.
+-- The same threshold as the compositor has on the desktop: an identical
+-- double click in two places of one shell is not a coincidence of numbers
+-- but one behaviour.
 local DOUBLE_CLICK_NS = 500000000
 
 local whole = geometry.whole
 
--- Ответ композитора приезжает обёрнутым: payload — userdata, внутри бывает
--- ещё и массив из одного элемента. Поле, прочитанное напрямую, окажется nil
--- без ошибки — то есть «композитор ответил пустотой». Распаковка одна на
--- окно: у основы такая же живёт `local` в `window_api` и наружу не отдана.
+-- The compositor's reply arrives wrapped: the payload is userdata, and inside
+-- there is sometimes also an array of one element. A field read directly
+-- will turn out nil without an error — that is, "the compositor replied with
+-- emptiness". There is one unwrapping per window: the base has the same one
+-- living as a `local` in `window_api` and not exported.
 local function unwrap(message: any): any
     local value: any = message:payload()
     if type(value) == "userdata" then
@@ -66,28 +70,29 @@ local function main(service, window_id, args, viewport: any)
         out = assert(tty.surface({hide_cursor = true, synchronized_output = true}))
     end
 
-    -- Канал ответов композитора. Отдельная подписка на топик, а НЕ чтение
-    -- общего inbox, и это не вкусовщина: цикл, читающий inbox ради ответа,
-    -- забирает оттуда и чужое, а выброшенная команда композитора неотличима
-    -- от неполученной. Смешивать два способа нельзя — подписка забирает
-    -- `desktop.reply` себе, и в inbox его больше не будет.
+    -- The compositor's reply channel. A separate subscription to a topic, and
+    -- NOT reading the shared inbox, and this is not a matter of taste: a loop
+    -- that reads the inbox for the sake of a reply takes other messages from
+    -- it too, and a thrown-away compositor command is indistinguishable from
+    -- one never received. The two ways must not be mixed — the subscription
+    -- takes `desktop.reply` for itself, and it will no longer be in the inbox.
     --
-    -- Подписка открывается ДО первого вопроса: открытая после, она пропустила
-    -- бы быстрый ответ. Отказ подписаться не мешает окну рисоваться — без
-    -- ответов не работает только папка «Открытые окна», и она скажет почему.
+    -- The subscription is opened BEFORE the first question: opened after, it
+    -- would miss a fast reply. A failure to subscribe does not stop the window
+    -- from drawing — without replies only the "Open Windows" folder does not
+    -- work, and it will say why.
     local answers, answers_error = desktop.replies()
 
-    -- В режиме ячеек события приходят от viewport, в пиксельном — через
-    -- window_api.inputs. Оба транспорта приводятся к одному виду события.
+    -- In cell mode events come from the viewport, in pixel mode through
+    -- window_api.inputs. Both transports are brought to one event shape.
 
     local width, height
     if pixel_view then width, height = viewport.width, viewport.height
     else width, height = tty.screen_size() end
     width, height = whole(width), whole(height)
-    -- Нулевой размер — не редкость: окно может подняться раньше, чем
-    -- композитор сообщил геометрию. Нулевой холст роняет отрисовку на первой
-    -- строке, поэтому размеры по умолчанию не «на всякий случай», а
-    -- обязательны.
+    -- A zero size is not rare: the window may come up before the compositor
+    -- has reported the geometry. A zero canvas crashes drawing on the first
+    -- row, so the default sizes are not "just in case" but mandatory.
     if width < (pixel_view and 1 or 20) then width = 60 end
     if height < (pixel_view and 1 or 8) then height = 18 end
 
@@ -97,60 +102,64 @@ local function main(service, window_id, args, viewport: any)
         objects = {},
         failure = nil,
         selected = 0,
-        -- Первый видимый ряд сетки. Живёт здесь, а не в отрисовке: кадр
-        -- собирается заново на каждое событие, и прокрутка, забытая между
-        -- кадрами, отскакивала бы к началу на каждое нажатие.
+        -- The first visible row of the grid. Lives here, not in the drawing:
+        -- the frame is assembled anew on every event, and a scroll forgotten
+        -- between frames would jump back to the start on every key press.
         offset = 0,
-        -- Список открытых окон приносит ответ композитора и приносит его
-        -- ПОЗЖЕ вопроса: окно спрашивает и продолжает рисоваться, а ответ
-        -- приходит своим каналом в тот же цикл. Ждущий вызов заморозил бы
-        -- кадр на всё время ожидания.
+        -- The list of open windows is brought by the compositor's reply, and
+        -- it brings it LATER than the question: the window asks and keeps
+        -- drawing, and the reply arrives over its own channel into the same
+        -- loop. A waiting call would freeze the frame for the whole wait.
         windows = nil,
         windows_error = nil,
-        -- Замечание — третье состояние между «показано всё» и «не прочитано»:
-        -- срезанный список, непрочитанные диски, отказ на двойной щелчок.
-        -- Оно не прячет объектов и не выдаёт себя за отказ.
+        -- A notice is a third state between "everything is shown" and "not
+        -- read": a truncated list, unread drives, a refusal on a double
+        -- click. It does not hide objects and does not pass itself off as a
+        -- failure.
         notice = nil,
-        -- Адресная строка: текст и список предков считаются моделью при
-        -- каждом переходе, а не в отрисовке, — кадр собирается на каждое
-        -- событие, а путь меняется только при переходе.
+        -- The address bar: the text and the list of ancestors are computed
+        -- by the model on every navigation, not in the drawing — the frame is
+        -- assembled on every event, while the path changes only on
+        -- navigation.
         address = model.address(model.ROOT),
         address_items = model.ancestors(model.ROOT),
         address_open = false,
     }
-    -- История для «Назад» и «Вперёд». Переход из списка адреса, по папке и
-    -- по «Вверх» — всё это шаги вперёд; «Назад» снимает верх стопки.
+    -- History for "Back" and "Forward". Navigating from the address list, by
+    -- a folder and by "Up" — all of these are steps forward; "Back" pops the
+    -- top of the stack.
     local history: any = {back = {}, forward = {}}
     local cells: any = {}
     local address_hits: any = {}
     local dropdown_hits: any = {}
-    -- Попадания панели инструментов возвращает та же функция, что её рисует.
-    -- Своя формула здесь дала бы кнопку, которая на ячейку левее, чем
-    -- выглядит, — и разъехались бы они молча.
+    -- The toolbar hits are returned by the same function that draws it. A
+    -- formula of our own here would give a button one cell to the left of
+    -- where it appears — and they would drift apart silently.
     local tools: any = {}
-    -- Заголовки строки меню и строки раскрытого списка — тоже из плана.
+    -- The menu bar titles and the open list's rows — also from the plan.
     local menu_hits: any = {}
     local popup_hits: any = {}
     local last_click: any = {x = 0, y = 0, at = 0}
 
-    -- Спросить композитор и НЕ ждать: ответ приедет в `desktop.replies()`,
-    -- который лежит в том же `select`, что и события. Ждущий вызов (`ask`)
-    -- удобнее, но на время ожидания окно не рисуется, а рисовать себя — это
-    -- всё, чем оно занято.
+    -- Ask the compositor and do NOT wait: the reply will arrive in
+    -- `desktop.replies()`, which sits in the same `select` as the events. A
+    -- waiting call (`ask`) is more convenient, but while waiting the window
+    -- does not draw, and drawing itself is all it is busy with.
     local function request(topic, body: any)
         local ok, err = desktop.request(topic, body)
         return ok, err
     end
 
-    -- ─── содержимое ──────────────────────────────────────────────────────
+    -- ─── contents ────────────────────────────────────────────────────────
 
     local function load()
         state.selected = 0
         state.offset = 0
         state.notice = nil
 
-        -- Открытые окна — единственный источник, который не читается: его
-        -- приносит ответ композитора, и до ответа сказать про него нечего.
+        -- Open windows are the only source that is not read: it is brought
+        -- by the compositor's reply, and until the reply there is nothing to
+        -- say about it.
         if state.path == "windows" then
             state.title = "Open Windows"
             if state.windows_error then
@@ -158,9 +167,9 @@ local function main(service, window_id, args, viewport: any)
             elseif state.windows then
                 state.objects, state.failure = model.windows(state.windows), nil
             else
-                -- Ещё не ответили — это не пустая папка и не отказ. Сказать
-                -- «объектов нет» здесь значит соврать на четверть секунды, и
-                -- человек успеет это прочитать.
+                -- Not answered yet — this is neither an empty folder nor a
+                -- failure. Saying "no objects" here means lying for a quarter
+                -- of a second, and a person will manage to read it.
                 state.objects, state.failure = {}, "asking the shell…"
             end
             return
@@ -170,9 +179,9 @@ local function main(service, window_id, args, viewport: any)
             windows = state.windows and #state.windows or nil,
         })
         if err or not shown then
-            -- Заголовок при отказе НЕ меняется на имя папки, которую не
-            -- открыли: подпись «Программы» над причиной читалась бы как
-            -- «программы кончились».
+            -- On failure the title does NOT change to the name of the folder
+            -- that was not opened: the caption "Programs" over the reason
+            -- would read as "the programs ran out".
             state.objects, state.failure = {}, err or "not read"
             state.title = "My Computer"
             return
@@ -194,9 +203,9 @@ local function main(service, window_id, args, viewport: any)
         state.address_open = false
         if path == "windows" then
             state.windows, state.windows_error = nil, nil
-            -- `reply_to` подставляет библиотека: адрес ответа — это адрес
-            -- процесса, и повторять его здесь значит завести второе место,
-            -- где он может разойтись с подпиской.
+            -- `reply_to` is filled in by the library: the reply address is
+            -- the process address, and repeating it here would mean creating
+            -- a second place where it can diverge from the subscription.
             if not answers then
                 state.windows_error = tostring(answers_error
                     or "subscription to compositor replies did not open")
@@ -211,9 +220,10 @@ local function main(service, window_id, args, viewport: any)
     local function activate(object: any)
         if type(object) ~= "table" then return end
 
-        -- Двойной щелчок, после которого не произошло ничего, неотличим от
-        -- незамеченного, и второе, что попробует человек, — щёлкнуть сильнее.
-        -- Причина уже собрана моделью в `detail`.
+        -- A double click after which nothing happened is indistinguishable
+        -- from an unnoticed one, and the second thing a person will try is to
+        -- click harder. The reason has already been gathered by the model in
+        -- `detail`.
         if type(object.open) ~= "table" then
             state.notice = "nothing to open it with: " .. tostring(object.detail or object.title)
             return
@@ -229,21 +239,23 @@ local function main(service, window_id, args, viewport: any)
             })
             if not ok then state.notice = model.refusal("desktop.open", err) end
         elseif open.action == "raise" then
-            -- «raise» — намерение модели, а не имя топика: у композитора это
-            -- `desktop.focus`, и зовётся оно по имени из библиотеки, а не
-            -- строкой. Послать топик, которого у композитора нет, значит не
-            -- получить ни окна, ни отказа.
+            -- "raise" is the model's intent, not a topic name: at the
+            -- compositor it is `desktop.focus`, and it is called by the name
+            -- from the library, not by a string. Sending a topic the
+            -- compositor does not have means getting neither a window nor a
+            -- refusal.
             local ok, err = desktop.focus(open.id)
             if not ok then state.notice = model.refusal("desktop.focus", err) end
         end
     end
 
-    -- ─── отрисовка ───────────────────────────────────────────────────────
+    -- ─── drawing ─────────────────────────────────────────────────────────
 
-    -- Рисует не окно, а `render`: там только строки и арифметика, и поэтому
-    -- кадр можно посмотреть пробником, не поднимая ни окна, ни стенда.
-    -- Попадания приезжают оттуда же, где нарисованы, — посчитанные здесь
-    -- своей формулой, они разъехались бы с рисунком молча.
+    -- It is not the window that draws but `render`: there is only strings and
+    -- arithmetic there, and so a frame can be viewed with a probe without
+    -- starting either the window or the runtime. The hits arrive from the
+    -- same place where they are drawn — computed here by our own formula,
+    -- they would drift apart from the picture silently.
     local function draw()
         local plan = render.layout(state, width, height, metrics)
         local hits = render.hits(plan)
@@ -260,10 +272,10 @@ local function main(service, window_id, args, viewport: any)
         address_hits, dropdown_hits = hits.address or {}, hits.dropdown or {}
     end
 
-    -- ─── команды ─────────────────────────────────────────────────────────
+    -- ─── commands ────────────────────────────────────────────────────────
 
-    -- Одна функция на кнопку панели, пункт меню и клавишу: «Вверх» на
-    -- панели и «Go → Up One Level» — одно действие, а не два похожих.
+    -- One function for a toolbar button, a menu item and a key: "Up" on the
+    -- toolbar and "Go → Up One Level" are one action, not two similar ones.
     local function command(id: any)
         if id == "back" then
             local previous = table.remove(history.back :: {any})
@@ -285,39 +297,40 @@ local function main(service, window_id, args, viewport: any)
             local up = model.parent(state.path)
             if up then go(up) else state.notice = "Up: this is the root" end
         elseif id == "refresh" then
-            -- Через `go`, а не `load`: «Открытые окна» надо спросить у
-            -- композитора заново, а не перечитать прошлый ответ.
+            -- Through `go`, not `load`: "Open Windows" must be asked of the
+            -- compositor anew, not re-read from the previous reply.
             go(state.path)
         elseif id == "view_large" then
             state.notice = "Large Icons is the only view so far"
         elseif id == "about" then
             state.notice = "My Computer: the drives, folders and open windows of this runtime"
         elseif id == "close" then
-            -- Окно закрывает композитор и присылает `close`; отказ ложится
-            -- в строку состояния, как у любой другой команды.
+            -- The window is closed by the compositor, which sends `close`; a
+            -- refusal goes into the status bar, as with any other command.
             local ok, err = desktop.close(window_id)
             if not ok then state.notice = model.refusal("desktop.close", err) end
         end
     end
 
-    -- ─── ввод ────────────────────────────────────────────────────────────
+    -- ─── input ───────────────────────────────────────────────────────────
 
     local function shape()
         return render.shape(width, height, #state.objects, state.offset, metrics)
     end
 
-    -- Прокрутка на `delta` рядов. Зажимает её `render.shape`, и намеренно:
-    -- одно место, где решается, что дальше показывать нечего. Отсюда и два
-    -- присваивания — первое двигает от того ряда, на котором прокрутка стоит
-    -- на самом деле, второе спрашивает, куда она встала.
+    -- Scroll by `delta` rows. It is clamped by `render.shape`, and on
+    -- purpose: one place where it is decided that there is nothing further to
+    -- show. Hence the two assignments — the first moves from the row the
+    -- scroll actually stands on, the second asks where it ended up.
     local function scroll(delta: any)
         state.offset = shape().first + whole(delta)
         state.offset = shape().first
     end
 
-    -- Выделение ходит по сетке, а не по списку, и тянет за собой прокрутку:
-    -- выделенный объект, уехавший за край видимого, — это выделение, которого
-    -- не видно, и следующая клавиша уводит его дальше вслепую.
+    -- The selection moves through the grid, not the list, and drags the
+    -- scroll along: a selected object that went past the edge of what is
+    -- visible is a selection that cannot be seen, and the next key takes it
+    -- further blindly.
     local function move(delta: any)
         if #state.objects == 0 then return end
         local next_index = state.selected + whole(delta)
@@ -382,9 +395,9 @@ local function main(service, window_id, args, viewport: any)
         return nil
     end
 
-    -- Кнопка панели срабатывает по ОТПУСКАНИЮ внутри себя, как в Windows и
-    -- как в SDK: нажатие взводит, увод мыши снимает, отпускание снаружи —
-    -- отмена. Взведённая кнопка нарисована вдавленной.
+    -- A toolbar button fires on RELEASE inside itself, as in Windows and as
+    -- in the SDK: pressing arms it, moving the mouse away disarms it,
+    -- releasing outside is a cancel. An armed button is drawn sunken.
     local armed: any = nil
     local function tool_at(x: any, y: any): any
         for _, hit in ipairs(tools) do
@@ -423,9 +436,10 @@ local function main(service, window_id, args, viewport: any)
             draw()
             return
         end
-        -- Полоса прокрутки: щелчок по стрелке, дорожке и ползунку разбирает
-        -- `scroll.pointer` по той же геометрии, по которой она нарисована.
-        -- Под раскрытым списком она не отвечает — щелчок принадлежит списку.
+        -- The scrollbar: a click on an arrow, the track and the thumb is
+        -- resolved by `scroll.pointer` with the same geometry it is drawn
+        -- with. Under an open list it does not respond — the click belongs to
+        -- the list.
         if not covered and plan.scroll then
             local offset, capture, handled = scrolling.pointer(state.offset, plan.scroll.total, plan.scroll.visible,
                 plan.scroll, scroll_capture, event)
@@ -441,13 +455,13 @@ local function main(service, window_id, args, viewport: any)
         end
         if event.action ~= "press" or event.button ~= "left" then return end
 
-        -- Порядок проверки — порядок слоёв сверху вниз: раскрытое меню,
-        -- список адреса, панель, значки. Полоса прокрутки уже проверена выше:
-        -- она лежит на том же поле, и щелчок по стрелке иначе достался бы
-        -- значку под ней.
+        -- The order of checks is the order of layers from top to bottom: the
+        -- open menu, the address list, the toolbar, the icons. The scrollbar
+        -- has already been checked above: it lies on the same field, and a
+        -- click on an arrow would otherwise go to the icon under it.
 
-        -- Раскрытое меню: строка списка исполняет пункт, другой заголовок
-        -- переключает список, щелчок мимо только сворачивает.
+        -- An open menu: a list row executes the item, another title switches
+        -- the list, a click elsewhere only collapses it.
         if state.menu_open then
             local picked: any = nil
             for _, hit in ipairs(popup_hits) do
@@ -467,7 +481,7 @@ local function main(service, window_id, args, viewport: any)
             return
         end
 
-        -- Выпадающий список адреса.
+        -- The address dropdown list.
         for _, hit in ipairs(dropdown_hits) do
             local line: any = hit
             if event.y == line.row and event.x >= line.from and event.x <= line.to then
@@ -479,7 +493,7 @@ local function main(service, window_id, args, viewport: any)
             end
         end
         if state.address_open then
-            -- Щелчок мимо списка закрывает его и больше ничего не делает.
+            -- A click outside the list closes it and does nothing else.
             state.address_open = false
             draw()
             return
@@ -496,8 +510,8 @@ local function main(service, window_id, args, viewport: any)
 
         local tool = tool_at(event.x, event.y)
         if tool then
-            -- Недоступная кнопка молчит, как в Windows: сообщение на каждый
-            -- щелчок читалось бы как «что-то сломалось».
+            -- A disabled button is silent, as in Windows: a message on every
+            -- click would read as "something broke".
             if tool.disabled then return end
             armed = tool
             state.armed_tool = tool.id
@@ -518,9 +532,9 @@ local function main(service, window_id, args, viewport: any)
         end
 
         state.selected = index
-        -- Двойной щелчок открывает, одиночный выделяет. Программа, стартующая
-        -- с одного клика, — ловушка: человек ведёт мышь по списку и запускает
-        -- всё, чего коснулся.
+        -- A double click opens, a single one selects. A program that starts
+        -- on one click is a trap: a person moves the mouse along the list and
+        -- launches everything they touched.
         if repeated then activate(state.objects[index]) end
         draw()
     end
@@ -536,10 +550,11 @@ local function main(service, window_id, args, viewport: any)
         if not selected.ok then break end
 
         if answers and selected.channel == answers then
-            -- Чей это ответ, решает модель: в канал приезжает не только
-            -- список окон, но и незапрошенный отказ на open/focus/state.
-            -- Отказ ложится в строку состояния, и `load` после него не
-            -- зовётся — он стёр бы замечание раньше, чем его прочтут.
+            -- Whose reply this is, the model decides: the channel receives
+            -- not only the window list but also an unsolicited refusal to
+            -- open/focus/state. The refusal goes into the status bar, and
+            -- `load` is not called after it — it would erase the notice before
+            -- it is read.
             local taken = model.take_reply(state, unwrap(selected.value))
             if taken == "list" and (state.path == "windows" or state.path == model.ROOT) then load() end
             if taken then draw() end

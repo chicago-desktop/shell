@@ -1,13 +1,14 @@
--- GET /windows/programs — каталог программ из реестра.
+-- GET /windows/programs — the program catalog from the registry.
 --
--- Ручки на СОЗДАНИЕ программы рядом нет и не будет: программы появляются
--- установкой модуля или сборкой окна через мастерскую основы. Ручка создания
--- означала бы второй источник истины рядом с реестром, и они разошлись бы на
--- первом же удалении модуля.
+-- There is no endpoint to CREATE a program next to it, and there will not be
+-- one: programs appear by installing a module or by building a window
+-- through the base workshop. A creation endpoint would mean a second source
+-- of truth next to the registry, and they would diverge on the very first
+-- module removal.
 --
--- Отказ реестра отдаётся как отказ, а не как пустой список. Пустой список на
--- нечитаемый реестр отправляет человека искать ошибку в своём приложении,
--- где её нет.
+-- A registry failure is returned as a failure, not as an empty list. An
+-- empty list for an unreadable registry sends a person to look for the
+-- error in their own application, where there is none.
 
 local http = require("http")
 local security = require("security")

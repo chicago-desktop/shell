@@ -1,27 +1,30 @@
--- Откуда «Мой компьютер» берёт объекты.
+-- Where "My Computer" gets its objects from.
 --
--- Отделено от сборки объектов нарочно: сборка — чистое правило и проверяется
--- без живой базы, а здесь только чтение. Правило, проверяемое только через
--- базу, проверяется один раз, а потом никогда.
+-- Separated from assembling the objects on purpose: the assembly is a pure
+-- rule and is checked without a live database, while here there is only
+-- reading. A rule that can be checked only through the database gets checked
+-- once, and then never.
 --
--- Читается ровно четыре вещи, и все они либо свои, либо общие:
+-- Exactly four things are read, and all of them are either our own or
+-- shared:
 --
---   диски          записи `fs.*` реестра, и содержимое — модулем `fs`
---   программы      каталог реестра, тот же, что наполняет меню «Пуск»
---   рабочий стол   своя таблица раскладки
---   папка стола    она же, строки с этим родителем
+--   drives           the registry's `fs.*` entries, and their contents via the `fs` module
+--   programs         the registry catalog, the same one that fills the "Start" menu
+--   desktop          our own layout table
+--   desktop folder   the same table, rows with this parent
 --
--- Чужих таблиц здесь нет и не будет. Прочитать таблицу соседнего модуля
--- значит завести зависимость от его схемы — и сломаться на ЕГО миграции,
--- молча, не у себя и через неделю.
+-- There are no other modules' tables here and there will not be. Reading a
+-- neighbouring module's table means taking a dependency on its schema — and
+-- breaking on ITS migration, silently, not in our own code, and a week later.
 --
--- Открытых окон здесь НЕТ, и это не пропуск. Список окон живёт у композитора,
--- и спросить его можно только сообщением с ответом в собственный inbox. Внутри
--- окна так делать нельзя: ждущий цикл забирает из inbox и ЧУЖИЕ сообщения
--- тоже, а выбросить сообщение, адресованное окну, — значит потерять команду
--- композитора без следа. Поэтому список окон приносит сам процесс окна: его
--- цикл владеет inbox и разбирает ответ наравне с остальным, а `model.windows`
--- превращает принесённое в объекты.
+-- Open windows are NOT here, and this is not an omission. The window list
+-- lives with the compositor, and it can be asked only by a message with the
+-- reply going to one's own inbox. Inside a window that cannot be done: a
+-- waiting loop takes OTHER messages from the inbox too, and throwing away a
+-- message addressed to the window means losing a compositor command without
+-- a trace. So the window list is brought by the window process itself: its
+-- loop owns the inbox and handles the reply along with everything else, and
+-- `model.windows` turns what was brought into objects.
 
 local fs = require("fs")
 local registry = require("registry")
@@ -32,23 +35,24 @@ local repo = require("repo")
 
 local sources = {}
 
--- Виды записей, которые оболочка считает диском. Их два, и оба настоящие:
--- `fs.directory` — каталог на диске, `fs.embed` — файлы, вмороженные в модуль
--- при сборке. Третьего вида не изобретаем: диск, которого нет в реестре,
--- рисовать нельзя.
+-- The entry kinds the shell considers a drive. There are two of them, and
+-- both are real: `fs.directory` is a directory on disk, `fs.embed` is files
+-- frozen into the module at build time. We do not invent a third kind: a
+-- drive that is not in the registry must not be drawn.
 sources.DRIVE_KINDS = model.DRIVE_KINDS
 
--- Потолок на одно чтение каталога. Каталог с десятью тысячами файлов собрал бы
--- десять тысяч объектов ради трёх строк, которые влезут в окно. Обрезка НЕ
--- молчаливая: срезанный список говорит об этом сам, иначе «показано всё» и
--- «показано начало» выглядят одинаково.
+-- The cap on a single directory read. A directory with ten thousand files
+-- would build ten thousand objects for the sake of the three rows that fit
+-- in the window. The cut is NOT silent: a truncated list says so itself,
+-- otherwise "everything is shown" and "the beginning is shown" look the
+-- same.
 sources.FILE_LIMIT = 500
 
--- drives() -> (записи, nil) | (nil, причина)
+-- drives() -> (entries, nil) | (nil, reason)
 --
--- Отказ реестра и «дисков нет» — разные исходы, как и везде здесь. Пустой
--- список на отказе сказал бы «файловых систем на стенде не объявлено», то есть
--- утверждение, которого мы не делали.
+-- A registry failure and "there are no drives" are different outcomes, as
+-- everywhere here. An empty list on failure would say "no filesystems are
+-- declared on the running system", that is, a claim we did not make.
 function sources.drives()
     local out = {}
     for _, kind in ipairs(sources.DRIVE_KINDS) do
@@ -62,13 +66,13 @@ function sources.drives()
     return out, nil
 end
 
--- Содержимое каталога внутри диска.
+-- The contents of a directory inside a drive.
 --
--- Читается модулем `fs` под правами самого окна: у окна нет доступа к
--- файловой системе машины, есть доступ к записи реестра, названной диском.
--- Диск, объявленный, но недоступный, отвечает ПРИЧИНОЙ, а не пустотой:
--- пустой каталог и закрытая дверь — разные вещи, и второе человек обязан
--- увидеть словами.
+-- Read with the `fs` module under the window's own permissions: the window
+-- has no access to the machine's filesystem, it has access to the registry
+-- entry named as a drive. A drive that is declared but inaccessible answers
+-- with a REASON, not with emptiness: an empty directory and a closed door are
+-- different things, and a person must see the second one in words.
 local function read_drive(id: any, sub: any)
     local handle, err = fs.get(tostring(id))
     if err or not handle then
@@ -95,16 +99,17 @@ local function read_drive(id: any, sub: any)
     return entries, nil, cut
 end
 
--- list(path, context) -> (вид, nil) | (nil, причина)
+-- list(path, context) -> (view, nil) | (nil, reason)
 --
--- Вид: { objects = список, title = заголовок, notice = замечание | nil }.
+-- View: { objects = list, title = title, notice = notice | nil }.
 --
--- Отказ и пустая папка различаются ПЕРВЫМ значением: пустая папка — вид с
--- пустым списком, нечитаемый источник — nil и причина. Одинаковые, они
--- отправляют человека искать пропажу там, где ничего не пропадало.
+-- A failure and an empty folder differ in the FIRST value: an empty folder
+-- is a view with an empty list, an unreadable source is nil and a reason.
+-- Made identical, they send a person looking for a loss where nothing was
+-- lost.
 --
--- `notice` — третье состояние между ними: прочитали, но не всё. Замечание не
--- прячет объекты и не выдаёт себя за отказ.
+-- `notice` is a third state between them: read, but not everything. A notice
+-- does not hide objects and does not pass itself off as a failure.
 --
 function sources.list(path, context: any)
     local where = model.parse(path)
@@ -118,10 +123,11 @@ function sources.list(path, context: any)
     if where.view == "programs" then
         local found, err = catalog.list()
         if err or not found then return nil, err or "catalog not read" end
-        -- Та же папка, что и меню «Пуск», только в другом виде: здесь человек
-        -- ВЫБИРАЕТ программу, а не ищет её по ссылке. Программа, попросившая
-        -- не показывать себя в меню, спрятана и тут — иначе признак не значит
-        -- ничего, кроме «в одном из двух списков меня нет».
+        -- The same folder as the "Start" menu, just in a different view:
+        -- here a person CHOOSES a program rather than looking it up by a
+        -- link. A program that asked not to be shown in the menu is hidden
+        -- here too — otherwise the flag means nothing but "I am missing from
+        -- one of the two lists".
         return {objects = model.programs(catalog.listed(found.programs)),
                 title = "Programs"}, nil
     end
@@ -129,13 +135,14 @@ function sources.list(path, context: any)
     if where.view == "desktop" then
         local items, err = repo.list()
         if err then return nil, "layout not read: " .. tostring(err) end
-        -- Каталог нужен, чтобы отличить битый ярлык от исправного. Его отказ
-        -- НЕ прячет стол: объекты отдаются, просто все без признака битости —
-        -- обвинить исправную программу хуже, чем промолчать.
+        -- The catalog is needed to tell a broken shortcut from a working
+        -- one. Its failure does NOT hide the desktop: the objects are
+        -- returned, just all without the broken flag — accusing a working
+        -- program is worse than staying silent.
         local found = catalog.list()
-        -- Верхний уровень — только то, что лежит НА столе. Содержимое папок
-        -- отдаётся тем же чтением, и показать его здесь значило бы показать
-        -- каждый вложенный значок дважды: в папке и рядом с ней.
+        -- The top level is only what lies ON the desktop. Folder contents
+        -- come back from the same read, and showing them here would mean
+        -- showing every nested icon twice: in the folder and next to it.
         local top = {}
         for _, item in ipairs(items or {}) do
             if not (item :: any).parent_id then top[#top + 1] = item end
@@ -158,8 +165,8 @@ function sources.list(path, context: any)
             if item.parent_id == where.id then inside[#inside + 1] = item end
         end
 
-        -- Папки нет — это отказ, а не пустая папка: молчание превратило бы
-        -- опечатку в пути в успешно открытую пустоту.
+        -- No folder is a failure, not an empty folder: silence would turn a
+        -- typo in the path into a successfully opened emptiness.
         if not folder then return nil, "no such folder: " .. tostring(where.id) end
         if folder.kind ~= "folder" then
             return nil, "not a folder: " .. tostring(where.id)
@@ -179,9 +186,10 @@ function sources.list(path, context: any)
         local title = tostring(where.id)
         if where.sub then title = title .. "/" .. tostring(where.sub) end
 
-        -- Каталог нужен файлам: программа для расширения и её значок берутся
-        -- из реестра типов. Отказ каталога не прячет файлы — они остаются
-        -- «нечем открыть», как и положено без программ.
+        -- The catalog is needed by the files: the program for an extension
+        -- and its icon come from the file type registry. A catalog failure
+        -- does not hide the files — they remain "nothing to open it with",
+        -- as they should without programs.
         local found = catalog.list()
 
         return {

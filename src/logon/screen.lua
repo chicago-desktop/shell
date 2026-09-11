@@ -1,17 +1,19 @@
--- Диалог входа: «Вход в Windows» до первого кадра стола.
+-- Logon dialog: "Welcome to Windows" before the first desktop frame.
 --
--- Это не окно композитора — ни процесса, ни viewport у него нет: стол ещё не
--- поднят, и первое, что видит человек, — этот диалог поверх бирюзового.
--- Но рисуется он ТЕМ ЖЕ, чем настоящие окна: рамку и заголовок кладёт тема
--- (`chrome.window` в ячейках, `chrome_pixels.paint` в пикселях), поля и
--- кнопки — общий отрисовщик SDK через окно-вид. Своей раскладки и своего
--- редактора здесь нет: диалог, нарисованный отдельно, разошёлся бы с
--- «Выполнить…» на первой правке темы.
+-- This is not a compositor window — it has neither a process nor a viewport:
+-- the desktop is not up yet, and the first thing a person sees is this dialog
+-- over the teal. But it is drawn by THE SAME means as real windows: the frame
+-- and title are laid down by the theme (`chrome.window` in cells,
+-- `chrome_pixels.paint` in pixels), the fields and buttons by the shared SDK
+-- renderer through a view window. There is no layout and no editor of its
+-- own here: a dialog drawn separately would diverge from "Run…" on the first
+-- theme edit.
 --
--- Механика ввода — `ui.event` SDK, как в любом окне: Tab между полями, Enter
--- в имени переводит в пароль, Enter в пароле и «OK» — вход, Esc и «Отмена» —
--- отказ. Мышь приходит в координатах экрана и переводится в клиентские по
--- тем же инсетам темы, по которым окно и нарисовано.
+-- Input mechanics are the SDK's `ui.event`, as in any window: Tab between
+-- fields, Enter in the name moves to the password, Enter in the password and
+-- "OK" — log on, Esc and "Cancel" — refusal. The mouse arrives in screen
+-- coordinates and is translated into client coordinates by the same theme
+-- insets the window was drawn with.
 
 local channel = require("channel")
 local chrome = require("chrome")
@@ -31,21 +33,22 @@ screen_lib.PROMPT = "Type a user name and password to log on to Windows."
 screen_lib.ENTRY = "butschster.windows.logon:screen"
 screen_lib.RENDER = "butschster.windows.sdk:render"
 
--- Размер клиента, в ячейках — по эталону Windows 95: значок 32 px слева,
--- подсказка и два поля посередине, «ОК» и «Отмена» столбиком справа, без
--- пустой строки между ними. Ширина — сумма колонок: отступ, значок (4),
--- зазор, середина (подпись 11 + зазор + поле 22), зазор, кнопки (10), отступ.
--- Высота: отступ, подсказка, два поля по две строки, строка отказа; снизу
--- отступа нет — под рамкой темы и так строка.
--- Рамка сверху и снизу — по инсетам темы, поэтому высота окна считается,
--- а не приколочена.
+-- Client size, in cells — after the Windows 95 reference: a 32 px icon on
+-- the left, the prompt and two fields in the middle, "OK" and "Cancel" in a
+-- column on the right, with no blank row between them. The width is the sum
+-- of the columns: padding, icon (4), gap, middle (label 11 + gap + field 22),
+-- gap, buttons (10), padding. Height: padding, prompt, two fields of two rows
+-- each, the refusal row; there is no padding at the bottom — there is a row
+-- under the theme's frame anyway.
+-- The frame at the top and bottom goes by the theme insets, so the window
+-- height is computed, not hard-coded.
 local CLIENT_W, CLIENT_H = 52, 7
 
--- Дерево компонентов. Чистые данные: без функций и растров, как требует SDK.
+-- Component tree. Pure data: no functions and no rasters, as the SDK requires.
 function screen_lib.tree(model: any): any
     return {kind = "row", padding = 1, padding_bottom = 0, gap = 1, children = {
         {kind = "column", size = 4, children = {
-            -- 32 px, как ключ с флагом в оригинале; 16 px терялся в колонке.
+            -- 32 px, like the key with the flag in the original; 16 px got lost in the column.
             {kind = "image", size = 2, image = "key", icon = "⚿", size_px = 32},
         }},
         {kind = "column", children = {
@@ -67,8 +70,9 @@ function screen_lib.tree(model: any): any
     }}
 end
 
--- Окно-диалог по центру экрана в форме, которую понимают обе темы: те же
--- поля, что композитор даёт окну-виду. Содержимое — состояние SDK версии 1.
+-- A dialog window in the centre of the screen, in the form both themes
+-- understand: the same fields the compositor gives a view window. The
+-- content is SDK state version 1.
 local function window_for(theme: any, width: any, height: any, revision: any, tree: any, interaction: any): any
     local probe: any = {window_type = "dialog"}
     local inset: any = theme.window_insets(probe)
@@ -88,16 +92,16 @@ local function window_for(theme: any, width: any, height: any, revision: any, tr
     }
 end
 
--- run(screen, authenticate) -> identity | nil, причина
+-- run(screen, authenticate) -> identity | nil, reason
 --
--- `screen` — то, что даёт `library.run` в `options.logon`; `authenticate` —
--- (login, password) -> identity | nil, причина.
+-- `screen` is what `library.run` gives in `options.logon`; `authenticate` is
+-- (login, password) -> identity | nil, reason.
 function screen_lib.run(screen: any, authenticate: any): (any, any)
     local theme: any = screen.pixels and chrome_pixels or chrome
     local interaction = ui.interaction()
     local model: any = {user = "", password = "", error = nil, busy = false}
-    -- Изменяемое состояние цикла — в таблице, а не в локальных: после
-    -- ошибки под pcall замыкание и владелец видят разные значения.
+    -- Mutable loop state lives in a table, not in locals: after an error
+    -- under pcall the closure and the owner see different values.
     local loop: any = {plan = nil, window = nil, inset = nil, revision = 0}
 
     local function draw()
@@ -130,9 +134,9 @@ function screen_lib.run(screen: any, authenticate: any): (any, any)
         end
     end
 
-    -- Мышь — в клиентские координаты окна. Отрицательные и заоконные
-    -- значения не отбрасываются: отпускание кнопки за её пределами обязано
-    -- дойти до SDK, иначе взведённая кнопка останется нажатой.
+    -- The mouse — into the window's client coordinates. Negative and
+    -- outside-the-window values are not dropped: releasing a button outside
+    -- its bounds must reach the SDK, otherwise an armed button stays pressed.
     local function to_client(event: any): any
         local window, inset = loop.window, loop.inset
         if event.type ~= "mouse" or not window then return event end
@@ -156,8 +160,8 @@ function screen_lib.run(screen: any, authenticate: any): (any, any)
         local identity, why = authenticate(model.user, model.password)
         model.busy = false
         if identity then return identity, nil end
-        -- Пароль не переживает отказ: ещё одна попытка начинается с пустого
-        -- поля, как в оригинале.
+        -- The password does not survive a refusal: another attempt starts
+        -- with an empty field, as in the original.
         model.password = ""
         model.error = tostring(why or "Logon failed.")
         interaction.focus = "password"
@@ -176,8 +180,9 @@ function screen_lib.run(screen: any, authenticate: any): (any, any)
             draw()
         elseif event.type == "mouse" and event.action == "press" and event.button == "left"
             and theme.title_button_at(loop.window, event.x, event.y) == "close" then
-            -- Крестик в заголовке — та же «Отмена»: рамку рисует тема, и
-            -- попадание в её кнопку считает тоже она.
+            -- The close box in the title is the same "Cancel": the frame is
+            -- drawn by the theme, and the hit on its button is computed by
+            -- the theme too.
             return nil, "logon cancelled"
         else
             local action = ui.event(loop.plan, interaction, to_client(event))
@@ -185,7 +190,7 @@ function screen_lib.run(screen: any, authenticate: any): (any, any)
                 if event.type == "key" and event.action ~= "release" and event.key_type == "esc" then
                     return nil, "logon cancelled"
                 end
-                -- Взвод и отпускание кнопки меняют её вид без действия.
+                -- Arming and releasing a button change its look without an action.
                 if event.type == "mouse" then draw() end
             elseif action.type == "change" and action.id == "user" then
                 model.user = tostring(action.value or "")
@@ -196,8 +201,9 @@ function screen_lib.run(screen: any, authenticate: any): (any, any)
                 model.error = nil
                 draw()
             elseif action.type == "activate" and action.id == "user" then
-                -- Enter в имени ведёт в пароль; пустое имя — подсказка на месте,
-                -- а не переход в поле, которое без имени бессмысленно.
+                -- Enter in the name leads to the password; an empty name is a
+                -- hint in place, not a move into a field that is meaningless
+                -- without a name.
                 if model.user == "" then model.error = "Type a user name."
                 else interaction.focus = "password" end
                 draw()

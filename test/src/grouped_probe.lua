@@ -1,11 +1,13 @@
--- Программа, существующая ради одной строки в объявлении: `meta.group`.
+-- A program that exists for the sake of one line in its declaration:
+-- `meta.group`.
 --
--- Каталог собирает папки меню из реестра, и до этой записи в харнессе не было
--- ни одной программы с группой — то есть путь «группа → папка» проверялся
--- только на выдуманных таблицах. Дефект, из-за которого папка не заводилась,
--- жил ровно между реестром и темой.
+-- The catalog builds menu folders from the registry, and before this entry
+-- there was not a single program with a group in the harness — that is, the
+-- path "group → folder" was checked only on made-up tables. The defect that
+-- kept the folder from being created lived exactly between the registry and
+-- the theme.
 --
--- Окно не рисует ничего: оно нужно как ЗАПИСЬ, а не как программа.
+-- The window draws nothing: it is needed as an ENTRY, not as a program.
 local function main()
     return true, nil
 end

@@ -12,14 +12,14 @@ local render = {}
 function render.placement(window: any, inner: any, cell: any, fonts: any, store: any): (any, any)
     local state: any = window.content_state
     if type(state) ~= "table" or state.sdk ~= 1 then return nil, "SDK: state version 1 expected" end
-    -- Форма проверяется целиком, а не одной версией: состояние без
-    -- `interaction` (окно, не видевшее ещё ни одного события, чужой
-    -- поставщик) роняло `ui.plan` на `interaction.menus` — и вместе с ним
-    -- кадр всей оболочки. Раскладке хватает пустого взаимодействия.
+    -- The shape is checked as a whole, not by the version alone: a state without
+    -- `interaction` (a window that has not seen a single event yet, a foreign
+    -- provider) crashed `ui.plan` on `interaction.menus` — and with it the
+    -- frame of the whole shell. An empty interaction is enough for the layout.
     if type(state.ui) ~= "table" then return nil, "SDK: state.ui is not a component tree" end
-    -- Дерево, которое `ui.plan` не разложит, называется причиной, а не
-    -- бросает: ловить ошибку здесь `pcall` нельзя (chrome_pixels, paint_view),
-    -- а брошенная — роняла бы кадр всей оболочки.
+    -- A tree that `ui.plan` will not lay out is reported with a reason instead of
+    -- throwing: the error cannot be caught with `pcall` here (chrome_pixels, paint_view),
+    -- and a thrown one would crash the frame of the whole shell.
     local problem = ui.problem(state.ui)
     if problem then return nil, "SDK: " .. tostring(problem) end
     local interaction: any = type(state.interaction) == "table" and state.interaction or ui.interaction()
@@ -38,10 +38,10 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             for _, span in ipairs(item.spans or {}) do
                 local sx, sw = x + span.x * cell.w, span.w * cell.w
                 if item.node.kind == "tabs" then
-                    -- Ярлык, а не кнопка: свет слева и сверху со скошенным
-                    -- углом, тень и чёрный справа, снизу грани нет — ярлык
-                    -- стоит на рамке страницы. Активный на два пикселя выше
-                    -- и сливается со страницей.
+                    -- A tab, not a button: light on the left and top with a beveled
+                    -- corner, shadow and black on the right, no edge at the bottom — the tab
+                    -- stands on the page frame. The active one is two pixels higher
+                    -- and merges with the page.
                     local active = span.index == current
                     local lift = active and 0 or 2
                     local tx, ty, tw, th = whole(sx), whole(y + lift), whole(sw), whole(cell.h - lift + (active and 1 or 0))
@@ -63,10 +63,10 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                         end
                     end
                 else
-                    -- Заголовок меню — по центру своих ячеек, подсветка на
-                    -- шесть пикселей шире текста с каждой стороны, как в
-                    -- оригинале; ячейки заголовка шире текста, потому что
-                    -- попадание считается в ячейках без шрифта.
+                    -- A menu title is centered in its cells, the highlight is
+                    -- six pixels wider than the text on each side, as in the
+                    -- original; the title's cells are wider than the text because
+                    -- hits are counted in cells, without the font.
                     local pressed = span.index == opened
                     if font then
                         local runes: any = text_lib.runes(span.title)
@@ -90,7 +90,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             local w, h = rect.w * cell.w, rect.h * cell.h
             local focused = interaction.focus == node.id
             if node.kind == "calendar" then
-                -- Календарь: дни недели, сетка месяца, сегодня синим.
+                -- Calendar: weekdays, the month grid, today in blue.
                 if font then
                     local names = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
                     local column = whole(w // 7)
@@ -118,13 +118,13 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     end
                 end
             elseif node.kind == "clock" then
-                -- Часы «Дата и время» Windows 95, по пикселям оригинала:
-                -- циферблат на лице без белого поля; шестьдесят меток по
-                -- кругу — минутные выпуклые точки 3×3 (тень сверху-слева,
-                -- свет снизу-справа), часовые бирюзовые с чёрной тенью;
-                -- стрелки — сужающиеся бирюзовые клинья с белым бликом и
-                -- серой тенью, секундная — тонкая серая, в центре красная
-                -- точка.
+                -- The Windows 95 "Date/Time" clock, following the original's pixels:
+                -- the dial sits on the face with no white field; sixty marks around
+                -- the circle — minute marks are raised 3×3 dots (shadow top-left,
+                -- light bottom-right), hour marks are teal with a black shadow;
+                -- the hands are tapering teal wedges with a white highlight and
+                -- a gray shadow, the second hand is thin and gray, with a red
+                -- dot in the center.
                 local side = whole(math.min(w, h))
                 local left, top = whole(x + (w - side) // 2), whole(y + (h - side) // 2)
                 local cx, cy = left + side // 2, top + side // 2
@@ -149,8 +149,8 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                         raster:rect(px, py + 1, 2, 1, color.light)
                     end
                 end
-                -- Выпуклый многоугольник построчно: клин стрелки — остриё,
-                -- два плеча у основания и короткий хвост за центром.
+                -- A convex polygon, row by row: a hand's wedge is the tip,
+                -- two shoulders at the base and a short tail past the center.
                 local function polygon(points: any, tint: any)
                     local lowest, highest = math.huge, -math.huge
                     for _, point in ipairs(points) do
@@ -214,11 +214,11 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 line(cx, cy, sx2, sy2, color.shadow)
                 raster:rect(cx - 1, cy - 1, 3, 2, "#ff0000")
             elseif node.kind == "tree" then
-                -- Дерево, как в regedit: пунктирные линии предков, крестики,
-                -- значки папок и записей, выделение только на подписи.
+                -- A tree, as in regedit: dotted ancestor lines, plus/minus boxes,
+                -- folder and entry icons, selection on the caption only.
                 local rows = ui.entries(node)
-                -- Недоступное — лицом и серым текстом, без выделения, как
-                -- недоступное поле ввода: иначе оно выглядит рабочим и молчит.
+                -- A disabled one uses the face color and gray text, with no selection, like
+                -- a disabled input field: otherwise it looks working and stays silent.
                 raster:rect(whole(x), whole(y), whole(w), whole(h), node.disabled and color.face or color.field)
                 local function dotted_v(px: any, from: any, to: any)
                     for py = whole(from), whole(to), 2 do raster:rect(whole(px), py, 1, 1, color.shadow) end
@@ -269,8 +269,8 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "group" then
-                -- Рамка с заголовком: грань на полстроки ниже, чтобы подпись
-                -- сидела на ней, как в диалогах Windows.
+                -- A frame with a title: the edge is half a row lower so that the caption
+                -- sits on it, as in Windows dialogs.
                 local ty = y + (cell.h - 15) // 2
                 pixels.etched(raster, whole(x), whole(y + cell.h // 2), whole(w), whole(h - cell.h // 2))
                 if font then
@@ -332,9 +332,9 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     end
                 end
             elseif node.kind == "field" then
-                -- Поле только для чтения: до 26 px по центру своих строк, текст
-                -- по центру высоты с отступом от граней. `face = true` — фон
-                -- лица, а не белый: окошко памяти калькулятора, пустое поле.
+                -- A read-only field: up to 26 px centered in its rows, the text
+                -- vertically centered with a margin from the edges. `face = true` means a face-colored
+                -- background, not white: the calculator's memory box, an empty field.
                 local fh = math.min(whole(h), 26)
                 local fy = y + (h - fh) // 2
                 pixels.field(raster, whole(x), whole(fy), whole(w), whole(fh))
@@ -347,11 +347,11 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                         {font = font, color = node.face and color.face_text or color.field_text})
                 end
             elseif node.kind == "monitor" then
-                -- Монитор из «Свойств экрана»: серый корпус с объёмной гранью,
-                -- экран цветом `color` (стол), подставка снизу. Пропорции
-                -- 4:3 по меньшей стороне, по центру своего прямоугольника.
-                -- Корпус 8 px вокруг экрана и подставка 8 px под ним — из
-                -- высоты, ширина от неё по 4:3.
+                -- The monitor from "Display Properties": a gray case with a raised edge,
+                -- the screen in `color` (the desktop), a stand at the bottom. Proportions
+                -- are 4:3 by the smaller side, centered in its rectangle.
+                -- The case is 8 px around the screen and the stand 8 px below it — taken from
+                -- the height, and the width follows from it at 4:3.
                 local screen_h = whole(math.min(h - 26, (w - 24) * 3 // 4))
                 local screen_w = whole(screen_h * 4 // 3)
                 if screen_w >= 24 and screen_h >= 18 then
@@ -361,7 +361,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     pixels.panel(raster, left, top, body_w, body_h)
                     pixels.edge(raster, left + 6, top + 6, screen_w + 4, screen_h + 4, false)
                     raster:rect(left + 8, top + 8, screen_w, screen_h, tostring(node.color or color.desktop))
-                    -- Индикатор питания и подставка.
+                    -- Power indicator and stand.
                     raster:rect(left + body_w - 12, top + body_h - 5, 4, 2, "#00c000")
                     pixels.panel(raster, left + body_w // 2 - 12, top + body_h, 24, 4)
                     pixels.panel(raster, left + body_w // 2 - 24, top + body_h + 4, 48, 4)
@@ -373,9 +373,9 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                         {kind = node.icon_kind or "program", image = node.image}, side)
                 end
             elseif node.kind == "statusbar" then
-                -- Вдавленные поля в одну строку, как у проводника: последний
-                -- растягивается, у остальных ширина своя или по тексту.
-                -- Ширина поля объявлена в ячейках — в пиксели здесь.
+                -- Sunken fields in one row, as in the explorer: the last one
+                -- stretches, the others have their own width or fit the text.
+                -- A field's width is declared in cells — converted to pixels here.
                 local fields: any = {}
                 for _, entry in ipairs(node.fields or {}) do
                     local field: any = type(entry) == "table" and entry or {text = tostring(entry)}
@@ -389,7 +389,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     pixels.panel(raster, whole(x), whole(fy), whole(frame.w * cell.w), whole(frame.h * cell.h))
                 end
                 strip(item, x, y, whole(node.active or 1), nil)
-                -- Разрыв рамки под активной вкладкой: она сливается со страницей.
+                -- A gap in the frame under the active tab: it merges with the page.
                 for _, span in ipairs(item.spans or {}) do
                     if span.index == whole(node.active or 1) and frame then
                         raster:rect(whole(x + span.x * cell.w + 1), whole(y + cell.h), whole(span.w * cell.w - 2), 1, color.face)
@@ -406,8 +406,8 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 local open: any = interaction.menus and interaction.menus[node.id] or nil
                 strip(item, x, y, nil, open and open.index or nil)
             elseif node.kind == "table" then
-                -- Та же раскладка колонок, что в ячейках; заголовок — выпуклые
-                -- кнопки, числа прижаты к правому краю по ширине шрифта.
+                -- The same column layout as in cells; the header is raised
+                -- buttons, numbers are pushed to the right edge by the font's width.
                 local columns = ui.columns(node, rect.w - 1)
                 local rows = ui.entries(node)
                 local header = whole(item.header)
@@ -444,10 +444,10 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 pixels.scrollbar(raster, x + w - cell.w, y + header * cell.h, cell.w, h - header * cell.h, item.bar, cell.h, cell.h)
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "icons" then
-                -- Сетка значков в пикселях: настоящий растр 32×32 из пакета
-                -- (`pixels.icon` сам откатывается на примитивы), подпись в две
-                -- строки под ним, синий прямоугольник ОБНИМАЕТ подпись, а не
-                -- колонку — по нему в Windows и видно, где кончается имя.
+                -- An icon grid in pixels: a real 32×32 raster from the package
+                -- (`pixels.icon` falls back to primitives by itself), a two-line caption
+                -- below it, and the blue rectangle HUGS the caption, not the
+                -- column — that is exactly how Windows shows where the name ends.
                 raster:rect(whole(x), whole(y), whole(w), whole(h), node.disabled and color.face or color.field)
                 local side = 32
                 for _, spot in ipairs(item.cells or {}) do
@@ -489,10 +489,10 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                 pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "button" then
-                -- Обычная кнопка — 23 px по центру своих строк; `fill` —
-                -- на весь прямоугольник минус `inset` со всех сторон (так
-                -- клавиши калькулятора стоят с зазором в четыре пикселя).
-                -- `bold` — жирная подпись, как у клавиш оригинала.
+                -- A regular button is 23 px centered in its rows; `fill` means
+                -- the whole rectangle minus `inset` on every side (this is how
+                -- the calculator keys stand with a four-pixel gap).
+                -- `bold` means a bold caption, like the original's keys.
                 local pad = whole(node.inset)
                 local bx, bw = x + pad, w - pad * 2
                 local bh = node.fill and whole(h) - pad * 2 or math.min(23, whole(h))
@@ -512,8 +512,8 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     pixels.focus_rect(raster, whole(x + 16), whole(y + (h - 17) // 2), tw + 4, 17)
                 end
             elseif node.kind == "input" then
-                -- Поле ввода — до 24 px по центру своих строк: в одной строке
-                -- ячеек текст упирался бы в грани, отдайте ему две.
+                -- An input field is up to 24 px centered in its rows: in a single row
+                -- of cells the text would press against the edges, so give it two.
                 local fh = math.min(24, whole(h))
                 y, h = y + (h - fh) // 2, fh
                 pixels.field(raster, whole(x), whole(y), whole(w), whole(h))
@@ -531,9 +531,9 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     raster:rect(whole(cx), whole(y + math.max(2, (h - 15) // 2)), 1, whole(math.min(15, h - 4)), color.field_text)
                 end
             elseif node.kind == "label" and tostring(node.text or ""):find("\n", 1, true) then
-                -- Многострочная метка: строки через `\n`, шаг 15 px — как у
-                -- шрифта, а не по ячейке (20 px): две строки подсказки в
-                -- соседних ячейках читались как два абзаца.
+                -- A multi-line label: lines split by `\n`, a 15 px step — like
+                -- the font's, not the cell's (20 px): two lines of a hint in
+                -- neighboring cells read as two paragraphs.
                 local lines: any = {}
                 local value: string = tostring(node.text or "") .. "\n"
                 for piece in string.gmatch(value, "(.-)\n") do lines[#lines + 1] = piece end
@@ -545,7 +545,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             else text(x + 2, y, w - 4, h, node.text, node.alert and color.alert or nil) end
         end
     end
-    -- Раскрытые меню — поверх всего, поэтому после остальных и в том же растре.
+    -- Open menus go on top of everything, hence after the rest and in the same raster.
     if dirty then
         local font = fonts and fonts.face
         for _, item in ipairs(plan.overlays or {}) do
@@ -553,11 +553,11 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             local open: any = interaction.menus[item.node.id]
             local px, py = (popup.rect.x - 1) * cell.w + 1, (popup.rect.y - 1) * cell.h + 1
             local pw = popup.rect.w * cell.w
-            -- Поля панели — В ПИКСЕЛЯХ, а не в ячейках. Прямоугольник меню
-            -- остаётся прежним (по нему считаются попадания, а мышь знает
-            -- только ячейки), но рамка рисуется вплотную к пунктам: целая
-            -- ячейка сверху и снизу — это два десятка пикселей пустоты,
-            -- которых у выпадающего меню Windows 95 никогда не было.
+            -- The panel's margins are IN PIXELS, not in cells. The menu rectangle
+            -- stays the same (hits are counted by it, and the mouse knows
+            -- only cells), but the frame is drawn tight around the items: a whole
+            -- cell above and below is a couple dozen pixels of emptiness
+            -- that a Windows 95 drop-down menu never had.
             local pad = 4
             local top = py + cell.h - pad
             local body = #popup.rows * cell.h + pad * 2

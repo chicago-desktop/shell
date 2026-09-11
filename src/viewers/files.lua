@@ -1,53 +1,54 @@
--- Файл на диске реестра: как его назвать одной строкой и как прочитать.
+-- A file on a registry drive: how to name it in one string and how to read it.
 --
--- Просмотрщик открывается композитором с одним строковым аргументом — тем
--- же `args`, что получает любое окно-приложение. Здесь тот аргумент
--- собирается и разбирается, и это ЕДИНСТВЕННОЕ место, где известна его форма:
--- проводник зовёт `encode`, окно зовёт `parse`, и ни один из них не знает,
--- что внутри JSON. Разбери его проводник по-своему — и первый же файл с
--- пробелом в имени открылся бы не тем.
+-- A viewer is opened by the compositor with one string argument — the same
+-- `args` any application window receives. Here that argument is assembled and
+-- parsed, and this is the ONLY place where its form is known: the explorer
+-- calls `encode`, the window calls `parse`, and neither of them knows that
+-- there is JSON inside. Had the explorer parsed it its own way, the very
+-- first file with a space in its name would have opened the wrong thing.
 --
--- Диск — это запись реестра (`fs.directory`, `fs.embed`), а не путь на
--- машине: файл читается модулем `fs` под правами самого окна, и окно с
--- правом на запись диска не получает права на каталог мимо неё.
+-- A drive is a registry entry (`fs.directory`, `fs.embed`), not a path on the
+-- machine: the file is read by the `fs` module under the window's own
+-- permissions, and a window with permission on a drive entry does not get
+-- permission on a directory past it.
 
 local fs = require("fs")
 local json = require("json")
 
 local files = {}
 
--- Потолки. Блокнот на мегабайте текста в терминале уже бесполезен, а
--- картинка больше восьми мегабайт едет между процессами в base64 на каждое
--- нажатие клавиши — это не размер для просмотрщика, а размер для отказа с
--- причиной.
+-- Caps. Notepad on a megabyte of text in a terminal is already useless, and
+-- a picture over eight megabytes travels between processes in base64 on every
+-- key press — that is not a size for a viewer but a size for a refusal with a
+-- reason.
 files.MAX_TEXT = 1 << 20
 files.MAX_IMAGE = 8 << 20
 
--- encode(drive, path) -> строка аргумента
+-- encode(drive, path) -> argument string
 function files.encode(drive: any, path: any): string
     return json.encode({drive = tostring(drive), path = tostring(path)})
 end
 
--- name_of(path) -> имя файла без каталога
+-- name_of(path) -> file name without the directory
 function files.name_of(path: any): string
     local text = tostring(path or "")
     return text:match("([^/]+)/*$") or text
 end
 
--- ext(name) -> расширение строчными без точки, или ""
+-- ext(name) -> extension in lower case without the dot, or ""
 --
--- Расширение — это то, по чему проводник выбирает программу, поэтому регистр
--- снимается здесь, один раз: `Photo.PNG` и `photo.png` — один и тот же вид.
+-- The extension is what the explorer picks a program by, so case is removed
+-- here, once: `Photo.PNG` and `photo.png` are one and the same kind.
 function files.ext(name: any): string
     local text = files.name_of(name)
-    -- Точка в начале — скрытый файл, а не расширение: у `.bashrc` его нет.
+    -- A leading dot is a hidden file, not an extension: `.bashrc` has none.
     if text:sub(1, 1) == "." and not text:sub(2):find(".", 1, true) then return "" end
     local ext = text:match("%.([^%.]+)$")
     if not ext or ext == text then return "" end
     return ext:lower()
 end
 
--- parse(args) -> {drive, path, name, ext} | nil, причина
+-- parse(args) -> {drive, path, name, ext} | nil, reason
 function files.parse(args: any): (any, any)
     if type(args) ~= "string" or args == "" then
         return nil, "the window was not told which file to open"
@@ -64,10 +65,11 @@ function files.parse(args: any): (any, any)
     return {drive = drive, path = path, name = files.name_of(path), ext = files.ext(path)}, nil
 end
 
--- read(drive, path, limit) -> байты | nil, причина
+-- read(drive, path, limit) -> bytes | nil, reason
 --
--- Отказ называет, ЧТО не открылось: диск или файл. «Не прочитан» без адреса
--- отправляет человека проверять права там, где их не трогали.
+-- The refusal names WHAT did not open: the drive or the file. "Not read"
+-- without an address sends a person to check permissions where nobody
+-- touched them.
 function files.read(drive: any, path: any, limit: any): (any, any)
     local handle, err = fs.get(tostring(drive))
     if err or not handle then

@@ -1,11 +1,13 @@
--- Тело запросов стола — разбор и проверка ОДНИМ местом для POST и PATCH.
+-- The body of desktop requests — parsing and validation in ONE place for
+-- POST and PATCH.
 --
--- Ручки принимали то, что потом не рисуется: координату `"1e999"` (tonumber
--- даёт inf, а `repo.cell` превращал её в 0 — значок в углу, и пиксельная тема
--- его пропускала), папку в папке (вложенная папка нигде не рисуется, а два
--- PATCH давали цикл A→B→A), битый JSON как пустой успешный PATCH, имя без
--- потолка. Здесь нет ни HTTP, ни базы — только то, что в теле, поэтому каждый
--- отказ проверяется тестом без сервера.
+-- The endpoints accepted things that are then not drawn: the coordinate
+-- `"1e999"` (tonumber gives inf, and `repo.cell` turned it into 0 — an icon
+-- in the corner, and the pixel theme skipped it), a folder in a folder (a
+-- nested folder is drawn nowhere, and two PATCHes produced a cycle A→B→A),
+-- broken JSON as an empty successful PATCH, a name with no cap. There is
+-- neither HTTP nor a database here — only what is in the body, so every
+-- refusal is checked by a test without a server.
 
 local json = require("json")
 local repo = require("repo")
@@ -19,36 +21,36 @@ body.TITLE_MAX = 512
 
 body.FOLDER_IN_FOLDER = "parent_id: a desktop folder cannot go into a folder — nested folders are not drawn"
 
--- Длина в СИМВОЛАХ, а не в байтах: потолок, который кириллица выбирает вдвое
--- быстрее латиницы, — это два разных потолка под одним числом.
+-- Length in CHARACTERS, not in bytes: a cap that Cyrillic uses up twice as
+-- fast as Latin is two different caps under one number.
 local function chars(value: string): integer
     local count = 0
     for _ in value:gmatch("[^\128-\191]") do count = count + 1 end
     return count
 end
 
--- decode(raw) -> таблица | nil, причина
+-- decode(raw) -> table | nil, reason
 --
--- Битое тело — отказ, а не пустой объект: `json.decode(...) or {}` превращал
--- опечатку в успешный PATCH, который ничего не сделал.
+-- A broken body is a refusal, not an empty object: `json.decode(...) or {}`
+-- turned a typo into a successful PATCH that did nothing.
 function body.decode(raw: any): (any, any)
     local value, err = json.decode(tostring(raw or ""))
     if err ~= nil then return nil, "body is not JSON: " .. tostring(err) end
-    -- Массив тоже приезжает таблицей; у объекта нет первого элемента.
+    -- An array also arrives as a table; an object has no first element.
     if type(value) ~= "table" or value[1] ~= nil then return nil, "body: a JSON object" end
     return value, nil
 end
 
--- Координата — ячейка сетки: целое от 1 до 10000. Строка с числом
--- принимается, как и раньше, но только если число конечное и целое.
--- Бесконечность приходит числом — JSON `1e999`, вызов из Lua, — а не строкой:
--- `tonumber("1e999")` в go-lua даёт nil, а не inf.
+-- A coordinate is a grid cell: a whole number from 1 to 10000. A string
+-- holding a number is accepted, as before, but only if the number is finite
+-- and whole. Infinity arrives as a number — JSON `1e999`, a call from Lua —
+-- and not as a string: `tonumber("1e999")` in go-lua gives nil, not inf.
 local function coordinate(value: any): (any, any)
     local number: any = type(value) == "number" and value or (type(value) == "string" and tonumber(value) or nil)
     if number == nil then return nil, "a number" end
-    -- До `math.tointeger`: в go-lua он отдаёт бесконечности целое вне
-    -- диапазона, а не nil (замечено мутацией), так что без этой строки inf
-    -- проходил бы как «целое».
+    -- Before `math.tointeger`: in go-lua it returns an out-of-range integer
+    -- for infinities, not nil (caught by a mutation), so without this line inf
+    -- would pass as "whole".
     if number ~= number or number == math.huge or number == -math.huge then return nil, "a finite number" end
     local cell = math.tointeger(number)
     if cell == nil then return nil, "a whole number" end
@@ -66,15 +68,16 @@ local function text(name: string, value: any, limit: integer): (any, any)
     return value, nil
 end
 
--- names_null(raw, key) -> истина, если у объекта ВЕРХНЕГО уровня ключ `key` равен null
+-- names_null(raw, key) -> true if the TOP-level object has key `key` equal to null
 --
--- Разобранная таблица не отличает присланный null от отсутствующего поля —
--- оба nil, — а метки для null у json рантайма нет (`"null"` → nil). Различие
--- здесь смысловое: `parent_id: null` — «вынести на стол», отсутствие — «не
--- трогать». Раньше null искался подстрокой по всему телу и срабатывал на
--- вложенном объекте. Здесь — только ключ верхнего уровня: строки
--- пропускаются целиком, с экранированием, вложенность считается. Зовётся для
--- тела, которое json уже разобрал, — это поиск в правильном JSON, а не разбор.
+-- A parsed table does not tell a sent null from an absent field — both are
+-- nil — and the runtime json has no marker for null (`"null"` → nil). The
+-- difference here is one of meaning: `parent_id: null` is "move out onto the
+-- desktop", absence is "leave alone". Earlier null was searched for as a
+-- substring over the whole body and fired on a nested object. Here — only a
+-- top-level key: strings are skipped whole, with escaping, and nesting is
+-- counted. It is called for a body that json has already parsed — this is a
+-- search in valid JSON, not parsing.
 function body.names_null(raw: any, key: string): boolean
     local source = tostring(raw or "")
     local depth, at, size = 0, 1, #source
@@ -104,21 +107,22 @@ function body.names_null(raw: any, key: string): boolean
     return false
 end
 
--- nest(kind, parent) -> причина | nil
+-- nest(kind, parent) -> reason | nil
 --
--- Что можно положить в папку. Папку — нельзя: вложенная папка нигде не
--- рисуется, а разрешённая вложенность давала цикл двумя PATCH. Проверяется
--- первым, до поиска папки: ответ не зависит от того, какую назвали.
+-- What may be put into a folder. A folder — no: a nested folder is drawn
+-- nowhere, and allowed nesting produced a cycle with two PATCHes. Checked
+-- first, before looking up the folder: the answer does not depend on which
+-- one was named.
 function body.nest(kind: any, parent: any): any
     if kind == repo.KIND_FOLDER then return body.FOLDER_IN_FOLDER end
     if parent == nil then return "parent_id: no such folder" end
-    -- Ярлык внутри ярлыка открыть нечем: у стола есть окно папки, а окна
-    -- ярлыка не существует.
+    -- A shortcut inside a shortcut has nothing to open it with: the desktop
+    -- has a folder window, and a shortcut window does not exist.
     if parent.kind ~= repo.KIND_FOLDER then return "parent_id: only a desktop folder can hold items" end
     return nil
 end
 
--- create(raw) -> {kind, entry, title, x, y, parent_id} | nil, причина
+-- create(raw) -> {kind, entry, title, x, y, parent_id} | nil, reason
 function body.create(raw: any): (any, any)
     local value, err = body.decode(raw)
     if not value then return nil, err end
@@ -134,7 +138,7 @@ function body.create(raw: any): (any, any)
     if kind == repo.KIND_SHORTCUT and entry == "" then
         return nil, "entry: a shortcut must reference a registry entry"
     end
-    -- Папка с записью — это ярлык, который назвали папкой.
+    -- A folder with an entry is a shortcut that was called a folder.
     if kind == repo.KIND_FOLDER and entry ~= "" then
         return nil, "entry: a desktop folder has no registry entry"
     end
@@ -142,9 +146,9 @@ function body.create(raw: any): (any, any)
     local title, terr = text("title", value.title, body.TITLE_MAX)
     if terr then return nil, terr end
 
-    -- Координаты необязательны: без них значок кладёт композитор, когда
-    -- узнает ширину экрана. Но названные обязаны быть ОБЕ — одна координата
-    -- не задаёт места.
+    -- Coordinates are optional: without them the compositor places the icon
+    -- once it learns the screen width. But if given, BOTH must be — one
+    -- coordinate does not define a place.
     local has_x, has_y = value.x ~= nil, value.y ~= nil
     if has_x ~= has_y then return nil, "x and y: given together or not at all" end
     local x: any, y: any = nil, nil
@@ -164,9 +168,10 @@ function body.create(raw: any): (any, any)
         x = x, y = y, parent_id = parent_id}, nil
 end
 
--- update(raw) -> patch | nil, причина
+-- update(raw) -> patch | nil, reason
 --
--- В patch — только названные поля; `parent_id = false` — «вынести на стол».
+-- The patch holds only the named fields; `parent_id = false` is "move out
+-- onto the desktop".
 function body.update(raw: any): (any, any)
     local value, err = body.decode(raw)
     if not value then return nil, err end

@@ -7,7 +7,7 @@ namespace: app
 # co-located *_test.lua suites run in isolation. The router exists only so the
 # endpoint entries resolve; the suites call the libraries directly.
 #
-# Оболочка отсюда тоже поднимается руками, без приложения:
+# The shell can also be brought up from here by hand, without the application:
 #   cd test && wippy run --host butschster.windows:terminal windows
 # Harness-only; excluded from publish via the module wippy.yaml.
 
@@ -20,7 +20,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Раскладка переживает круг «создал — прочитал — подвинул — удалил», битый ярлык остаётся и помечен, удалённый ярлык не возвращается.
+      comment: The layout survives the round "created — read — moved — deleted", a broken shortcut stays and is marked, a deleted shortcut does not come back.
       group: Windows Shell
       suite: butschster_windows
     source: file://storage_test.lua
@@ -38,7 +38,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Каталог собирает папки меню из meta.group, различает пустой каталог и нечитаемый реестр разными значениями, прячет из меню то, что просило спрятать, не заводит папку без содержимого и называет неизвестный тип окна, не пряча программу.
+      comment: The catalog builds menu folders from meta.group, tells an empty catalog and an unreadable registry apart by different values, hides from the menu what asked to be hidden, does not create a folder without content, and names an unknown window type without hiding the program.
       group: Windows Shell
       suite: butschster_windows
     source: file://catalog_test.lua
@@ -55,7 +55,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Мебель стола заводится один раз, выброшенная не возвращается, ярлык на отсутствующую программу пропускается, а не заводится битым.
+      comment: Desk furniture is created once, furniture that was thrown away does not come back, a shortcut to a missing program is skipped rather than created broken.
       group: Windows Shell
       suite: butschster_windows
     source: file://defaults_test.lua
@@ -72,7 +72,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: «Мой компьютер» показывает сам стенд, делает диском каждую запись fs, читает путь одинаково для щелчка и для кнопки «Вверх», описывает двойной щелчок намерением и нигде не подменяет «не прочитали» словом «пусто».
+      comment: The "My Computer" window shows the stand itself, makes a drive of every fs entry, reads the path the same way for a click and for the "Up" button, describes a double click as an intent, and nowhere substitutes the word "empty" for "not read".
       group: Windows Shell
       suite: butschster_windows
     source: file://explorer_test.lua
@@ -86,7 +86,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Диски приходят из живого реестра, а не из своей таблицы; содержимое диска читается модулем fs; закрытый диск отвечает причиной, а не пустотой; верхний уровень стола и папка стола не показывают одно и то же дважды.
+      comment: Drives come from the live registry, not from a table of our own; drive content is read by the fs module; a closed drive answers with a reason, not with emptiness; the top level of the desktop and the desktop folder do not show the same thing twice.
       group: Windows Shell
       suite: butschster_windows
     source: file://sources_test.lua
@@ -103,7 +103,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Сетка значков внутри окна и раскладка как единственная таблица для обоих бэкендов — ряды считаются по рисунку, а не по шагу; прямоугольник, предсказанный планом, совпадает с нарисованным; сдвиг зажимается, а не показывает пустоту за последним рядом.
+      comment: The icon grid inside a window and the layout as the single table for both backends — rows are counted from the drawing, not from the step; the rectangle predicted by the plan matches the drawn one; the offset is clamped rather than showing emptiness past the last row.
       group: Windows Shell
       suite: butschster_windows
     source: file://render_test.lua
@@ -118,7 +118,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Кнопки заголовка — у каждого типа окна свой состав, неизвестный тип считается обычным окном, нажимается ровно то, что нарисовано; заливка зовётся у обеих тем, а стили лежат в одной таблице, а не в двух похожих; пиксельный стол называет причину нечитаемой раскладки, а панель задач — строку состояния.
+      comment: Title buttons — each window type has its own set, an unknown type counts as an ordinary window, exactly what is drawn is what gets pressed; the fill is called in both themes, and the styles live in one table, not in two similar ones; the pixel desktop names the reason for an unreadable layout, and the taskbar shows the status line.
       group: Windows Shell
       suite: butschster_windows
     source: file://chrome_test.lua
@@ -137,7 +137,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Пакет значков Windows 95 — каждое имя декодируется в 32 и 16, растр кэшируется, неизвестное имя и чужой размер отказывают с причиной, накладка ярлыка ложится в растр.
+      comment: Windows 95 icon pack — every name decodes at 32 and 16, the raster is cached, an unknown name and a foreign size refuse with a reason, the shortcut overlay lands in the raster.
       group: Windows Shell
       suite: butschster_windows
     source: file://images_test.lua
@@ -151,7 +151,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Оболочка поднимается на viewport теста и перечитывает раскладку по команде ручки; погашенная оболочка отличается от отказа.
+      comment: The shell comes up on the test viewport and rereads the layout on the endpoint's command; a shell that was shut down is distinguished from a failure.
       group: Windows Shell
       suite: butschster_windows
     source: file://shell_test.lua
@@ -166,7 +166,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Каждый символ набора занимает ровно одну ячейку, и оба набора палитры несут одни и те же имена — иначе одна деталь красится «как получится».
+      comment: Every glyph in the set takes exactly one cell, and both palette sets carry the same names — otherwise some detail gets painted "however it turns out".
       group: Windows Shell
       suite: butschster_windows
     source: file://glyphs_test.lua
@@ -181,7 +181,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Хост, процесс оболочки, окно проводника, ручки и политики существуют и ссылаются друг на друга; лог терминального хоста заглушён, у ручек раскладки и у окна нет права порождать процессы, ручки создания программы нет, а мебель стола ведёт на существующие записи.
+      comment: The host, the shell process, the explorer window, the endpoints and the policies exist and reference each other; the terminal host log is silenced, the layout endpoints and the window have no right to spawn processes, there is no program-creation endpoint, and the desk furniture points at existing entries.
       group: Windows Shell
       suite: butschster_windows
     source: file://wiring_test.lua
@@ -191,49 +191,49 @@ entries:
       defaults: butschster.windows.programs:defaults
     method: run
 
-  # Программа С ГРУППОЙ. Заведена нарочно: в харнессе не было ни одной записи
-  # с `meta.group`, и весь путь «группа → папка → раскрытие» был зелёным, ни
-  # разу не пройденным на настоящих записях реестра. Дефект, из-за которого
-  # папка не заводилась, жил в этом промежутке.
+  # A program WITH A GROUP. Added on purpose: the harness had not a single
+  # entry with `meta.group`, and the whole path "group → folder → expansion" was
+  # green without ever having been walked on real registry entries. The defect
+  # that kept the folder from being created lived in that gap.
   - name: grouped_probe
     kind: process.lua
     meta:
       type: tui_desktop.window
-      title: Проба в папке
-      group: Служебные/Проверка
-      comment: Запись с группой — чтобы каталог собирал папки меню на настоящем реестре, а не только в чистом тесте.
+      title: Probe in a folder
+      group: System Tools/Probe
+      comment: An entry with a group — so that the catalog builds menu folders on the real registry, not only in a pure test.
     source: file://grouped_probe.lua
     method: main
     modules: [channel]
     security:
       policies: [app:probe_scope]
 
-  # Настоящая файловая система в реестре. Без неё «диски приходят из реестра»
-  # проверялось бы на выдуманных записях, то есть не проверялось бы вовсе:
-  # ошиблись бы мы в имени фильтра — тест остался бы зелёным.
+  # A real file system in the registry. Without it, "drives come from the
+  # registry" would be checked on made-up entries, that is, not checked at all:
+  # had we got the filter name wrong, the test would have stayed green.
   #
-  # Каталог выбран тот, в котором лежит сам набор тестов: он заведомо есть и
-  # заведомо не пуст, а значит «прочитали пустоту» и «прочитали» здесь
-  # различимы.
+  # The directory chosen is the one the test suite itself lives in: it is
+  # certain to exist and certain not to be empty, which means "read emptiness"
+  # and "read" are distinguishable here.
   - name: probe_fs
     kind: fs.directory
     meta:
-      comment: Файловая система харнесса — она и есть проверяемый диск.
+      comment: The harness file system — it is the drive under test.
     base: project
     directory: ./src
 
-  # Второй уровень пиксельного пробника: команда, которая рисует кадр и
-  # кладёт PNG. Живёт в харнессе, а не в модуле: снимок — это проверка, а не
-  # часть оболочки, и в поставку он не едет.
+  # The second level of the pixel probe: a command that draws a frame and
+  # saves a PNG. It lives in the harness, not in the module: a snapshot is a
+  # check, not part of the shell, and it does not ship.
   #
   #   cd test && wippy run --host wippy.terminal:host paint-png
   - name: paint_png
     kind: process.lua
     meta:
-      comment: Рисует пиксельные примитивы настоящим gfx и кладёт PNG в test/shots — единственный способ увидеть глиф, грань и цвет.
+      comment: Draws the pixel primitives with the real gfx and saves a PNG into test/shots — the only way to see a glyph, an edge and a color.
       command:
         name: paint-png
-        short: Нарисовать пиксельные примитивы и положить PNG
+        short: Draw the pixel primitives and save a PNG
     source: file://paint_png.lua
     method: main
     modules:
@@ -265,13 +265,14 @@ entries:
       desktop_view: butschster.windows.programs:desktop_view
       model: butschster.windows.explorer:model
 
-  # Права пробника названы, а не взяты у общей разрешительной политики
-  # харнесса: `fs.get` — это доступ к файловой системе по записи реестра, и
-  # проверка, которой выдали всё, не заметит, что на стенде прав не хватает.
+  # The probe's permissions are named, not taken from the harness's general
+  # permissive policy: `fs.get` is access to a file system by its registry
+  # entry, and a check that was granted everything will not notice that the
+  # stand lacks permissions.
   - name: probe_scope
     kind: security.policy
     meta:
-      comment: Права пиксельного пробника — прочитать шрифт и записать снимок; ничего больше.
+      comment: Permissions of the pixel probe — read a font and write a snapshot; nothing more.
     policy:
       actions:
         - process.context
@@ -279,13 +280,13 @@ entries:
       resources: "*"
       effect: allow
 
-  # Каталог снимков. Пишется, поэтому auto_init включён; каталог шрифтов рядом
-  # только на чтение — приложение не должно пытаться его создавать и
-  # переставлять права.
+  # Snapshot directory. It is written to, so auto_init is on; the font
+  # directory next to it is read-only — the application must not try to create
+  # it or change its permissions.
   - name: shots
     kind: fs.directory
     meta:
-      comment: Куда кладутся PNG пиксельного пробника.
+      comment: Where the pixel probe PNGs go.
     base: project
     directory: ./shots
     auto_init: true
@@ -293,14 +294,14 @@ entries:
   - name: system_fonts
     kind: fs.directory
     meta:
-      comment: Системные шрифты TrueType, только для чтения — шрифт приезжает в gfx байтами, а не путём.
+      comment: System TrueType fonts, read-only — the font arrives in gfx as bytes, not as a path.
     auto_init: false
     directory: /usr/share/fonts/truetype/liberation/
 
   - name: db
     kind: db.sql.sqlite
     meta:
-      comment: In-memory database — харнесс его не использует, но загрузчик просит ресурс.
+      comment: In-memory database — the harness does not use it, but the loader asks for the resource.
     file: ":memory:"
 
   - name: env_storage
@@ -338,14 +339,14 @@ entries:
       actions: '*'
       effect: allow
 
-  # Харнесс тестирует модуль, значит зависит от него. Замена в .wippy.yaml
-  # подставляет сюда рабочую копию из ../, поэтому исходник и колокейтед
-  # тесты грузятся напрямую, без публикации.
+  # The harness tests the module, so it depends on it. The replacement in
+  # .wippy.yaml substitutes the working copy from ../ here, so the source and
+  # the co-located tests load directly, without publishing.
   - name: windows_harness.dep.module
     version: "*"
     kind: ns.dependency
     meta:
-      comment: Модуль под тестом; источник подменяется на ../ в .wippy.yaml.
+      comment: The module under test; its source is replaced with ../ in .wippy.yaml.
     component: "butschster/windows"
     parameters:
       - name: butschster.windows:api_router
@@ -384,7 +385,7 @@ entries:
     kind: registry.entry
     meta:
       type: windows.program_images
-      comment: Значок окна без своего meta.image — проверка чтения объявления из реестра.
+      comment: A window icon without its own meta.image — checks reading the declaration from the registry.
     data:
       images:
         "app:grouped_probe": clock
@@ -401,7 +402,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Живой проводник на пиксельном композиторе и сохранённый режим ячеек.
+      comment: A live explorer on the pixel compositor, and the cell mode that is kept.
       group: Windows Shell
       suite: butschster_windows
     source: file://explorer_pixels_test.lua
@@ -413,7 +414,7 @@ entries:
   - name: explorer_composer
     kind: process.lua
     meta:
-      comment: Настоящая пиксельная тема и композитор на viewport теста.
+      comment: The real pixel theme and compositor on the test viewport.
     source: file://explorer_composer.lua
     method: main
     modules: [process, fs, gfx]
@@ -426,7 +427,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Просмотрщики — аргумент окна собирается и разбирается одной формой, реестр типов из meta.opens со спором по имени, кадр картинки ровно размера окна и тот же растр без изменений.
+      comment: Viewers — the window argument is built and parsed in one shape, a type registry from meta.opens with conflicts settled by name, a picture frame exactly the size of the window, and the same raster when nothing changed.
       group: Windows Shell
       suite: butschster_windows
     source: file://viewers_test.lua
@@ -442,14 +443,16 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Окна-виды — сетка месяца, кнопки в ячейках без общих ячеек, секунда переотправляет только часы; калькулятор считает как кнопки, память переживает сброс, нажатие переотправляет табло и один ряд; у фиксированного окна нет «развернуть».
+      comment: View windows — the month grid, buttons in cells without shared cells, a second resends only the clock; the calculator computes like the buttons, memory survives a clear, a press resends the display and one row; a fixed window has no "maximize".
       group: Windows Shell
       suite: butschster_windows
     source: file://views_test.lua
-    modules: [gfx, tty, registry]
+    modules: [gfx, tty, registry, fs]
     imports:
       test: wippy.test:test
       rasters: butschster.windows.shell:rasters
+      pixels: butschster.windows.shell:pixels
+      widgets: butschster.windows.shell:widgets
       chrome: butschster.windows.shell:chrome
       chrome_pixels: butschster.windows.shell:chrome_pixels
       datetime_window: butschster.windows.datetime:window
@@ -464,7 +467,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Установка и удаление программ — слияние объявлений с кэшем, правка файла объявлений текстом, имя новой записи.
+      comment: Add/Remove Programs — merging the declarations with the cache, editing the declarations file as text, the name of a new entry.
       group: Windows Shell
       suite: butschster_windows
     source: file://appwiz_test.lua
@@ -478,7 +481,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Чтение окружения — отказ по правам отличим от «не задано», умолчание его не прячет, окружение процесса главнее файлового хранилища.
+      comment: Environment reading — a permission refusal is distinguishable from "not set", the default does not hide it, the process environment takes precedence over the file storage.
       group: Windows Shell
       suite: butschster_windows
     source: file://environment_test.lua
@@ -487,9 +490,9 @@ entries:
       environment: butschster.windows.config:environment
     method: run
 
-  # Куда appwiz_test пишет файл объявлений по-настоящему: запись с копией и
-  # чтением обратно проверяется на живом fs, а не на подставке. Под .wippy —
-  # вне git.
+  # Where appwiz_test writes the declarations file for real: writing with a
+  # copy and reading it back is checked on a live fs, not on a stand-in. Under
+  # .wippy — outside git.
   - name: appwiz_scratch
     kind: fs.directory
     meta:
@@ -502,7 +505,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Свойства экрана — форма цвета и подпись разрешения, раскладка двух вкладок, выбор и применение через подставленную запись, ОК после успешной записи; тема перекрашивает стол одной точкой.
+      comment: Display properties — the color shape and the resolution label, the layout of two tabs, selecting and applying through a substituted entry, OK after a successful write; the theme repaints the desktop through a single point.
       group: Windows Shell
       suite: butschster_windows
     source: file://display_test.lua
@@ -522,7 +525,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Сетевое окружение — местный узел первым, лидер помечен, одинокий узел отличается от отказа членства, раскладка окна без пересечений.
+      comment: Network Neighborhood — the local node first, the leader marked, a lone node differs from a membership failure, the window layout without overlaps.
       group: Windows Shell
       suite: butschster_windows
     source: file://network_test.lua
@@ -540,7 +543,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Свойства системы — дерево устройств по префиксу вида, пустые группы с пометкой, раскладка трёх вкладок без пересечений, раскрытие и выбор, ОК закрывает.
+      comment: System Properties — the device tree by kind prefix, empty groups with a mark, the layout of three tabs without overlaps, expanding and selecting, OK closes.
       group: Windows Shell
       suite: butschster_windows
     source: file://sysprops_test.lua
@@ -556,7 +559,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Диспетчер задач — история не длиннее потолка, график блочными символами снизу вверх и справа налево, форматы памяти и времени, раскладка вкладок и попадания.
+      comment: Task Manager — history no longer than the ceiling, a graph in block characters bottom-up and right-to-left, memory and time formats, tab layout and hits.
       group: Windows Shell
       suite: butschster_windows
     source: file://taskman_test.lua
@@ -573,7 +576,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Новые программы — Диспетчер задач, Блокнот, просмотр картинок — открываются живой оболочкой и отвечают описанием окна; отказ называет причину, которую стенд прячет в лог.
+      comment: New programs — Task Manager, Notepad, picture viewer — are opened by the live shell and answer with a window description; a failure names the reason that the stand hides in the log.
       group: Windows Shell
       suite: butschster_windows
     source: file://programs_live_test.lua
@@ -587,7 +590,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Окна-программы (Диспетчер задач, Блокнот) живут после запуска — событие выхода читается текстом, потому что стенд прячет его в лог.
+      comment: Program windows (Task Manager, Notepad) stay alive after launch — the exit event is read as text, because the stand hides it in the log.
       group: Windows Shell
       suite: butschster_windows
     source: file://window_life_test.lua
@@ -602,7 +605,7 @@ entries:
       type: test
       group: Windows Shell
       suite: butschster_windows
-      comment: «Выполнить» — ввод, геометрия, меню и настоящий Bash под PTY.
+      comment: The "Run" window — input, geometry, menu and a real Bash under a PTY.
     source: file://run_test.lua
     method: run
     modules: [process, channel, time, tty, fs, gfx]
@@ -615,7 +618,7 @@ entries:
   - name: run_composer
     kind: process.lua
     meta:
-      comment: Реальный композитор и меню оболочки на тестовом viewport.
+      comment: The real compositor and the shell menu on the test viewport.
     source: file://run_composer.lua
     method: main
     modules: [process, fs, gfx]
@@ -628,7 +631,7 @@ entries:
   - name: taskman_composer
     kind: process.lua
     meta:
-      comment: Живой пиксельный композитор с наблюдением за состоянием диспетчера задач.
+      comment: A live pixel compositor with observation of the Task Manager state.
     source: file://taskman_composer.lua
     method: main
     modules: [process, fs, gfx]
@@ -640,9 +643,9 @@ entries:
     kind: process.lua
     meta:
       type: tui_desktop.window
-      title: Пример SDK
+      title: SDK Example
       image: program
-      group: [SDK, Примеры]
+      group: [SDK, Examples]
       width: 62
       height: 23
       pixel_render: butschster.windows.sdk:render
@@ -697,7 +700,7 @@ entries:
       type: test
       group: Windows SDK
       suite: butschster_windows
-      comment: Окно на SDK, собранное мастерской — проверка описания, применение в реестр, запуск процесса.
+      comment: A window on the SDK built by the workshop — checks the description, applying it to the registry, starting the process.
     source: file://workshop_sdk_test.lua
     method: run
     modules: [channel, process, registry, time, tty]
@@ -711,7 +714,7 @@ entries:
       type: test
       group: Windows SDK
       suite: butschster_windows
-      comment: Список SDK — reveal подводит к строке один раз на значение.
+      comment: SDK list — reveal scrolls to a row once per value.
     source: file://list_reveal_test.lua
     method: run
     imports:
@@ -724,7 +727,7 @@ entries:
       type: test
       group: Windows SDK
       suite: butschster_windows
-      comment: Экран входа — маска пароля, порядок Enter, отказ и повтор, отмена, кадр в ячейках и пикселях.
+      comment: Logon screen — password mask, Enter order, refusal and retry, cancel, the frame in cells and in pixels.
     source: file://logon_test.lua
     method: run
     modules: [channel, tty, fs, gfx]
@@ -738,7 +741,7 @@ entries:
   - name: sdk_composer
     kind: process.lua
     meta:
-      comment: Реальный композитор и меню оболочки на тестовом viewport.
+      comment: The real compositor and the shell menu on the test viewport.
     source: file://sdk_composer.lua
     method: main
     modules: [process, fs, gfx]

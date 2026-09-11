@@ -1,18 +1,19 @@
--- Диспетчер задач — окно на SDK оболочки, показывающее сам рантайм.
+-- Task Manager: a window on the shell SDK that shows the runtime itself.
 --
--- Четыре вкладки: открытые окна (их знает композитор), процессы рантайма
--- (`system.hosts.processes`), быстродействие (память и горутины во времени)
--- и узел (кластер, лидер, хосты). Цифры снимаются раз в секунду тиком SDK;
--- история держится на потолок.
+-- Four tabs: open windows (the compositor knows them), runtime processes
+-- (`system.hosts.processes`), performance (memory and goroutines over time)
+-- and the node (cluster, leader, hosts). The numbers are taken once a second
+-- by the SDK tick; the history is held up to a cap.
 --
--- Загрузки процессора в процентах здесь нет и не будет нарочно: рантайм её
--- не считает, а читать `/proc` окну нельзя. Честная «нагрузка» рантайма —
--- горутины и куча, и она меняется на глазах, когда работает контент-машина.
+-- There is no CPU load in percent here, and there will not be, on purpose:
+-- the runtime does not compute it, and the window is not allowed to read
+-- `/proc`. The honest "load" of the runtime is goroutines and the heap, and
+-- it changes before your eyes when the content machine is working.
 --
--- Всё, что видно, — компоненты SDK: `tabs`, `table`, `group`, `gauge`,
--- `graph`, `statusbar`, `button`. Своих раскладки и отрисовщиков у окна
--- больше нет — а значит, нет и второй геометрии, по которой щелчок попадал бы
--- на соседнюю строку в одном из режимов.
+-- Everything visible is SDK components: `tabs`, `table`, `group`, `gauge`,
+-- `graph`, `statusbar`, `button`. The window no longer has its own layout
+-- and renderers, which means there is no second geometry by which a click
+-- would land on the neighbouring row in one of the modes.
 local os_clock = require("os")
 local system = require("system")
 
@@ -27,11 +28,11 @@ local HISTORY_CAP = 240
 local geometry = require("geometry")
 local whole = geometry.whole
 
--- ─── Снятие цифр ─────────────────────────────────────────────────────────
+-- ─── Taking the numbers ──────────────────────────────────────────────────
 
--- Значение или причина на каждое поле — `butschster.windows.config:system`.
--- Прежде второе значение `system.*` отбрасывалось, и отказ по правам
--- становился нулём горутин или «unavailable».
+-- A value or a reason for every field: `butschster.windows.config:system`.
+-- Previously the second value of `system.*` was discarded, and a permission
+-- denial turned into zero goroutines or "unavailable".
 local function snapshot(from: any?): any
     local snap: any = facts.read({"memory", "goroutines", "cpu_count", "max_procs", "pid", "hostname", "hosts",
         "node_id", "node_role", "members", "leader", "raft_role"}, from)
@@ -69,14 +70,14 @@ local function sample(state: any)
     end
 end
 
--- ─── Приложение ──────────────────────────────────────────────────────────
+-- ─── Application ─────────────────────────────────────────────────────────
 
 local definition: any = {}
 definition.interval = "1s"
--- Для тестов: тот же снимок над подставным `system`.
+-- For tests: the same snapshot over a substituted `system`.
 definition.snapshot = snapshot
 
--- Поле или причина, почему его нет, или запасной текст.
+-- The field, or the reason why it is missing, or the fallback text.
 local function shown(snap: any, field: string, fallback: string): string
     if snap[field] ~= nil then return tostring(snap[field]) end
     local problems: any = type(snap.problems) == "table" and snap.problems or {}
@@ -90,8 +91,9 @@ function definition.init(args: any, context: any): any
     return state
 end
 
--- Строки текущей вкладки и номер выделенной: выбор держится за
--- идентификатор, а не за номер строки, — новый замер меняет порядок.
+-- Rows of the current tab and the index of the selected one: the selection
+-- holds on to the identifier, not the row number, since a new sample changes
+-- the order.
 local function rows_of(state: any): (any, any)
     local out = {}
     local selected = 0
@@ -165,8 +167,8 @@ local function page(state: any, context: any): any
                     {"Running", uptime}})}},
             }},
         }}
-        -- Не прочитали — не ноль: причина строкой над графиками, иначе
-        -- пустой датчик читается как «горутин нет».
+        -- Not read is not zero: the reason as a line above the graphs,
+        -- otherwise an empty gauge reads as "there are no goroutines".
         local problems: any = type(snap.problems) == "table" and snap.problems or {}
         local missing = problems.memory or problems.goroutines
         if missing then

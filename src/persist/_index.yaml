@@ -1,18 +1,18 @@
 version: "1.0"
 namespace: butschster.windows.persist
 
-# Хранилище раскладки рабочего стола.
+# Storage for the desktop layout.
 #
-# Кода программ здесь нет: он живёт в butschster_tui_desktop_windows у
-# основы. Здесь только то, что двигает пользователь, — где значок и как он
-# назван.
+# There is no program code here: it lives in the base's
+# butschster_tui_desktop_windows. Here there is only what the user moves —
+# where an icon is and what it is called.
 
 entries:
   # butschster.windows.persist:repo
   - name: repo
     kind: library.lua
     meta:
-      comment: Ярлыки и папки стола; удаление отвечает, была ли строка, а отметка о предложенных программах живёт отдельно и не удаляется.
+      comment: Desktop shortcuts and folders; deletion answers whether the row existed, and the mark of offered programs lives separately and is never deleted.
     source: file://repo.lua
     modules:
       - sql

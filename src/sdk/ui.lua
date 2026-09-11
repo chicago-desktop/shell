@@ -11,12 +11,12 @@ local leaves = {label = true, button = true, input = true, list = true, table = 
     statusbar = true, tabs = true, menu = true, image = true, field = true,
     group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true, monitor = true,
     icons = true}
--- Без `id` живут только те, что не принимают ввод.
+-- Only the ones that take no input can live without an `id`.
 local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
     calendar = true, clock = true, monitor = true}
--- Сетка месяца: шесть недель по семь дней, число или false. `first` — день
--- недели первого числа, 0 = понедельник; `days` — сколько дней в месяце.
--- Календарной арифметики здесь нет нарочно: високосность считает `time`.
+-- The month grid: six weeks of seven days, a date or false. `first` is the
+-- weekday of the 1st, 0 = Monday; `days` is how many days the month has.
+-- There is no calendar arithmetic here on purpose: `time` handles leap years.
 function ui.month_grid(first: any, days: any): any
     local start = whole(first) % 7
     local count = whole(days)
@@ -32,22 +32,22 @@ function ui.month_grid(first: any, days: any): any
     end
     return rows
 end
--- Сетка значков: шаг колонки и ряда в ячейках, сколько строк занимает сам
--- рисунок и сколько отдано подписи. Числа те же, что у `shell:icons`, и это
--- проверяется тестом: разъехавшись, они поставили бы попадание на ячейку от
--- рисунка — ровно тот дефект, ради которого SDK и заведён.
+-- The icon grid: the column and row step in cells, how many rows the picture
+-- itself takes and how many are given to the caption. The numbers are the same as
+-- in `shell:icons`, and a test checks that: if they drifted apart, they would put
+-- the hit one cell away from the picture — exactly the defect the SDK was created for.
 --
--- Держать их здесь, а не звать `shell:icons`, приходится по правам: тот
--- модуль тянет `tty`, а раскладка нужна и пиксельному отрисовщику, у
--- которого терминала нет вовсе.
+-- They have to be kept here instead of calling `shell:icons` because of permissions:
+-- that module pulls in `tty`, and the layout is also needed by the pixel renderer,
+-- which has no terminal at all.
 local ICON_GRID = {w = 12, h = 4, drawn = 3, caption = 2}
 
 function ui.icon_grid(): any
     return {w = ICON_GRID.w, h = ICON_GRID.h, drawn = ICON_GRID.drawn, caption = ICON_GRID.caption}
 end
 
--- Сколько колонок помещается в ширину и сколько рядов занимают предметы.
--- Одна арифметика на раскладку, попадания и прокрутку.
+-- How many columns fit in the width and how many rows the items take.
+-- One arithmetic for layout, hits and scrolling.
 function ui.icon_shape(width: any, count: any): (integer, integer)
     local columns = whole(width) // ICON_GRID.w
     if columns < 1 then columns = 1 end
@@ -56,9 +56,9 @@ function ui.icon_shape(width: any, count: any): (integer, integer)
     return columns, whole(rows)
 end
 
--- Номер выбранной строки: `selected` — номер с 1 или ID предмета. Так
--- приложение держит выбор за предметом, а не за строкой, которую сдвинул
--- новый замер, — и не пересчитывает номер само.
+-- The index of the selected row: `selected` is a 1-based index or an item ID. This way
+-- the application ties the selection to the item, not to a row that a new
+-- measurement shifted, and does not recompute the index itself.
 local function selected_index(node: any, rows: any): integer
     local wanted: any = node.selected
     if wanted == nil then return 0 end
@@ -70,33 +70,33 @@ local function selected_index(node: any, rows: any): integer
     return 0
 end
 local runes_of = text.runes
--- Строки списка и таблицы — одно и то же для прокрутки и выбора: таблица
--- лишь несёт ячейки вместо текста и строку заголовка сверху.
+-- List rows and table rows are the same thing for scrolling and selection: a table
+-- merely carries cells instead of text and a header row on top.
 local function entries(node: any): any
     if node.kind == "table" or node.kind == "tree" then return node.rows or {} end
     return node.items or {}
 end
--- Дерево: отступ в две ячейки на уровень; крестик, значок и подпись —
--- в фиксированных колонках от отступа. Одна арифметика на оба отрисовщика
--- и на попадания: крестик, нарисованный на ячейку левее того места, где
--- нажимается, — ровно тот класс дефекта, ради которого SDK и есть.
+-- Tree: an indent of two cells per level; the plus/minus box, the icon and the caption
+-- sit in fixed columns from the indent. One arithmetic for both renderers
+-- and for hits: a plus/minus box drawn one cell left of the place where it
+-- is pressed is exactly the class of defect the SDK exists for.
 function ui.tree_columns(depth: any): any
     local indent = whole(depth) * 2
     return {expander = indent, icon = indent + 2, label = indent + 4}
 end
 ui.entries = entries
--- Ячейки строки текста (символы, не байты): и вкладки, и меню меряются ими.
+-- Cells of a text string (characters, not bytes): both tabs and menus are measured by them.
 local function cells_of(text: any): integer
     return #runes_of(text)
 end
--- Полосы вкладок и меню: каждая подпись занимает « подпись » плюс две грани.
--- Одна раскладка на оба отрисовщика и на попадания; строка длиннее полосы
--- обрезается по целым вкладкам — половина вкладки нажимается «в никуда».
+-- Tab and menu strips: each caption takes " caption " plus two edges.
+-- One layout for both renderers and for hits; a string longer than the strip
+-- is cut at whole tabs — half a tab would be pressed "into nowhere".
 function ui.spans(labels: any, width: any, pad: any): any
     local out, used = {}, 0
-    -- Отступ с каждой стороны: у вкладок две ячейки (грани и воздух), у
-    -- заголовков меню одна — иначе «Правка Вид Справка» не влезает в
-    -- калькулятор шириной в 27 ячеек.
+    -- Padding on each side: two cells for tabs (edges and air), one for
+    -- menu titles — otherwise "Edit View Help" does not fit into the
+    -- calculator, which is 27 cells wide.
     local side = whole(pad or 2)
     for index, entry in ipairs(labels or {}) do
         local title = type(entry) == "table" and tostring(entry.title or entry.text or "?") or tostring(entry)
@@ -108,8 +108,8 @@ function ui.spans(labels: any, width: any, pad: any): any
     end
     return out
 end
--- Выпадающий список меню: строки под заголовком, разделитель — своя строка.
--- Ширина — по самой длинной подписи; всё в ячейках, координаты с 1.
+-- A menu's drop-down list: rows under the title, a separator is a row of its own.
+-- The width follows the longest caption; everything is in cells, coordinates are 1-based.
 function ui.popup(item: any, index: any): any
     local node: any = item.node
     local entry: any = (node.entries or {})[whole(index)]
@@ -130,9 +130,9 @@ function ui.popup(item: any, index: any): any
     local rect = item.rect
     return {rect = geometry.rect(rect.x + span.x, rect.y + 1, widest + 2, #rows + 2), rows = rows, index = whole(index)}
 end
--- Колонки таблицы по ширине текстовой области (без полосы прокрутки):
--- `width` в ячейках — фиксированная, иначе доля `weight`; между колонками
--- одна ячейка. Одна раскладка на заголовок, строки, оба отрисовщика.
+-- Table columns across the width of the text area (without the scrollbar):
+-- `width` in cells means fixed, otherwise a share by `weight`; one cell between
+-- columns. One layout for the header, the rows and both renderers.
 function ui.columns(node: any, width: any): any
     local specs: any = node.columns or {}
     local room = whole(width)
@@ -158,11 +158,11 @@ function ui.columns(node: any, width: any): any
     end
     return out
 end
--- Отступ контейнера: `padding` — на все четыре стороны, `padding_top`,
--- `padding_right`, `padding_bottom`, `padding_left` — переопределяют свою.
--- Нужно диалогам: у пиксельной темы под нижней рамкой и так целая строка
--- ячеек (рамка — три пикселя, а резерв — строка), и ещё ячейка отступа
--- снизу отодвигала кнопки от рамки вдвое дальше, чем в Windows 95.
+-- Container padding: `padding` applies to all four sides, `padding_top`,
+-- `padding_right`, `padding_bottom`, `padding_left` override their own side.
+-- Dialogs need this: the pixel theme already has a whole row of cells under
+-- the bottom frame (the frame is three pixels, but the reserve is a row), and one more
+-- cell of padding at the bottom pushed the buttons twice as far from the frame as in Windows 95.
 local function padded(rect: any, node: any): any
     local all = whole(math.max(0, whole(node.padding or 0)))
     local function side(name: string): integer
@@ -177,10 +177,10 @@ local function padded(rect: any, node: any): any
     return geometry.rect(x, y, math.max(0, rect.w - left - right), math.max(0, rect.h - top - bottom))
 end
 
--- Правила, по которым дерево не раскладывается, — в ОДНОМ месте. `add`
--- утверждает их (`assert`), `ui.problem` называет их без ошибки. Второй
--- список тех же правил разошёлся бы с первым на том правиле, что редко
--- нарушают.
+-- The rules under which a tree does not lay out live in ONE place. `add`
+-- asserts them (`assert`), `ui.problem` names them without an error. A second
+-- list of the same rules would diverge from the first on the rule that is rarely
+-- broken.
 local function holds_children(kind: any): boolean
     return containers[kind] or kind == "group" or kind == "tabs"
 end
@@ -239,8 +239,8 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         assert(bad == nil, tostring(bad))
     end
     if kind == "group" then
-        -- Рамка с заголовком («Горутины», «Память»): дети внутри рамки,
-        -- на ячейку от края. Сама рамка ввода не принимает.
+        -- A frame with a title ("Goroutines", "Memory"): the children are inside the frame,
+        -- one cell from the edge. The frame itself takes no input.
         local item: any = {node = node, rect = rect}
         plan.items[#plan.items + 1] = item
         if id then plan.by_id[id] = item end
@@ -253,8 +253,8 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         return
     end
     if kind == "tabs" then
-        -- Вкладки — полоса в одну строку и рамка страницы под ней; дети
-        -- раскладываются внутри рамки. Попадание — только полоса.
+        -- Tabs are a one-row strip and a page frame under it; the children
+        -- are laid out inside the frame. Only the strip is a hit target.
         local strip = geometry.rect(rect.x, rect.y, rect.w, 1)
         local item: any = {node = node, rect = strip, spans = ui.spans(node.labels, rect.w),
             frame = geometry.rect(rect.x, rect.y + 1, rect.w, math.max(0, rect.h - 1))}
@@ -271,8 +271,8 @@ local function add(node: any, rect: any, plan: any, interaction: any)
     end
     local item: any = {node = node, rect = rect, offset = 0, page = rect.h, bar = nil, header = 0}
     if kind == "menu" then
-        -- Строка меню: полоса заголовков; раскрытый список — поверх всего,
-        -- поэтому попадает в `plan.overlays` и рисуется последним.
+        -- A menu bar: a strip of titles; the open list goes on top of everything,
+        -- so it lands in `plan.overlays` and is drawn last.
         item.spans = ui.spans(node.entries, rect.w, 1)
         local open: any = interaction.menus[id]
         if open and open.index then
@@ -281,9 +281,9 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         end
     end
     if kind == "icons" then
-        -- Сетка значков, как в Проводнике: единица прокрутки — РЯД, а не
-        -- предмет и не строка текста. Ряд объявлен здесь один раз, и по нему
-        -- считают и полоса, и колесо, и клавиши.
+        -- An icon grid, as in Explorer: the scroll unit is a ROW, not
+        -- an item and not a line of text. The row is declared here once, and the bar,
+        -- the wheel and the keys all count by it.
         local items = node.items or {}
         local columns, rows_total = ui.icon_shape(rect.w, #items)
         local page = whole(rect.h) // ICON_GRID.h
@@ -297,8 +297,8 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         end
         interaction.offsets[id] = item.offset
         item.bar = scroll.bar(item.offset, rows_total, page, rect.h)
-        -- Клетки считаются ОДИН раз и едут в план: рисование, попадание и
-        -- выделение читают их, а не пересчитывают каждое по-своему.
+        -- The grid cells are computed ONCE and go into the plan: drawing, hits and
+        -- selection read them instead of each recomputing them in its own way.
         item.cells = {}
         local room = ICON_GRID.w - 1
         for index, entry in ipairs(items) do
@@ -317,15 +317,15 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         end
     end
     if kind == "list" or kind == "table" or kind == "tree" then
-        -- У таблицы первая строка — заголовок: страница и полоса на одну меньше.
+        -- A table's first row is the header: the page and the bar are one row shorter.
         item.header = (kind == "table" and node.header ~= false) and 1 or 0
         item.page = math.max(1, whole(rect.h) - whole(item.header))
         local total = #entries(node)
         item.selected_index = selected_index(node, entries(node))
         item.offset = scroll.clamp(interaction.offsets[id], total, item.page)
-        -- `reveal` подводит к строке ОДИН раз на значение: чат показывает
-        -- новую реплику, а прокрутка человека между репликами остаётся его.
-        -- Постоянное «всегда вниз» сбивало бы колесо на каждом кадре.
+        -- `reveal` brings the row into view ONCE per value: the chat shows
+        -- a new message, and the person's scrolling between messages stays theirs.
+        -- A permanent "always to the bottom" would knock the wheel off on every frame.
         local wanted: any = node.reveal
         if wanted ~= nil and interaction.revealed[id] ~= wanted then
             interaction.revealed[id] = wanted
@@ -336,16 +336,16 @@ local function add(node: any, rect: any, plan: any, interaction: any)
     end
     plan.items[#plan.items + 1] = item
     if id then plan.by_id[id] = item end
-    -- Меню в кольцо фокуса не входит — как в Windows, к нему ходят Alt и F10.
+    -- The menu is not part of the focus ring — as in Windows, it is reached with Alt and F10.
     if id and not passive[kind] and kind ~= "menu" and not node.disabled then plan.focusable[#plan.focusable + 1] = id end
 end
--- problem(tree) -> причина | nil
+-- problem(tree) -> reason | nil
 --
--- Почему `ui.plan` не разложит это дерево — теми же правилами, что `add`, но
--- без ошибки. Нужна там, где ошибку ловить нельзя: отрисовщик вида работает в
--- кадре композитора, а пойманная `pcall` ошибка в go-lua рвёт upvalue у
--- всего стека под ней, то есть у цикла композитора. Строже `add` в одном: тот
--- не проверяет узлы, которым не досталось места, а здесь проверяются все.
+-- Why `ui.plan` will not lay out this tree — by the same rules as `add`, but
+-- without an error. Needed where an error cannot be caught: the view renderer runs in
+-- the compositor's frame, and an error caught by `pcall` in go-lua tears the upvalues of
+-- the whole stack below it, that is, of the compositor's loop. It is stricter than `add` in one way: that one
+-- does not check nodes that got no space, while here all of them are checked.
 function ui.problem(tree: any): any
     local seen: any = {}
     local function walk(node: any): any
@@ -366,14 +366,14 @@ function ui.problem(tree: any): any
     end
     return walk(tree)
 end
--- message(spec) -> дерево
+-- message(spec) -> tree
 --
--- Лист сообщения внутри окна: значок и заголовок, строки текста, «OK» у
--- правого края. Так «Справка → О программе» и «Свойства» объекта — не
--- отдельное окно: приложение возвращает этот лист из `view`, пока он открыт,
--- и закрывает его по `activate` кнопки (`spec.ok`, по умолчанию
--- `"message_ok"`). Одна форма на все окна, а не копия в каждом.
--- `spec`: `title`, `lines`, `image` (имя из каталога значков), `icon`.
+-- A message sheet inside the window: an icon and a title, lines of text, "OK" at
+-- the right edge. This is how "Help → About" and an object's "Properties" are not
+-- a separate window: the application returns this sheet from `view` while it is open,
+-- and closes it on the button's `activate` (`spec.ok`, by default
+-- `"message_ok"`). One form for all windows, not a copy in each.
+-- `spec`: `title`, `lines`, `image` (a name from the icon catalog), `icon`.
 function ui.message(spec: any): any
     local sheet: any = type(spec) == "table" and spec or {}
     local children: any = {
@@ -403,9 +403,9 @@ function ui.plan(tree: any, width: any, height: any, interaction: any): any
     if not interaction.focus or not plan.by_id[interaction.focus] or plan.by_id[interaction.focus].node.disabled then
         interaction.focus = plan.focusable[1]
     end
-    -- Записи исчезнувших контролов освобождаются: иначе другой контрол с тем
-    -- же `id` на следующем экране унаследует чужой сдвиг или каретку, а
-    -- захват ползунка пережил бы сворачивание окна.
+    -- Records of vanished controls are released: otherwise another control with the
+    -- same `id` on the next screen would inherit someone else's offset or caret, and
+    -- a thumb capture would survive the window being minimized.
     for _, field in ipairs({"offsets", "editors", "menus", "revealed"}) do
         local map: any = interaction[field]
         if type(map) == "table" then
@@ -416,26 +416,26 @@ function ui.plan(tree: any, width: any, height: any, interaction: any): any
     end
     if interaction.capture and plan.by_id[interaction.capture.id] == nil then interaction.capture = nil end
     if interaction.armed and plan.by_id[interaction.armed.id] == nil then interaction.armed = nil end
-    -- Чёрный контур «по умолчанию» — у кнопки в фокусе, а когда фокус не на
-    -- кнопке — у объявленной `default`. Так в Windows, и так Enter делает
-    -- ровно то, что нарисовано. Решается здесь один раз для обоих отрисовщиков.
+    -- The black "default" outline goes to the focused button, and when the focus is not on
+    -- a button, to the one declared `default`. That is how Windows does it, and that is how Enter does
+    -- exactly what is drawn. Decided here once for both renderers.
     local focused = plan.by_id[interaction.focus]
     plan.focus_on_button = focused ~= nil and focused.node.kind == "button"
     return plan
 end
--- Показать ли кнопке чёрный контур в этом плане.
+-- Whether the button shows the black outline in this plan.
 function ui.default_look(plan: any, node: any, focused: boolean): boolean
     if node.disabled then return false end
     if focused then return true end
     return node.default == true and not plan.focus_on_button
 end
 function ui.hit(plan: any, x: any, y: any): any
-    -- Раскрытое меню лежит поверх всего: сначала оно.
+    -- An open menu lies on top of everything: it goes first.
     for _, item in ipairs(plan.overlays or {}) do
         if item.popup and geometry.contains(item.popup.rect, x, y) then return item end
     end
-    -- Рамка (`group`) содержит своих детей: попадание ищется среди них
-    -- первым, сама рамка — только если не попали ни в кого.
+    -- A frame (`group`) contains its children: the hit is looked for among them
+    -- first, and the frame itself only if nothing else was hit.
     local frame: any = nil
     for _, item in ipairs(plan.items) do
         if geometry.contains(item.rect, x, y) then
@@ -450,9 +450,9 @@ local function span_at(item: any, x: any): any
     end
     return nil
 end
--- Меню: щелчок по заголовку раскрывает или сворачивает, по строке списка —
--- действие, мимо — сворачивает и съедает щелчок. Клавиши, пока раскрыто:
--- стрелки, Enter, Esc.
+-- Menu: a click on a title opens or closes it, on a list row it is
+-- an action, a click outside closes it and swallows the click. Keys while it is open:
+-- arrows, Enter, Esc.
 local function menu_event(item: any, state: any, event: any): any
     local node, id = item.node, item.node.id
     local open: any = state.menus[id]
@@ -520,15 +520,15 @@ end
 local function list_event(item: any, state: any, event: any): any
     local node, rect = item.node, item.rect
     local rows = entries(node)
-    -- Сдвиг берётся из СОСТОЯНИЯ, а не из плана: два события подряд без
-    -- перерисовки (два щелчка колеса) иначе теряли первое.
+    -- The offset is taken from the STATE, not from the plan: otherwise two events in a row
+    -- without a redraw (two wheel clicks) lost the first one.
     local total, header = #rows, whole(item.header)
     local offset = scroll.clamp(state.offsets[node.id] or item.offset, total, item.page)
     if event.action == "wheel" then
         state.offsets[node.id] = scroll.wheel(offset, event.button, total, item.page, node.wheel_step or 3)
     elseif input.pressed(event) then
         local row = event.y - rect.y - header
-        -- Заголовок таблицы — не строка: щелчок по нему ничего не выбирает.
+        -- The table header is not a row: a click on it selects nothing.
         if row < 0 then return nil end
         if node.kind == "tree" and event.x < rect.x + rect.w - 1 then
             local index = offset + row + 1
@@ -541,7 +541,7 @@ local function list_event(item: any, state: any, event: any): any
             return {type = "select", id = node.id, index = index, value = line}
         end
         if event.x == rect.x + rect.w - 1 then
-            -- Колонка полосы — не строка, даже когда прокручивать нечего.
+            -- The bar's column is not a row, even when there is nothing to scroll.
             if item.bar.limit <= 0 then return nil end
             local shifted, capture = scroll.pointer(offset, total, item.page,
                 {x = rect.x + rect.w - 1, y = rect.y + header, w = 1, h = rect.h - header}, nil, event)
@@ -549,16 +549,16 @@ local function list_event(item: any, state: any, event: any): any
             state.capture = capture and {id = node.id, grab = capture.grab} or nil
         else
             local index = offset + row + 1
-            -- `pointer` отличает щелчок от стрелок: повторный щелчок по уже
-            -- выбранному приложение вправе считать двойным.
+            -- `pointer` tells a click from the arrows: the application is free to treat
+            -- a repeated click on an already selected item as a double click.
             if index <= total then return {type = "select", id = node.id, index = index, value = rows[index], pointer = true} end
         end
     end
     return nil
 end
--- Сетка значков: щелчок по клетке выбирает, повторный щелчок по уже
--- выбранной приложение вправе считать двойным (`pointer = true`), щелчок по
--- пустому месту снимает выбор — как в Проводнике, где пустота отменяет.
+-- Icon grid: a click on a cell selects it, the application is free to treat a repeated click
+-- on an already selected one as a double click (`pointer = true`), a click on
+-- empty space clears the selection — as in Explorer, where emptiness cancels.
 local function icons_event(item: any, state: any, event: any): any
     local node, rect = item.node, item.rect
     local items = node.items or {}
@@ -587,7 +587,7 @@ local function activate(node: any): any
 end
 function ui.event(plan: any, state: any, original: any): any
     local event = input.normalize(original)
-    -- Колесо во время взвода кнопки или перетаскивания ползунка — ничьё.
+    -- The wheel while a button is armed or a thumb is being dragged belongs to no one.
     if (state.armed or state.capture) and event.action == "wheel" then return nil end
     if state.armed and event.type == "mouse" and (event.action == "motion" or event.action == "release") then
         local item = plan.by_id[state.armed.id]
@@ -605,8 +605,8 @@ function ui.event(plan: any, state: any, original: any): any
         if event.action == "release" or not item then state.capture = nil end
         return nil
     end
-    -- Раскрытое меню забирает нажатия целиком: попал — обработано,
-    -- мимо — свернулось, щелчок не ушёл дальше. Alt+буква раскрывает своё.
+    -- An open menu takes presses entirely: a hit is handled,
+    -- a miss closes it, and the click goes no further. Alt+letter opens its own menu.
     for _, item in ipairs(plan.items) do
         if item.node.kind == "menu" then
             local open: any = state.menus[item.node.id]
@@ -637,11 +637,11 @@ function ui.event(plan: any, state: any, original: any): any
             if input.pressed(event) then state.focus = item.node.id end
             return tabs_event(item, state, event)
         end
-        -- Фокус берёт только то, что умеет его держать. Пассивный вид с `id`
-        -- (метка, поле, рамка, график, строка состояния…) иначе забирал
-        -- фокус, а в кольце `focusable` его нет — и Tab переставал находить,
-        -- откуда шагать. Проверяется тот же `passive`, что строит кольцо, а
-        -- не имя одного вида.
+        -- Only what can hold the focus takes it. Otherwise a passive view with an `id`
+        -- (a label, a field, a frame, a graph, a status bar…) took the
+        -- focus while not being in the `focusable` ring — and Tab no longer found
+        -- where to step from. The check uses the same `passive` that builds the ring, not
+        -- the name of a single view kind.
         if input.pressed(event) and item.node.id and not passive[item.node.kind] then state.focus = item.node.id end
         if item.node.kind == "list" or item.node.kind == "table" or item.node.kind == "tree" then return list_event(item, state, event) end
         if item.node.kind == "icons" then return icons_event(item, state, event) end
@@ -673,8 +673,8 @@ function ui.event(plan: any, state: any, original: any): any
         local chosen = whole(item.selected_index)
         local index = chosen > 0 and chosen or 1
         if node.kind == "tree" then
-            -- Клавиши дерева, как в regedit: Enter и → раскрывают, ← закрывает
-            -- или уходит к родителю, → у раскрытой — к первому ребёнку.
+            -- Tree keys, as in regedit: Enter and → expand, ← collapses
+            -- or goes to the parent, → on an expanded node goes to the first child.
             local line: any = rows[math.max(1, math.min(total, index))]
             if key == "enter" and line and line.has_children then
                 return {type = "toggle", id = node.id, index = index, value = line}
@@ -694,8 +694,8 @@ function ui.event(plan: any, state: any, original: any): any
             end
         end
         if key == "home" then index = 1 elseif key == "end" then index = total
-        -- Без выбора стрелка выбирает ПЕРВУЮ строку, а не шагает от неё:
-        -- «вниз» в свежем списке иначе проскакивала первую.
+        -- With no selection an arrow selects the FIRST row instead of stepping from it:
+        -- otherwise "down" in a fresh list skipped past the first one.
         elseif chosen < 1 and (key == "up" or key == "down" or key == "pgup" or key == "pgdown") then index = 1
         elseif key == "up" then index = index - 1 elseif key == "down" then index = index + 1
         elseif key == "pgup" then index = index - item.page elseif key == "pgdown" then index = index + item.page
@@ -705,9 +705,9 @@ function ui.event(plan: any, state: any, original: any): any
         state.offsets[node.id] = scroll.reveal(item.offset, index, total, item.page)
         return {type = "select", id = node.id, index = index, value = rows[index]}
     elseif node.kind == "icons" and key then
-        -- Клавиши сетки: вправо-влево идут по предметам, вверх-вниз — через
-        -- ряд, страницы — через страницу рядов. Одна ширина колонок с
-        -- раскладкой, иначе стрелка вниз уводила бы не под тот значок.
+        -- Grid keys: right and left move by items, up and down move by a
+        -- row, pages move by a page of rows. The column width is the same as the
+        -- layout's, otherwise the down arrow would lead under the wrong icon.
         local items = node.items or {}
         local total = #items
         if total == 0 then return nil end
@@ -717,7 +717,7 @@ function ui.event(plan: any, state: any, original: any): any
         local moves = key == "left" or key == "right" or key == "up" or key == "down" or key == "pgup" or key == "pgdown"
         if key == "home" then index = 1
         elseif key == "end" then index = total
-        -- Без выбора любая стрелка выбирает первый значок, как у списка.
+        -- With no selection any arrow selects the first icon, as in a list.
         elseif chosen < 1 and moves then index = 1
         elseif key == "left" then index = index - 1
         elseif key == "right" then index = index + 1

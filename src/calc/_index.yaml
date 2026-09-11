@@ -1,15 +1,16 @@
 version: "1.0"
 namespace: butschster.windows.calc
 
-# Калькулятор Windows 95 в обычном виде. Арифметика — `engine`, чистая и без
-# экрана; окно собрано на SDK оболочки, поэтому считает и в ячейках, и в
-# пикселях, а собственных раскладки и красок у него больше нет.
+# The Windows 95 calculator in standard view. The arithmetic is `engine`,
+# pure and with no screen; the window is built on the shell SDK, so it
+# computes both in cells and in pixels, and it no longer has its own layout
+# and paint.
 
 entries:
   - name: engine
     kind: library.lua
     meta:
-      comment: Арифметика калькулятора — настольная, операция применяется сразу; табло с точкой у целого, отказы фразой; клавиши в те же кнопки, что и мышь.
+      comment: Calculator arithmetic — desktop-style, an operation applies immediately; the display puts a dot after an integer, failures are phrases; keys map to the same buttons as the mouse.
     source: file://engine.lua
 
   - name: window
@@ -27,7 +28,7 @@ entries:
       height: 16
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.calc:window
-      comment: Калькулятор в виде Windows 95 — обычный вид с памятью, считает как настольный; окно на SDK оболочки.
+      comment: Calculator in the Windows 95 look — standard view with memory, computes like a desktop calculator; a window on the shell SDK.
     source: file://window.lua
     method: main
     modules: [time]

@@ -1,22 +1,23 @@
 version: "1.0"
 namespace: butschster.windows.config
 
-# Что приложение сказало модулю окружением — имена базы, шрифтов, функции
-# входа, папки объявлений.
+# What the application told the module through the environment — the names
+# of the database, fonts, logon function, declarations folder.
 #
-# Отдельная запись, а не функция в каждом месте, где читают. Копий было
-# четыре, и одна из них отбрасывала отказ по правам.
+# A separate entry, not a function in every place that reads. There were
+# four copies, and one of them discarded the permission denial.
 
 entries:
   # butschster.windows.config:environment
   #
-  # Библиотека объявляет СВОИ модули, права — у процесса, который её зовёт.
-  # Действие env.get обязано быть в его политике — сейчас это shell_runtime,
-  # shell_storage, explorer_window и window_scope у display и appwiz.
+  # The library declares ITS OWN modules, the permissions belong to the
+  # process that calls it. The env.get action must be in its policy — today
+  # these are shell_runtime, shell_storage, explorer_window and window_scope
+  # of display and appwiz.
   - name: environment
     kind: library.lua
     meta:
-      comment: Чтение окружения — сначала окружение процесса, потом файловое хранилище; отказ по правам отличим от «не задано», а умолчание его не прячет.
+      comment: Reading the environment — first the process environment, then the file store; a permission denial is distinguishable from "not set", and a default does not hide it.
     source: file://environment.lua
     modules:
       - env
@@ -24,13 +25,13 @@ entries:
 
   # butschster.windows.config:system
   #
-  # Цифры рантайма для «Диспетчера задач», «Свойств: Система» и «Сетевого
-  # окружения» — значение или причина на каждое поле. Права — у окна, которое
-  # зовёт (system.read в его политике).
+  # Runtime figures for "Task Manager", "System Properties" and "Network
+  # Neighborhood" — a value or a reason for each field. The permissions belong
+  # to the window that calls (system.read in its policy).
   - name: system
     kind: library.lua
     meta:
-      comment: Снимок рантайма для окон системы — значение или причина на каждое поле, отказ по правам отличим от «кластера нет».
+      comment: Runtime snapshot for system windows — a value or a reason for each field; a permission denial is distinguishable from "no cluster".
     source: file://system.lua
     modules:
       - system

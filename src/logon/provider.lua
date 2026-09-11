@@ -1,20 +1,23 @@
--- Личность пользователя из логина и пароля.
+-- User identity from login and password.
 --
--- Оболочка не умеет проверять пароли и не должна: таблица пользователей и
--- хеш принадлежат приложению. Поэтому здесь два имени из окружения — функция
--- входа приложения и хранилище токенов — и три шага между ними:
+-- The shell cannot check passwords and must not: the users table and the
+-- hash belong to the application. So there are two names from the
+-- environment here — the application's logon function and the token store —
+-- and three steps between them:
 --
---   1. funcs.call(функция входа, {login, password}) → {success, token, …}.
---      Функция работает под СВОИМ актором с правами на базу пользователей;
---      оболочке эти права не выдаются, и код, приехавший в окно по HTTP, до
---      таблицы паролей не дотянется.
---   2. token_store:validate(token) → actor, scope. Токен — обычная сессия
---      приложения, та же, что у веб-входа: её видят `/user/me` и шаринг.
---   3. Актор и скоуп уезжают композитору, тот порождает под ними окна.
+--   1. funcs.call(logon function, {login, password}) → {success, token, …}.
+--      The function runs under ITS OWN actor with permissions on the users
+--      database; those permissions are not given to the shell, and code that
+--      arrived into a window over HTTP will not reach the password table.
+--   2. token_store:validate(token) → actor, scope. The token is an ordinary
+--      application session, the same as a web logon: `/user/me` and sharing
+--      see it.
+--   3. The actor and scope go to the compositor, which spawns windows under
+--      them.
 --
--- Объекты актора и скоупа через границу `funcs` не проезжают — только
--- таблицы. Отсюда токен как переносимая форма личности, а не «функция
--- вернёт актора».
+-- Actor and scope objects do not travel across the `funcs` boundary — only
+-- tables do. Hence the token as the portable form of identity, rather than
+-- "the function will return an actor".
 
 local environment = require("environment")
 local funcs = require("funcs")
@@ -25,8 +28,8 @@ local provider = {}
 provider.FUNC_ENV = "BUTSCHSTER_WINDOWS_LOGON_FUNC"
 provider.STORE_ENV = "BUTSCHSTER_WINDOWS_TOKEN_STORE"
 
--- Чтение окружения общее (`butschster.windows.config:environment`); здесь
--- только слова отказа для экрана входа.
+-- Reading the environment is shared (`butschster.windows.config:environment`);
+-- here there are only the words of refusal for the logon screen.
 local function read(name): (any, any)
     local value, _, denied = environment.read(name)
     if value ~= nil then return value, nil end
@@ -34,10 +37,11 @@ local function read(name): (any, any)
     return nil, nil
 end
 
--- configured() -> {func, store} | nil, причина
+-- configured() -> {func, store} | nil, reason
 --
--- «Не настроено» и «не разрешено» — разные ответы: первое означает оболочку
--- без входа, второе — стенд, где вход задуман, но не выдано право.
+-- "Not configured" and "not permitted" are different answers: the first
+-- means a shell without logon, the second a stand where logon is intended but
+-- the permission was not granted.
 function provider.configured(): (any, any)
     local func, ferr = read(provider.FUNC_ENV)
     if ferr then return nil, ferr end
@@ -47,10 +51,10 @@ function provider.configured(): (any, any)
     return {func = func, store = store}, nil
 end
 
--- authenticate(config, login, password) -> identity | nil, причина
+-- authenticate(config, login, password) -> identity | nil, reason
 --
--- identity = {actor, scope, context = {user_id, user_name}} — форма, которую
--- ждёт `library.run` в `options.logon`.
+-- identity = {actor, scope, context = {user_id, user_name}} — the form that
+-- `library.run` expects in `options.logon`.
 function provider.authenticate(config: any, login: any, password: any): (any, any)
     local answer, err = funcs.new():call(tostring(config.func), {
         login = tostring(login or ""),

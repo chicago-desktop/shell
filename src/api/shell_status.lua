@@ -1,14 +1,15 @@
--- GET /windows/status — жива ли оболочка и что у неё с окнами мастерской.
+-- GET /windows/status — whether the shell is alive and how its workshop
+-- windows are doing.
 --
--- Единственное место, где человек может увидеть restore_report. Лог
--- терминального хоста заглушён намеренно (иначе строка лога разъезжает кадр
--- насовсем), поэтому отказ восстановления, рассказанный только в лог, не
--- рассказан никому: окна, собранные мастерской, просто не появились бы в
--- меню, и объяснить это было бы нечем.
+-- The only place where a person can see restore_report. The terminal host
+-- log is muted on purpose (otherwise a log line scrambles the frame for
+-- good), so a restore failure told only to the log is told to no one:
+-- windows built by the workshop would simply not appear in the menu, and
+-- there would be nothing to explain it with.
 --
--- Погашенная оболочка — не отказ ручки: ответ 200 с `running = false`.
--- Пятисотка здесь означала бы, что стенд сломан, тогда как он просто не
--- запущен.
+-- A shut-down shell is not an endpoint failure: the answer is 200 with
+-- `running = false`. A 500 here would mean the stand is broken, whereas it
+-- is simply not running.
 
 local http = require("http")
 local security = require("security")
@@ -26,8 +27,9 @@ local function handler()
         return
     end
 
-    -- Сырые кадры замера кадра — только по просьбе (`?frame_samples=1`):
-    -- сводка по последним двумстам кадрам едет всегда, она маленькая.
+    -- Raw frames of the frame measurement — only on request
+    -- (`?frame_samples=1`): the summary over the last two hundred frames is
+    -- always sent, it is small.
     local answer, err, running = control.call("desktop.list", {
         frame_samples = req:query("frame_samples") == "1",
     })
@@ -44,12 +46,12 @@ local function handler()
         windows = answer.windows,
         focused = answer.focused,
         screen = answer.screen,
-        -- Отчёт восстановления окон мастерской: skipped / restored / failed /
+        -- Restore report for workshop windows: skipped / restored / failed /
         -- names / error.
         restore = answer.restore,
-        -- Приборы кадра композитора: paint_ms/present_ms/trigger последнего
-        -- кадра и сводка `window` по последним кадрам. Без них ответ на
-        -- «почему тормозит» можно получить только на глаз.
+        -- Compositor frame instruments: paint_ms/present_ms/trigger of the
+        -- last frame and the `window` summary over the last frames. Without
+        -- them the answer to "why is it slow" can only be had by eye.
         frame = answer.frame,
     })
 end

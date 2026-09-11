@@ -1,33 +1,34 @@
-# themeprobe — пробник темы
+# themeprobe — theme probe
 
-Гоняет НАСТОЯЩИЕ `src/shell/*.lua` вне рантайма и печатает холст текстом:
-кадр, под ним сетку стилей (какой цвет в какой ячейке) и под каждым
-попаданием — символы, которые под ним реально лежат. Полноэкранную программу
-иначе не проверить, а тема — чистые строки и арифметика, поэтому её можно
-мерить без терминала. Этим поймано почти всё, что находилось в теме до
-выхода на стенд: разъехавшиеся на ячейку рамки, попадания, не совпавшие с
-рисунком, вырожденные размеры экрана.
+Runs the REAL `src/shell/*.lua` outside the runtime and prints the canvas as
+text: the frame, below it a grid of styles (which color is in which cell) and,
+under every hit, the characters that actually lie beneath it. A full-screen
+program cannot be checked otherwise, and the theme is pure strings and
+arithmetic, so it can be measured without a terminal. This caught almost
+everything that turned up in the theme before it reached the stand: frames
+off by a cell, hits that did not match the drawing, degenerate screen sizes.
 
 ```bash
 cd tools/themeprobe
-go build ./...          # берёт go-lua по replace из go.mod — путь АБСОЛЮТНЫЙ, поправь под себя
-python3 build.py        # склеивает сцены с текущими файлами темы
+go build ./...          # takes go-lua via the replace in go.mod — the path is ABSOLUTE, adjust it for your machine
+python3 build.py        # glues the scenes together with the current theme files
 ./themeprobe combined.lua
 ```
 
-Сцены живут в `harness.lua` — там же чистая реализация `tty` на Lua (стиль,
-canvas, `text.width`, `text.truncate`). Добавил сцену — перезапусти
-`build.py`: `combined.lua` собирается заново и в модуле не хранится.
+The scenes live in `harness.lua` — along with a pure-Lua implementation of
+`tty` (style, canvas, `text.width`, `text.truncate`). Added a scene — rerun
+`build.py`: `combined.lua` is assembled anew and is not stored in the module.
 
-## Оговорка, без которой он становится ложным свидетелем
+## The caveat without which it becomes a false witness
 
-**Пробник проверяет геометрию отрисовки, а не ширину символов.** Его
-`tty.text.width` считает кодовые точки, то есть любой символ для него шириной
-в одну ячейку. Принеси кто-нибудь эмодзи или знак CJK — пробник промолчит, а
-на настоящем терминале рамка разъедется на каждой строке, где символ
-встретился, и выглядеть это будет как ошибка арифметики, а не как неудачный
-символ.
+**The probe checks the drawing geometry, not the width of characters.** Its
+`tty.text.width` counts code points, so to it any character is one cell wide.
+Should someone bring in an emoji or a CJK character, the probe will stay
+silent, while on a real terminal the frame will come apart on every line where
+the character occurs, and it will look like an arithmetic error rather than an
+unfortunate character.
 
-Ширину символов проверяет отдельный тест набора — он меряет `glyphs.all()`
-настоящим `tty.text.width` внутри рантайма. Две проверки не заменяют друг
-друга: эта говорит, куда легли ячейки, та — сколько ячеек занимает символ.
+Character width is checked by a separate test in the suite — it measures
+`glyphs.all()` with the real `tty.text.width` inside the runtime. The two
+checks do not replace each other: this one says where the cells landed, that
+one says how many cells a character takes.

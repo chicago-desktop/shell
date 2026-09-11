@@ -1,5 +1,6 @@
--- «Свойства: Экран», чистая модель: цвета стола, проверка формы цвета,
--- подписи разрешения. Ничего про базу и композитор — это у окна.
+-- "Display Properties", the pure model: desktop colors, the color format
+-- check, resolution captions. Nothing about the database and the compositor:
+-- that belongs to the window.
 local geometry = require("geometry")
 local whole = geometry.whole
 
@@ -7,9 +8,10 @@ local model = {}
 
 model.DEFAULT = "#008080"
 
--- Цвета стола: набор стандартной палитры Windows 95, бирюзовый первым —
--- он стол по умолчанию. Пользовательский цвет из базы, которого здесь нет,
--- показывается отдельной строкой «Другой», а не подменяется ближайшим.
+-- Desktop colors: the set of the standard Windows 95 palette, teal first,
+-- since it is the default desktop. A user color from the database that is
+-- not here is shown as a separate "Other" line rather than replaced by the
+-- nearest one.
 model.COLORS = {
     {id = "#008080", text = "Teal"},
     {id = "#000080", text = "Navy"},
@@ -31,7 +33,8 @@ function model.valid(hex: any): boolean
     return type(hex) == "string" and hex:match("^#%x%x%x%x%x%x$") ~= nil
 end
 
--- Строки списка: стандартные цвета плюс «Другой», если выбранный не из них.
+-- List rows: the standard colors plus "Other" if the chosen one is not among
+-- them.
 function model.color_items(chosen: any): any
     local items = {}
     local known = false
@@ -45,9 +48,9 @@ function model.color_items(chosen: any): any
     return items
 end
 
--- Разрешение: ячейки и пиксели одной строкой в поле, размер ячейки —
--- подписью под ним. Без размера ячейки пиксели не выдумываются: «80×24
--- ячеек» честнее, чем «640×480» из запасного значения.
+-- Resolution: cells and pixels on one line in the field, the cell size as a
+-- caption under it. Without a cell size pixels are not invented: "80×24
+-- cells" is more honest than "640×480" from a fallback value.
 function model.resolution(screen: any, cell: any): string
     local s: any = type(screen) == "table" and screen or {}
     local c: any = type(cell) == "table" and cell or {}
@@ -68,8 +71,8 @@ function model.cell_text(cell: any): string
     return "The terminal did not report a cell size"
 end
 
--- Палитра: рантайм принудительно включает TrueColor; режим кадра называет
--- композитор и идёт подписью.
+-- Palette: the runtime forces TrueColor on; the frame mode is named by the
+-- compositor and goes as a caption.
 function model.palette(): string
     return "True Color (24 bit)"
 end

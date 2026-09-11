@@ -104,8 +104,9 @@ function definition.view(state: any, context: any): any
                 {separator = true},
                 {id = "close", text = "Close"},
             }},
-            -- Только работающие пункты: «Выделить всё» и «Крупные значки» были
-            -- выключены навсегда — выделять здесь нечего, вид один.
+            -- Only working items: "Select All" and "Large Icons" were
+            -- disabled for good: there is nothing to select here, there is one
+            -- view.
             {title = "View", accel = 1, items = {{id = "refresh", text = "Refresh"}}},
             {title = "Help", accel = 1, items = {{id = "about", text = "About"}}},
         }},

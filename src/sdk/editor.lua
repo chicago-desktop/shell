@@ -1,7 +1,7 @@
 local text = require("text")
 local geometry = require("geometry")
 local editor = {}
--- Один разбор UTF-8 на всё окно — из основы; имя оставлено вызывающим.
+-- One UTF-8 parse for the whole window, taken from the base; the name is kept for callers.
 editor.runes = text.runes
 local whole = geometry.whole
 function editor.event(text: any, state: any, event: any): (any, any)
@@ -32,9 +32,9 @@ function editor.event(text: any, state: any, event: any): (any, any)
     end
     return text, nil
 end
--- Текст поля так, как его показывают: у пароля — звёздочки, по одной на
--- руну, чтобы каретка и выделение считались по тем же позициям. Само
--- значение остаётся в `node.text`, редактирование идёт по нему.
+-- The field's text as it is shown: a password shows asterisks, one per
+-- rune, so that the caret and the selection are counted over the same
+-- positions. The value itself stays in `node.text`, and editing works on it.
 function editor.shown(node: any): string
     local value = tostring(node.text or "")
     if node.password then return string.rep("*", #editor.runes(value)) end

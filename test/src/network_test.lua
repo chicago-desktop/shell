@@ -12,9 +12,9 @@ local network = require("network_window")
 local cells = require("cells")
 local facts = require("facts")
 
--- Подставной `system`: одно поле отказано видом PermissionDenied, одно — так,
--- как отказывает настоящий модуль (Invalid и «permission denied: …»), одно
--- недоступно (кластера нет), остальные отвечают.
+-- A substituted `system`: one field is denied with kind PermissionDenied, one
+-- the way the real module denies (Invalid and "permission denied: …"), one is
+-- unavailable (there is no cluster), the rest answer.
 local function refusing_system(): any
     return {
         node = {

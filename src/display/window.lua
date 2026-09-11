@@ -1,13 +1,14 @@
--- «Свойства: Экран» — как Display Properties в Windows 95, две вкладки.
+-- "Display Properties", like Display Properties in Windows 95, two tabs.
 --
--- «Фон» — цвет стола: список цветов и монитор-предпросмотр; «Применить» и
--- «ОК» пишут выбор в настройки оболочки и просят композитор перечитать стол
--- (`desktop.refresh`) — тот перекрашивает стол и значки в обоих режимах.
--- Узора и обоев нет нарочно: стол в пиксельном режиме — ячейки, а растр на
--- весь экран переотправлялся бы при каждом изменении окна поверх него.
+-- "Background" is the desktop color: a list of colors and a preview
+-- monitor; "Apply" and "OK" write the choice into the shell settings and ask
+-- the compositor to reread the desktop (`desktop.refresh`), which repaints
+-- the desktop and icons in both modes. There is no pattern and no wallpaper
+-- on purpose: the desktop in pixel mode is cells, and a full-screen raster
+-- would be resent on every change of a window on top of it.
 --
--- «Настройка» — разрешение и палитра, только чтение: размер экрана и
--- ячейки знает композитор (`desktop.list`), палитру принуждает рантайм.
+-- "Settings" is resolution and palette, read-only: the compositor knows the
+-- screen and cell size (`desktop.list`), the runtime forces the palette.
 local app = require("app")
 local desktop = require("desktop")
 local repo = require("repo")
@@ -28,8 +29,9 @@ function definition.init(args: any, context: any): any
     local chosen = model.valid(stored) and stored or model.DEFAULT
     return {tab = 1, chosen = chosen, saved = chosen, info = screen_info(),
         failure = err and ("settings not read: " .. tostring(err)) or nil,
-        -- Запись и просьба к композитору вынесены в поле: тест подставляет
-        -- свои и проверяет, что «Применить» их зовёт, без базы.
+        -- The write and the request to the compositor are moved into a
+        -- field: the test substitutes its own and checks that "Apply" calls
+        -- them, without a database.
         persist = function(hex: any)
             local _, werr = repo.set_setting("desktop_color", hex)
             if werr then return nil, tostring(werr) end

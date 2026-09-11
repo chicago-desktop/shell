@@ -1,26 +1,27 @@
 version: "1.0"
 namespace: butschster.windows.display
 
-# «Свойства: Экран» — Display Properties Windows 95: цвет стола и сведения
-# об экране. Открывается пунктом «Свойства» по правой кнопке на пустом столе
-# и из «Пуск → Настройка».
+# "Display Properties" is the Windows 95 Display Properties: the desktop
+# color and information about the screen. It opens from the "Properties"
+# item on a right click on the empty desktop and from "Start → Settings".
 
 entries:
   # butschster.windows.display:model
   - name: model
     kind: library.lua
     meta:
-      comment: Чистая модель «Свойств экрана» — цвета стола, проверка формы цвета, подписи разрешения и палитры.
+      comment: The pure model of "Display Properties" — desktop colors, color format check, resolution and palette captions.
     source: file://model.lua
     imports:
       geometry: butschster.tui_desktop.desktop:geometry
 
-  # Права: прочитать и записать настройку в базу оболочки (`db.get` на
-  # ресурс, имя базы — из окружения), спросить и толкнуть композитор.
+  # Permissions: read and write a setting in the shell database (`db.get` on
+  # the resource, the database name comes from the environment), ask and
+  # nudge the compositor.
   - name: window_scope
     kind: security.policy
     meta:
-      comment: Права «Свойств экрана» — настройки оболочки в базе читать и писать, композитор спросить и попросить перечитать стол.
+      comment: Permissions of "Display Properties" — read and write the shell settings in the database, ask the compositor and ask it to reread the desktop.
     policy:
       actions:
         - process.context
@@ -47,7 +48,7 @@ entries:
       height: 24
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.display:window
-      comment: Свойства экрана — цвет стола с предпросмотром и применением через настройки оболочки; разрешение и палитра только чтение; окно на SDK оболочки.
+      comment: Display Properties — the desktop color with a preview, applied through the shell settings; resolution and palette are read-only; a window on the shell SDK.
     source: file://window.lua
     method: main
     modules:

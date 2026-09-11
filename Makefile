@@ -17,14 +17,14 @@ setup:
 check:
 	node scripts/check-module.mjs
 	node scripts/test-initializer.mjs
-# Поздние `local` — объявленные ниже того места, где их читают. Выше
-# объявления локальная читается как ГЛОБАЛЬНАЯ, то есть как nil, и отказа при
-# этом не происходит: функция не вызывается, надпись не рисуется, право не
-# проверяется. За одну ночь этот класс укусил пять раз, и ни разу не дал
-# ошибки — все пять нашлись живым запуском или снимком.
+# Late `local`s — declared below the place where they are read. Above its
+# declaration a local is read as a GLOBAL, that is as nil, and no failure
+# happens: a function is not called, a label is not drawn, a permission is not
+# checked. In one night this class bit five times and not once produced an
+# error — all five were found by a live run or a snapshot.
 #
-# Стоит ПЕРЕД `wippy lint`, потому что дешевле и потому что `wippy lint` этого
-# не ловит вовсе.
+# It runs BEFORE `wippy lint`, because it is cheaper and because `wippy lint`
+# does not catch this at all.
 lint:
 	python3 tools/late-locals.py src
 	python3 tools/late-locals.py test
@@ -32,15 +32,15 @@ lint:
 # The runner exits 0 when it discovers zero tests, which turns a broken
 # discovery setup into a false-green run. An empty discovery is always a
 # defect here — the template ships suites — so both targets fail on it.
-# Модуль объявляет собственный terminal.host — ему нужен hide_logs, — и с
-# этого момента автодетект терминального хоста в CLI отказывается выбирать:
-# он просто считает записи kind terminal.host, а их теперь две. Набор идёт на
-# обычном хосте приложения; свой нужен только десктопу.
-# Чем запускать. Модуль объявляет записи с модулем `gfx`, а его нет в
-# релизном рантайме: `wippy` из PATH (0.3.40a) не грузит модуль ВОВСЕ и
-# сообщает об этом как «node with ID … not found» — по такому сообщению
-# причину не угадать. Поэтому здесь локальная сборка, и переопределяется она
-# одной переменной:
+# The module declares its own terminal.host — it needs hide_logs — and from
+# that moment the CLI's terminal host autodetection refuses to choose: it simply
+# counts entries of kind terminal.host, and now there are two. The suite runs on
+# the application's ordinary host; only the desktop needs its own.
+# What to run with. The module declares entries with the `gfx` module, and the
+# release runtime does not have it: `wippy` from PATH (0.3.40a) does not load
+# the module AT ALL and reports it as "node with ID … not found" — the cause
+# cannot be guessed from such a message. Hence the local build here, and it is
+# overridden with a single variable:
 #
 #   make test WIPPY=wippy
 WIPPY ?= /home/butschster/repos/wippy/runtime/dist/wippy-linux-amd64

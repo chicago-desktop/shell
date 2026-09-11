@@ -1,13 +1,13 @@
--- Источники «Моего компьютера» на живом реестре и живой базе.
+-- The sources of "My Computer" on the live registry and the live database.
 --
--- Здесь проверяется ровно то, чего чистая сборка объектов проверить не может:
--- что диск действительно приходит из реестра, что содержимое действительно
--- читается модулем `fs`, и что закрытая дверь отличается от пустой комнаты.
+-- Checked here is exactly what the pure assembly of objects cannot check:
+-- that a drive really comes from the registry, that the contents are really
+-- read by the `fs` module, and that a closed door differs from an empty room.
 --
--- Харнесс объявляет свою `fs.directory` — `app:probe_fs`. Она и есть весь
--- смысл этого набора: ошибись мы в имени фильтра или в форме записи, тест на
--- выдуманных таблицах остался бы зелёным, а окно на стенде показало бы
--- пустоту.
+-- The harness declares its own `fs.directory` — `app:probe_fs`. It is the
+-- whole point of this suite: were we wrong about the filter name or the entry
+-- shape, a test on made-up tables would stay green, and the window on the
+-- running system would show emptiness.
 local test = require("test")
 local model = require("model")
 local repo = require("repo")
@@ -72,8 +72,9 @@ local function define_tests()
             wait_frame(1)
             view:send({type = "mouse", action = "wheel", button = "wheel_up", x = area.x, y = area.y})
             wait_frame(0)
-            -- Стрелки полосы — края `plan.scroll`: ту же геометрию окно отдаёт
-            -- `scroll.pointer`, своих попаданий у полосы больше нет.
+            -- The scrollbar arrows are the edges of `plan.scroll`: the window
+            -- gives the same geometry to `scroll.pointer`, the bar has no hits
+            -- of its own any more.
             local bar: any = render.layout(state, width, height).scroll
             test.not_nil(bar, "the fixture shows a scrollbar")
             for _, arrow in ipairs({{y = bar.y + bar.h - 1, offset = 1}, {y = bar.y, offset = 0}}) do
@@ -87,33 +88,33 @@ local function define_tests()
         end)
     end)
     test.describe("butschster.windows explorer sources", function()
-        test.it("берёт диски из реестра, а не из своей таблицы", function()
-            -- Диск, объявленный установленным модулем, обязан появиться сам.
-            -- Харнесс объявил один — и вот он, без единой строки про него в
-            -- оболочке.
+        test.it("takes drives from the registry, not from its own table", function()
+            -- A drive declared by an installed module must appear by itself.
+            -- The harness declared one — and here it is, without a single
+            -- line about it in the shell.
             local records, err = sources.drives()
-            test.is_nil(err, "реестр обязан прочитаться")
+            test.is_nil(err, "the registry must be read")
             test.not_nil(records)
             local seen = {}
             for _, record in ipairs(records) do
                 test.is_true(record.kind == "fs.directory" or record.kind == "fs.embed",
-                    "реестр вернул не FS: " .. tostring(record.id))
-                test.is_nil(seen[record.id], "каждая FS показывается один раз")
+                    "the registry returned something that is not FS: " .. tostring(record.id))
+                test.is_nil(seen[record.id], "each FS is shown once")
                 seen[record.id] = true
             end
 
             local drives = model.drives(records)
             local probe = by_id(drives, PROBE)
-            test.not_nil(probe, "объявленная файловая система обязана стать диском")
+            test.not_nil(probe, "a declared filesystem must become a drive")
             test.eq(probe.kind, "drive")
             test.eq(probe.open.path, "drive/" .. PROBE,
-                "двойной щелчок обязан вести в этот диск, а не в соседний")
+                "a double click must lead into this drive, not into a neighbouring one")
         end)
 
-        test.it("показывает в корне только FS", function()
+        test.it("shows only FS in the root", function()
             local shown, err = sources.list(model.ROOT, {})
             test.is_nil(err)
-            test.not_nil(by_id(shown.objects, PROBE), "диск обязан быть в корне")
+            test.not_nil(by_id(shown.objects, PROBE), "the drive must be in the root")
             test.is_nil(by_id(shown.objects, "programs"))
             test.is_nil(by_id(shown.objects, "desktop"))
             test.is_nil(by_id(shown.objects, "windows"))
@@ -123,75 +124,77 @@ local function define_tests()
             end
         end)
 
-        test.it("читает содержимое диска модулем fs", function()
-            -- Каталог набора тестов заведомо не пуст, и в нём заведомо лежит
-            -- этот самый файл. Проверять «прочиталось хоть что-то» мало:
-            -- пустой список тоже «хоть что-то».
+        test.it("reads the drive contents with the fs module", function()
+            -- The test suite directory is certainly not empty, and it
+            -- certainly holds this very file. Checking "something was read"
+            -- is not enough: an empty list is "something" too.
             local shown, err = sources.list("drive/" .. PROBE, {})
-            test.is_nil(err, "объявленный диск обязан открыться")
-            test.is_true(#shown.objects > 0, "каталог набора тестов не пуст")
+            test.is_nil(err, "a declared drive must open")
+            test.is_true(#shown.objects > 0, "the test suite directory is not empty")
 
             local self_file = by_title(shown.objects, "sources_test.lua")
-            test.not_nil(self_file, "файл, который это пишет, обязан быть виден")
+            test.not_nil(self_file, "the file that writes this must be visible")
             test.eq(self_file.kind, "file")
-            -- Файл открывает программа из реестра типов: .lua объявлен у
-            -- Блокнота, и заявка обязана нести его запись и аргумент с
-            -- диском и путём внутри диска — иначе окно откроется пустым.
-            test.not_nil(self_file.open, "файл с объявленным расширением обязан открываться")
+            -- A file is opened by a program from the file type registry: .lua
+            -- is declared by Notepad, and the request must carry its entry and
+            -- an argument with the drive and the path inside the drive —
+            -- otherwise the window opens empty.
+            test.not_nil(self_file.open, "a file with a declared extension must open")
             test.eq(self_file.open.action, "open_window")
             test.eq(self_file.open.entry, "butschster.windows.viewers:notepad")
             test.is_true(tostring(self_file.open.args):find(PROBE, 1, true) ~= nil,
-                "аргумент обязан называть диск")
+                "the argument must name the drive")
             test.is_true(tostring(self_file.open.args):find("/sources_test.lua", 1, true) ~= nil,
-                "аргумент обязан называть путь внутри диска")
-            test.eq(self_file.image, "text_document", "значок файла — значок Блокнота")
+                "the argument must name the path inside the drive")
+            test.eq(self_file.image, "text_document", "the file icon is the Notepad icon")
         end)
 
-        test.it("отвечает причиной на диск, которого нет, а не пустотой", function()
-            -- Пустой каталог и закрытая дверь — разные вещи. Слитые в одно,
-            -- они отправляют человека искать пропавшие файлы.
+        test.it("answers with a reason, not emptiness, for a drive that does not exist", function()
+            -- An empty directory and a closed door are different things.
+            -- Merged into one, they send a person looking for missing files.
             local shown, err = sources.list("drive/app:no_such_fs", {})
             test.is_nil(shown)
-            test.not_nil(err, "отказ обязан быть назван словами")
+            test.not_nil(err, "the failure must be named in words")
         end)
 
-        test.it("не показывает содержимое папок на верхнем уровне стола", function()
-            -- Иначе вложенный значок виден дважды: и в папке, и рядом с ней.
+        test.it("does not show folder contents on the top level of the desktop", function()
+            -- Otherwise a nested icon is visible twice: both in the folder and
+            -- next to it.
             local folder, ferr = repo.create({
-                kind = repo.KIND_FOLDER, title = "Ящик " .. tostring(os.time()),
+                kind = repo.KIND_FOLDER, title = "Box " .. tostring(os.time()),
             })
             test.is_nil(ferr)
             local inside, ierr = repo.create({
                 kind = repo.KIND_SHORTCUT, entry = "app:probe_fs",
-                title = "Вложенный", parent_id = folder.id,
+                title = "Nested", parent_id = folder.id,
             })
             test.is_nil(ierr)
 
             local top = sources.list("desktop", {})
             test.is_nil(by_id(top.objects, inside.id),
-                "вложенный значок на верхнем уровне не показывается")
-            test.not_nil(by_id(top.objects, folder.id), "сама папка — показывается")
+                "a nested icon is not shown on the top level")
+            test.not_nil(by_id(top.objects, folder.id), "the folder itself is shown")
 
             local opened, oerr = sources.list("desktop/" .. folder.id, {})
             test.is_nil(oerr)
             test.eq(opened.title, folder.title,
-                "заголовок обязан называть открытую папку, а не «Рабочий стол»")
+                "the title must name the opened folder, not \"Desktop\"")
             test.not_nil(by_id(opened.objects, inside.id),
-                "внутри папки лежит то, что в неё положили")
+                "inside the folder lies what was put into it")
 
             repo.delete(inside.id)
             repo.delete(folder.id)
         end)
 
-        test.it("отвечает причиной на папку стола, которой нет", function()
-            -- Молчание превратило бы опечатку в успешно открытую пустоту.
+        test.it("answers with a reason for a desktop folder that does not exist", function()
+            -- Silence would turn a typo into a successfully opened emptiness.
             local shown, err = sources.list("desktop/no-such-folder", {})
             test.is_nil(shown)
             test.not_nil(err)
         end)
 
-        test.it("не выдаёт неизвестный путь за корень", function()
-            local shown, err = sources.list("куда-то", {})
+        test.it("does not pass an unknown path off as the root", function()
+            local shown, err = sources.list("somewhere", {})
             test.is_nil(shown)
             test.not_nil(err)
         end)

@@ -1,23 +1,24 @@
--- Реестр типов файлов: какое расширение какая программа открывает.
+-- File-type registry: which program opens which extension.
 --
--- В Windows это HKEY_CLASSES_ROOT — отдельная ветка, которую программы
--- заполняют при установке. Здесь отдельной ветки нет и не нужно: **программа
--- сама объявляет, что открывает**, полем `meta.opens` в своей записи реестра,
--- и таблица собирается из каталога в момент, когда она понадобилась.
--- Установленный модуль приносит свои типы сам; удалённый уносит их с собой;
--- второй копии, которую надо было бы синхронизировать, не существует.
+-- In Windows this is HKEY_CLASSES_ROOT — a separate branch that programs
+-- fill in at installation. Here there is no separate branch, and none is
+-- needed: **a program declares by itself what it opens**, with the field
+-- `meta.opens` in its registry entry, and the table is assembled from the
+-- catalog at the moment it is needed. An installed module brings its types
+-- by itself; a removed one takes them away with it; a second copy that would
+-- have to be kept in sync does not exist.
 --
--- Чистые таблицы, ни одного вызова в рантайм — проверяется прямо.
+-- Pure tables, not a single call into the runtime — checked directly.
 
 local files = require("files")
 
 local associations = {}
 
--- opens_of(item) -> список расширений строчными без точек
+-- opens_of(item) -> list of extensions in lower case without dots
 --
--- Принимает обе формы, в которых программа приезжает: сырую запись реестра
--- (`meta.opens`) и пункт каталога (`opens`). Форма одна и та же на выходе,
--- и снимается здесь, а не у каждого читателя.
+-- Accepts both forms in which a program arrives: a raw registry entry
+-- (`meta.opens`) and a catalog item (`opens`). The form on the way out is
+-- one and the same, and it is unwrapped here, not at every reader.
 local function opens_of(item: any): {string}
     local list: any = nil
     if type(item) == "table" then
@@ -58,13 +59,13 @@ local function field(item: any, name: string): any
     return meta_of(item)[name]
 end
 
--- table(programs) -> {ext -> программа}, предупреждения
+-- table(programs) -> {ext -> program}, warnings
 --
--- Два претендента на одно расширение — это не выбор, а спор, и спор
--- называется: побеждает первый по идентификатору записи (устойчиво между
--- запусками, в отличие от порядка реестра), а проигравший попадает в
--- предупреждения. Молчаливый выбор здесь однажды открыл бы фотографию
--- блокнотом и никто бы не понял почему.
+-- Two claimants to one extension are not a choice but a dispute, and the
+-- dispute is named: the first by entry identifier wins (stable between runs,
+-- unlike registry order), and the loser goes into the warnings. A silent
+-- choice here would one day open a photograph with Notepad, and nobody would
+-- understand why.
 function associations.table(programs: any): (any, any)
     local claims: any = {}
     for _, item in ipairs(type(programs) == "table" and programs or {}) do
@@ -72,12 +73,13 @@ function associations.table(programs: any): (any, any)
         if id then
             for _, ext in ipairs(opens_of(item)) do
                 local list: any = claims[ext] or {}
-                -- Значок программы становится значком её файлов: в Windows
-                -- тип файла несёт и программу, и картинку, и это одна
-                -- запись, а не две. Но у Блокнота свой значок (блокнот с
-                -- карандашом), а у его файлов — текстовый документ; на это
-                -- есть `meta.file_image`, и оно приоритетнее `image` ДЛЯ
-                -- ФАЙЛОВ. Программа в меню и на столе остаётся с `image`.
+                -- The program's icon becomes the icon of its files: in Windows
+                -- a file type carries both the program and the picture, and
+                -- that is one record, not two. But Notepad has its own icon (a
+                -- notepad with a pencil), while its files have a text
+                -- document; for that there is `meta.file_image`, and it takes
+                -- precedence over `image` FOR FILES. The program in the menu
+                -- and on the desktop keeps `image`.
                 local image = field(item, "file_image")
                 if type(image) ~= "string" or image == "" then image = field(item, "image") end
                 list[#list + 1] = {
@@ -105,7 +107,7 @@ function associations.table(programs: any): (any, any)
     return out, warnings
 end
 
--- find(programs, name) -> программа | nil, причина
+-- find(programs, name) -> program | nil, reason
 function associations.find(programs: any, name: any): (any, any)
     local ext = files.ext(name)
     if ext == "" then
@@ -119,22 +121,23 @@ function associations.find(programs: any, name: any): (any, any)
     return program, nil
 end
 
--- image_for(programs, name) -> имя значка программы или nil
+-- image_for(programs, name) -> the program's icon name or nil
 --
--- nil означает «файл нечем открыть» — и рисовать его надо значком
--- неизвестного документа, а не пустотой и не значком соседа. Кто рисует,
--- решает сам, какой значок у неизвестного; здесь только факт.
+-- nil means "there is nothing to open the file with" — and it has to be
+-- drawn with the unknown-document icon, not with emptiness and not with a
+-- neighbour's icon. Whoever draws decides what icon the unknown gets; here
+-- there is only the fact.
 function associations.image_for(programs: any, name: any): any
     local program = associations.find(programs, name)
     if not program then return nil end
     return program.image
 end
 
--- open(programs, drive, path) -> заявка на окно | nil, причина
+-- open(programs, drive, path) -> window request | nil, reason
 --
--- Заявка — та же форма, что у ярлыка стола и пункта меню: `open_window` с
--- записью, заголовком, размером и аргументом. Заголовок — имя файла, как в
--- Windows: окно называется тем, что в нём открыто.
+-- The request has the same form as a desktop shortcut and a menu item:
+-- `open_window` with the entry, title, size and argument. The title is the
+-- file name, as in Windows: the window is named after what is open in it.
 function associations.open(programs: any, drive: any, path: any): (any, any)
     local program, why = associations.find(programs, path)
     if not program then return nil, why end

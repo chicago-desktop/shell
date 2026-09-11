@@ -1,30 +1,33 @@
 local scroll = require("scroll")
--- Пиксельный бэкенд «Моего компьютера».
+-- The pixel backend of "My Computer".
 --
--- Раскладку не считает НИ ОДНОЙ строки: план приходит готовым из
--- `butschster.windows.explorer:render`, оттуда же попадания. Здесь только
--- краски. Посчитай этот файл раскладку сам — два бэкенда разъехались бы
--- молча, и щелчок попадал бы на соседа в одном из двух режимов.
+-- It does not compute A SINGLE row of layout: the plan arrives ready-made
+-- from `butschster.windows.explorer:render`, and so do the hits. Only paint
+-- here. Were this file to compute the layout itself, the two backends would
+-- drift apart silently, and a click would land on a neighbour in one of the
+-- two modes.
 --
--- ─── ПОЧЕМУ ОТДЕЛЬНАЯ ЗАПИСЬ, А НЕ ВЕТКА В `render` ─────────────────────
+-- ─── WHY A SEPARATE ENTRY AND NOT A BRANCH IN `render` ──────────────────
 --
--- `render` обязан грузиться там, где модуля `gfx` нет вовсе: оболочка должна
--- работать в обычном xterm (FR-005 §8б), и путь в ячейках не имеет права
--- умирать вместе с графикой. Запись, объявившая `gfx`, на таком рантайме не
--- грузится — не «без пикселей», а целиком. Значит `gfx` объявляет только тот,
--- кто без него не существует, и это вот этот файл.
+-- `render` must load where the `gfx` module does not exist at all: the shell
+-- has to work in a plain xterm (FR-005 §8b), and the cell path has no right
+-- to die together with graphics. An entry that declared `gfx` does not load
+-- on such a runtime — not "without pixels", but entirely. So `gfx` is
+-- declared only by whoever does not exist without it, and that is this very
+-- file.
 --
--- ─── ЧТО ЗДЕСЬ ГЛАВНОЕ ──────────────────────────────────────────────────
+-- ─── WHAT MATTERS MOST HERE ─────────────────────────────────────────────
 --
--- Растры берутся из хранилища по имени и ключу и НЕ создаются заново
--- (FR-005 §4). Растр, пересозданный каждый кадр, — это не медленный экран, а
--- НЕВЕРНЫЙ: поверхность сравнивает буфер по его номеру, и картинка, которая
--- поменялась, но лежит в новом буфере с тем же номером версии, не уезжает
--- вовсе. На экране остаются вчерашние часы, и ни одного признака поломки.
+-- Rasters are taken from the store by name and key and are NOT created anew
+-- (FR-005 §4). A raster recreated every frame is not a slow screen but a
+-- WRONG one: the surface compares a buffer by its number, and a picture that
+-- changed but lies in a new buffer with the same version number does not get
+-- sent at all. Yesterday's clock stays on screen, and there is not a single
+-- sign of breakage.
 --
--- Кадр нарезан по СТРОКАМ (FR-005 §3): меню, панель инструментов, поле,
--- статусная строка — четыре размещения. Одно на всё окно значило бы, что
--- выделение значка перерисовывает и меню, и статусную строку.
+-- The frame is sliced by ROWS (FR-005 §3): menu, toolbar, field, status bar
+-- — four placements. One for the whole window would mean that selecting an
+-- icon repaints both the menu and the status bar.
 
 local pixels = require("pixels")
 local palette = require("palette")
@@ -37,9 +40,9 @@ local geometry = require("geometry")
 local whole = geometry.whole
 
 
--- Отпечаток состояния поля. Ключ, забывший поле, даёт картинку, которая не
--- обновляется; ключ, взявший лишнее, перерисовывает зря. Здесь названо ровно
--- то, от чего картинка зависит.
+-- A fingerprint of the field's state. A key that forgot a field gives a
+-- picture that does not update; a key that took too much repaints for
+-- nothing. Named here is exactly what the picture depends on.
 local function field_key(plan: any)
     local parts = {tostring(plan.width), tostring(plan.height),
                    tostring(plan.failure or ""), tostring(plan.scroll and plan.scroll.first or 0),
@@ -56,10 +59,11 @@ local function field_key(plan: any)
     return table.concat(parts, "\31")
 end
 
--- Выпадающий список поверх окна: строки — попадания плана, по строке на
--- пункт. `lead` — сколько строк рамки над первым пунктом лежит в растре: у
--- меню верхняя рамка — своя строка под заголовками, у адреса её нет.
--- `raised` — меню: лицо и выпуклая грань; иначе белое вдавленное поле.
+-- A dropdown list over the window: the rows are the plan's hits, one row per
+-- item. `lead` is how many rows of frame above the first item lie in the
+-- raster: for a menu the top frame is its own row under the titles, for the
+-- address there is none. `raised` is a menu: the face and a raised edge;
+-- otherwise a white sunken field.
 local function paint_list(store: any, id: string, hits: any, titles: any, chosen: integer,
         lead: integer, raised: boolean, face: any, cell: any)
     local first: any = hits[1]
@@ -91,11 +95,11 @@ local function paint_list(store: any, id: string, hits: any, titles: any, chosen
     store.place(id, first.from, first.row - lead)
 end
 
--- paint(store, plan, cell, fonts, prefix) -> размещения
+-- paint(store, plan, cell, fonts, prefix) -> placements
 --
--- `fonts`: {face = обычный, bold = полужирный}. Полужирный обязателен для
--- заголовков — в Windows 95 они набраны им, и «синтезировать» его размазыванием
--- пикселей значит перестать быть похожим.
+-- `fonts`: {face = regular, bold = bold}. Bold is mandatory for titles — in
+-- Windows 95 they are set in it, and "synthesizing" it by smearing pixels
+-- means ceasing to look alike.
 function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
     local face: any = type(fonts) == "table" and fonts.face or nil
     local name = tostring(prefix or "explorer")
@@ -104,16 +108,16 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
 
     store.begin()
 
-    -- ─── строка меню ─────────────────────────────────────────────────────
+    -- ─── menu bar ────────────────────────────────────────────────────────
     local menu_id = name .. ":menu"
     local open_index = plan.menu_popup and plan.menu_popup.index or 0
     local menu, menu_dirty = store.take(menu_id, w, 1, cell, tostring(w) .. "|" .. tostring(open_index))
     if menu_dirty then
         local box = pixels.box(1, 1, w, 1, cell)
         menu:rect(1, 1, box.w, box.h, color.face)
-        -- Заголовок стоит в СВОИХ ячейках плана, по центру: по ним окно
-        -- считает щелчок, и слово, нарисованное левее своего попадания,
-        -- нажималось бы соседом.
+        -- A title stands in ITS OWN cells of the plan, centred: the window
+        -- computes the click by them, and a word drawn to the left of its
+        -- hit would be pressed by its neighbour.
         for _, entry in ipairs(plan.menu_hits or {}) do
             local hit: any = entry
             local area = pixels.box(hit.from, 1, hit.to - hit.from + 1, 1, cell)
@@ -127,7 +131,7 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
     end
     store.place(menu_id, 1, plan.rows.menu)
 
-    -- ─── панель инструментов ─────────────────────────────────────────────
+    -- ─── toolbar ─────────────────────────────────────────────────────────
     if (plan.tool_rows or 1) > 0 then
         local tool_id = name .. ":tools"
         local tool_key = tostring(w)
@@ -142,17 +146,18 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
             tools:rect(1, 1, box.w, box.h, color.face)
             for _, entry in ipairs(plan.tools or {}) do
                 local button: any = entry
-                -- Кнопка ставится по ЯЧЕЙКАМ плана, а не по своим пикселям:
-                -- иначе её зона попадания разъедется с планом, из которого окно
-                -- считает щелчок.
+                -- A button is placed by the plan's CELLS, not by its own
+                -- pixels: otherwise its hit area would drift apart from the
+                -- plan the window computes the click from.
                 local span = button.to - button.from + 1
                 local area = pixels.box(button.from, 1, span, tool_rows, cell)
-                -- Кнопка 23×22 px по центру своих ячеек, как на панели
-                -- окна папки Windows 95; лишнее место остаётся лицом.
+                -- A 23×22 px button centred in its cells, as on the toolbar
+                -- of a Windows 95 folder window; the extra space stays face.
                 local bw, bh = math.min(23, whole(area.w) - 2), math.min(22, whole(area.h) - 2)
                 local bx, by = whole(area.x) + (whole(area.w) - bw) // 2, whole(area.y) + (whole(area.h) - bh) // 2
-                -- Та же кнопка, что у диалогов и хрома: двойная грань, нажатая
-                -- вдавлена. Знак рисуется сверху и сдвигается вместе с ней.
+                -- The same button as in dialogs and the chrome: a double
+                -- edge, sunken when pressed. The mark is drawn on top and
+                -- shifts together with it.
                 pixels.button(tools, bx, by, bw, bh,
                     {label = "", pressed = button.pressed, disabled = button.disabled}, cell)
                 local mark = pixels.MARKS[button.id]
@@ -174,9 +179,9 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
         store.place(tool_id, 1, plan.rows.tool)
     end
 
-    -- ─── адресная строка ─────────────────────────────────────────────────
-    -- Геометрия — из плана (widgets.address_hits), в ячейках; здесь только
-    -- перевод в пиксели и краска.
+    -- ─── address bar ─────────────────────────────────────────────────────
+    -- The geometry comes from the plan (widgets.address_hits), in cells;
+    -- here there is only the conversion to pixels and paint.
     local address: any = plan.address
     if address and address.hits and address.hits.field then
         local address_id = name .. ":address"
@@ -207,7 +212,7 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
         store.place(address_id, 1, address.row)
     end
 
-    -- ─── поле со значками ────────────────────────────────────────────────
+    -- ─── icon field ──────────────────────────────────────────────────────
     local field_id = name .. ":field"
     local field, field_dirty = store.take(field_id, plan.field.w, plan.field.h, cell,
         field_key(plan))
@@ -220,8 +225,8 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
         else
             for _, entry in ipairs(plan.cells or {}) do
                 local item: any = entry
-                -- Место значка приходит планом, в ячейках поля; в пиксели оно
-                -- переводится здесь, один раз.
+                -- The icon's place arrives with the plan, in field cells; it
+                -- is converted to pixels here, once.
                 local at = pixels.box(item.from - plan.field.x + 1,
                     item.top - plan.field.y + 1,
                     item.to - item.from + 1, item.bottom - item.top + 1, cell)
@@ -249,7 +254,7 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
                     plan.scroll.y - plan.field.y + 1, plan.scroll.w or 1, plan.scroll.h, cell)
                 local thumb = scroll.bar(plan.scroll.first, plan.scroll.total, plan.scroll.visible,
                     plan.scroll.h, plan.scroll.arrow_rows)
-                -- Та же полоса, что у списков SDK: одна рисовалка на всех.
+                -- The same scrollbar as in SDK lists: one painter for everyone.
                 pixels.scrollbar(field, at.x, at.y, at.w, at.h, thumb, cell.h,
                     whole(plan.scroll.arrow_rows or 1) * whole(cell.h))
             end
@@ -257,13 +262,13 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
     end
     store.place(field_id, plan.field.x, plan.field.y)
 
-    -- ─── статусная строка ────────────────────────────────────────────────
+    -- ─── status bar ──────────────────────────────────────────────────────
     local status_id = name .. ":status"
     local status, status_dirty = store.take(status_id, w, 1, cell,
         plan.status.count .. "\31" .. plan.status.detail)
     if status_dirty then
         local box = pixels.box(1, 1, w, 1, cell)
-        -- Та же статусная строка, что у окон SDK.
+        -- The same status bar as in SDK windows.
         pixels.statusbar(status, 1, 1, box.w, box.h, {
             {text = plan.status.count, width = math.min(128, (whole(box.w) - 8) // 2)},
             {text = plan.status.detail},
@@ -271,8 +276,9 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
     end
     store.place(status_id, 1, plan.rows.status)
 
-    -- ─── раскрытые списки — поверх поля, поэтому последними ──────────────
-    -- Текущая папка в списке адреса выделена: она последняя среди предков.
+    -- ─── open lists — over the field, so last ────────────────────────────
+    -- The current folder is highlighted in the address list: it is the last
+    -- among the ancestors.
     if address and address.dropdown and #address.dropdown > 0 then
         local titles: any = {}
         for index, item in ipairs(address.items or {}) do titles[index] = tostring((item :: any).title or "") end

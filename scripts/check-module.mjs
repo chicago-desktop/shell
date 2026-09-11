@@ -30,11 +30,12 @@ const config = JSON.parse(await readFile(resolve(root, '.kickside-module.json'),
 const identity = config.identity
 const moduleManifest = await readFile(resolve(root, 'wippy.yaml'), 'utf8')
 const rootIndex = await readFile(resolve(root, 'src/_index.yaml'), 'utf8')
-// Модуль без фронтенда — законная форма: поверхностью может быть терминал,
-// а не страница в оболочке. Проверки UI поэтому условные: для модуля, который
-// UI объявляет, они прежние, а от модуля без UI ничего не требуют. Инвариант
-// «страница владеет своей прокруткой» не ослаблен — он неприменим к
-// отсутствующей странице.
+// A module without a frontend is a legitimate shape: the surface can be a
+// terminal rather than a page in the shell. The UI checks are therefore
+// conditional: for a module that declares a UI they are the same as before,
+// and from a module without a UI they demand nothing. The invariant "the page
+// owns its own scrolling" is not weakened — it does not apply to a page that
+// does not exist.
 const hasFrontend = await exists(resolve(root, 'ui/package.json'))
 const packageJson = hasFrontend
   ? JSON.parse(await readFile(resolve(root, 'ui/package.json'), 'utf8'))
@@ -42,8 +43,8 @@ const packageJson = hasFrontend
 const viteConfig = hasFrontend ? await readFile(resolve(root, 'ui/vite.config.ts'), 'utf8') : ''
 const styles = hasFrontend ? await readFile(resolve(root, 'ui/src/styles.css'), 'utf8') : ''
 
-// Половинчатый фронтенд хуже отсутствующего: он минует проверки, читающие
-// только package.json, и ломается уже на сборке.
+// A half-present frontend is worse than a missing one: it slips past the
+// checks that read only package.json, and breaks later, at build time.
 if (hasFrontend) {
   for (const required of ['ui/vite.config.ts', 'ui/src/styles.css']) {
     if (!await exists(resolve(root, required))) report(`${required} is missing though ui/package.json declares a frontend`)

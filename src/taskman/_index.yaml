@@ -1,31 +1,33 @@
 version: "1.0"
 namespace: butschster.windows.taskman
 
-# Диспетчер задач — окно на SDK оболочки, показывающее сам рантайм: открытые
-# окна, процессы, память и горутины во времени, узел и кластер.
+# Task Manager: a window on the shell SDK that shows the runtime itself: open
+# windows, processes, memory and goroutines over time, the node and the
+# cluster.
 #
-# Цифры снимает окно само, модулем `system`, под своими правами. Загрузки
-# процессора в процентах нет нарочно — рантайм её не считает, а читать
-# `/proc` окну нельзя. Честная нагрузка рантайма — горутины и куча.
+# The window takes the numbers itself, with the `system` module, under its
+# own permissions. There is no CPU load in percent on purpose: the runtime
+# does not compute it, and the window is not allowed to read `/proc`. The
+# honest load of the runtime is goroutines and the heap.
 
 entries:
   # butschster.windows.taskman:model
   - name: model
     kind: library.lua
     meta:
-      comment: Диспетчер задач, чистая модель — история измерений, форматы, устойчивая сортировка процессов; график и потолок берёт у SDK.
+      comment: Task Manager, pure model — measurement history, formats, stable process sorting; the graph and the ceiling come from the SDK.
     source: file://model.lua
     imports:
       geometry: butschster.tui_desktop.desktop:geometry
       charts: butschster.windows.sdk:charts
 
-  # Права: читать рантайм (`system.read` — хосты, узел, кластер), спросить
-  # композитор про открытые окна и опубликовать ему состояние. Ни порождать,
-  # ни гасить чужие процессы окно не может — «Снять задачу» здесь нет.
+  # Permissions: read the runtime (`system.read`: hosts, node, cluster), ask
+  # the compositor about open windows and publish its state to it. The window
+  # can neither spawn nor kill other processes: there is no "End Task" here.
   - name: window_scope
     kind: security.policy
     meta:
-      comment: Права диспетчера задач — прочитать состояние рантайма и спросить композитор; ничего не запускать и не гасить.
+      comment: Task Manager permissions — read the runtime state and ask the compositor; start nothing and kill nothing.
     policy:
       actions:
         - process.context
@@ -51,7 +53,7 @@ entries:
       height: 27
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.taskman:window
-      comment: Диспетчер задач — открытые окна, процессы рантайма, память и горутины во времени, узел; обновляется раз в секунду; окно на SDK оболочки.
+      comment: Task Manager — open windows, runtime processes, memory and goroutines over time, the node; refreshes once a second; a window on the shell SDK.
     source: file://window.lua
     method: main
     modules:

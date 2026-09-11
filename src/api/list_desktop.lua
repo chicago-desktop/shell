@@ -1,17 +1,17 @@
--- GET /windows/desktop — ярлыки и папки рабочего стола.
+-- GET /windows/desktop — desktop shortcuts and folders.
 --
--- Ярлык хранит ссылку на запись реестра, поэтому имя и значок здесь берутся
--- из каталога, а не из строки: программа обновилась — ярлык ведёт на новую
--- версию.
+-- A shortcut stores a reference to a registry entry, so the name and icon
+-- here are taken from the catalog, not from the row: the program was
+-- updated — the shortcut leads to the new version.
 --
--- Ярлык на исчезнувшую запись отдаётся с `broken = true`, а не пропадает.
--- Пропавший значок читается как «я его случайно удалил», битый — как
--- «программы больше нет»; это разные утверждения, и подменять одно другим
--- нельзя.
+-- A shortcut to a vanished entry is returned with `broken = true`, not
+-- dropped. A missing icon reads as "I deleted it by accident", a broken one
+-- as "the program is gone"; these are different statements, and one must not
+-- be substituted for the other.
 --
--- Нечитаемый каталог не делает раскладку недоступной: ярлыки отдаются, а
--- `catalog_error` говорит, почему у них нет признака битости. Отказ целиком
--- означал бы пустой стол при исправном хранилище.
+-- An unreadable catalog does not make the layout unavailable: the shortcuts
+-- are returned, and `catalog_error` says why they have no broken flag. A
+-- refusal as a whole would mean an empty desktop with working storage.
 
 local http = require("http")
 local security = require("security")
@@ -38,8 +38,9 @@ local function handler()
         return
     end
 
-    -- Нечитаемый каталог не отменяет стола: ярлыки отдаются как есть, без
-    -- признака битости, а причина названа в catalog_error.
+    -- An unreadable catalog does not cancel the desktop: the shortcuts are
+    -- returned as they are, without the broken flag, and the reason is named
+    -- in catalog_error.
     local found, cerr = catalog.list()
 
     res:set_status(http.STATUS.OK)

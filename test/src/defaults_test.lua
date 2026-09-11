@@ -1,9 +1,9 @@
--- Мебель рабочего стола: что стоит на столе при первом запуске и почему оно
--- не возвращается, когда его выбросили.
+-- Desktop furniture: what stands on the desktop at first launch and why it
+-- does not come back when it was thrown away.
 --
--- Самое дорогое здесь — не «значок появился», а «значок появился ВТОРОЙ раз».
--- Первое видно сразу, второе — только через перезапуск, и выглядит оно как
--- сломанное удаление, а не как правило.
+-- The costliest thing here is not "the icon appeared" but "the icon appeared
+-- a SECOND time". The first is visible at once, the second only after a
+-- restart, and it looks like broken deletion, not like a rule.
 local test = require("test")
 local repo = require("repo")
 local chrome = require("chrome")
@@ -12,103 +12,104 @@ local seed = require("seed")
 
 local function define_tests()
     test.describe("butschster.windows desktop furniture", function()
-        test.it("не ставит на стол значка, за которым ничего не стоит", function()
-            -- Корзины и «Сетевого окружения» в объявлении нет намеренно:
-            -- значок-бутафория выглядит как работающая часть системы, и
-            -- первое, что о нём спросят, — почему он не работает.
+        test.it("does not put on the desktop an icon with nothing behind it", function()
+            -- The Recycle Bin and "Network Neighborhood" are absent from the
+            -- declaration on purpose: a prop icon looks like a working part of
+            -- the system, and the first thing people will ask about it is why
+            -- it does not work.
             for _, item in ipairs(defaults.ITEMS) do
                 test.is_true(item.kind == "folder" or type(item.entry) == "string",
-                    item.title .. ": ярлык обязан ссылаться на запись реестра")
+                    item.title .. ": the shortcut must reference a registry entry")
             end
         end)
 
-        test.it("даёт мебели имена, которые помещаются под значком", function()
-            -- Проверяет ТА ЖЕ функция, которой тема рисует подпись, а не её
-            -- копия здесь. Копия правила разошлась бы с оригиналом на первой
-            -- правке, причём молча: тест остался бы зелёным, а на экране
-            -- подпись поехала бы.
+        test.it("gives furniture names that fit under the icon", function()
+            -- It is checked by THE SAME function the theme uses to draw the
+            -- caption, not by a copy of it here. A copy of the rule would
+            -- diverge from the original on the first edit, and silently: the
+            -- test would stay green, while on screen the caption would slide.
             --
-            -- Мебель будет расти, и неудачное имя ловится либо здесь, либо
-            -- глазами на кадре через неделю. Именем оно и ловится: подпись,
-            -- не влезающая в колонку, обрезается — «Мой компьютер и всё
-            -- остальное» встаёт как «Мой» / «компьютер и» и на этом кончается.
-            -- Пустое объявление прошло бы этот цикл молча, ничего не проверив,
-            -- — та же ловушка, что у любой проверки списком.
-            test.is_true(#defaults.ITEMS > 0, "мебель не должна быть пустой")
+            -- The furniture will grow, and a bad name is caught either here or
+            -- by eye on a frame a week later. It is caught by the name: a
+            -- caption that does not fit into the column is cut — "My Computer
+            -- and everything else" comes out as "My Computer" / "and" and ends
+            -- there. An empty declaration would pass this loop silently, having
+            -- checked nothing — the same trap as with any check by list.
+            test.is_true(#defaults.ITEMS > 0, "the furniture must not be empty")
 
-            -- Проверка обязана уметь падать: имя, которое заведомо не влезает,
-            -- обязано подниматься как overflow. Иначе зелёный цвет ничего не
-            -- значит.
-            local _, too_long = chrome.caption_lines("Мой компьютер и всё остальное")
-            test.is_true(too_long, "длинное имя обязано подниматься как непоместившееся")
+            -- The check must be able to fail: a name that certainly does not
+            -- fit must be raised as overflow. Otherwise green means nothing.
+            local _, too_long = chrome.caption_lines("My Computer and everything else")
+            test.is_true(too_long, "a long name must be raised as not fitting")
 
             for _, item in ipairs(defaults.ITEMS) do
                 local _, overflow = chrome.caption_lines(item.title)
                 test.is_false(overflow,
-                    item.title .. ": подпись не помещается под значком")
+                    item.title .. ": the caption does not fit under the icon")
             end
         end)
 
-        test.it("пропускает ярлык на программу, которой нет в каталоге", function()
-            -- Завести его битым значило бы поставить сломанный значок при
-            -- первом же запуске. Пропущенный заведётся тогда, когда программа
-            -- появится, — и это единственная причина не отмечать его здесь.
+        test.it("skips a shortcut to a program that is not in the catalog", function()
+            -- Creating it broken would mean putting a broken icon at the very
+            -- first launch. A skipped one will be created when the program
+            -- appears — and that is the only reason not to mark it here.
             local without = defaults.resolve({})
             for _, item in ipairs(without) do
-                test.eq(item.kind, "folder", item.title .. ": без каталога остаются только папки")
+                test.eq(item.kind, "folder", item.title .. ": without a catalog only folders remain")
             end
 
-            -- Запись берётся у самой мебели, а не переписывается сюда: имя,
-            -- списанное в тест, переживает переезд программы и продолжает
-            -- проверять то, чего больше нет.
+            -- The entry is taken from the furniture itself, not copied here: a
+            -- name copied into a test survives the program moving and keeps
+            -- checking what no longer exists.
             local wanted = {}
             for _, item in ipairs(defaults.ITEMS) do
                 if item.kind == "shortcut" then
                     wanted[#wanted + 1] = {entry = item.entry, title = item.title}
                 end
             end
-            test.is_true(#wanted > 0, "хоть один ярлык в мебели быть обязан")
+            test.is_true(#wanted > 0, "there must be at least one shortcut in the furniture")
 
             local with = defaults.resolve(wanted)
-            test.is_true(#with > #without, "с программой в каталоге мебели становится больше")
+            test.is_true(#with > #without, "with the program in the catalog there is more furniture")
         end)
 
-        test.it("заводит мебель один раз и не возвращает выброшенную", function()
+        test.it("creates furniture once and does not bring back what was thrown away", function()
             local objects = {
-                {key = "!furniture:probe", kind = repo.KIND_FOLDER, title = "Проба"},
+                {key = "!furniture:probe", kind = repo.KIND_FOLDER, title = "Probe"},
             }
 
             local created, err = seed.furnish(objects)
             test.is_nil(err)
-            test.eq(#created, 1, "мебель обязана появиться при первом запуске")
+            test.eq(#created, 1, "furniture must appear at first launch")
             local id = created[1].id
             test.eq(created[1].kind, "folder")
-            test.is_nil(created[1].entry, "за папкой стола не стоит запись реестра")
+            test.is_nil(created[1].entry, "no registry entry stands behind a desktop folder")
 
             local again, aerr = seed.furnish(objects)
             test.is_nil(aerr)
-            test.eq(#again, 0, "второй запуск не задваивает мебель")
+            test.eq(#again, 0, "a second launch does not duplicate furniture")
 
-            -- Главное. Человек выбросил значок — и он не возвращается ни на
-            -- одном последующем старте.
+            -- The main thing. The person threw the icon away — and it does not
+            -- come back on any later startup.
             test.is_true(repo.delete(id).existed)
             local third, terr = seed.furnish(objects)
             test.is_nil(terr)
-            test.eq(#third, 0, "выброшенная мебель не возвращается")
+            test.eq(#third, 0, "furniture thrown away does not come back")
         end)
 
-        test.it("заводит мебель раньше программ", function()
-            -- Места оболочка не выбирает — их выберет композитор, — но порядок
-            -- выбирает: значки он кладёт в том порядке, в каком их отдаёт
-            -- раскладка, и «Мой компьютер» должен занять начало колонки, а не
-            -- встать под тем, что подвернулось.
+        test.it("creates furniture before programs", function()
+            -- The shell does not choose places — the compositor will choose
+            -- them — but it does choose the order: the compositor puts icons in
+            -- the order the layout returns them, and "My Computer" must take
+            -- the head of the column rather than land under whatever happened
+            -- to come along.
             local furniture, ferr = seed.furnish({
-                {key = "!furniture:first", kind = repo.KIND_FOLDER, title = "Первая"},
+                {key = "!furniture:first", kind = repo.KIND_FOLDER, title = "First"},
             })
             test.is_nil(ferr)
 
             local program, perr = seed.ensure({
-                {entry = "butschster.windows.test:second", title = "Вторая", desktop = true},
+                {entry = "butschster.windows.test:second", title = "Second", desktop = true},
             })
             test.is_nil(perr)
 
@@ -118,38 +119,39 @@ local function define_tests()
                 if item.id == furniture[1].id then at_furniture = index end
                 if item.id == program[1].id then at_program = index end
             end
-            test.is_true(at_furniture < at_program, "мебель идёт раньше программы")
+            test.is_true(at_furniture < at_program, "furniture comes before the program")
 
             repo.delete(furniture[1].id)
             repo.delete(program[1].id)
         end)
 
-        test.it("держит ключ мебели в форме, которой у записи реестра быть не может", function()
-            -- Ключи мебели и ключи программ лежат в одной колонке
-            -- `desktop_seeded`. Совпади они — удаление ярлыка программы
-            -- погасило бы мебель, или наоборот.
+        test.it("keeps the furniture key in a form a registry entry cannot have", function()
+            -- Furniture keys and program keys lie in the same column
+            -- `desktop_seeded`. Were they to coincide, deleting a program's
+            -- shortcut would extinguish the furniture, or vice versa.
             --
-            -- Сторожить надо СВОЙСТВО, а не сегодняшнее соглашение. То, что мы
-            -- пишем «!», — договорённость, её завтра можно поменять. Защищает
-            -- другое: идентификатор записи реестра всегда `namespace:name` из
-            -- букв, цифр, точки и подчёркивания, и ключ, не подходящий под эту
-            -- форму, записью быть не может НИКОГДА. Проверяем это.
+            -- What must be guarded is the PROPERTY, not today's convention.
+            -- That we write "!" is an agreement, it can be changed tomorrow.
+            -- What protects is something else: a registry entry identifier is
+            -- always `namespace:name` made of letters, digits, dot and
+            -- underscore, and a key that does not match this form can NEVER be
+            -- an entry. That is what we check.
             for _, item in ipairs(defaults.ITEMS) do
                 test.is_nil(item.key:match("^[%w_.]+:[%w_.]+$"),
-                    item.title .. ": ключ мебели не должен быть похож на идентификатор записи")
+                    item.title .. ": a furniture key must not look like an entry identifier")
             end
         end)
 
-        test.it("не назначает мебели места вовсе", function()
-            -- Раскладка не знает ширины экрана в момент старта, поэтому любое
-            -- выбранное ею место — догадка, а догадка за краем стоит значка,
-            -- исчезнувшего молча. Место назначает композитор, у которого
-            -- ширина есть.
+        test.it("does not assign furniture a place at all", function()
+            -- The layout does not know the screen width at startup, so any
+            -- place it chooses is a guess, and a guess past the edge costs an
+            -- icon that vanished silently. The place is assigned by the
+            -- compositor, which has the width.
             local created, err = seed.furnish({
-                {key = "!furniture:noplace", kind = repo.KIND_FOLDER, title = "Без места"},
+                {key = "!furniture:noplace", kind = repo.KIND_FOLDER, title = "No place"},
             })
             test.is_nil(err)
-            test.is_nil(created[1].x, "мебель заводится без координат")
+            test.is_nil(created[1].x, "furniture is created without coordinates")
             test.is_nil(created[1].y)
             repo.delete(created[1].id)
         end)

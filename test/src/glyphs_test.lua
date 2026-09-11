@@ -1,13 +1,14 @@
--- Ширина набора символов темы.
+-- Width of the theme's character set.
 --
--- Ловит самую дорогую здесь ошибку: символ шириной в две ячейки сдвигает всё
--- правее себя на строке, и рамка разъезжается на каждой строке, где он
--- встретился. Снаружи это выглядит как ошибка арифметики в отрисовке, а не
--- как неудачный символ, — и искать будут не там.
+-- Catches the most expensive mistake here: a character two cells wide shifts
+-- everything to its right on the line, and the frame falls apart on every
+-- line where it occurs. From outside it looks like an arithmetic error in the
+-- drawing, not like an unlucky character, and people will look in the wrong
+-- place.
 --
--- Проверка живёт здесь, а не в самой теме: ветка «а ну-ка померим себя» внутри
--- библиотеки отрисовки — это не тест, а лишний код в кадре. Набор темы отдаёт
--- сам, функцией `all()`, ровно ради этой проверки.
+-- The check lives here, not in the theme itself: a "let's measure ourselves"
+-- branch inside a drawing library is not a test but extra code in the frame.
+-- The theme hands out the set itself, via `all()`, exactly for this check.
 local test = require("test")
 local tty = require("tty")
 local glyphs = require("glyphs")
@@ -15,35 +16,36 @@ local palette = require("palette")
 
 local function define_tests()
     test.describe("butschster.windows glyphs", function()
-        test.it("держит каждый символ набора в одной ячейке", function()
+        test.it("keeps every character of the set in one cell", function()
             local set = glyphs.all()
-            test.is_true(#set > 0, "набор не должен быть пустым: мерить было бы нечего")
+            test.is_true(#set > 0, "the set must not be empty: there would be nothing to measure")
             for _, ch in ipairs(set) do
-                test.eq(tty.text.width(ch), 1, "символ шире ячейки: " .. tostring(ch))
+                test.eq(tty.text.width(ch), 1, "character wider than a cell: " .. tostring(ch))
             end
         end)
     end)
 
     test.describe("butschster.windows palette", function()
-        test.it("держит в обоих наборах одни и те же имена", function()
-            -- Ключ, забытый в запасном наборе, обнаружится не отказом, а nil в
-            -- стиле — то есть цветом «как получится» у одной детали из
-            -- двадцати. На 16-цветном терминале это увидят, а связать с
-            -- пропущенным ключом не смогут.
+        test.it("keeps the same names in both sets", function()
+            -- A key forgotten in the fallback set shows up not as a failure
+            -- but as nil in a style, that is, as a color "whatever happens"
+            -- on one part out of twenty. On a 16-color terminal people will
+            -- see it but will not be able to link it to the missing key.
             local names = palette.names()
-            test.is_true(#names > 0, "палитра не должна быть пустой")
+            test.is_true(#names > 0, "the palette must not be empty")
             for _, name in ipairs(names) do
-                test.not_nil(palette.exact[name], name .. ": нет в точном наборе")
-                test.not_nil(palette.basic[name], name .. ": нет в запасном наборе")
+                test.not_nil(palette.exact[name], name .. ": missing from the exact set")
+                test.not_nil(palette.basic[name], name .. ": missing from the fallback set")
             end
 
-            -- И наоборот: лишнее имя в запасном наборе означает, что точный
-            -- набор от него отстал, и одна деталь красится не тем.
+            -- And the other way round: an extra name in the fallback set means
+            -- the exact set has fallen behind it, and one part is painted
+            -- with the wrong color.
             local known = {}
             for _, name in ipairs(names) do known[name] = true end
             for name in pairs(palette.basic) do
                 test.is_true(known[name] == true,
-                    tostring(name) .. ": есть в запасном наборе, но не в точном")
+                    tostring(name) .. ": present in the fallback set but not in the exact one")
             end
         end)
     end)

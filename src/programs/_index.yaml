@@ -1,34 +1,35 @@
 version: "1.0"
 namespace: butschster.windows.programs
 
-# Каталог программ и его единственная связь с раскладкой.
+# The program catalog and its only link to the layout.
 #
-# Реестр объявляет, что можно запустить; раскладка хранит, что где лежит.
-# Пересекаются они ровно в одном месте — `desktop: true`, просьба программы
-# вынести свой ярлык на стол при первом появлении. Всё остальное каталог о
-# раскладке не знает и знать не должен.
+# The registry declares what can be launched; the layout stores what lies
+# where. They intersect in exactly one place — `desktop: true`, a program's
+# request to put its shortcut on the desktop when it first appears. Beyond
+# that the catalog knows nothing about the layout and must not know.
 
 entries:
   # butschster.windows.programs:catalog
   - name: catalog
     kind: library.lua
     meta:
-      comment: Каталог из реестра — программы, папки меню, порядок. Отказ реестра и пустой каталог возвращаются разными значениями.
+      comment: The catalog from the registry — programs, menu folders, order. A registry failure and an empty catalog are returned as different values.
     source: file://catalog.lua
     modules:
       - registry
     imports:
-      # Правила `meta.in_menu` и `meta.window_type` — библиотеки основы, а не
-      # свои. По ним же основа строит своё меню; два чтения одной меты
-      # разъезжаются молча, и одно и то же окно выглядело бы диалогом из
-      # «Пуска» и обычным окном с рабочего стола.
+      # The rules for `meta.in_menu` and `meta.window_type` are the base's
+      # libraries, not our own. The base builds its own menu by them too; two
+      # readings of the same meta drift apart silently, and one and the same
+      # window would look like a dialog from "Start" and like an ordinary
+      # window from the desktop.
       programs_meta: butschster.tui_desktop.desktop:programs
 
   # butschster.windows.programs:defaults
   - name: defaults
     kind: library.lua
     meta:
-      comment: Мебель рабочего стола первого запуска — только то, за чем что-то стоит; значок-бутафория тут не заводится.
+      comment: First-run desktop furniture — only what has something behind it; no prop icon is created here.
     source: file://defaults.lua
     modules:
       - registry
@@ -39,7 +40,7 @@ entries:
   - name: seed
     kind: library.lua
     meta:
-      comment: Ярлык для программы с desktop true — один раз за всё время, даже если пользователь его удалил.
+      comment: A shortcut for a program with desktop true — once for all time, even if the user deleted it.
     source: file://seed.lua
     modules:
       - sql
@@ -53,7 +54,7 @@ entries:
   - name: desktop_view
     kind: library.lua
     meta:
-      comment: Раскладка, соединённая с каталогом — одно место, где ярлык встречается с записью реестра, и одно правило, как выглядит битый.
+      comment: The layout joined with the catalog — the one place where a shortcut meets its registry entry, and the one rule for what a broken one looks like.
     source: file://desktop_view.lua
     modules:
       - registry
@@ -62,16 +63,17 @@ entries:
 
   # butschster.windows.programs:base_images
   #
-  # Значки окон ОСНОВЫ. Основа своих значков не знает — у неё нет пакета, —
-  # а называть их в её записях значило бы привязать публичный модуль к именам
-  # из этого, приватного. Поэтому оболочка объявляет их у себя той же
-  # записью, что и приложение для окон мастерской (`windows.program_images`);
-  # своё `meta.image` у программы, если есть, по-прежнему приоритетнее.
+  # Icons for the BASE's windows. The base knows no icons of its own — it has
+  # no icon pack — and naming them in its entries would tie a public module to
+  # names from this private one. So the shell declares them on its side with
+  # the same entry type the application uses for workshop windows
+  # (`windows.program_images`); a program's own `meta.image`, if present,
+  # still takes precedence.
   - name: base_images
     kind: registry.entry
     meta:
       type: windows.program_images
-      comment: Значки окон основы tui-desktop — окно Bash получает консоль.
+      comment: Icons for the tui-desktop base windows — the Bash window gets the console.
     data:
       images:
         "butschster.tui_desktop.desktop:window_pty": console

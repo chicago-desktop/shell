@@ -1,11 +1,13 @@
--- Оболочка в стиле Windows 95: композитор основы, вызванный со своей темой.
+-- Windows 95-style shell: the base compositor, called with its own theme.
 --
--- Своей механики окон здесь нет ни строки. Хостинг окон, PTY, командный канал
--- и мастерская остаются в butschster/tui-desktop; отсюда приходят вид (тема),
--- каталог с папками меню и раскладка рабочего стола.
+-- There is not a single line of window mechanics of its own here. Window
+-- hosting, PTY, the command channel and the workshop stay in
+-- butschster/tui-desktop; from here come the look (the theme), the catalog
+-- with menu folders and the desktop layout.
 --
--- Копия композитора вместо вызова разошлась бы с оригиналом на первой правке,
--- и обнаружилось бы это через неделю на живом стенде.
+-- A copy of the compositor instead of a call would diverge from the original
+-- on the first edit, and that would be discovered a week later on the live
+-- stand.
 
 local logger = require("logger")
 local environment = require("environment")
@@ -24,34 +26,37 @@ local logon_provider = require("logon_provider")
 
 local SERVICE_NAME = "butschster.windows.shell"
 
--- Шрифт пиксельной темы. Приезжает БАЙТАМИ через `fs`, а не путём внутри
--- `gfx`: чтение файла управляется правами процесса, и модуль, открывающий
--- пути сам, был бы дорогой мимо них. Побочно это значит, что шрифт может
--- приехать откуда угодно — из встроенной файловой системы модуля, из базы.
+-- Font of the pixel theme. It arrives as BYTES through `fs`, not as a path
+-- inside `gfx`: file reads are governed by the process's permissions, and a
+-- module that opens paths itself would be a road around them. As a side
+-- effect this means the font can arrive from anywhere — from the module's
+-- embedded filesystem, from the database.
 --
--- Полужирный — ОТДЕЛЬНЫЙ файл, а не опция: в Windows 95 заголовок набран им,
--- и синтезировать его размазыванием пикселей значит перестать быть похожим.
--- Окружение читает `butschster.windows.config:environment` — там же обе
--- ловушки, из-за которых «переменной нет» бывает враньём: `env.get` не видит
--- окружения процесса, а `get_all` молчит об отказе по правам.
+-- Bold is a SEPARATE file, not an option: in Windows 95 the title bar is set
+-- in it, and synthesizing it by smearing pixels means ceasing to look alike.
+-- The environment is read by `butschster.windows.config:environment` — which
+-- also holds both traps that make "the variable is not set" sometimes a lie:
+-- `env.get` does not see the process environment, and `get_all` keeps silent
+-- about a permission denial.
 
 local function whole_cell(value: any): integer
     return math.tointeger(math.floor(tonumber(value) or 0)) or 0
 end
 
--- Через `read_or`, а не `read(...) or …`: умолчание подставляется, но отказ
--- по правам называется в логе, а не выдаётся за «человек не переназначал».
+-- Via `read_or`, not `read(...) or …`: the default is substituted, but a
+-- permission denial is named in the log instead of passing for "the person
+-- did not override it".
 local FONTS = environment.read_or("BUTSCHSTER_WINDOWS_FONTS", "app:system_fonts")
 local FONT_FACE = "LiberationSans-Regular.ttf"
 local FONT_BOLD = "LiberationSans-Bold.ttf"
 local FONT_SIZE = 13
 
--- Пиксельный режим включается ЯВНО, а не по наличию графики (FR-005 §6):
--- терминал, умеющий sixel, — не повод перерисовывать интерфейс иначе, чем
--- человек просил.
+-- Pixel mode is switched on EXPLICITLY, not by the presence of graphics
+-- (FR-005 §6): a terminal that can do sixel is no reason to redraw the
+-- interface differently from what the person asked for.
 --
--- Отвечает вторым значением, ОТКУДА взято, чтобы «не просил» и «просил, но не
--- прочиталось» не выглядели одинаково.
+-- Answers with a second value saying WHERE it was taken from, so that "did
+-- not ask" and "asked, but it could not be read" do not look the same.
 local function wants_pixels(): (boolean, string)
     local asked, source = environment.read("BUTSCHSTER_WINDOWS_PIXELS")
     if asked == "1" or asked == "true" or asked == "yes" then return true, source end
@@ -59,13 +64,14 @@ local function wants_pixels(): (boolean, string)
     return false, source
 end
 
--- Шрифты для пиксельной темы. Отказ здесь — НЕ повод погасить оболочку:
--- она поднимается в ячейках и говорит причину. Пустой экран вместо стола
--- читается как сломанный стенд, а не как ненайденный файл.
--- Крупный шрифт — для экрана прощания: в Windows 95 «Теперь питание
--- компьютера можно отключить» набрано крупно, в две строки, на весь экран.
--- Размер считается от высоты ячейки, а не константой: на терминале с другой
--- ячейкой надпись в 34 пикселя была бы или мелкой, или шире экрана.
+-- Fonts for the pixel theme. A failure here is NOT a reason to take the shell
+-- down: it comes up in cells and states the reason. An empty screen instead
+-- of a desktop reads as a broken stand, not as a file that was not found.
+-- The large font is for the farewell screen: in Windows 95 "It's now safe to
+-- turn off your computer" is set large, in two lines, across the whole
+-- screen. The size is computed from the cell height, not a constant: on a
+-- terminal with a different cell, a 34-pixel caption would be either tiny or
+-- wider than the screen.
 local function display_size(cell_h: any): integer
     local size = (whole_cell(cell_h) * 17) // 10
     if size < 20 then size = 20 end
@@ -98,21 +104,22 @@ end
 local function main()
     local log = logger:named("windows.shell")
 
-    -- Каталог читается в момент открытия меню, а не при старте: окно,
-    -- собранное мастерской при запущенной оболочке, попадает в меню без
-    -- перезапуска.
+    -- The catalog is read when the menu is opened, not at startup: a window
+    -- built by the workshop while the shell is running gets into the menu
+    -- without a restart.
     --
-    -- Отказ реестра возвращается ВТОРЫМ значением, а список остаётся пустым.
-    -- Тема обязана показать причину текстом: «ничего нет» и «не смогли
-    -- прочитать» — разные утверждения, и человек, увидевший первое вместо
-    -- второго, пойдёт искать ошибку в своём приложении, где её нет.
+    -- A registry failure is returned as the SECOND value, and the list stays
+    -- empty. The theme must show the reason as text: "there is nothing" and
+    -- "could not read" are different statements, and a person who sees the
+    -- first instead of the second will go looking for the error in their own
+    -- application, where there is none.
     local function menu_catalog()
         local found, err = catalog.list()
         if err or not found then return {}, err or "catalog not read" end
 
-        -- Опечатка в `window_type` не мешает показать программу, но должна
-        -- быть названа: неназванная, она живёт вечно, а окно всё это время
-        -- рисуется не тем, чем его объявляли.
+        -- A typo in `window_type` does not prevent showing the program, but
+        -- it must be named: unnamed, it lives forever, and all that time the
+        -- window is drawn as something other than what it was declared as.
         for _, warning in ipairs(found.warnings or {}) do
             log:warn("unknown window type", {
                 entry = tostring((warning :: any).entry),
@@ -123,18 +130,20 @@ local function main()
         return catalog.menu_items(found.programs), nil
     end
 
-    -- Что появляется на столе само. Мебель первого запуска заводится раньше
-    -- программ: композитор кладёт значки в том порядке, в каком их отдаёт
-    -- раскладка, и «Мой компьютер» должен занять начало колонки, а не встать
-    -- под тем, что подвернулось.
+    -- What appears on the desktop by itself. First-run furniture is created
+    -- before programs: the compositor lays out icons in the order the layout
+    -- returns them, and "My Computer" must take the head of the column
+    -- rather than land under whatever happened to come along.
     --
-    -- Места здесь не выбирают: строка пишется без координат, и композитор
-    -- кладёт значок сам, зная ширину экрана в момент кадра. Оболочка на старте
-    -- её ещё не знает, и выбранное ею место могло бы оказаться за краем — а
-    -- значок за краем не обрезается, он исчезает целиком.
+    -- Places are not chosen here: the row is written without coordinates,
+    -- and the compositor places the icon itself, knowing the screen width at
+    -- the moment of the frame. The shell does not know it yet at startup, and
+    -- a place it chose could end up past the edge — and an icon past the edge
+    -- is not clipped, it disappears entirely.
     --
-    -- Отказ здесь не прячет стол и не отменяет кадра: раскладка уже есть, и
-    -- незаведённый значок — повод сказать в лог, а не показать пустоту.
+    -- A failure here does not hide the desktop and does not cancel the
+    -- frame: the layout is already there, and an icon that was not created is
+    -- a reason to say so in the log, not to show emptiness.
     local function furnish(found: any)
         local programs = type(found) == "table" and found.programs or {}
 
@@ -145,16 +154,19 @@ local function main()
         if serr then log:warn("shortcuts not placed on the desktop", {error = tostring(serr)}) end
     end
 
-    -- Раскладка стола. Отдаётся функцией, а не таблицей: композитор
-    -- перечитывает её по команде `desktop.refresh`, и значок, переставленный
-    -- ручкой снаружи, встаёт на место без перезапуска оболочки.
+    -- The desktop layout. Handed over as a function, not a table: the
+    -- compositor re-reads it on the `desktop.refresh` command, and an icon
+    -- moved by a handler from outside lands in place without restarting the
+    -- shell.
     --
-    -- Каталог подмешивается здесь же: значок открывает окно по размерам из
-    -- реестра, а не по копии, снятой при создании ярлыка.
-    -- Цвет стола — настройка из «Свойств экрана». Читается при старте и на
-    -- каждом `desktop.refresh`: окно свойств пишет в базу и толкает
-    -- композитор, и тот перечитывает стол этим же путём. Отказ базы стол не
-    -- роняет: остаётся прежний цвет, причина в лог.
+    -- The catalog is mixed in right here: an icon opens a window with the
+    -- sizes from the registry, not from a copy taken when the shortcut was
+    -- created.
+    -- The desktop color is a setting from "Display Properties". It is read at
+    -- startup and on every `desktop.refresh`: the properties window writes to
+    -- the database and pushes the compositor, and the compositor re-reads the
+    -- desktop by this same path. A database failure does not bring the
+    -- desktop down: the previous color stays, the reason goes to the log.
     local function apply_desktop_color()
         local hex, err = repo.setting("desktop_color")
         if err then
@@ -168,70 +180,75 @@ local function main()
 
     local function desktop_items()
         apply_desktop_color()
-        -- Каталог читается ДО раскладки: мебель заводится по нему, и читать
-        -- раскладку раньше значило бы отдать кадр без только что заведённых
-        -- значков — они появились бы лишь на следующем обновлении.
+        -- The catalog is read BEFORE the layout: furniture is created from
+        -- it, and reading the layout earlier would mean handing over a frame
+        -- without the icons just created — they would appear only on the next
+        -- refresh.
         local found = catalog.list()
         furnish(found)
 
         local items, err = repo.list()
         if err then return {}, "layout not read: " .. tostring(err) end
 
-        -- Отказ каталога сюда НЕ попадает. `failure` означает «раскладка не
-        -- прочитана», и тема на него не рисует значков вовсе — сказать так
-        -- из-за нечитаемого каталога значит убрать со стола ярлыки, которых
-        -- человек не терял. Без каталога значки рисуются, просто без признака
-        -- битости: обвинить исправную программу хуже, чем промолчать.
+        -- A catalog failure does NOT get in here. `failure` means "the layout
+        -- was not read", and the theme draws no icons at all on it — saying
+        -- so because of an unreadable catalog means removing from the desktop
+        -- shortcuts the person never lost. Without the catalog, icons are
+        -- drawn, just without the broken marker: accusing a working program
+        -- is worse than keeping silent.
         return view.join(items or {}, found), nil
     end
 
-    -- Перетаскивание значка мышью ведёт композитор, а записывает место
-    -- оболочка — тем же путём, что и ручка PATCH, то есть одним репозиторием.
-    -- Второй способ записать место разошёлся бы с первым на первой правке.
+    -- Dragging an icon with the mouse is driven by the compositor, and the
+    -- position is recorded by the shell — by the same path as the PATCH
+    -- handler, that is, through one repository. A second way to record the
+    -- position would diverge from the first on the first edit.
     --
-    -- Кадр эта функция не роняет ни при каком исходе: неудавшаяся запись
-    -- возвращается причиной, значок остаётся там, где был, и человек видит
-    -- стол, а не аварию.
+    -- This function does not bring the frame down under any outcome: a
+    -- failed write is returned as a reason, the icon stays where it was, and
+    -- the person sees the desktop, not a crash.
     local function move_desktop_item(id, x, y)
         if type(id) ~= "string" or id == "" then
             return false, "icon not named"
         end
         local item, err = repo.update(id, {x = x, y = y})
         if err then return false, "writing the position: " .. tostring(err) end
-        -- `false` от репозитория — это «такой строки нет», а не отказ базы.
-        -- Молчание здесь превратило бы опечатку в успешное перемещение.
+        -- `false` from the repository means "no such row", not a database
+        -- failure. Silence here would turn a typo into a successful move.
         if item == false then return false, "no such icon: " .. id end
         return true, nil
     end
 
-    -- Пиксельный режим собирается ЗДЕСЬ, а не в механике, и не по прихоти:
-    -- запись механики не объявляет `gfx`, поэтому спросить терминал о размере
-    -- ячейки она не может. Решение принимает она, вопрос задаём мы.
+    -- Pixel mode is assembled HERE, not in the mechanics, and not on a whim:
+    -- the mechanics entry does not declare `gfx`, so it cannot ask the
+    -- terminal for the cell size. It makes the decision; we ask the question.
     --
-    -- Каждый отказ по дороге оставляет оболочку в ячейках и НАЗЫВАЕТ причину.
-    -- Пиксельный режим, не включившийся молча, выглядит как «почему-то
-    -- по-старому», и человек идёт искать поломку там, где её нет.
+    -- Every failure along the way leaves the shell in cells and NAMES the
+    -- reason. Pixel mode that silently failed to turn on looks like "for some
+    -- reason it is the old way", and the person goes looking for a breakage
+    -- where there is none.
     --
-    -- НАЗЫВАТЬ ЕЁ ТОЛЬКО В ЛОГ — ЗНАЧИТ НЕ НАЗЫВАТЬ НИКОМУ. Лог этого хоста
-    -- заглушён нарочно (`hide_logs: true`): строка лога разъезжает кадр
-    -- насовсем, потому что диффер поверхности считает себя единственным
-    -- писателем в терминал. Значит единственный читатель причины — экран.
-    -- Здесь это стоило круга: оболочка поднималась в ячейках, и снаружи это
-    -- было неотличимо от «пиксели включились, но выглядят по-старому».
+    -- NAMING IT ONLY IN THE LOG MEANS NAMING IT TO NOBODY. This host's log is
+    -- muted on purpose (`hide_logs: true`): a log line breaks the frame for
+    -- good, because the surface differ considers itself the only writer to
+    -- the terminal. So the only reader of the reason is the screen.
+    -- This cost a round here: the shell came up in cells, and from outside
+    -- that was indistinguishable from "pixels turned on, but look the old
+    -- way".
     local theme: any = chrome
     local cell_size: any = nil
-    -- Короткая заметка об исходе — уезжает в подсказку пустого стола, то
-    -- есть в первое, что человек видит после запуска.
+    -- A short note about the outcome — it goes into the empty-desktop hint,
+    -- that is, into the first thing the person sees after launch.
     local pixel_note = "pixels off"
 
     local asked, source = wants_pixels()
     log:info("pixel mode", {asked = asked, source = source})
 
     if not asked then
-        -- «Не просили» и «просили, но не прочиталось» — разные утверждения, и
-        -- второе человек может исправить. Поэтому источник едет на экран
-        -- вместе с исходом: отказ по правам выглядит как незаданная
-        -- переменная ровно до тех пор, пока его так не назвать.
+        -- "Did not ask" and "asked, but it could not be read" are different
+        -- statements, and the person can fix the second. So the source goes
+        -- to the screen together with the outcome: a permission denial looks
+        -- like an unset variable exactly until it is called by its name.
         pixel_note = "pixels off: BUTSCHSTER_WINDOWS_PIXELS " .. tostring(source)
     end
 
@@ -244,9 +261,9 @@ local function main()
             log:warn("pixel mode not enabled: the terminal has no graphics",
                 {reason = tostring(why)})
         elseif not width or not height then
-            -- Догадка «8×16» права достаточно часто, чтобы выглядеть верной, и
-            -- картинка не того размера читается как ошибка рисования, а не как
-            -- незаданный вопрос. Поэтому отказ, а не умолчание.
+            -- The guess "8×16" is right often enough to look correct, and a
+            -- picture of the wrong size reads as a drawing error, not as a
+            -- question that was never asked. Hence a failure, not a default.
             pixel_note = "pixels off: the terminal did not report a cell size"
             log:warn("pixel mode not enabled: the terminal did not report a cell size",
                 {reason = tostring(height)})
@@ -273,17 +290,18 @@ local function main()
         end
     end
 
-    -- Голым `return library.run(...)` это писать нельзя: в go-lua v1.5.18
-    -- хвостовой вызов yield-функции из базового фрейма корутины не
-    -- выполняется вовсе — молча, за 0 мс.
+    -- This must not be written as a bare `return library.run(...)`: in
+    -- go-lua v1.5.18 a tail call of a yield function from the base frame of a
+    -- coroutine is not executed at all — silently, in 0 ms.
     local clock_entry, clock_error = catalog.taskbar_clock()
     theme.clock_entry = clock_entry
     if clock_error then log:warn("taskbar clock not configured", {error = clock_error}) end
 
-    -- Вход в систему — если приложение назвало функцию входа и хранилище
-    -- токенов. Без них оболочка поднимается без входа, под своим актором:
-    -- так было всегда, и стенд без модуля пользователей остаётся рабочим.
-    -- Отказ по правам — не «не настроено»: он называется в логе.
+    -- Logon — if the application named a logon function and a token store.
+    -- Without them the shell comes up without logon, under its own actor:
+    -- that is how it always was, and a stand without a users module keeps
+    -- working. A permission denial is not "not configured": it is named in
+    -- the log.
     local logon: any = nil
     local logon_config, logon_error = logon_provider.configured()
     if logon_error then
@@ -293,8 +311,9 @@ local function main()
             local identity, why = logon_screen.run(screen, function(login, password)
                 return logon_provider.authenticate(logon_config, login, password)
             end)
-            -- Имя вошедшего — в «Пуск», обеим темам сразу: раскладку меню
-            -- они считают одной функцией и читают одну таблицу.
+            -- The logged-on user's name goes into "Start", for both themes at
+            -- once: they compute the menu layout with one function and read
+            -- one table.
             if type(identity) == "table" then
                 local context: any = type(identity.context) == "table" and identity.context or {}
                 chrome.use_user({id = context.user_id, name = context.user_name})
@@ -307,23 +326,26 @@ local function main()
     local ok, err = library.run({
         chrome = theme,
         pixels = cell_size ~= nil,
-        -- Функцией, а не значением: размер ячейки меняется, когда человек
-        -- меняет шрифт терминала, и снятое однажды число разъедется с экраном.
+        -- As a function, not a value: the cell size changes when the person
+        -- changes the terminal font, and a number taken once would drift away
+        -- from the screen.
         cell_size = cell_size,
         service_name = SERVICE_NAME,
         hint = "Start — programs · alt+n — bash window · ctrl+q — quit · " .. pixel_note,
-        -- Необязательные швы к основе. Не поддержи их композитор — меню
-        -- откатывается к его собственному плоскому каталогу, а стол остаётся
-        -- без значков; оболочка при этом поднимается и работает.
+        -- Optional seams to the base. Should the compositor not support them,
+        -- the menu falls back to its own flat catalog, and the desktop stays
+        -- without icons; the shell still comes up and works.
         catalog = menu_catalog,
         desktop_items = desktop_items,
         move_desktop_item = move_desktop_item,
-        -- «Свойства» по правой кнопке на пустом столе — «Свойства: Экран».
+        -- "Properties" on a right-click on the empty desktop is "Display
+        -- Properties".
         desktop_properties = "butschster.windows.display:window",
-        -- Окна, собранные мастерской основы, возвращаются в реестр на старте.
-        -- Оболочка часто поднимается одна, и без восстановления её меню
-        -- показало бы каталог без них, не объяснив, куда они делись. Отказ
-        -- восстановления уезжает в restore_report и виден в GET /windows/status.
+        -- Windows built by the base's workshop are returned to the registry
+        -- at startup. The shell often comes up alone, and without restoring
+        -- them its menu would show a catalog without them, without explaining
+        -- where they went. A restore failure goes into restore_report and is
+        -- visible in GET /windows/status.
         restore = true,
         logon = logon,
     })

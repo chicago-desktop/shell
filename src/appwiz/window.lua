@@ -1,19 +1,22 @@
--- «Установка и удаление программ» — декларативное окно на SDK оболочки.
+-- "Add/Remove Programs": a declarative window on the shell SDK.
 --
--- Список установленных модулей: объявления `ns.dependency` из реестра
--- сливаются с кэшем вендора (`hub.cache.list` — версия и размер). Под
--- списком — откуда выбранный модуль и что с ним можно сделать. «Удалить»
--- снимает объявление, «Установить…» дописывает его по имени `org/name`.
+-- The list of installed modules: `ns.dependency` declarations from the
+-- registry are merged with the vendor cache (`hub.cache.list`: version and
+-- size). Under the list: where the selected module comes from and what can
+-- be done with it. "Remove" removes the declaration, "Install…" appends one
+-- by the name `org/name`.
 --
--- Чего окно НЕ делает, и это граница, а не пропуск: оно не трогает реестр и
--- не тянет модуль из Hub. Оба действия — правка файла объявлений; в силу они
--- вступают после `wippy update` и перезапуска, и окно так и говорит. Ставить
--- модуль в работающий рантайм здесь нечем, а притвориться, что поставил, —
--- худшее, что может сделать эта панель.
+-- What the window does NOT do, and this is a boundary, not an omission: it
+-- does not touch the registry and does not pull a module from the Hub. Both
+-- actions are edits of the declarations file; they take effect after `wippy
+-- update` and a restart, and the window says exactly that. There is nothing
+-- here to install a module into the running runtime with, and pretending to
+-- have installed it is the worst thing this panel could do.
 --
--- Файл объявлений приложение называет окружением: BUTSCHSTER_WINDOWS_DEPS_FS
--- — идентификатор записи `fs.directory` над каталогом с `_index.yaml`
--- зависимостей. Не назвало — окно только показывает и говорит почему.
+-- The application names the declarations file through the environment:
+-- BUTSCHSTER_WINDOWS_DEPS_FS is the identifier of an `fs.directory` entry over
+-- the directory with the dependencies' `_index.yaml`. If it did not name one,
+-- the window only shows and says why.
 
 local fs = require("fs")
 local hub = require("hub")
@@ -31,9 +34,10 @@ local NEXT_STEPS = "Next: wippy update, then a restart"
 local geometry = require("geometry")
 local whole = geometry.whole
 
--- Чтение окружения общее (`butschster.windows.config:environment`): сначала
--- окружение процесса, потом файловое хранилище, и отказ по правам называется
--- отказом по правам. Здесь только слова для строки состояния окна.
+-- Reading the environment is shared (`butschster.windows.config:environment`):
+-- first the process environment, then the file store, and a permission
+-- denial is called a permission denial. Only the words for the window's
+-- status line are here.
 local function read_env(name): (any, string)
     local value, _, denied = environment.read(name)
     if value ~= nil then return value, "" end
@@ -41,7 +45,7 @@ local function read_env(name): (any, string)
     return nil, name .. " is not set — the application did not name the declarations folder"
 end
 
--- ─── Данные ──────────────────────────────────────────────────────────────
+-- ─── Data ────────────────────────────────────────────────────────────────
 
 local function declared_dependencies(): (any, any)
     local entries, err = registry.find({kind = "ns.dependency"})
@@ -59,9 +63,10 @@ local function cached_modules(): (any, any)
     local ok, list, err = pcall(function() return hub.cache.list() end)
     if not ok then return {}, tostring(list) end
     if err or type(list) ~= "table" then return {}, tostring(err or "cache not read") end
-    -- Кэш перечисляет всё, что лежит в вендоре, включая сайдкары
-    -- `org/name-1.2.3.sha256` с именем файла в поле module. Модуль — это
-    -- `org/name` без точек и без версии; остальное — не модули.
+    -- The cache lists everything that lies in the vendor directory,
+    -- including `org/name-1.2.3.sha256` sidecars with the file name in the
+    -- module field. A module is `org/name` without dots and without a
+    -- version; the rest are not modules.
     local out = {}
     for _, item in ipairs(list) do
         local record: any = item
@@ -82,9 +87,9 @@ local function read_declarations(state: any): (any, any)
     return text, nil
 end
 
--- Без этого файла стенд не поднимается, поэтому правка сперва проверяется
--- разбором (`model.check_edit`), а пишется с копией и чтением обратно
--- (`model.write_file`).
+-- The stand does not come up without this file, so an edit is first
+-- checked by parsing (`model.check_edit`), and written with a backup and a
+-- read-back (`model.write_file`).
 local function write_declarations(state: any, before: any, after: any, name: any, delta: integer): (boolean, any)
     local fine, why = model.check_edit(before, after, name, delta, DEPS_FILE)
     if not fine then return false, why end
@@ -109,8 +114,9 @@ local function load(state: any)
     if terr then notes[#notes + 1] = tostring(terr) end
     state.load_note = #notes > 0 and table.concat(notes, "; ") or nil
     state.readonly = text == nil
-    -- Выбор держится за модуль, а не за номер строки: после правки список
-    -- другой, а человек смотрит на тот же модуль.
+    -- The selection holds on to the module, not the row number: after an
+    -- edit the list is different, but the person is looking at the same
+    -- module.
     state.selected = 0
     for index, line in ipairs(state.rows) do
         if line.component == state.selected_id then state.selected = index end
@@ -125,7 +131,7 @@ local function current(state: any): any
     return state.rows[whole(state.selected)]
 end
 
--- ─── Действия ────────────────────────────────────────────────────────────
+-- ─── Actions ─────────────────────────────────────────────────────────────
 
 local function remove_current(state: any): string
     local line: any = current(state)
@@ -156,8 +162,8 @@ local function install(state: any, component: any): string
     if not text then return tostring(err) end
     local name = model.dep_name(component, state.taken)
     local stamp = time.now():format("2006-01-02")
-    -- Пространство имён — из того текста, который правится, а не из
-    -- прочитанного при открытии окна: файл мог смениться между ними.
+    -- The namespace comes from the text being edited, not from the one read
+    -- when the window opened: the file could have changed in between.
     local namespace = model.namespace_of(text)
     local edited, aerr = model.append_declaration(text, component, name, namespace, stamp, DEPS_FILE)
     if not edited then return tostring(aerr) end
@@ -168,7 +174,7 @@ local function install(state: any, component: any): string
     return "declaration " .. tostring(namespace) .. ":" .. name .. " written. " .. NEXT_STEPS
 end
 
--- ─── Приложение ──────────────────────────────────────────────────────────
+-- ─── Application ─────────────────────────────────────────────────────────
 
 local definition: any = {}
 
@@ -180,8 +186,8 @@ function definition.init(args: any, context: any): any
     return state
 end
 
--- Строка таблицы: модуль, версия, размер (к правому краю), кем объявлен.
--- Колонки — одной раскладкой SDK, как в «Проводнике» Windows.
+-- A table row: module, version, size (right-aligned), who declared it.
+-- The columns are one SDK layout, as in the Windows "Explorer".
 local COLUMNS = {
     {title = "Module", weight = 3},
     {title = "Version", width = 10},

@@ -1,7 +1,7 @@
--- «Свойства: Экран»: цвета и их форма, подпись разрешения, раскладка двух
--- вкладок без пересечений, выбор цвета и «Применить» через подставленную
--- запись, «ОК» закрывает только после успешной записи; тема перекрашивает
--- стол одной точкой в обоих режимах.
+-- "Display Properties": colors and their format, the resolution caption,
+-- the layout of two tabs without overlaps, choosing a color and "Apply"
+-- through a substituted write, "OK" closes only after a successful write;
+-- the theme repaints the desktop from one point in both modes.
 local test = require("test")
 local model = require("model")
 local ui = require("ui")
@@ -20,7 +20,7 @@ end
 
 local function define_tests()
     test.describe("Display Properties model", function()
-        test.it("проверяет форму цвета и подписывает разрешение", function()
+        test.it("checks the color format and captions the resolution", function()
             test.is_true(model.valid("#008080"))
             test.is_true(not model.valid("008080"))
             test.is_true(not model.valid("#00808"))
@@ -37,7 +37,7 @@ local function define_tests()
         end)
     end)
     test.describe("Display Properties on the SDK", function()
-        test.it("раскладывает обе вкладки без пересечений", function()
+        test.it("lays out both tabs without overlaps", function()
             for tab = 1, 2 do
                 local state = fixture()
                 state.tab = tab
@@ -57,21 +57,21 @@ local function define_tests()
                                     local r = item.rect
                                     test.is_true(r.x + r.w <= b.rect.x or b.rect.x + b.rect.w <= r.x
                                         or r.y + r.h <= b.rect.y or b.rect.y + b.rect.h <= r.y,
-                                        "пересечение " .. tostring(item.node.kind) .. "/" .. tostring(b.node.kind))
+                                        "overlap " .. tostring(item.node.kind) .. "/" .. tostring(b.node.kind))
                                 end
                             end
                         end
                     end
-                    test.eq(monitors, 1, "монитор-предпросмотр на каждой вкладке")
+                    test.eq(monitors, 1, "a preview monitor on every tab")
                 end
             end
         end)
-        test.it("выбор цвета, «Применить» и «ОК» пишут через подставленную запись", function()
+        test.it("choosing a color, \"Apply\" and \"OK\" write through the substituted write", function()
             local state, written = fixture()
             local closed = 0
             local context = {width = 58, height = 22, close = function() closed = closed + 1 end}
             local plan = ui.plan(display.definition.view(state, context), 58, 22, ui.interaction())
-            test.is_true(plan.by_id.apply.node.disabled == true, "нечего применять — кнопка недоступна")
+            test.is_true(plan.by_id.apply.node.disabled == true, "nothing to apply: the button is disabled")
             display.definition.update(state, {type = "select", id = "colors", index = 2, value = {id = "#000080", text = "Navy"}}, context)
             test.eq(state.chosen, "#000080")
             test.eq(state.saved, "#008080")
@@ -81,28 +81,28 @@ local function define_tests()
             test.eq(#written, 1)
             test.eq(written[1], "#000080")
             test.eq(state.saved, "#000080")
-            test.eq(closed, 0, "«Применить» окно не закрывает")
+            test.eq(closed, 0, "\"Apply\" does not close the window")
             display.definition.update(state, {type = "select", id = "colors", index = 1, value = {id = "#zzzzzz"}}, context)
-            test.eq(state.chosen, "#000080", "негодный цвет не принимается")
+            test.eq(state.chosen, "#000080", "an invalid color is not accepted")
             display.definition.update(state, {type = "activate", id = "ok"}, context)
             test.eq(closed, 1)
-            test.eq(#written, 1, "ОК без изменений не пишет второй раз")
-            -- Отказ записи держит окно открытым и называет причину.
+            test.eq(#written, 1, "OK without changes does not write a second time")
+            -- A write failure keeps the window open and names the reason.
             local failing, _ = fixture()
-            failing.persist = function() return nil, "база занята" end
+            failing.persist = function() return nil, "database busy" end
             failing.chosen = "#000000"
             display.definition.update(failing, {type = "activate", id = "ok"}, context)
-            test.eq(closed, 1, "при отказе записи окно остаётся")
-            test.eq(failing.failure, "база занята")
+            test.eq(closed, 1, "on a write failure the window stays")
+            test.eq(failing.failure, "database busy")
             test.eq(display.definition.update(failing, {type = "key", key_type = "runes", key = "x"}, context), false)
         end)
-        test.it("тема перекрашивает стол одной точкой в обоих режимах", function()
+        test.it("the theme repaints the desktop from one point in both modes", function()
             local before = widgets.styles.desktop
             test.is_true(chrome.use_desktop("#000080"))
             test.eq(palette.exact.desktop, "#000080")
-            test.is_true(widgets.styles.desktop ~= before, "стиль ячеек переснят")
-            test.is_true(not chrome.use_desktop("000080"), "цвет без решётки не принимается")
-            test.eq(palette.exact.desktop, "#000080", "негодный цвет ничего не меняет")
+            test.is_true(widgets.styles.desktop ~= before, "the cell style is re-read")
+            test.is_true(not chrome.use_desktop("000080"), "a color without a hash is not accepted")
+            test.eq(palette.exact.desktop, "#000080", "an invalid color changes nothing")
             test.is_true(chrome.use_desktop("#008080"))
             test.eq(palette.exact.desktop, "#008080")
         end)

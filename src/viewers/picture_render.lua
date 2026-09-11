@@ -1,38 +1,40 @@
--- Просмотр картинок: чистая отрисовка.
+-- Image viewer: pure drawing.
 --
--- Это `render` окна-вида (FR-005 §4б): библиотека без рантайма и без прав,
--- которую зовёт ТЕМА в процессе композитора. Данные приносит поставщик
--- `picture_state` — в состоянии окна лежит сама картинка (base64), имя файла
--- и как её показывать: вписать в окно или в масштабе со сдвигом.
+-- This is the `render` of a view window (FR-005 §4b): a library with no
+-- runtime and no permissions, called by the THEME in the compositor process.
+-- The data is brought by the provider `picture_state` — the window state
+-- holds the picture itself (base64), the file name, and how to show it: fit
+-- into the window or at a zoom with panning.
 --
--- Почему картинка едет в состоянии, а не читается здесь: у композитора нет
--- права на диски и не должно быть — «рисование в композиторе, права
--- снаружи». Почему base64: тело сообщения проходит через транскодер, и
--- строка с произвольными байтами — то, на чём он однажды сломается молча.
+-- Why the picture travels in the state instead of being read here: the
+-- compositor has no permission on drives and must not have one — "drawing in
+-- the compositor, permissions outside". Why base64: the message body passes
+-- through a transcoder, and a string of arbitrary bytes is exactly what it
+-- will one day break on silently.
 --
--- Растры живут между кадрами (FR-005 §4): на окно держится ОДИН растр
--- кадра, и он перерисовывается на месте только когда изменилась картинка,
--- размер окна или способ показа. Иначе поверхность переотправляла бы всё
--- окно на каждое нажатие клавиши в соседнем.
+-- Rasters live between frames (FR-005 §4): ONE frame raster is kept per
+-- window, and it is redrawn in place only when the picture, the window size
+-- or the display mode changed. Otherwise the surface would resend the whole
+-- window on every key press in a neighbouring one.
 
 local base64 = require("base64")
 local gfx = require("gfx")
 
 local picture_render = {}
 
--- Идентификатор записи, по которому тема узнаёт, что окно рисуется здесь.
+-- The entry identifier by which the theme learns that the window is drawn here.
 picture_render.ID = "butschster.windows.viewers:picture_render"
 
--- Фон вокруг картинки — серое лицо, как у диалогов; картинка меньше окна
--- лежит по центру, как в Imaging.
+-- The background around the picture is the grey face, as in dialogs; a
+-- picture smaller than the window lies centred, as in Imaging.
 picture_render.BACKGROUND = "#c0c0c0"
 
 local geometry = require("geometry")
 local whole = geometry.whole
 
--- Декодированные исходники, по ключу файла. Ключ — диск, путь и размер в
--- байтах: тот же файл, перезаписанный другим содержимым, меняет размер
--- почти всегда, а перечитывать base64 на каждый кадр — нет.
+-- Decoded sources, by file key. The key is drive, path and size in bytes:
+-- the same file overwritten with other content changes its size almost
+-- always, whereas re-decoding base64 every frame is not an option.
 local sources = {}
 local SOURCE_LIMIT = 8
 
@@ -44,7 +46,7 @@ local function remember(key, entry)
     local count = 0
     for _ in pairs(sources) do count = count + 1 end
     if count >= SOURCE_LIMIT then
-        -- Самый старый — по счётчику обращений; хранить время незачем.
+        -- The oldest — by the access counter; there is no point storing time.
         local oldest, oldest_at = nil, math.huge
         for other, kept in pairs(sources) do
             if kept.at < oldest_at then oldest, oldest_at = other, kept.at end
@@ -56,7 +58,7 @@ end
 
 local tick = 0
 
--- source(state) -> растр исходника | nil, причина
+-- source(state) -> source raster | nil, reason
 function picture_render.source(state: any): (any, any)
     if type(state) ~= "table" then return nil, "no state yet" end
     if state.failure then return nil, tostring(state.failure) end
@@ -83,7 +85,7 @@ function picture_render.source(state: any): (any, any)
     return raster, nil
 end
 
--- Кадры по окну: один растр на окно, живёт между кадрами.
+-- Frames per window: one raster per window, living between frames.
 local frames = {}
 
 local function frame_for(window_id: any, px_w: integer, px_h: integer): (any, boolean)
@@ -97,8 +99,8 @@ end
 
 -- geometry(state, source_w, source_h, px_w, px_h) -> {scale, x, y, w, h}
 --
--- Вписывание не увеличивает: значок 32×32 в окне 600×400 остаётся значком,
--- а не размытым квадратом. Увеличить — это масштаб, и его просят явно.
+-- Fitting does not enlarge: a 32×32 icon in a 600×400 window stays an icon,
+-- not a blurry square. Enlarging is zoom, and it is asked for explicitly.
 function picture_render.geometry(state: any, source_w: any, source_h: any, px_w: any, px_h: any): any
     local sw, sh = whole(source_w), whole(source_h)
     local fw, fh = whole(px_w), whole(px_h)
@@ -115,8 +117,9 @@ function picture_render.geometry(state: any, source_w: any, source_h: any, px_w:
     local w = math.max(1, whole(math.floor(sw * scale + 0.5)))
     local h = math.max(1, whole(math.floor(sh * scale + 0.5)))
 
-    -- Меньше окна — по центру. Больше окна — сдвиг из состояния, зажатый
-    -- так, чтобы за краем картинки не оставалось пустоты.
+    -- Smaller than the window — centred. Larger than the window — the offset
+    -- from the state, clamped so that no emptiness is left past the edge of
+    -- the picture.
     local x = (fw - w) // 2 + 1
     local y = (fh - h) // 2 + 1
     if w > fw then
@@ -132,10 +135,10 @@ function picture_render.geometry(state: any, source_w: any, source_h: any, px_w:
     return {scale = scale, x = x, y = y, w = w, h = h}
 end
 
--- frame(window_id, state, px_w, px_h) -> растр кадра | nil, причина
+-- frame(window_id, state, px_w, px_h) -> frame raster | nil, reason
 --
--- Возвращает ОДИН И ТОТ ЖЕ растр, пока ничего не менялось: у него не
--- сдвигается версия, и поверхность его не переотправляет.
+-- Returns ONE AND THE SAME raster as long as nothing has changed: its
+-- version does not move, and the surface does not resend it.
 function picture_render.frame(window_id: any, state: any, px_w: any, px_h: any): (any, any)
     local fw, fh = whole(px_w), whole(px_h)
     if fw < 1 or fh < 1 then return nil, "the window has no room for the picture" end
@@ -159,9 +162,9 @@ function picture_render.frame(window_id: any, state: any, px_w: any, px_h: any):
     frame.raster:fill(picture_render.BACKGROUND)
     local shown = source
     if box.w ~= kept.w or box.h ~= kept.h then
-        -- Уменьшение сглаженное — фотография пикселями превращается в кашу
-        -- муара; увеличение ступенчатое — иначе пиксельная графика
-        -- размывается, а увеличивают как раз её.
+        -- Shrinking is smoothed — otherwise a photograph turns into a moiré
+        -- mush of pixels; enlarging is stepped — otherwise pixel art gets
+        -- blurred, and pixel art is exactly what gets enlarged.
         shown = source:scaled(box.w, box.h, {smooth = box.scale < 1})
     end
     frame.raster:blit(shown, box.x, box.y)
@@ -169,11 +172,12 @@ function picture_render.frame(window_id: any, state: any, px_w: any, px_h: any):
     return frame.raster, nil
 end
 
--- placement(window, inner, cell) -> размещение | nil, причина
+-- placement(window, inner, cell) -> placement | nil, reason
 --
--- Вход темы. `inner` — прямоугольник внутри рамки в ЯЧЕЙКАХ ({x, y, cols,
--- rows}), `cell` — размер ячейки в пикселях. Размещение накрывает ровно
--- inner, и композитор стирает под ним символы сам.
+-- The theme's entry point. `inner` is the rectangle inside the frame in
+-- CELLS ({x, y, cols, rows}), `cell` is the cell size in pixels. The
+-- placement covers exactly inner, and the compositor erases the characters
+-- under it by itself.
 function picture_render.placement(window: any, inner: any, cell: any): (any, any)
     if type(window) ~= "table" or type(inner) ~= "table" or type(cell) ~= "table" then
         return nil, "placement needs a window, a rectangle and a cell size"
@@ -193,7 +197,7 @@ function picture_render.placement(window: any, inner: any, cell: any): (any, any
     }, nil
 end
 
--- forget(window_id) — окно закрыто, кадр больше не нужен.
+-- forget(window_id) — the window is closed, the frame is no longer needed.
 function picture_render.forget(window_id: any)
     frames[window_id] = nil
 end

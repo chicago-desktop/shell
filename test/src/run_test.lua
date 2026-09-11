@@ -7,8 +7,8 @@ local model = require("model")
 local ui = require("ui")
 local run_window = require("run_window")
 local RUN = "butschster.windows.run:window"
--- Текст метки из дерева SDK по совпадению: так проверка не зависит от
--- положения строки в колонке.
+-- A label's text from the SDK tree by match: this way the check does not
+-- depend on the line's position in the column.
 local function find_text(node: any, needle: string): any
     if type(node) ~= "table" then return nil end
     if type(node.text) == "string" and node.text:find(needle, 1, true) then return node.text end
@@ -87,30 +87,32 @@ local function define_tests()
             test.not_nil(plan.by_id.command)
             test.not_nil(plan.by_id.ok)
             test.not_nil(plan.by_id.cancel)
-            test.not_nil(plan.by_id.browse, "«Обзор…» — третья кнопка, как в Windows 95")
-            test.eq(interaction.focus, "command", "фокус — в поле команды")
-            test.is_true(ui.default_look(plan, plan.by_id.ok.node, false), "«ОК» по умолчанию, пока фокус в поле")
+            test.not_nil(plan.by_id.browse, "\"Browse…\" is the third button, as in Windows 95")
+            test.eq(interaction.focus, "command", "focus is in the command field")
+            test.is_true(ui.default_look(plan, plan.by_id.ok.node, false), "\"OK\" is the default while focus is in the field")
             interaction.focus = "cancel"
             plan = ui.plan(tree, 48, 7, interaction)
-            test.is_false(ui.default_look(plan, plan.by_id.ok.node, false), "фокус на «Отмене» забирает контур у «ОК»")
+            test.is_false(ui.default_look(plan, plan.by_id.ok.node, false), "focus on \"Cancel\" takes the outline away from \"OK\"")
             test.is_true(ui.default_look(plan, plan.by_id.cancel.node, true))
-            -- Подсказка — две строки одной меткой, пока отказа нет.
+            -- The hint is two lines in one label while there is no failure.
             test.not_nil(find_text(tree, "Windows will open it for you"))
-            -- Пустая команда — причина в дереве, а не в никуда: отказ встаёт
-            -- на место подсказки, а не отдельной строкой под кнопками.
+            -- An empty command: the reason goes into the tree, not into
+            -- nowhere: the failure takes the place of the hint, not a separate
+            -- line under the buttons.
             run_window.definition.update(state, {type = "activate", id = "ok"}, {close = function() end})
             local failed = run_window.definition.view(state, {width = 48, height = 7})
             test.not_nil(find_text(failed, "Type the name of a program or command."))
-            test.is_nil(find_text(failed, "Windows will open it for you"), "отказ занимает место подсказки")
-            test.eq(run_window.definition.title, "Run", "заголовок окна — без многоточия, оно у пункта меню")
+            test.is_nil(find_text(failed, "Windows will open it for you"), "the failure takes the place of the hint")
+            test.eq(run_window.definition.title, "Run", "the window title has no ellipsis, it belongs to the menu item")
         end)
         test.it("Browse… asks for My Computer and does not close the dialog on the reply", function()
             local asked: any = nil
             local closed = false
             local state: any = {text = "", pending = false, browsing = false, answers = "replies"}
             local context: any = {close = function() closed = true end}
-            -- Подмена запроса: проверяется форма просьбы и разбор ответа, а
-            -- не композитор — его проверяет живой прогон ниже.
+            -- Substituting the request: what is checked is the request's shape
+            -- and the parsing of the reply, not the compositor; the live run
+            -- below checks that.
             local real_request = run_window.definition.request
             run_window.definition.request = function(command, body) asked = {command = command, body = body}; return true, nil end
             run_window.definition.update(state, {type = "activate", id = "browse"}, context)
@@ -121,9 +123,9 @@ local function define_tests()
             run_window.definition.update(state, {type = "channel", channel = "replies", ok = true,
                 value = {command = "desktop.open", ok = true}}, context)
             test.is_false(state.browsing)
-            test.is_false(closed, "ответ на проводник не закрывает «Выполнить»")
+            test.is_false(closed, "the reply for the explorer does not close \"Run\"")
             test.is_nil(state.failure)
-            -- Отказ проводника называется в диалоге.
+            -- The explorer's failure is named in the dialog.
             run_window.definition.update(state, {type = "activate", id = "browse"}, context)
             run_window.definition.update(state, {type = "channel", channel = "replies", ok = true,
                 value = {command = "desktop.open", ok = false, error = "no such window"}}, context)

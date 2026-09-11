@@ -1,15 +1,16 @@
--- «Установка и удаление программ» — чистая модель.
+-- "Add/Remove Programs": the pure model.
 --
--- Программа здесь — модуль wippy. Установлен он тем, что объявлен записью
--- `ns.dependency` в исходниках приложения и лежит в кэше вендора; снять и
--- поставить его в работающем рантайме нельзя — это делает `wippy update`
--- по объявлениям, и вступает в силу после перезапуска. Поэтому окно правит
--- ОБЪЯВЛЕНИЕ, а не реестр: то, что оно записало, `wippy update` прочитает
--- ровно так же, как написанное рукой.
+-- A program here is a wippy module. It is installed by being declared with an
+-- `ns.dependency` entry in the application sources and lying in the vendor
+-- cache; it cannot be removed or installed in the running runtime: that is
+-- done by `wippy update` from the declarations, and it takes effect after a
+-- restart. That is why the window edits the DECLARATION, not the registry:
+-- what it wrote, `wippy update` will read exactly the same way as what was
+-- written by hand.
 --
--- Всё, что можно проверить без рантайма, лежит здесь: слияние объявлений с
--- кэшем, правка текста `_index.yaml`, имя для новой записи. Окно только
--- читает, рисует и пишет.
+-- Everything that can be checked without the runtime lives here: merging
+-- declarations with the cache, editing the `_index.yaml` text, the name for
+-- a new entry. The window only reads, draws and writes.
 
 local model = {}
 
@@ -25,17 +26,19 @@ function model.human_size(bytes: any): string
     return string.format("%.2f MB", n / (1024 * 1024))
 end
 
--- Модуль называется `org/name`, строчными; ничего другого `wippy update`
--- не разрешит, а разрешит он позже и молча про причину.
+-- A module is named `org/name`, in lowercase; `wippy update` will not
+-- resolve anything else, and it resolves later and stays silent about the
+-- reason.
 function model.valid_component(text: any): boolean
     if type(text) ~= "string" then return false end
     return text:match("^[a-z0-9][a-z0-9_%-%.]*/[a-z0-9][a-z0-9_%-%.]*$") ~= nil
 end
 
--- Имя записи `ns.dependency` для модуля `org/name` — `name`. Занятое имя
--- ЗАМЕЩАЕТ прежнюю запись без настоящего предупреждения (рантайм пишет
--- `will use last definition` и берёт последнюю), и ломаются чужие
--- `ns.requirement`; поэтому занятое имя уступает форме `org-name`.
+-- The name of the `ns.dependency` entry for module `org/name` is `name`. A
+-- taken name REPLACES the previous entry without a real warning (the runtime
+-- writes `will use last definition` and takes the last one), and other
+-- modules' `ns.requirement` break; that is why a taken name gives way to the
+-- form `org-name`.
 function model.dep_name(component: any, taken: any): string
     local text = tostring(component or "")
     local org, name = text:match("^([^/]+)/(.+)$")
@@ -45,17 +48,18 @@ function model.dep_name(component: any, taken: any): string
     return name
 end
 
--- Слияние объявлений реестра с кэшем вендора в строки окна.
+-- Merging registry declarations with the vendor cache into window rows.
 --
 --   declared  {{id = "app.deps:bridge", component = "org/m", version = ">=…"}, …}
 --   cached    {{module = "org/m", version = "1.2.3", size = N, pinned = bool}, …}
---   app_ns    пространство имён объявлений приложения ("app.deps")
+--   app_ns    namespace of the application's declarations ("app.deps")
 --
--- Строка: component, name (имя записи, если объявил приложение), owner —
--- "app" (объявлено приложением), "module" (объявлено чужим модулем — его
--- зависимость), "cache" (только в кэше), declared_by (пространство имён),
--- constraint, version, size, pinned. Версия — закреплённая локом; у
--- рабочей копии (замена в .wippy.yaml) кэша нет, version = nil.
+-- A row: component, name (the entry name, if the application declared it),
+-- owner: "app" (declared by the application), "module" (declared by another
+-- module, its dependency), "cache" (only in the cache), declared_by (the
+-- namespace), constraint, version, size, pinned. The version is the one
+-- pinned by the lock; a working copy (a replacement in .wippy.yaml) has no
+-- cache, version = nil.
 function model.merge(declared: any, cached: any, app_ns: any): any
     local by_component: any = {}
     local order = {}
@@ -75,7 +79,8 @@ function model.merge(declared: any, cached: any, app_ns: any): any
             local id = tostring(record.id or "")
             local ns = id:match("^(.-):") or ""
             local mine = prefix ~= ":" and id:sub(1, #prefix) == prefix
-            -- Объявление приложения главнее чужого: именно его правит окно.
+            -- The application's declaration outranks another's: that is the
+            -- one the window edits.
             if mine or line.owner == nil or line.owner == "cache" then
                 line.owner = mine and "app" or "module"
                 line.declared_by = ns
@@ -90,8 +95,9 @@ function model.merge(declared: any, cached: any, app_ns: any): any
         if type(record.module) == "string" and record.module ~= "" then
             local line: any = row(record.module)
             line.owner = line.owner or "cache"
-            -- Закреплённая локом версия — та, что работает; остальные в кэше
-            -- лишь лежат. Без закреплённой берётся последняя названная.
+            -- The version pinned by the lock is the one that runs; the others
+            -- merely lie in the cache. Without a pinned one, the last named is
+            -- taken.
             if record.pinned or line.version == nil or not line.pinned then
                 line.version = tostring(record.version or "")
                 line.size = tonumber(record.size) or 0
@@ -105,25 +111,26 @@ function model.merge(declared: any, cached: any, app_ns: any): any
     return out
 end
 
--- Кто установил — одной строкой для человека.
+-- Who installed it, as one line for a person.
 function model.owner_text(line: any): string
     if line.owner == "app" then return "declared by the application (" .. tostring(line.entry) .. ")" end
     if line.owner == "module" then return "required by module " .. tostring(line.declared_by) end
     return "cache only — declared by no one"
 end
 
--- ─── Правка `_index.yaml` объявлений ─────────────────────────────────────
+-- ─── Editing the declarations `_index.yaml` ──────────────────────────────
 --
--- Файл правится ТЕКСТОМ, а не через разбор и сборку YAML: у человека там
--- комментарии, и пересобранный файл их потерял бы. Пункт списка начинается
--- строкой `- ` с тем отступом, какой у пунктов в этом файле (`item_indent`).
+-- The file is edited AS TEXT, not by parsing and rebuilding the YAML: the
+-- person has comments there, and a rebuilt file would lose them. A list item
+-- starts with a `- ` line at the indent the items in this file have
+-- (`item_indent`).
 
 local function lines_of(text: any): any
     local out = {}
     local source = tostring(text or "") .. "\n"
     for line in source:gmatch("(.-)\n") do out[#out + 1] = line end
-    -- gmatch с добавленным переводом строки даёт лишнюю пустую строку в
-    -- конце ровно тогда, когда текст уже кончался переводом строки.
+    -- gmatch with an appended newline gives an extra empty line at the end
+    -- exactly when the text already ended with a newline.
     if #out > 0 and out[#out] == "" and tostring(text or ""):sub(-1) == "\n" then out[#out] = nil end
     return out
 end
@@ -138,9 +145,10 @@ local function is_toplevel(line: any): boolean
     return text:match("^%S") ~= nil and text:match("^#") == nil
 end
 
--- Отступ пунктов под `entries:` — тот, что в файле. Два пробела — только
--- если пунктов ещё нет: пункт с чужим отступом YAML прочтёт вложенным в
--- предыдущий или не прочтёт вовсе, и скажет об этом `wippy update`, а не окно.
+-- The indent of items under `entries:` is the one in the file. Two spaces
+-- only if there are no items yet: YAML will read an item with a foreign
+-- indent as nested in the previous one or not read it at all, and it is
+-- `wippy update` that will say so, not the window.
 local function item_indent(lines: any): string
     local inside = false
     for _, line in ipairs(lines) do
@@ -160,9 +168,9 @@ local function is_item_start(line: any, indent: string): boolean
     return tostring(line):sub(1, #indent + 2) == indent .. "- "
 end
 
--- Пункты списка — диапазоны строк от строки с «- » до следующего пункта или
--- ключа верхнего уровня. Разбор один: поиск, подсчёт и проверка правки видят
--- один и тот же список.
+-- List items are line ranges from a line with "- " to the next item or
+-- top-level key. There is one parse: search, counting and the edit check see
+-- one and the same list.
 local function items_of(lines: any): any
     local indent = item_indent(lines)
     local out = {}
@@ -178,7 +186,7 @@ local function items_of(lines: any): any
     return out
 end
 
--- Перевод строки с обеих сторон: `name:` бывает первой строкой пункта.
+-- A newline on both sides: `name:` can be the first line of an item.
 local function body_of(lines: any, item: any): string
     return "\n" .. table.concat(lines, "\n", item.from, item.to) .. "\n"
 end
@@ -187,13 +195,14 @@ local function is_dependency(body: string): boolean
     return body:match("kind:%s*ns%.dependency") ~= nil
 end
 
--- Найти пункт с `name: <name>` и `kind: ns.dependency`.
--- Возвращает первую и последнюю строку пункта (без комментариев над ним).
+-- Find the item with `name: <name>` and `kind: ns.dependency`.
+-- Returns the first and last line of the item (without the comments above
+-- it).
 local function find_item(lines: any, name: any): (any, any)
     local escaped = (tostring(name):gsub("%p", "%%%0"))
     for _, item in ipairs(items_of(lines)) do
         local body = body_of(lines, item)
-        -- `name:` может стоять первой строкой пункта — тогда перед ним «- ».
+        -- `name:` can be the first line of the item; then "- " precedes it.
         if body:match("\n%s*%-?%s*name:%s*" .. escaped .. "%s*\n") ~= nil and is_dependency(body) then
             return item.from, item.to
         end
@@ -201,9 +210,9 @@ local function find_item(lines: any, name: any): (any, any)
     return nil, nil
 end
 
--- Сколько в файле объявлений — ПУНКТОВ, а не строк `- name:`: у пункта с
--- параметрами строк `- name:` несколько, и снятие одного такого пункта по
--- счёту строк выглядело бы как снятие трёх.
+-- How many declarations the file has, in ITEMS, not `- name:` lines: an
+-- item with parameters has several `- name:` lines, and removing one such
+-- item would look like removing three by the line count.
 local function count_dependencies(lines: any): integer
     local count = 0
     for _, item in ipairs(items_of(lines)) do
@@ -212,11 +221,11 @@ local function count_dependencies(lines: any): integer
     return count
 end
 
--- remove_declaration(text, name) -> новый текст | nil, причина
+-- remove_declaration(text, name) -> new text | nil, reason
 --
--- Снимается сам пункт, комментарии вплотную над ним и одна пустая строка
--- над ними — то, что человек написал про эту запись. Пустые строки в конце
--- пункта остаются: они принадлежат следующему.
+-- What is removed is the item itself, the comments right above it and one
+-- empty line above them: what the person wrote about this entry. Empty
+-- lines at the end of the item stay: they belong to the next one.
 function model.remove_declaration(text: any, name: any): (any, any)
     local lines = lines_of(text)
     local first, last = find_item(lines, name)
@@ -226,8 +235,8 @@ function model.remove_declaration(text: any, name: any): (any, any)
     local from: integer = math.tointeger(first) or 1
     while from > 1 and tostring(lines[from - 1]):match("^%s*#") do from = from - 1 end
     if from > 1 and tostring(lines[from - 1]):match("^%s*$") then from = from - 1 end
-    -- Хвост пункта до следующего — пустые строки и комментарии — не его:
-    -- комментарий над следующим пунктом принадлежит следующему.
+    -- The item's tail up to the next one (empty lines and comments) is not
+    -- its own: a comment above the next item belongs to the next item.
     local to: integer = math.tointeger(last) or from
     while to > first and (tostring(lines[to]):match("^%s*$") or tostring(lines[to]):match("^%s*#")) do
         to = to - 1
@@ -238,21 +247,23 @@ function model.remove_declaration(text: any, name: any): (any, any)
     return table.concat(out, "\n") .. "\n", nil
 end
 
--- Отказ без пространства имён. Одна формулировка на два места — дописывание
--- и проверку правки: две разные читались бы как два разных отказа.
+-- The failure without a namespace. One wording for two places, appending
+-- and the edit check: two different ones would read as two different
+-- failures.
 function model.no_namespace(file: any): string
     return "namespace not declared in " .. tostring(file or "the declarations file")
 end
 
--- append_declaration(text, component, name, namespace, stamp, file) -> новый текст | nil, причина
+-- append_declaration(text, component, name, namespace, stamp, file) -> new text | nil, reason
 --
--- Запись — как её написал бы человек: комментарий с идентификатором, откуда
--- и когда, версия «любая». Параметры не пишутся: чего требует модуль, окно
--- не знает, а `wippy update` и боот скажут об этом сами и по имени.
+-- The entry is as a person would write it: a comment with the identifier,
+-- where from and when, version "any". Parameters are not written: the window
+-- does not know what the module requires, and `wippy update` and the boot
+-- will say so themselves and by name.
 --
--- Пространства имён по умолчанию нет НАРОЧНО. Было `app.deps`, и файл без
--- строки `namespace:` получал запись, про которую статус говорил
--- «declaration nil:npc written».
+-- There is no default namespace ON PURPOSE. It used to be `app.deps`, and a
+-- file without a `namespace:` line got an entry about which the status said
+-- "declaration nil:npc written".
 function model.append_declaration(text: any, component: any, name: any, namespace: any, stamp: any, file: any): (any, any)
     if type(namespace) ~= "string" or namespace == "" then return nil, model.no_namespace(file) end
     local body = tostring(text or "")
@@ -272,13 +283,14 @@ function model.append_declaration(text: any, component: any, name: any, namespac
     }, "\n"), nil
 end
 
--- check_edit(before, after, name, delta, file) -> true | nil, причина
+-- check_edit(before, after, name, delta, file) -> true | nil, reason
 --
--- Правка проверяется ДО записи, тем же разбором, которым файл читается:
--- пространство имён на месте и не сменилось, объявлений стало ровно на
--- `delta` больше (+1 — дописали, -1 — сняли), а названный пункт находится
--- или не находится так, как обещано. Без этого файл, без которого стенд не
--- поднимается, узнал бы о кривой правке только на следующем бооте.
+-- The edit is checked BEFORE writing, with the same parse the file is read
+-- with: the namespace is in place and has not changed, there are exactly
+-- `delta` more declarations (+1 appended, -1 removed), and the named item is
+-- found or not found as promised. Without this, the file without which the
+-- stand does not come up would learn about a botched edit only on the next
+-- boot.
 function model.check_edit(before: any, after: any, name: any, delta: integer, file: any): (any, any)
     local where = tostring(file or "the declarations file")
     local ns = model.namespace_of(after)
@@ -300,16 +312,18 @@ function model.check_edit(before: any, after: any, name: any, delta: integer, fi
     return true, nil
 end
 
--- write_file(handle, file, before, after) -> true | false, причина
+-- write_file(handle, file, before, after) -> true | false, reason
 --
--- Переименования у `fs` рантайма нет (у хэндла readfile, writefile, remove,
--- stat, exists…), поэтому подменить файл готовым временным одним шагом
--- нельзя. Взамен — три шага, и каждый отказ называет, где прежний текст:
---   1. файл на диске сверяется с тем, из которого сделана правка — иначе
---      правка затёрла бы чужую, сделанную рукой, пока окно было открыто;
---   2. прежний текст ложится в `<file>.bak` рядом (загрузчик рантайма читает
---      `_index.yaml` по имени, копия ему не видна);
---   3. запись и чтение обратно: не совпало — так и сказано.
+-- The runtime's `fs` has no rename (the handle has readfile, writefile,
+-- remove, stat, exists…), so the file cannot be swapped for a ready temporary
+-- one in one step. Instead there are three steps, and every failure names
+-- where the previous text is:
+--   1. the file on disk is compared with the one the edit was made from,
+--      otherwise the edit would overwrite someone else's, made by hand while
+--      the window was open;
+--   2. the previous text goes into `<file>.bak` next to it (the runtime
+--      loader reads `_index.yaml` by name, the copy is invisible to it);
+--   3. write and read back: if they do not match, it says so.
 function model.write_file(handle: any, file: string, before: string, after: string): (boolean, any)
     local backup = file .. ".bak"
     local current, rerr = handle:readfile(file)

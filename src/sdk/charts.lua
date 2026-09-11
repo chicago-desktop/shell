@@ -1,8 +1,8 @@
--- Графики SDK: столбцы блочными символами для ячеек и круглый потолок.
+-- SDK charts: bars of block characters for cells, and a round ceiling.
 --
--- Чистая библиотека без рантайма: её читают оба отрисовщика и диспетчер
--- задач. Раньше жила в модели диспетчера; график нужен любому окну, которое
--- показывает историю числа, поэтому переехал сюда вместе с тестами.
+-- A pure library with no runtime: both renderers and the Task Manager read
+-- it. It used to live in the Task Manager model; any window that shows the
+-- history of a number needs a graph, so it moved here together with its tests.
 
 local charts = {}
 
@@ -11,8 +11,8 @@ local whole = geometry.whole
 
 local LEVELS = {" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
 
--- Круглый потолок шкалы: 1-2-2.5-5-10 × степень десяти, не ниже максимума.
--- `math.log(v, base)` в этом Lua второго аргумента не знает — делится.
+-- Round ceiling of the scale: 1-2-2.5-5-10 × a power of ten, not below the maximum.
+-- `math.log(v, base)` in this Lua does not know the second argument, so we divide.
 function charts.round_ceiling(value: any): number
     local n = tonumber(value) or 0
     if n <= 0 then return 0 end
@@ -24,10 +24,11 @@ function charts.round_ceiling(value: any): number
     return 10 * magnitude
 end
 
--- graph(history, width, height, ceiling) -> строки, потолок
+-- graph(history, width, height, ceiling) -> rows, ceiling
 --
--- Последнее измерение справа; строки сверху вниз; столбец выше строки
--- делится на полные снизу и дробную сверху; недостающие слева — пустота.
+-- The latest measurement is on the right; rows go top to bottom; a bar taller
+-- than a row splits into full ones at the bottom and a fractional one on top;
+-- missing ones on the left are empty.
 function charts.graph(history: any, width: any, height: any, ceiling: any): (any, any)
     local w, h = whole(width), whole(height)
     local rows: {string} = {}
@@ -79,7 +80,7 @@ function charts.graph(history: any, width: any, height: any, ceiling: any): (any
     return rows, top
 end
 
--- Потолок истории — по её максимуму, круглый.
+-- The ceiling of a history is taken from its maximum, rounded.
 function charts.ceiling_of(history: any): number
     local peak = 0
     for _, value in ipairs(type(history) == "table" and history or {}) do

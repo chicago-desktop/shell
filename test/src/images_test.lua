@@ -1,13 +1,14 @@
--- Пакет значков: каждое объявленное имя читается и декодируется в обоих
--- размерах. Проверка формы, а не наличия: растр обязан быть ровно того
--- размера, что просили, — иначе `blit` положит на стол не то и не туда.
+-- Icon pack: every declared name is read and decoded in both sizes. A check
+-- of form, not of presence: the raster must be exactly the size that was
+-- asked for — otherwise `blit` puts the wrong thing in the wrong place on
+-- the desktop.
 
 local test = require("test")
 local images = require("images")
 
 local function define_tests()
-    test.describe("пакет значков", function()
-        test.it("декодирует каждый значок в обоих размерах", function()
+    test.describe("icon pack", function()
+        test.it("decodes every icon in both sizes", function()
             images.forget()
             for _, name in ipairs(images.NAMES) do
                 for _, size in ipairs(images.SIZES) do
@@ -20,26 +21,26 @@ local function define_tests()
             end
         end)
 
-        test.it("отдаёт один и тот же растр на повторный запрос", function()
+        test.it("returns one and the same raster on a repeated request", function()
             local first = images.get("folder", 32)
             local second = images.get("folder", 32)
             test.not_nil(first)
             test.is_true(first == second)
         end)
 
-        test.it("отказывает по имени, а не молчит", function()
+        test.it("refuses by name rather than staying silent", function()
             local raster, why = images.get("no_such_icon", 32)
             test.is_nil(raster)
             test.is_true(tostring(why):find("no such icon", 1, true) ~= nil)
         end)
 
-        test.it("отказывает на размер, которого в пакете нет", function()
+        test.it("refuses a size that is not in the pack", function()
             local raster, why = images.get("folder", 24)
             test.is_nil(raster)
             test.is_true(tostring(why):find("of size 24", 1, true) ~= nil)
         end)
 
-        test.it("решает имя по виду и по явному image", function()
+        test.it("resolves the name by kind and by an explicit image", function()
             local name, overlay = images.name_for({kind = "folder"})
             test.eq(name, "folder")
             test.is_nil(overlay)
@@ -62,7 +63,7 @@ local function define_tests()
             test.is_nil(name)
         end)
 
-        test.it("кладёт значок и накладку ярлыка в растр", function()
+        test.it("puts the icon and the shortcut overlay into a raster", function()
             local gfx = require("gfx")
             local target = gfx.raster(64, 64)
             target:fill("#008080")

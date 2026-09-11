@@ -1,5 +1,5 @@
--- Диспетчер задач: модель проверяется прямо — график, история, форматы,
--- раскладка и попадания по вкладкам.
+-- Task Manager: the model is checked directly: graph, history, formats,
+-- layout and hits on tabs.
 
 local test = require("test")
 local model = require("model")
@@ -28,7 +28,7 @@ local function define_tests()
         local function fixture(tab: any): any
             local state: any = {tab = tab, selected_id = nil, heap_history = {}, goroutine_history = {},
                 windows = {{id = "one", title = "Bash", image = "program", ready = true},
-                    {id = "two", title = "Блокнот", image = "text_document", ready = true, minimized = true}},
+                    {id = "two", title = "Notepad", image = "text_document", ready = true, minimized = true}},
                 snapshot = {taken = 1788858300, goroutines = 428, cpu_count = 8, max_procs = 8, pid = "1", hostname = "host",
                     memory = {alloc = 100, heap_in_use = 200, heap_sys = 300, heap_released = 10, num_gc = 5},
                     processes = {}, hosts = {{id = "app:processes", workers = 4, processes = 64, executed = 1000}}}}
@@ -58,7 +58,7 @@ local function define_tests()
                                     local r = item.rect
                                     test.is_true(r.x + r.w <= b.rect.x or b.rect.x + b.rect.w <= r.x
                                         or r.y + r.h <= b.rect.y or b.rect.y + b.rect.h <= r.y,
-                                        "пересечение " .. tostring(item.node.kind) .. "/" .. tostring(b.node.kind) .. " на вкладке " .. tab)
+                                        "overlap " .. tostring(item.node.kind) .. "/" .. tostring(b.node.kind) .. " on tab " .. tab)
                                 end
                             end
                         end
@@ -76,11 +76,11 @@ local function define_tests()
             test.eq(state.selected_id, "p80")
             table.remove(state.snapshot.processes, 1)
             local plan = ui.plan(taskman.definition.view(state, context), 76, 25, ui.interaction())
-            test.eq(plan.by_id.procs.node.selected, 79, "после сдвига строк выделен тот же процесс")
+            test.eq(plan.by_id.procs.node.selected, 79, "after the rows shift the same process is selected")
             state.snapshot.processes = {{pid = "new", source = "x", state = "waiting", steps = 1}}
             plan = ui.plan(taskman.definition.view(state, context), 76, 25, ui.interaction())
-            test.eq(plan.by_id.procs.node.selected, 0, "исчезнувший процесс не выделяет чужую строку")
-            test.eq(taskman.definition.update(state, {type = "key", key_type = "runes", key = "x"}, context), false, "чужая клавиша не перерисовывает")
+            test.eq(plan.by_id.procs.node.selected, 0, "a vanished process does not select another row")
+            test.eq(taskman.definition.update(state, {type = "key", key_type = "runes", key = "x"}, context), false, "an unrelated key does not redraw")
         end)
         test.it("opens the real native window, handles tabs and refresh, and keeps sampling", function()
             local replies = process.listen("desktop.reply", {message = true})
@@ -135,14 +135,14 @@ local function define_tests()
             frame = receive(frames, function(value) return active(value) == 1 end)
             local apps = plan_of(frame).by_id.apps
             test.is_true(#apps.node.rows > 0)
-            test.is_true(tostring(apps.node.rows[1].cells[1]):find("Task Manager", 1, true) ~= nil, "окно видит себя в списке задач")
+            test.is_true(tostring(apps.node.rows[1].cells[1]):find("Task Manager", 1, true) ~= nil, "the window sees itself in the task list")
             assert(view:send({type = "key", action = "press", key_type = "runes", key = "q", ctrl = true}))
             process.terminate(pid)
             view:close()
         end)
     end)
-    test.describe("история и график", function()
-        test.it("держит историю не длиннее потолка, старое уходит первым", function()
+    test.describe("history and graph", function()
+        test.it("keeps the history no longer than the cap, the oldest goes first", function()
             local history = {}
             for value = 1, 10 do history = model.push(history, value, 4) end
             test.eq(#history, 4)
@@ -150,26 +150,26 @@ local function define_tests()
             test.eq(history[4], 10)
         end)
 
-        test.it("рисует столбцы снизу вверх, последнее измерение справа", function()
+        test.it("draws columns bottom up, the latest measurement on the right", function()
             local rows, top = model.graph({0, 4, 8}, 3, 1, 8)
             test.eq(top, 8)
             test.eq(#rows, 1)
             test.eq(rows[1], " ▄█")
         end)
 
-        test.it("делит высокий столбец на строки: полные снизу, дробная сверху", function()
+        test.it("splits a tall column into lines: full ones at the bottom, the fractional one on top", function()
             local rows = model.graph({12}, 1, 2, 16)
-            -- 12 из 16 при двух строках по 8: нижняя полная, верхняя наполовину.
+            -- 12 of 16 with two lines of 8: the bottom one full, the top one half.
             test.eq(rows[2], "█")
             test.eq(rows[1], "▄")
         end)
 
-        test.it("недостающие измерения слева — пустота, а не ноль", function()
+        test.it("missing measurements on the left are blank, not zero", function()
             local rows = model.graph({5}, 4, 1, 5)
             test.eq(rows[1], "   █")
         end)
 
-        test.it("потолок круглый и не ниже максимума", function()
+        test.it("the ceiling is round and not below the maximum", function()
             test.eq(model.round_ceiling(7), 10)
             test.eq(model.round_ceiling(23), 25)
             test.eq(model.round_ceiling(100), 100)
@@ -181,22 +181,22 @@ local function define_tests()
         end)
     end)
 
-    test.describe("форматы", function()
-        test.it("память в мегабайтах, время работы часами", function()
+    test.describe("formats", function()
+        test.it("memory in megabytes, uptime in hours", function()
             test.eq(model.megabytes(670 * 1024 * 1024), "670 MB")
             test.eq(model.megabytes(512 * 1024), "0.5 MB")
             test.eq(model.uptime(8 * 60 + 21), "0:08:21")
             test.eq(model.uptime(3 * 86400 + 4 * 3600 + 15 * 60 + 2), "3d 04:15:02")
         end)
 
-        test.it("секунды из числа любой размерности", function()
+        test.it("seconds from a number of any unit", function()
             local now = 1788850000
             test.eq(model.epoch_seconds(now), now)
             test.eq(math.floor(model.epoch_seconds(now * 1000)), now)
             test.eq(math.floor(model.epoch_seconds(now * 1e9)), now)
         end)
 
-        test.it("процессы отсортированы устойчиво, по записи и pid", function()
+        test.it("processes are sorted stably, by entry and pid", function()
             local rows = model.processes({
                 {pid = "b", source = "app:z", state = "running", steps = 5, started_at = 1788850000},
                 {pid = "a", source = "app:a", state = "waiting", steps = 9, started_at = 1788849000},
@@ -218,7 +218,7 @@ local function define_tests()
             return out
         end
 
-        test.it("отказ по правам назван, а не превращён в ноль или «unavailable»", function()
+        test.it("a permission denial is named, not turned into zero or \"unavailable\"", function()
             local function denied(what: string): any
                 return function()
                     return nil, errors.new({message = "permission denied: system.read on " .. what, kind = errors.INVALID})
@@ -236,25 +236,25 @@ local function define_tests()
                 raft = {role = absent},
             }
             local snap: any = taskman.definition.snapshot(fake)
-            test.is_nil(snap.goroutines, "не прочитали — не ноль")
+            test.is_nil(snap.goroutines, "not read is not zero")
             local state: any = {tab = 4, selected_id = nil, heap_history = {}, goroutine_history = {},
                 windows = {}, snapshot = snap}
             local node_page = table.concat(strings_of(taskman.definition.view(state, {width = 76, height = 25}), {}), "\n")
             test.is_true(node_page:find("node name: permission denied: system.read on node", 1, true) ~= nil, node_page)
             test.is_true(node_page:find("leader: unavailable (raft not available)", 1, true) ~= nil)
-            test.is_nil(node_page:find("\nunavailable\n", 1, true), "голого «unavailable» нет")
+            test.is_nil(node_page:find("\nunavailable\n", 1, true), "no bare \"unavailable\"")
             state.tab = 3
             local charts_page = table.concat(strings_of(taskman.definition.view(state, {width = 76, height = 25}), {}), "\n")
             test.is_true(charts_page:find("memory: permission denied: system.read on memory", 1, true) ~= nil,
-                "над графиками — причина")
+                "the reason is above the graphs")
         end)
     end)
 
 end
 
--- Форма раннера — как у shell_test. `return {run = run}` с describe внутри
--- run считался и был зелёным, НЕ выполняя ни одной проверки: мутация
--- round_ceiling(7) == 999 проходила. Проверка, которую никто не запускает,
--- хуже отсутствующей — на неё ссылаются.
+-- The runner form is the same as in shell_test. `return {run = run}` with
+-- describe inside run was counted and was green while NOT executing a single
+-- check: the mutation round_ceiling(7) == 999 passed. A check nobody runs is
+-- worse than a missing one: people refer to it.
 local run_cases = test.run_cases(define_tests)
 return {run = function(options) return run_cases(options) end}

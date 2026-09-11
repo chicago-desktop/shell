@@ -1,11 +1,11 @@
--- Модель просмотрщика реестра — чистая: дерево из записей, видимые строки,
--- поля записи. Ни одного обращения в реестр: записи приходят списком, и
--- то, что здесь построено, проверяется тестом без рантайма.
+-- The registry viewer model, pure: a tree from entries, visible rows, entry
+-- fields. Not a single call to the registry: entries arrive as a list, and
+-- what is built here is checked by a test without the runtime.
 --
--- Дерево — это `namespace:name`. Пространство `butschster.windows.shell`
--- раскладывается по точкам в папки, запись становится листом внутри
--- последней. Ровно regedit: слева ключи, справа значения, только содержимое
--- настоящее.
+-- The tree is `namespace:name`. The namespace `butschster.windows.shell` is
+-- laid out by dots into folders, and the entry becomes a leaf inside the
+-- last one. Exactly regedit: keys on the left, values on the right, only the
+-- contents are real.
 
 local model = {}
 
@@ -24,11 +24,11 @@ local function split(namespace)
     return parts
 end
 
--- build(records) -> корень дерева
+-- build(records) -> the tree root
 --
--- Папки идут раньше записей, внутри — по алфавиту. Запись без двоеточия в
--- id кладётся в корень как есть: такого быть не должно, но пропасть молча
--- она не имеет права.
+-- Folders come before entries, and within each, alphabetically. An entry
+-- without a colon in its id is put into the root as is: that should not
+-- happen, but it has no right to vanish silently.
 function model.build(records: any): any
     local root = new_folder("", model.ROOT_LABEL)
     for _, record in ipairs(type(records) == "table" and records or {}) do
@@ -66,10 +66,11 @@ function model.build(records: any): any
     return root
 end
 
--- flatten(root, expanded) -> список видимых строк
+-- flatten(root, expanded) -> the list of visible rows
 --
--- Строка знает глубину, есть ли у неё дети, раскрыта ли она и последняя ли
--- она среди братьев — по последнему рисуются линии дерева.
+-- A row knows its depth, whether it has children, whether it is expanded and
+-- whether it is the last among its siblings; the tree lines are drawn from
+-- the last one.
 function model.flatten(root: any, expanded: any): any
     local rows = {}
     local open: any = type(expanded) == "table" and expanded or {}
@@ -93,7 +94,7 @@ function model.flatten(root: any, expanded: any): any
     return rows
 end
 
--- find(root, key) -> узел или nil
+-- find(root, key) -> node or nil
 function model.find(root: any, key: any): any
     if root.key == key then return root end
     for _, child in ipairs(root.children) do
@@ -103,7 +104,7 @@ function model.find(root: any, key: any): any
     return nil
 end
 
--- parent_key(key) -> ключ родителя
+-- parent_key(key) -> the parent's key
 function model.parent_key(key: any): any
     local id = tostring(key or "")
     if id == "" then return nil end
@@ -113,7 +114,7 @@ function model.parent_key(key: any): any
     return upper or ""
 end
 
--- path(key, kind) -> строка статуса, как в regedit: «Реестр\a\b\c»
+-- path(key, kind) -> the status line, as in regedit: "Registry\a\b\c"
 function model.path(key: any): string
     local id = tostring(key or "")
     if id == "" then return model.ROOT_LABEL end
@@ -124,8 +125,8 @@ function model.path(key: any): string
     return table.concat(parts, "\\")
 end
 
--- Значение в одну строку. Многострочный исходник показывается первой
--- строкой с многоточием: поле «Данные» — не редактор.
+-- A value on one line. A multi-line source is shown as its first line with
+-- an ellipsis: the "Data" field is not an editor.
 local function one_line(text: any, limit: any): string
     local s = tostring(text)
     local first = s:match("^([^\n]*)")
@@ -154,10 +155,11 @@ function model.stringify(value: any, encode: any): string
     return "(" .. kind .. ")"
 end
 
--- values(node, encode) -> строки правой панели {name, data, icon}
+-- values(node, encode) -> rows of the right pane {name, data, icon}
 --
--- У записи: вид, затем meta по алфавиту, затем data по алфавиту. У папки —
--- «(По умолчанию)» без значения, как в regedit у ключа без значений.
+-- For an entry: the kind, then meta alphabetically, then data
+-- alphabetically. For a folder: "(Default)" with no value, as regedit shows
+-- for a key without values.
 function model.values(node: any, encode: any): any
     if type(node) ~= "table" or node.kind ~= "entry" then
         local count = type(node) == "table" and #node.children or 0

@@ -1,12 +1,13 @@
--- Арифметика калькулятора — чистая, без экрана и без рантайма.
+-- Calculator arithmetic: pure, with no screen and no runtime.
 --
--- Считает как настольный калькулятор Windows 95 в обычном виде, а не как
--- выражение: операция применяется к накопленному сразу, поэтому 2 + 3 × 4
--- даёт 20. Так ведут себя кнопки, и человек, нажимающий их, ждёт именно
--- этого.
+-- It computes like the Windows 95 desktop calculator in standard view, not
+-- like an expression: an operation is applied to the accumulated value
+-- immediately, so 2 + 3 × 4 gives 20. That is how the buttons behave, and a
+-- person pressing them expects exactly that.
 --
--- Кнопки названы идентификаторами, а не подписями: подпись — дело раскладки
--- и красок, и «×» на кнопке не обязан совпадать с символом клавиши.
+-- Buttons are named by identifiers, not by captions: the caption is a matter
+-- of layout and paint, and the "×" on a button does not have to match the
+-- key character.
 
 local engine = {}
 
@@ -14,18 +15,18 @@ engine.LIMIT = 15
 
 function engine.new(): any
     return {
-        entry = "0",      -- то, что набирается сейчас
-        acc = nil,        -- накопленное значение
-        op = nil,         -- отложенная операция
-        fresh = true,     -- следующая цифра начинает новый ввод
-        failed = false,   -- отказ (деление на ноль): до сброса
-        memory = nil,     -- память M
-        pressed = nil,    -- последняя нажатая кнопка, для подсветки
+        entry = "0",      -- what is being typed now
+        acc = nil,        -- accumulated value
+        op = nil,         -- pending operation
+        fresh = true,     -- the next digit starts a new entry
+        failed = false,   -- failure (division by zero): until reset
+        memory = nil,     -- memory M
+        pressed = nil,    -- the last pressed button, for highlighting
     }
 end
 
--- Число показывается так, как его написал бы человек: целое без хвоста,
--- дробное — без мусора двоичного представления.
+-- A number is shown the way a person would write it: an integer without a
+-- tail, a fraction without the garbage of binary representation.
 function engine.format(value: any): string
     local number = tonumber(value)
     if number == nil then return "0" end
@@ -37,8 +38,9 @@ function engine.format(value: any): string
     return (string.format("%.12g", number))
 end
 
--- Табло: у целого — точка в конце, как рисует Windows 95 («0.»). Отказ —
--- фразой, без точки: точка после «Деление на ноль» читается как опечатка.
+-- The display: an integer gets a dot at the end, as Windows 95 draws it
+-- ("0."). A failure is a phrase, with no dot: a dot after "Cannot divide by
+-- zero" reads as a typo.
 function engine.display(state: any): string
     local entry = tostring(state.entry or "0")
     if state.failed then return entry end
@@ -78,8 +80,9 @@ function engine.press(state: any, id: any): any
         return fresh_state
     end
 
-    -- После отказа работают только сброс и полный сброс: продолжать считать
-    -- от «деления на ноль» значит выдать число, которого не было.
+    -- After a failure only clear entry and full clear work: continuing to
+    -- compute from a "division by zero" means producing a number that never
+    -- existed.
     if id == "ce" then
         state.entry, state.fresh, state.failed = "0", true, false
         return state
@@ -140,7 +143,7 @@ function engine.press(state: any, id: any): any
     end
 
     if id == "pct" then
-        -- Процент от накопленного, как в Windows 95: 50 + 10 % даёт 5.
+        -- Percent of the accumulated value, as in Windows 95: 50 + 10 % gives 5.
         local base = state.acc or 0
         state.entry, state.fresh = engine.format(base * value / 100), true
         return state
@@ -169,8 +172,9 @@ function engine.press(state: any, id: any): any
     end
 
     if BINARY[id] then
-        -- Операция: сначала досчитывается накопленное, потом запоминается
-        -- новая. Две операции подряд без ввода — замена, а не пересчёт.
+        -- Operation: first the accumulated value is completed, then the new
+        -- one is remembered. Two operations in a row without input are a
+        -- replacement, not a recalculation.
         if state.op and state.acc and not state.fresh then
             local result = apply(state.acc, state.op, value)
             if result == nil then return fail(state, "Cannot divide by zero") end
@@ -186,8 +190,8 @@ function engine.press(state: any, id: any): any
     return state
 end
 
--- Клавиша с клавиатуры отображается в ту же кнопку, что и щелчок: одна
--- таблица поведения на оба способа ввода.
+-- A keyboard key maps to the same button as a click: one behaviour table
+-- for both ways of input.
 function engine.key(event: any): any
     if type(event) ~= "table" then return nil end
     local kind = event.key_type

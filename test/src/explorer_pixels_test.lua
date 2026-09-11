@@ -49,12 +49,12 @@ local function define_tests()
             local frames = process.listen("explorer.painted", {message = true})
             local desk = boot("pixels")
             send(desk, "desktop.open", {entry = "butschster.windows.explorer:window", x = 5, y = 4, w = 22, h = 14})
-            -- Пять размещений: меню, панель, адресная строка, поле, статус.
+            -- Five placements: menu, toolbar, address bar, field, status.
             local shown = receive(frames, function(value) return value.clients == 5 end)
             test.eq(shown.image, "my_computer")
             test.eq(shown.content, "pixels")
             test.eq(shown.width, 20)
-            -- Заголовок в одну строку: клиенту достаётся на строку больше.
+            -- A one-row title: the client gets one row more.
             test.eq(shown.height, 12)
             test.eq(shown.offset, 0)
             test.not_nil(shown.scroll, "the test viewport must require scrolling")
@@ -69,7 +69,7 @@ local function define_tests()
             shown = receive(frames, function(value) return value.clients == 5 end)
             desk.view:send({type = "mouse", action = "wheel", button = "wheel_down", x = shown.hits.cells[1].from + shown.x, y = shown.hits.cells[1].top + shown.y})
             shown = receive(frames, function(value) return value.offset == 1 end)
-            -- Стрелка вверх — нижняя правая ячейка её строк у верха полосы.
+            -- The up arrow is the bottom right cell of its rows at the top of the bar.
             local bar = shown.scroll
             click(desk, bar.x + (bar.w or 1) - 1 + shown.x, bar.y + (bar.arrow_rows or 1) - 1 + shown.y)
             shown = receive(frames, function(value) return value.offset == 0 end)
@@ -97,8 +97,8 @@ local function define_tests()
             desk.view:close()
         end)
 
-        -- Каждый пункт строки меню что-то делает: строки меню без попаданий
-        -- (было до 2026-09-11) — это слова, по которым щёлкают впустую.
+        -- Every item of the menu bar does something: menu rows without hits
+        -- (as it was until 2026-09-11) are words that get clicked in vain.
         test.it("runs every item of the menu bar it draws", function()
             local frames = process.listen("explorer.painted", {message = true})
             local replies = process.listen("desktop.reply", {message = true})
@@ -136,7 +136,7 @@ local function define_tests()
             pick("Go", "forward", function(value) return value.path == drive end)
             pick("Go", "up", function(value) return value.path == "" end)
 
-            -- Refresh перечитывает папку, и выбор снимается: так его видно.
+            -- Refresh re-reads the folder, and the selection is cleared: that is how it is visible.
             test.is_true(#shown.hits.cells >= 2, "the root shows at least two objects")
             local other = shown.hits.cells[#shown.hits.cells]
             click(desk, other.from + shown.x, other.top + shown.y)

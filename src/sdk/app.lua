@@ -1,23 +1,23 @@
 -- Owns the event loop and transport; applications own only data and actions.
 --
--- Что цикл гарантирует приложению:
---   * ошибка во `view` или `update` не рвёт окно: она становится видимым
---     состоянием (текст ошибки и кнопка «Закрыть»), `dispose` и закрытие
---     транспорта выполняются всё равно;
---   * отказ композитора на публикацию кадра или закрытие — не смерть окна;
---   * кроме событий ввода и таймера приложение может слушать свои каналы
---     (`context.watch(ch)`), и ответ приходит действием `{type = "channel"}`;
---   * клавиша, которую не взял ни один компонент, доходит действием
---     `{type = "key"}` — так закрываются по Esc и обновляются по F5;
---   * `close` доставляется действием до выхода из цикла.
+-- What the loop guarantees to the application:
+--   * an error in `view` or `update` does not tear the window down: it becomes
+--     visible state (the error text and a "Close" button), and `dispose` and
+--     closing the transport still run;
+--   * the compositor refusing to publish a frame or to close is not the death of the window;
+--   * besides input events and the timer, the application can listen to its own channels
+--     (`context.watch(ch)`), and the answer arrives as the action `{type = "channel"}`;
+--   * a key that no component took arrives as the action
+--     `{type = "key"}` — that is how windows close on Esc and refresh on F5;
+--   * `close` is delivered as an action before the loop exits.
 --
--- Изменяемое состояние цикла живёт в ТАБЛИЦЕ `loop`, а не в локальных
--- переменных, и это не стиль. В go-lua (wippy 0.3.35a) после первой ошибки,
--- пойманной pcall, присваивание внешней переменной из замыкания перестаёт
--- быть видно владельцу: `draw` клал новый план, а цикл читал старый, и
--- нажатие по запасному дереву искало кнопку в дереве приложения.
--- Проверено тестом: `local v = 1; local function bump() v = v + 1 end;
--- pcall(error); bump()` — снаружи v == 1. Поле таблицы такого не знает.
+-- The loop's mutable state lives in the TABLE `loop`, not in local
+-- variables, and this is not a matter of style. In go-lua (wippy 0.3.35a), after the first error
+-- caught by pcall, an assignment to an outer variable from a closure stops
+-- being visible to the owner: `draw` stored a new plan, the loop read the old one, and
+-- a press on the fallback tree looked for the button in the application's tree.
+-- Verified by a test: `local v = 1; local function bump() v = v + 1 end;
+-- pcall(error); bump()` — from outside v == 1. A table field does not have this problem.
 local channel = require("channel")
 local tty = require("tty")
 local time = require("time")
@@ -26,9 +26,9 @@ local ui = require("ui")
 local cells = require("cells")
 local app = {}
 
--- Дерево, которое показывается вместо упавшего приложения. Окно без него
--- либо исчезало (и человек не узнавал почему), либо застывало на последнем
--- кадре и выглядело живым.
+-- The tree shown in place of a crashed application. Without it the window
+-- either vanished (and the person never learned why) or froze on its last
+-- frame and looked alive.
 local function failure_tree(reason: any): any
     return {kind = "column", padding = 1, gap = 1, children = {
         {kind = "label", size = 1, text = "Window stopped: application error"},
@@ -54,8 +54,8 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
     local context: any = {args = args, width = width, height = height, native = native, closing = false,
         failure = nil, window_id = window_id}
     function context.close() context.closing = true end
-    -- Свой канал приложения: ответ композитора на `desktop.replies()`,
-    -- подписка, таймер запроса. Сработавший канал приходит действием
+    -- The application's own channel: the compositor's answer on `desktop.replies()`,
+    -- a subscription, a request timer. A channel that fired arrives as the action
     -- `{type = "channel", channel = ch, value = ..., ok = ...}`.
     function context.watch(ch: any)
         for _, known in ipairs(loop.watched) do if known == ch then return end end
@@ -80,7 +80,7 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
     local interaction = ui.interaction()
 
     local function draw()
-        -- Запасное дерево уже было на экране — значит, повторять нечего.
+        -- The fallback tree was already on screen, so there is nothing to repeat.
         local failed_before = context.failure ~= nil
         local tree: any = nil
         if not context.failure then tree = guarded("view", definition.view, model, context) end
@@ -88,24 +88,24 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
         local ok, built = pcall(ui.plan, tree, context.width, context.height, interaction)
         if ok then loop.plan = built
         else
-            -- Дерево не раскладывается (дубль id, неизвестный kind) — это тоже
-            -- ошибка приложения, и она обязана быть видна.
+            -- The tree does not lay out (duplicate id, unknown kind) — this is also
+            -- an application error, and it must be visible.
             context.failure = "plan: " .. tostring(built)
             loop.plan = ui.plan(failure_tree(context.failure), context.width, context.height, interaction)
         end
         loop.revision = loop.revision + 1
         if native then
-            -- `definition.title` — заголовок окна, если он не тот, что у пункта
-            -- меню («Run…» в «Пуске», «Run» на окне). Строка или функция от
-            -- модели; пусто — заголовок записи, как раньше.
+            -- `definition.title` is the window title when it differs from the menu
+            -- item's ("Run…" in "Start", "Run" on the window). A string or a function of the
+            -- model; empty means the entry's title, as before.
             local title: any = definition.title
             if type(title) == "function" then title = guarded("title", title, model, context) end
             desktop.publish_state(window_id, {sdk = 1, revision = loop.revision, ui = tree, interaction = interaction,
                 title = type(title) == "string" and title ~= "" and title or nil})
         else
-            -- Кадр ячейками — тоже код, зависящий от дерева приложения. Кадр,
-            -- который не собрался, уводит окно в запасное дерево, а не выносит
-            -- ошибку мимо `dispose` и `tty.stop`, оставив терминал без курсора.
+            -- A frame in cells is also code that depends on the application's tree. A frame
+            -- that failed to build sends the window to the fallback tree instead of carrying
+            -- the error past `dispose` and `tty.stop` and leaving the terminal without a cursor.
             local shown = guarded("draw", function()
                 surface:present(cells.rows(loop.plan, interaction, context.width, context.height),
                     {cursor = {x = 1, y = 1, visible = false}})
@@ -123,7 +123,7 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
         end
         if not definition.update then return true end
         local verdict = guarded("update", definition.update, model, action, context)
-        -- `update` может вернуть false: «ничего не изменилось, не рисуй».
+        -- `update` may return false: "nothing changed, do not draw".
         return verdict ~= false
     end
 
@@ -142,10 +142,10 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
             timer = time.after(definition.interval)
             redraw = dispatch(action)
         elseif picked.channel == events then
-            -- Разбор события и `ui.event` — под той же охраной, что `update`:
-            -- мусорное событие или ошибка в разборе дерева иначе рвали цикл
-            -- мимо `dispose`, `desktop.close` и `tty.stop`. Не разобралось —
-            -- пустое событие, и следующий кадр — запасное дерево.
+            -- Parsing the event and `ui.event` run under the same guard as `update`:
+            -- otherwise a garbage event or an error while walking the tree tore the loop
+            -- down past `dispose`, `desktop.close` and `tty.stop`. If it did not parse, it is
+            -- an empty event, and the next frame is the fallback tree.
             local event: any = guarded("input", function()
                 return native and desktop.input_event(picked.value) or desktop.normalize_event(picked.value)
             end) or {}
@@ -159,7 +159,7 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
                 action = {type = "resize", width = context.width, height = context.height}
             else
                 action = guarded("event", ui.event, loop.plan, interaction, event)
-                -- Клавиша, не взятая компонентом, — приложению: Esc, F5, Ctrl+S.
+                -- A key no component took goes to the application: Esc, F5, Ctrl+S.
                 if action == nil and event.type == "key" and event.action ~= "release" then
                     action = {type = "key", key = event.key, key_type = event.key_type,
                         alt = event.alt, ctrl = event.ctrl, shift = event.shift}
@@ -167,16 +167,16 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
             end
             redraw = dispatch(action)
         else
-            -- Свой канал приложения. Закрытый канал отписывается сам: иначе
-            -- `select` возвращался бы на нём без конца.
+            -- The application's own channel. A closed channel unsubscribes itself: otherwise
+            -- `select` would keep returning on it forever.
             if not picked.ok then context.unwatch(picked.channel) end
             redraw = dispatch({type = "channel", channel = picked.channel, value = picked.value, ok = picked.ok})
         end
         if not context.closing and redraw then draw() end
     end
     if definition.dispose then pcall(definition.dispose, model, context) end
-    -- Закрытие — просьба, а не утверждение: композитор мог закрыть окно сам,
-    -- и второй запрос ему отвечать не о чем.
+    -- Closing is a request, not an assertion: the compositor may have closed the window itself,
+    -- and it has nothing to answer to a second request.
     if native then desktop.close(window_id) else pcall(tty.stop) end
 end
 return app

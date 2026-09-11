@@ -1,16 +1,17 @@
--- Оболочка целиком, поднятая в тесте.
+-- The whole shell, brought up in a test.
 --
--- Экран у неё настоящий, только не терминал, а viewport, выданный тестом.
--- Полтора дня здесь считалось, что механику без настоящего терминала не
--- проверить, — неверно, и вот цена этого заблуждения: команда
--- `desktop.refresh`, которую ручки раскладки шлют ПОСЛЕ каждой правки, не
--- выполнялась в основе НИКОГДА. Она попадала в ветку «нет такого окна»,
--- потому что окна не называет, и молча ничего не делала. Снаружи это выглядит
--- как «значок появляется только после перезапуска» — то есть как дефект
--- раскладки, а не как несработавшая команда.
+-- Its screen is real, only not a terminal but a viewport issued by the test.
+-- For a day and a half it was believed here that the mechanics cannot be
+-- checked without a real terminal — wrong, and here is the price of that
+-- misconception: the `desktop.refresh` command, which the layout handlers
+-- send AFTER every edit, was NEVER executed in the base. It landed in the
+-- "no such window" branch, because it does not name a window, and silently
+-- did nothing. From outside this looks like "the icon appears only after a
+-- restart" — that is, like a layout defect, not like a command that did not
+-- fire.
 --
--- Поэтому здесь проверяется не форма реестра, а сама цепочка: строка
--- записана — оболочка толкнута — оболочка перечитала.
+-- So what is checked here is not the shape of the registry but the chain
+-- itself: the row is written — the shell is pushed — the shell re-read.
 local test = require("test")
 local channel = require("channel")
 local control = require("control")
@@ -19,24 +20,24 @@ local repo = require("repo")
 local time = require("time")
 local tty = require("tty")
 
--- Поднять оболочку и дождаться, когда она зарегистрируется под своим именем.
--- Ждём ИМЕНИ, а не времени: имя появляется, когда оболочка готова принимать
--- команды, а сон наугад даёт то ложное падение, то тест, который «иногда
--- проходит».
+-- Bring up the shell and wait until it registers under its name.
+-- We wait for the NAME, not for time: the name appears when the shell is
+-- ready to accept commands, while a sleep at random gives now a false
+-- failure, now a test that "sometimes passes".
 local function boot_shell()
     local view = tty.viewport({width = 90, height = 26})
-    test.not_nil(view, "viewport не создался")
+    test.not_nil(view, "the viewport was not created")
     local grant = view:grant()
-    test.not_nil(grant, "грант на viewport не выдался")
+    test.not_nil(grant, "the viewport grant was not issued")
 
-    -- Запись настоящая, а не копия оболочки для теста: копия разошлась бы с
-    -- оригиналом на первой правке, и проверялась бы не та оболочка, которая
-    -- поднимается на стенде. Имя службы она берёт себе сама — то же, которое
-    -- ищет `control`.
+    -- The entry is real, not a copy of the shell for the test: a copy would
+    -- diverge from the original on the first edit, and what would be checked
+    -- is not the shell that comes up on the stand. It takes the service name
+    -- for itself — the same one `control` looks for.
     local pid, err = process.with_options({terminal = grant})
         :spawn_monitored("butschster.windows:shell", "app:processes", "test")
     test.is_nil(err)
-    test.not_nil(pid, "оболочка не запустилась")
+    test.not_nil(pid, "the shell did not start")
 
     local deadline = time.now():unix_nano() + 15000000000
     while time.now():unix_nano() < deadline do
@@ -45,30 +46,32 @@ local function boot_shell()
         end
         channel.select({time.after("100ms"):case_receive()})
     end
-    test.is_true(false, "оболочка не зарегистрировалась под именем " .. control.SERVICE_NAME)
+    test.is_true(false, "the shell did not register under the name " .. control.SERVICE_NAME)
     return {pid = pid, view = view}
 end
 
 local function define_tests()
     test.describe("butschster.windows shell alive", function()
-        test.it("перечитывает раскладку по команде ручки", function()
+        test.it("re-reads the layout on a handler's command", function()
             local shell: any = boot_shell()
 
-            -- Первый заход не измеряет, а заводит мебель: оболочка ставит
-            -- «Мой компьютер» и папку «Программы» при первом чтении, и
-            -- считать до него значило бы мерить два разных стола.
+            -- The first pass does not measure but creates the furniture: the
+            -- shell puts out "My Computer" and the "Programs" folder on the
+            -- first read, and counting before it would mean measuring two
+            -- different desktops.
             local first, ferr = control.call("desktop.refresh", {})
-            test.is_nil(ferr, "оболочка обязана отвечать на desktop.refresh")
-            test.not_nil(first, "команда, которая не выполняется, отвечает молчанием")
-            test.is_nil(first.failure, "раскладка обязана читаться")
+            test.is_nil(ferr, "the shell must answer desktop.refresh")
+            test.not_nil(first, "a command that does not run answers with silence")
+            test.is_nil(first.failure, "the layout must be readable")
 
             local before = first.items
-            test.not_nil(before, "ответ обязан называть, сколько строк прочитано")
+            test.not_nil(before, "the answer must say how many rows were read")
 
-            -- Ровно то, что делает человек ручкой PATCH: строка записана в
-            -- базу, и без толчка оболочка о ней не узнает до перезапуска.
+            -- Exactly what a person does with the PATCH handler: the row is
+            -- written to the database, and without a push the shell will not
+            -- learn about it until a restart.
             local item, cerr = repo.create({
-                kind = repo.KIND_FOLDER, title = "Проба перечитывания",
+                kind = repo.KIND_FOLDER, title = "Re-read probe",
             })
             test.is_nil(cerr)
             test.not_nil(item)
@@ -76,30 +79,32 @@ local function define_tests()
             local after, aerr = control.call("desktop.refresh", {})
             test.is_nil(aerr)
             test.eq(after.items, before + 1,
-                "перечитанная раскладка обязана нести только что записанную строку")
+                "the re-read layout must carry the row just written")
 
-            -- И то же самое глазами ручки: она обязана СКАЗАТЬ, что толчок
-            -- дошёл. Пока команда молча не выполнялась, здесь стояло
-            -- refreshed = false с причиной «нет окна nil» — то есть ручка
-            -- отправляла человека искать опечатку в идентификаторе, которого
-            -- он не посылал.
+            -- And the same through the handler's eyes: it must SAY that the
+            -- push got through. While the command was silently not running,
+            -- this read refreshed = false with the reason "no window nil" —
+            -- that is, the handler sent the person looking for a typo in an
+            -- identifier they had not sent.
             local reported = control.refresh()
             test.is_true(reported.refreshed,
-                "ручка обязана сообщить, что оболочка перечитала: " ..
+                "the handler must report that the shell re-read: " ..
                 tostring(reported.reason))
 
             repo.delete(item.id)
             process.terminate(tostring(shell.pid))
         end)
 
-        test.it("не выдаёт погашенную оболочку за отказ", function()
-            -- Раскладку можно править и при погашенной оболочке, и называть
-            -- это отказом нельзя: ручка вернула бы ошибку на успешную запись.
+        test.it("does not pass off a stopped shell as a failure", function()
+            -- The layout can be edited while the shell is stopped too, and
+            -- calling that a failure is not allowed: the handler would return
+            -- an error for a successful write.
             --
-            -- Оболочку гасит САМ этот случай, а не предыдущий. Проверка,
-            -- опирающаяся на уборку соседа, краснеет вместе с ним и врёт про
-            -- причину: упал бы предыдущий — здесь читалось бы «погашенная
-            -- оболочка выдаётся за отказ», чего не происходило.
+            -- The shell is stopped by THIS case itself, not by the previous
+            -- one. A check that relies on the neighbor's cleanup goes red
+            -- together with it and lies about the reason: had the previous
+            -- one failed, this one would read "a stopped shell is passed off
+            -- as a failure", which did not happen.
             local running = process.registry.lookup(control.SERVICE_NAME)
             if running then process.terminate(tostring(running)) end
 
@@ -109,12 +114,12 @@ local function define_tests()
                 channel.select({time.after("100ms"):case_receive()})
             end
             test.is_nil(process.registry.lookup(control.SERVICE_NAME),
-                "оболочка обязана погаснуть")
+                "the shell must stop")
 
             local reported = control.refresh()
             test.is_false(reported.refreshed)
             test.is_true(reported.reason:find("is not running", 1, true) ~= nil,
-                "причина обязана отличать погашенную оболочку от отказа")
+                "the reason must tell a stopped shell from a failure")
         end)
     end)
 end

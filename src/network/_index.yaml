@@ -13,17 +13,18 @@ entries:
   - name: model
     kind: library.lua
     meta:
-      comment: Чистая модель сетевого окружения — снимок членства в строки таблицы, роли, подписи и статусную строку.
+      comment: The pure model of Network Neighborhood — a membership snapshot into table rows, roles, captions and the status line.
     source: file://model.lua
 
-  # Права: прочитать узел и членство и опубликовать состояние композитору.
-  # `system.read` проверяется ПОИМЁННО по ресурсу, поэтому названы все три
-  # имени: политика с одним `cluster` оставила бы `node` отвечать «permission
-  # denied», а снаружи это неотличимо от «кластера нет».
+  # Permissions: read the node and the membership and publish state to the
+  # compositor. `system.read` is checked BY NAME per resource, so all three
+  # names are listed: a policy with only `cluster` would leave `node`
+  # answering "permission denied", and from outside that is
+  # indistinguishable from "there is no cluster".
   - name: window_scope
     kind: security.policy
     meta:
-      comment: Права сетевого окружения — прочитать узел, членство и raft, опубликовать состояние композитору; ничего не менять.
+      comment: Permissions of Network Neighborhood — read the node, the membership and raft, publish state to the compositor; change nothing.
     policy:
       actions:
         - process.context
@@ -41,13 +42,14 @@ entries:
       title: Network Neighborhood
       image: network_neighborhood
       icon: "▩"
-      # Настройка, а не «Программы»: окно показывает устройство системы, как
-      # «Реестр» и «Диспетчер задач», и стоит в том же ряду.
+      # Settings, not "Programs": the window shows how the system is built,
+      # like "Registry" and "Task Manager", and stands in the same row.
       group: Settings
       order: 40
-      # Просьба самой программы вынести ярлык на стол при первом запуске —
-      # в Windows 95 «Сетевое окружение» жило на столе, а не в меню. Отметка
-      # о предложении не снимается: выброшенный значок не возвращается.
+      # The program's own request to put a shortcut on the desktop at the
+      # first start: in Windows 95 "Network Neighborhood" lived on the
+      # desktop, not in the menu. The mark that it was offered is not
+      # cleared: a discarded icon does not come back.
       desktop: true
       window_type: app
       resizable: true
@@ -55,7 +57,7 @@ entries:
       height: 18
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.network:window
-      comment: Сетевое окружение — узлы меша, их адреса, роль и лидер; обновляется раз в две секунды, только чтение.
+      comment: Network Neighborhood — mesh nodes, their addresses, role and leader; refreshes every two seconds, read-only.
     source: file://window.lua
     method: main
     modules:

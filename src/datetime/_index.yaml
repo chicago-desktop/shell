@@ -1,9 +1,10 @@
 version: "1.0"
 namespace: butschster.windows.datetime
 
-# «Свойства: Дата и время» в виде Windows 95, только для чтения — календарь,
-# стрелочные часы, часовой пояс. Диалог на SDK оболочки: календарь и часы —
-# компоненты SDK, своих раскладки, красок и поставщика у окна больше нет.
+# "Date/Time Properties" in the Windows 95 look, read-only: a calendar, an
+# analog clock, the time zone. A dialog on the shell SDK: the calendar and
+# the clock are SDK components, the window no longer has its own layout,
+# paint and provider.
 
 entries:
   - name: window
@@ -21,7 +22,7 @@ entries:
       height: 22
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.datetime:window
-      comment: Свойства даты и времени в виде Windows 95, только для чтения — календарь, стрелочные часы, часовой пояс; диалог на SDK оболочки.
+      comment: Date and time properties in the Windows 95 look, read-only — a calendar, an analog clock, the time zone; a dialog on the shell SDK.
     source: file://window.lua
     method: main
     modules:

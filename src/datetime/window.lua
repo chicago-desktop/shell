@@ -1,10 +1,11 @@
--- «Дата и время» — диалог на SDK оболочки, вид «Свойства: Дата и время»
--- Windows 95. Только для чтения: крутить нечего, «ОК» и «Отмена»
--- закрывают, «Применить» выключена навсегда.
+-- "Date/Time" is a dialog on the shell SDK, in the look of the Windows 95
+-- "Date/Time Properties". Read-only: there is nothing to turn, "OK" and
+-- "Cancel" close it, "Apply" is disabled for good.
 --
--- Календарь и стрелочные часы — компоненты SDK (`calendar`, `clock`);
--- месяц, год и цифровое время — поля только для чтения. Секунда приходит
--- тиком раз в секунду; если она не сменилась, кадр не перерисовывается.
+-- The calendar and the analog clock are SDK components (`calendar`,
+-- `clock`); month, year and digital time are read-only fields. The second
+-- arrives with a tick once a second; if it has not changed, the frame is not
+-- redrawn.
 local time = require("time")
 local geometry = require("geometry")
 local app = require("app")
@@ -16,8 +17,9 @@ local MONTHS = {
     "July", "August", "September", "October", "November", "December",
 }
 
--- Снимок часов. Календарную арифметику считает модуль time: день 0
--- следующего месяца — это последний день текущего, и високосность с ним.
+-- A snapshot of the clock. The time module does the calendar arithmetic:
+-- day 0 of the next month is the last day of the current one, leap years
+-- included.
 local function snapshot(): any
     local now = time.now():in_local()
     local year, month, day = now:date()

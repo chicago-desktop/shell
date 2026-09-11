@@ -1,26 +1,28 @@
 version: "1.0"
 namespace: butschster.windows.logon
 
-# Вход в систему — «Welcome to Windows» до первого кадра стола.
+# Logon — "Welcome to Windows" before the first desktop frame.
 #
-# Оболочка отдаёт композитору основы функцию `options.logon`; та рисует диалог
-# на том же терминале и возвращает личность пользователя, под которой
-# композитор порождает каждое окно. Кто проверяет пароль, оболочка не знает:
-# приложение называет функцию окружением (BUTSCHSTER_WINDOWS_LOGON_FUNC), и
-# та отвечает токеном сессии, а хранилище токенов (BUTSCHSTER_WINDOWS_TOKEN_STORE)
-# превращает токен обратно в актора и скоуп. Без этих двух имён оболочка
-# поднимается без входа, как раньше: окна под её собственным актором.
+# The shell hands the base compositor the function `options.logon`; it draws
+# a dialog on the same terminal and returns the user identity under which the
+# compositor spawns every window. The shell does not know who checks the
+# password: the application names a function through the environment
+# (BUTSCHSTER_WINDOWS_LOGON_FUNC), and that function answers with a session
+# token, while the token store (BUTSCHSTER_WINDOWS_TOKEN_STORE) turns the
+# token back into an actor and a scope. Without these two names the shell
+# comes up without logon, as before: windows under its own actor.
 
 entries:
   # butschster.windows.logon:screen
   #
-  # Сам диалог: дерево компонентов SDK внутри окна-диалога темы, оба режима
-  # кадра. Своего отрисовщика нет — рамку рисует тема, поля и кнопки —
-  # общий отрисовщик SDK, тот же, что у «Выполнить…».
+  # The dialog itself: an SDK component tree inside the theme's dialog window,
+  # both frame modes. It has no renderer of its own — the frame is drawn by
+  # the theme, the fields and buttons by the shared SDK renderer, the same one
+  # "Run…" uses.
   - name: screen
     kind: library.lua
     meta:
-      comment: Диалог входа на терминале композитора — SDK-дерево в окне-диалоге темы; возвращает личность или причину отказа.
+      comment: Logon dialog on the compositor terminal — an SDK tree in the theme's dialog window; returns an identity or the reason for refusal.
     source: file://screen.lua
     modules:
       - channel
@@ -33,13 +35,14 @@ entries:
 
   # butschster.windows.logon:provider
   #
-  # Личность из логина и пароля. Библиотека получает СВОИ модули, но права —
-  # у процесса оболочки: funcs.call на функцию входа, token_store.get и
-  # token.validate на хранилище — см. security:shell_runtime.
+  # Identity from login and password. The library gets ITS OWN modules, but
+  # the permissions belong to the shell process: funcs.call on the logon
+  # function, token_store.get and token.validate on the store — see
+  # security:shell_runtime.
   - name: provider
     kind: library.lua
     meta:
-      comment: Логин и пароль → функция входа приложения → токен → актор и скоуп из хранилища токенов.
+      comment: Login and password → the application's logon function → token → actor and scope from the token store.
     source: file://provider.lua
     modules:
       - funcs

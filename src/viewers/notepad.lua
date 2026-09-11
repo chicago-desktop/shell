@@ -1,18 +1,20 @@
--- Блокнот — просмотр текстовых файлов с диска реестра.
+-- Notepad — a viewer for text files from a registry drive.
 --
--- Окно в ячейках, как калькулятор: само открывает поверхность своего порта
--- и рисует кадры; рамку, заголовок и кнопки рисует тема. Файл приходит
--- аргументом открытия — строкой, которую собрал проводник через `files`, и
--- читается модулем `fs` под правами самого окна: доступ есть к записи
--- диска, а не к каталогу на машине.
+-- A cell window, like the calculator: it opens the surface of its own port
+-- by itself and draws frames; the frame, title and buttons are drawn by the
+-- theme. The file comes as the open argument — a string the explorer
+-- assembled through `files` — and is read by the `fs` module under the
+-- window's own permissions: access is to the drive entry, not to a directory
+-- on the machine.
 --
--- Только чтение. Блокнот, который умеет писать, — это редактор, и у него
--- другие обязанности: сохранение, спросить перед закрытием, откат. Здесь
--- их нет, и окно этого не скрывает — в статусной строке так и написано.
+-- Read-only. A Notepad that can write is an editor, and it has other duties:
+-- saving, asking before closing, undo. There are none of those here, and the
+-- window does not hide it — the status bar says so outright.
 --
--- Строки не переносятся, как в Windows 95 по умолчанию: длинная строка
--- уезжает вправо, и её прокручивают стрелками. Перенос делал бы из одной
--- строки файла три строки на экране, и номер строки в статусе врал бы.
+-- Lines do not wrap, as in Windows 95 by default: a long line runs off to
+-- the right, and it is scrolled with the arrows. Wrapping would turn one line
+-- of the file into three lines on screen, and the line number in the status
+-- would lie.
 
 local channel = require("channel")
 local input = require("input")
@@ -27,17 +29,18 @@ local LINE_CAP = 4000
 
 local styles = widgets.styles
 
--- Разбить строку на символы UTF-8. Библиотеки `utf8` в Lua рантайма нет —
--- окно с `utf8.codes` умирало на первом кадре, и снаружи это выглядело как
--- «щёлкнул — ничего не открылось».
+-- Split a string into UTF-8 characters. The runtime's Lua has no `utf8`
+-- library — a window using `utf8.codes` died on the first frame, and from
+-- the outside it looked like "clicked — nothing opened".
 local text_lib = require("text")
 local UTF8_CHAR = text_lib.RUNE
 
 local geometry = require("geometry")
 local whole = geometry.whole
 
--- Файл → строки. Табуляция раскрывается пробелами: терминал рисует её сам и
--- по-своему, и колонка, посчитанная здесь, не совпала бы с экраном.
+-- File → lines. Tabs are expanded into spaces: the terminal draws them by
+-- itself and in its own way, and a column counted here would not match the
+-- screen.
 local function split_lines(text: string): {string}
     local lines: {string} = {}
     for line in (text .. "\n"):gmatch("(.-)\n") do
@@ -51,9 +54,9 @@ local function split_lines(text: string): {string}
     return lines
 end
 
--- Отрезать `skip` ячеек слева, отдать не больше `room` ячеек. По символам,
--- а не по байтам: кириллица — два байта на ячейку, и срез по байтам делил
--- бы букву пополам.
+-- Cut `skip` cells off the left, return no more than `room` cells. By
+-- characters, not by bytes: Cyrillic is two bytes per cell, and a cut by
+-- bytes would split a letter in half.
 local function slice(text: any, skip_cells: any, room_cells: any): string
     local line, skip, room = tostring(text or ""), whole(skip_cells), whole(room_cells)
     if room < 1 then return "" end

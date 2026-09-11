@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Собрать combined.lua — пиксельный пробник плюс настоящие файлы примитивов.
+"""Build combined.lua — the pixel probe plus the real primitive files.
 
-Модули склеиваются в один файл нарочно: go-lua в этой сборке не даёт ни
-`dofile`, ни `loadfile`, ни `load`, поэтому загрузить библиотеку с диска
-изнутри Lua нечем. Каждый файл заворачивается в вызов функции — он и так
-кончается `return`, — и кладётся туда, где стояла метка.
+The modules are glued into one file on purpose: go-lua in this build provides
+neither `dofile`, nor `loadfile`, nor `load`, so from inside Lua there is
+nothing to load a library from disk with. Each file is wrapped in a function
+call — it ends in `return` anyway — and put where its marker stood.
 
-Пути считаются от расположения этого файла, а не от текущего каталога:
-пробник запускают и из корня модуля, и из своей папки.
+Paths are computed from the location of this file, not from the current
+directory: the probe is run both from the module root and from its own folder.
 """
 
 import pathlib
 
 HERE = pathlib.Path(__file__).resolve().parent
 SRC = HERE.parent.parent / "src"
-# Порядок важен: каждый файл заворачивается на месте своей метки, а метки в
-# harness.lua идут в порядке зависимостей.
+# Order matters: each file is wrapped in place of its marker, and the markers
+# in harness.lua go in dependency order.
 MODULES = (
     ("core", "scroll"),
     ("shell", "palette"),
@@ -45,11 +45,11 @@ def main() -> None:
     for folder, name in MODULES:
         marker = f'dofile(BASE .. "{folder}/{name}.lua")'
         if marker not in text:
-            raise SystemExit(f"в harness.lua нет метки для {folder}/{name}")
+            raise SystemExit(f"harness.lua has no marker for {folder}/{name}")
         text = text.replace(marker, wrapped(folder, name))
     out = HERE / "combined.lua"
     out.write_text(text, encoding="utf-8")
-    print(f"собрано: {out}")
+    print(f"built: {out}")
 
 
 if __name__ == "__main__":

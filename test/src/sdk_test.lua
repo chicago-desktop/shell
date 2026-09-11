@@ -45,10 +45,10 @@ local widgets = require("widgets")
 local function define_tests()
     test.describe("Window SDK icon grid", function()
         test.it("keeps the same step as the shell icon library", function()
-            -- Две таблицы одного и того же расходятся ровно на тех ключах,
-            -- которые редко нужны обеим. Здесь они обязаны совпадать: SDK
-            -- раскладывает, `shell:icons` рисует, и разъехавшись на ячейку
-            -- они поставили бы попадание не под рисунком.
+            -- Two tables of the same thing diverge exactly on the keys that both
+            -- rarely need. Here they must match: the SDK lays out, `shell:icons` draws,
+            -- and if they drifted apart by a cell they would put the hit somewhere
+            -- other than under the picture.
             local sdk_grid = ui.icon_grid()
             local shell_grid = shell_icons.grid()
             test.eq(sdk_grid.w, shell_grid.w)
@@ -62,28 +62,28 @@ local function define_tests()
             for index = 1, 13 do items[#items + 1] = {id = "n" .. index, title = "node " .. index} end
             local tree: any = {kind = "icons", id = "grid", items = items, selected = 1}
             local state = ui.interaction()
-            -- Три колонки по 12 ячеек и две видимых строки по четыре.
+            -- Three columns of 12 cells and two visible rows of four.
             local plan = ui.plan(tree, 38, 8, state)
             local grid = plan.by_id.grid
-            test.eq(grid.columns, 3, "ширина делится на шаг колонки")
-            test.eq(grid.rows_total, 5, "тринадцать предметов — пять рядов")
-            test.eq(grid.page, 2, "страница считается в РЯДАХ, а не в предметах")
-            test.eq(#grid.cells, 6, "рисуются только видимые ряды")
+            test.eq(grid.columns, 3, "the width is divided by the column step")
+            test.eq(grid.rows_total, 5, "thirteen items make five rows")
+            test.eq(grid.page, 2, "the page is counted in ROWS, not in items")
+            test.eq(#grid.cells, 6, "only the visible rows are drawn")
 
             local first: any = grid.cells[1]
             local picked = ui.event(plan, state, {type = "mouse", action = "press", button = "left",
                 x = first.box.from, y = first.box.top})
             test.eq(picked.type, "select")
             test.eq(picked.index, 1)
-            test.is_true(picked.pointer, "щелчок мышью помечен, чтобы окно узнало двойной")
+            test.is_true(picked.pointer, "a mouse click is marked so that the window can recognize a double click")
 
-            -- Стрелка вниз идёт через ряд, а не к соседнему предмету.
+            -- The down arrow moves by a row, not to the neighboring item.
             state.focus = "grid"
             local moved = ui.event(plan, state, {type = "key", action = "press", key_type = "down"})
-            test.eq(moved.index, 4, "вниз — на ширину колонок")
+            test.eq(moved.index, 4, "down moves by the column width")
 
             local scrolled = ui.plan({kind = "icons", id = "grid", items = items, selected = 13}, 38, 8, state)
-            test.is_true(scrolled.by_id.grid.offset > 0, "выбранный в конце подводится показом")
+            test.is_true(scrolled.by_id.grid.offset > 0, "the item selected at the end is brought into view")
         end)
     end)
 
@@ -98,10 +98,10 @@ local function define_tests()
             }}
             local plan = ui.plan(tree, 40, 6, ui.interaction())
             local ok = plan.by_id.ok.rect
-            test.eq(ok.y + ok.h - 1, 6, "кнопки доходят до последней строки клиента")
-            test.eq(ok.x + ok.w - 1, 39, "справа отступ остаётся")
+            test.eq(ok.y + ok.h - 1, 6, "the buttons reach the last row of the client area")
+            test.eq(ok.x + ok.w - 1, 39, "the right padding stays")
             local same = ui.plan({kind = "column", padding = 1, gap = 0, children = tree.children}, 40, 6, ui.interaction())
-            test.eq(same.by_id.ok.rect.y + same.by_id.ok.rect.h - 1, 5, "без переопределения снизу ячейка отступа")
+            test.eq(same.by_id.ok.rect.y + same.by_id.ok.rect.h - 1, 5, "without an override there is a cell of padding at the bottom")
         end)
 
         test.it("lays out disjoint controls at actual client sizes and clamps after data shrink", function()
@@ -138,8 +138,8 @@ local function define_tests()
             test.eq(state.offsets.items, 1)
             test.is_nil(ui.event(plan, state, {type = "key", key = "page_down", action = "release"}))
             ui.event(plan, state, {type = "mouse", action = "wheel", button = "wheel_down", x = 3, y = 4})
-            -- Колесо считает от СОСТОЯНИЯ (1 после Page Down), а не от плана
-            -- (0): два события без перерисовки не теряют первое.
+            -- The wheel counts from the STATE (1 after Page Down), not from the plan
+            -- (0): two events without a redraw do not lose the first one.
             test.eq(state.offsets.items, 4)
             state.offsets.items = 0
             plan = ui.plan(tree, 20, 10, state)
@@ -180,7 +180,7 @@ local function define_tests()
         end)
         test.it("toggles a checkbox through change actions, skips disabled controls and ignores key release", function()
             local state = ui.interaction()
-            local checkbox = {kind = "checkbox", id = "include", checked = false, text = "Включая вложенные папки"}
+            local checkbox = {kind = "checkbox", id = "include", checked = false, text = "Include subfolders"}
             local tree = {kind = "column", children = {checkbox,
                 {kind = "button", id = "disabled", disabled = true}, {kind = "button", id = "close"}}}
             local plan = ui.plan(tree, 30, 3, state)
@@ -210,41 +210,41 @@ local function define_tests()
             local interaction = ui.interaction()
             local plan = ui.plan(node, 60, 10, interaction)
             local item = plan.by_id.modules
-            test.eq(item.header, 1, "первая строка — заголовок")
-            test.eq(item.page, 9, "страница без заголовка")
+            test.eq(item.header, 1, "the first row is the header")
+            test.eq(item.page, 9, "the page without the header")
             local columns = ui.columns(node, 59)
             test.eq(#columns, 4)
             test.eq(columns[2].w, 8)
             test.eq(columns[3].align, "right")
-            test.eq(columns[4].x + columns[4].w, 59, "колонки заполняют ширину без полосы")
-            test.eq(columns[2].x, columns[1].x + columns[1].w + 1, "между колонками одна ячейка")
-            -- Щелчок по заголовку ничего не выбирает; по первой строке под ним — первую.
+            test.eq(columns[4].x + columns[4].w, 59, "the columns fill the width without the bar")
+            test.eq(columns[2].x, columns[1].x + columns[1].w + 1, "one cell between columns")
+            -- A click on the header selects nothing; a click on the first row below it selects the first one.
             test.is_nil(ui.event(plan, interaction, {type = "mouse", action = "press", button = "left", x = 3, y = 1}))
             local picked = ui.event(plan, interaction, {type = "mouse", action = "press", button = "left", x = 3, y = 2})
             test.eq(picked.type, "select")
             test.eq(picked.index, 1)
             test.eq(picked.value.id, "m1")
-            -- Клавиатура: вниз со второй строки — третья, конец — последняя, сдвиг открывает её.
+            -- Keyboard: down from the second row gives the third, End gives the last, and the offset reveals it.
             interaction.focus = "modules"
             local moved = ui.event(plan, interaction, {type = "key", action = "press", key_type = "down"})
             test.eq(moved.index, 3)
             local last = ui.event(plan, interaction, {type = "key", action = "press", key_type = "end"})
             test.eq(last.index, 30)
-            test.eq(interaction.offsets.modules, 21, "30 строк на странице в 9: сдвиг 21")
-            -- Ячейки: число прижато к правому краю своей колонки, заголовок сверху.
+            test.eq(interaction.offsets.modules, 21, "30 rows on a page of 9: offset 21")
+            -- Cells: the number is pushed to the right edge of its column, the header is on top.
             local lines = cells.rows(ui.plan(node, 60, 10, ui.interaction()), ui.interaction(), 60, 10)
             local function plain(text: any): string return (tostring(text):gsub("\27%[[%d;]*m", "")) end
             local header = plain(lines[1])
             test.is_true(header:find("Module", 1, true) ~= nil and header:find("Size", 1, true) ~= nil, header)
             local first = plain(lines[2])
             local size_col = columns[3]
-            -- Срез по СИМВОЛАМ, не по байтам: «КБ» — четыре байта на две ячейки.
+            -- Slice by CHARACTERS, not bytes: "КБ" is four bytes over two cells.
             local runes = {}
             for char in first:gmatch("[%z\1-\127\194-\244][\128-\191]*") do runes[#runes + 1] = char end
             local cell_text = table.concat(runes, "", size_col.x + 1, size_col.x + size_col.w)
-            -- Одна ячейка отступа справа — как у Проводника; левее текста только пробелы.
-            test.is_true(cell_text:match("^%s+1000 КБ ?$") ~= nil, "размер у правого края: [" .. cell_text .. "]")
-            -- Пиксели: рисуется и переиспользуется, снимок — в test/shots.
+            -- One cell of padding on the right, as in Explorer; only spaces to the left of the text.
+            test.is_true(cell_text:match("^%s+1000 КБ ?$") ~= nil, "the size is at the right edge: [" .. cell_text .. "]")
+            -- Pixels: drawn and reused, the snapshot goes to test/shots.
             local font_files = assert(fs.get("app:system_fonts"))
             local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local state = {sdk = 1, revision = 1, ui = {kind = "column", padding = 1, children = {node}}, interaction = ui.interaction()}
@@ -260,33 +260,33 @@ local function define_tests()
                 return {kind = "column", children = {
                     {kind = "menu", id = "bar", size = 1, entries = {
                         {title = "File", accel = 1, items = {
-                            {id = "open", text = "Открыть", accel = 1},
+                            {id = "open", text = "Open", accel = 1},
                             {separator = true},
                             {id = "quit", text = "Exit", accel = 2},
                         }},
                         {title = "Edit", accel = 1, items = {{id = "copy", text = "Copy"}}},
                     }},
-                    {kind = "tabs", id = "pages", labels = {"General", "Сеть", "Прочее"}, active = active, children = {
-                        {kind = "label", id = nil, text = "страница"},
+                    {kind = "tabs", id = "pages", labels = {"General", "Network", "Other"}, active = active, children = {
+                        {kind = "label", id = nil, text = "page"},
                     }},
-                    {kind = "statusbar", size = 1, fields = {{text = "Готово", width = 12}, {text = "1 объект"}}},
+                    {kind = "statusbar", size = 1, fields = {{text = "Ready", width = 12}, {text = "1 object"}}},
                 }}
             end
             local state = ui.interaction()
             local plan = ui.plan(tree(1), 40, 12, state)
             local tabs = plan.by_id.pages
-            test.eq(tabs.rect.h, 1, "полоса вкладок — одна строка")
-            test.eq(tabs.frame.y, 3, "рамка страницы сразу под полосой")
+            test.eq(tabs.rect.h, 1, "the tab strip is one row")
+            test.eq(tabs.frame.y, 3, "the page frame is right under the strip")
             test.eq(#tabs.spans, 3)
-            test.eq(tabs.spans[2].x, tabs.spans[1].w, "вкладки идут встык")
-            -- Ребёнок лежит внутри рамки, на ячейку от её края.
+            test.eq(tabs.spans[2].x, tabs.spans[1].w, "the tabs go edge to edge")
+            -- The child lies inside the frame, one cell from its edge.
             local child: any = nil
-            for _, item in ipairs(plan.items) do if item.node.text == "страница" then child = item end end
+            for _, item in ipairs(plan.items) do if item.node.text == "page" then child = item end end
             test.not_nil(child)
             test.eq(child.rect.x, 2)
             test.eq(child.rect.y, tabs.frame.y + 1)
-            test.eq(ui.hit(plan, 5, child.rect.y), child, "попадание в страницу — в ребёнка, не во вкладки")
-            -- Щелчок по второй вкладке и стрелка вправо на фокусе.
+            test.eq(ui.hit(plan, 5, child.rect.y), child, "a hit on the page goes to the child, not to the tabs")
+            -- A click on the second tab, and the right arrow on the focused tabs.
             local picked = ui.event(plan, state, {type = "mouse", action = "press", button = "left", x = 2 + tabs.spans[2].x, y = 2})
             test.eq(picked.type, "select")
             test.eq(picked.index, 2)
@@ -294,44 +294,44 @@ local function define_tests()
             plan = ui.plan(tree(2), 40, 12, state)
             local moved = ui.event(plan, state, {type = "key", action = "press", key_type = "right"})
             test.eq(moved.index, 3)
-            -- Меню: заголовок раскрывает, список ложится поверх, строка даёт действие.
+            -- Menu: the title opens it, the list lies on top, a row gives an action.
             local bar = plan.by_id.bar
             test.is_nil(ui.event(plan, state, {type = "mouse", action = "press", button = "left", x = 2, y = 1}))
-            test.eq(state.menus.bar.index, 1, "первый заголовок раскрыт")
+            test.eq(state.menus.bar.index, 1, "the first title is open")
             plan = ui.plan(tree(2), 40, 12, state)
-            test.eq(#plan.overlays, 1, "раскрытый список — поверх")
+            test.eq(#plan.overlays, 1, "the open list is on top")
             local popup = plan.by_id.bar.popup
             test.eq(popup.rect.y, 2)
             test.eq(#popup.rows, 3)
             test.is_true(popup.rows[2].separator)
-            -- Список лежит над вкладками: попадание в его строку — в меню.
+            -- The list lies over the tabs: a hit on its row goes to the menu.
             test.eq(ui.hit(plan, popup.rect.x + 2, popup.rect.y + 3), plan.by_id.bar)
             local chosen = ui.event(plan, state, {type = "mouse", action = "press", button = "left", x = popup.rect.x + 2, y = popup.rect.y + 3})
             test.eq(chosen.type, "activate")
             test.eq(chosen.id, "quit")
-            test.is_nil(state.menus.bar, "после выбора свёрнуто")
-            -- Alt+E раскрывает «Edit»; щелчок мимо сворачивает и съедается.
+            test.is_nil(state.menus.bar, "closed after the choice")
+            -- Alt+E opens "Edit"; a click outside closes it and is swallowed.
             plan = ui.plan(tree(2), 40, 12, state)
             ui.event(plan, state, {type = "key", action = "press", key_type = "runes", key = "e", alt = true})
             test.eq(state.menus.bar.index, 2)
             plan = ui.plan(tree(2), 40, 12, state)
             test.is_nil(ui.event(plan, state, {type = "mouse", action = "press", button = "left", x = 5, y = 8}))
             test.is_nil(state.menus.bar)
-            -- Клавиатура в раскрытом меню: вниз, вниз (через разделитель), Enter.
+            -- Keyboard in an open menu: down, down (across the separator), Enter.
             ui.event(plan, state, {type = "mouse", action = "press", button = "left", x = 2, y = 1})
             plan = ui.plan(tree(2), 40, 12, state)
             ui.event(plan, state, {type = "key", action = "press", key_type = "down"})
             ui.event(plan, state, {type = "key", action = "press", key_type = "down"})
-            test.eq(state.menus.bar.cursor, 3, "разделитель пропущен")
+            test.eq(state.menus.bar.cursor, 3, "the separator is skipped")
             local entered = ui.event(plan, state, {type = "key", action = "press", key_type = "enter"})
             test.eq(entered.id, "quit")
-            -- Ячейки: статусная строка внизу с обоими полями.
+            -- Cells: the status bar at the bottom with both fields.
             local lines = cells.rows(ui.plan(tree(1), 40, 12, ui.interaction()), ui.interaction(), 40, 12)
             local function plain(text: any): string return (tostring(text):gsub("\27%[[%d;]*m", "")) end
             local last = plain(lines[12])
-            test.is_true(last:find("Готово", 1, true) ~= nil and last:find("1 объект", 1, true) ~= nil, last)
-            test.is_true(plain(lines[1]):find("File", 1, true) ~= nil, "строка меню сверху")
-            -- Пиксели: с раскрытым меню, снимок в test/shots.
+            test.is_true(last:find("Ready", 1, true) ~= nil and last:find("1 object", 1, true) ~= nil, last)
+            test.is_true(plain(lines[1]):find("File", 1, true) ~= nil, "the menu bar is on top")
+            -- Pixels: with an open menu, the snapshot goes to test/shots.
             local font_files = assert(fs.get("app:system_fonts"))
             local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local shown = ui.interaction()
@@ -382,13 +382,13 @@ local function define_tests()
             assert(assert(fs.get("app:shots")):writefile("sdk-controls.png", bytes))
             local samples = assert(gfx.raster(560, 280))
             samples:fill("#c0c0c0")
-            samples:text(16, 12, "Windows SDK — стандартные элементы", {font = font, color = "#000000"})
+            samples:text(16, 12, "Windows SDK — standard controls", {font = font, color = "#000000"})
             local variants = {
-                {label = "Найти", caption = "Обычная"},
-                {label = "Найти", default = true, caption = "По умолчанию"},
-                {label = "Найти", default = true, focused = true, caption = "Фокус"},
-                {label = "Найти", pressed = true, caption = "Нажата"},
-                {label = "Стоп", disabled = true, caption = "Недоступна"},
+                {label = "Find", caption = "Normal"},
+                {label = "Find", default = true, caption = "Default"},
+                {label = "Find", default = true, focused = true, caption = "Focus"},
+                {label = "Find", pressed = true, caption = "Pressed"},
+                {label = "Stop", disabled = true, caption = "Disabled"},
             }
             for index, variant in ipairs(variants) do
                 local x = 16 + (index - 1) * 108
@@ -396,7 +396,7 @@ local function define_tests()
                 variant.font = font
                 pixels.button(samples, x, 64, 96, 23, variant, {w = 8, h = 18})
             end
-            samples:text(16, 105, "Имя:", {font = font, color = "#000000"})
+            samples:text(16, 105, "Name:", {font = font, color = "#000000"})
             pixels.field(samples, 65, 102, 220, 22)
             samples:rect(69, 105, 76, 15, "#000080")
             samples:text(71, 105, "winword.exe", {font = font, color = "#ffffff"})
@@ -404,19 +404,19 @@ local function define_tests()
             -- shadow even after the production renderer has been fixed.
             local labels = {id = "sdk-labels", state_revision = 1, content_state = {
                 sdk = 1, interaction = ui.interaction(), ui = {kind = "column", children = {
-                    {kind = "checkbox", id = "folders", text = "Включая вложенные папки", checked = true},
-                    {kind = "checkbox", id = "case", text = "Учитывать регистр"},
-                    {kind = "checkbox", id = "disabled", text = "Недоступный параметр", checked = true, disabled = true},
+                    {kind = "checkbox", id = "folders", text = "Include subfolders", checked = true},
+                    {kind = "checkbox", id = "case", text = "Match case"},
+                    {kind = "checkbox", id = "disabled", text = "Unavailable option", checked = true, disabled = true},
                 }}}}
             local label_image = assert(render.placement(labels, {x = 1, y = 1, cols = 28, rows = 3},
                 {w = 8, h = 26}, {face = font}, store))
             samples:blit(label_image.raster, 65, 133)
             pixels.field(samples, 315, 102, 229, 105)
             samples:rect(317, 104, 225, 18, "#000080")
-            samples:text(322, 105, "Документы", {font = font, color = "#ffffff"})
+            samples:text(322, 105, "Documents", {font = font, color = "#ffffff"})
             samples:text(322, 125, "Programs", {font = font, color = "#000000"})
             samples:text(322, 145, "My Computer", {font = font, color = "#000000"})
-            samples:text(16, 237, "Двойные грани · пунктир фокуса · текст без белой тени", {font = font, color = "#000000"})
+            samples:text(16, 237, "Double edges · dotted focus outline · text without a white shadow", {font = font, color = "#000000"})
             assert(assert(fs.get("app:shots")):writefile("sdk-button-states.png", assert(samples:encode("png"))))
             local bold = assert(gfx.font(assert(font_files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
             chrome.use_fonts(font, bold)
@@ -424,7 +424,7 @@ local function define_tests()
             local inset = chrome.window_insets()
             local scene = {width = 90, height = 30, top = 1, bottom = 28, items = {}, clock = "12:00",
                 focused_id = "sdk-demo", windows = {{id = "sdk-demo", entry = "app:sdk_demo",
-                    title = "Пример SDK", image = "program", window_type = "app", content = "pixels",
+                    title = "SDK Example", image = "program", window_type = "app", content = "pixels",
                     render = "butschster.windows.sdk:render", content_state = state, state_revision = 1,
                     x = 15, y = 4, w = context.width + inset.left + inset.right,
                     h = context.height + inset.top + inset.bottom}}}
@@ -444,7 +444,7 @@ local function define_tests()
                 local view = assert(tty.viewport({width = 100, height = 34}))
                 local composer, spawn_error = process.with_options({terminal = assert(view:grant())})
                     :spawn_monitored("app:sdk_composer", "app:processes", service, tostring(process.pid()), mode)
-                test.not_nil(composer, "композитор не поднялся в режиме " .. mode .. ": " .. tostring(spawn_error))
+                test.not_nil(composer, "the compositor did not start in mode " .. mode .. ": " .. tostring(spawn_error))
                 local deadline = time.now():unix_nano() + 8000000000
                 while not process.registry.lookup(service) and time.now():unix_nano() < deadline do
                     channel.select({time.after("20ms"):case_receive()})
@@ -452,12 +452,12 @@ local function define_tests()
                 test.not_nil(process.registry.lookup(service))
                 local opened = ask(service, replies, "desktop.open", {entry = "app:sdk_demo"})
                 test.is_true(opened.ok, tostring(opened.error))
-                test.eq(opened.window.title, "Пример SDK")
+                test.eq(opened.window.title, "SDK Example")
                 test.eq(opened.window.content, mode)
                 if mode == "pixels" then
-                    -- Свой канал приложения доехал действием.
+                    -- The application's own channel arrived as an action.
                     receive(frames, function(value) return value.id == opened.window.id
-                        and tostring(value.state.ui.children[2].children[2].children[1].text) == "канал сработал" end)
+                        and tostring(value.state.ui.children[2].children[2].children[1].text) == "channel fired" end)
                     local frame = receive(frames, function(value) return value.id == opened.window.id end)
                     local plan = ui.plan(frame.state.ui, frame.width, frame.height, frame.state.interaction)
                     local bar = plan.by_id.documents.rect
@@ -470,8 +470,8 @@ local function define_tests()
                 local resized = ask(service, replies, "desktop.resize", {id = opened.window.id, w = 40, h = 15})
                 test.is_true(resized.ok, tostring(resized.error))
                 if mode == "pixels" then
-                    -- Ошибка в update — видимое состояние, а не исчезнувшее окно;
-                    -- его кнопка «Закрыть» закрывает окно штатно.
+                    -- An error in update is visible state, not a vanished window;
+                    -- its "Close" button closes the window the normal way.
                     local frame = receive(frames, function(value) return value.id == opened.window.id and value.width == 40 - 2 end)
                     local plan = ui.plan(frame.state.ui, frame.width, frame.height, frame.state.interaction)
                     local crash = plan.by_id.crash.rect
@@ -481,18 +481,18 @@ local function define_tests()
                     local fallen = receive(frames, function(value)
                         return value.id == opened.window.id and value.state.ui.children[1].text ~= nil
                             and tostring(value.state.ui.children[1].text):find("stopped", 1, true) ~= nil end)
-                    test.is_true(tostring(fallen.state.ui.children[2].text):find("нарочно", 1, true) ~= nil,
-                        "запасное дерево называет причину")
+                    test.is_true(tostring(fallen.state.ui.children[2].text):find("on purpose", 1, true) ~= nil,
+                        "the fallback tree names the reason")
                     local fallback = ui.plan(fallen.state.ui, fallen.width, fallen.height, fallen.state.interaction)
                     local close = fallback.by_id.sdk_close.rect
                     assert(view:send({type = "mouse", action = "press", button = "left", x = fallen.x + close.x, y = fallen.y + close.y}))
-                    -- Нажатие взводит кнопку ЗАПАСНОГО дерева: план после ошибки
-                    -- обязан быть новым, а не тем, что был у приложения.
+                    -- The press arms the button of the FALLBACK tree: the plan after the error
+                    -- must be a new one, not the one the application had.
                     local armed = receive(frames, function(value) return value.id == opened.window.id and value.state.interaction.armed ~= nil end)
                     test.eq(armed.state.interaction.armed.id, "sdk_close")
                     assert(view:send({type = "mouse", action = "release", button = "left", x = fallen.x + close.x, y = fallen.y + close.y}))
                 else
-                    -- Клавиша, не взятая компонентом, доходит приложению: Esc закрывает.
+                    -- A key no component took reaches the application: Esc closes.
                     assert(view:send({type = "key", key = "esc", key_type = "esc", action = "press"}))
                 end
                 local remaining = 1
@@ -508,15 +508,15 @@ local function define_tests()
                     for key, value in pairs(listed.windows[1]) do dump[#dump + 1] = tostring(key) .. "=" .. tostring(value) end
                     table.sort(dump)
                 end
-                test.eq(remaining, 0, "окно не закрылось в режиме " .. mode .. ": " .. table.concat(dump, " "))
+                test.eq(remaining, 0, "the window did not close in mode " .. mode .. ": " .. table.concat(dump, " "))
                 assert(process.send(service, "desktop.quit", {}))
                 view:close()
             end
         end)
     end)
 
-    -- Открытые дефекты обзора 2026-09-08 (docs/sdk-review-2026-09-08.md) и
-    -- ячейки: одна полоса прокрутки, приглушённый `disabled`.
+    -- Open defects from the 2026-09-08 review (docs/sdk-review-2026-09-08.md) and
+    -- cells: one scrollbar, a dimmed `disabled`.
     test.describe("Window SDK review follow-up", function()
         local function fonts(): any
             local files = assert(fs.get("app:system_fonts"))
@@ -528,7 +528,7 @@ local function define_tests()
             local plan = ui.plan(tree, w, h, state)
             return cells.rows(plan, state, w, h)
         end
-        -- Последний видимый символ строки кадра в ячейках — там стоит полоса.
+        -- The last visible character of a row of the cell frame — that is where the bar stands.
         local function last_glyph(row: any): string
             local plain = (tostring(row):gsub("\27%[[%d;:]*m", ""))
             local last = ""
@@ -541,27 +541,27 @@ local function define_tests()
             return table.concat(out)
         end
 
-        test.it("go-lua: ошибка под pcall рвёт upvalue и у кадров НИЖЕ — растяжка", function()
-            -- Измерено 2026-09-11: разрыв upvalue после пойманной ошибки
-            -- (docs/bugreports/go-lua-pcall-error-closes-upvalues.md стенда)
-            -- задевает не только кадр, звавший pcall, но и кадры под ним.
-            -- Поэтому в кадре композитора нет `pcall` вокруг библиотеки вида
-            -- (chrome_pixels, paint_view): ниже него цикл основы с
-            -- замыканиями. Этот тест утверждает НЫНЕШНЕЕ поведение VM.
-            -- Покраснел — go-lua починили: вернуть охрану вокруг вида и
-            -- перевернуть ожидание здесь на 2.
+        test.it("go-lua: an error under pcall tears upvalues in the frames BELOW too — a tripwire", function()
+            -- Measured 2026-09-11: the upvalue split after a caught error
+            -- (docs/bugreports/go-lua-pcall-error-closes-upvalues.md in the stand)
+            -- affects not only the frame that called pcall but also the frames below it.
+            -- That is why the compositor's frame has no `pcall` around the view library
+            -- (chrome_pixels, paint_view): below it is the base's loop with
+            -- closures. This test asserts the CURRENT behavior of the VM.
+            -- If it turns red, go-lua has been fixed: bring back the guard around the view and
+            -- flip the expectation here to 2.
             local function owner(): integer
                 local value = 1
                 local function bump() value = value + 1 end
-                local function deeper() return pcall(function() error("нарочно") end) end
+                local function deeper() return pcall(function() error("on purpose") end) end
                 deeper()
                 bump()
                 return value
             end
-            test.eq(owner(), 1, "запись замыкания не видна владельцу ниже pcall")
+            test.eq(owner(), 1, "the closure's write is not visible to the owner below pcall")
         end)
 
-        test.it("A8: состояние без interaction даёт кадр, дерево не таблицей — отказ с причиной", function()
+        test.it("A8: a state without interaction gives a frame, a tree that is not a table is refused with a reason", function()
             local store = rasters.store()
             store.begin()
             local inner, cell = {x = 1, y = 1, cols = 24, rows = 4}, {w = 8, h = 18}
@@ -575,15 +575,15 @@ local function define_tests()
             test.is_true(tostring(reason):find("state.ui", 1, true) ~= nil, tostring(reason))
         end)
 
-        test.it("A6: ошибка в ui.event уводит окно в запасное дерево и не минует dispose", function()
-            -- Наблюдения — в таблице, а не в локальных: ошибка под pcall рвёт
-            -- upvalue между замыканием и владельцем (ловушка go-lua).
+        test.it("A6: an error in ui.event sends the window to the fallback tree and does not skip dispose", function()
+            -- Observations live in a table, not in locals: an error under pcall tears
+            -- the upvalue between a closure and its owner (the go-lua trap).
             local seen: any = {views = 0, disposed = false, failure = nil}
             local original = ui.event
             local definition = {
                 init = function(args: any, context: any): any
-                    -- Слушатель `window.input` открыт до `init`: событие,
-                    -- посланное себе здесь, до цикла доедет.
+                    -- The `window.input` listener is open before `init`: an event
+                    -- sent to ourselves here will reach the loop.
                     process.send(process.pid(), "window.input",
                         {event = {type = "mouse", action = "press", button = "left", x = 1, y = 1}})
                     process.send(process.pid(), "window.input", {event = {type = "close"}})
@@ -598,22 +598,22 @@ local function define_tests()
                     seen.failure = context.failure
                 end,
             }
-            -- Подмена снимает себя сама на первом вызове: сломайся охрана в
-            -- app.run, ошибка вылетела бы из теста раньше восстановления, и
-            -- следующие тесты получили бы чужой `ui.event` (так и было при
-            -- первой мутации). Таблица `ui` у теста и у `app` одна.
+            -- The substitute removes itself on the first call: if the guard in
+            -- app.run broke, the error would fly out of the test before the restore, and
+            -- the following tests would get someone else's `ui.event` (that is what happened on
+            -- the first mutation). The test and `app` share the same `ui` table.
             ui.event = function()
                 ui.event = original
-                error("нарочно в ui.event")
+                error("on purpose in ui.event")
             end
             app.run(definition, nil, "sdk-review-a6", nil, {width = 20, height = 4, cell_w = 8, cell_h = 18})
             ui.event = original
-            test.is_true(seen.disposed, "dispose не вызван")
-            test.is_true(tostring(seen.failure):find("нарочно в ui.event", 1, true) ~= nil, tostring(seen.failure))
-            test.eq(seen.views, 1, "после ошибки рисуется запасное дерево, а не view приложения")
+            test.is_true(seen.disposed, "dispose was not called")
+            test.is_true(tostring(seen.failure):find("on purpose in ui.event", 1, true) ~= nil, tostring(seen.failure))
+            test.eq(seen.views, 1, "after the error the fallback tree is drawn, not the application's view")
         end)
 
-        test.it("A2: пассивный вид с id не берёт фокус по щелчку, Tab после щелчка идёт дальше", function()
+        test.it("A2: a passive view with an id does not take focus on click, Tab after the click moves on", function()
             local state = ui.interaction()
             local tree = {kind = "column", children = {
                 {kind = "field", id = "readout", size = 2, text = "42"},
@@ -625,12 +625,12 @@ local function define_tests()
             local field = plan.by_id.readout.rect
             ui.event(plan, state, {type = "mouse", action = "press", button = "left", x = field.x, y = field.y})
             ui.event(plan, state, {type = "mouse", action = "release", button = "left", x = field.x, y = field.y})
-            test.eq(state.focus, "first", "поле только для чтения фокус не берёт")
+            test.eq(state.focus, "first", "a read-only field does not take focus")
             ui.event(plan, state, {type = "key", key = "tab", action = "press"})
-            test.eq(state.focus, "second", "Tab после щелчка шагает дальше")
+            test.eq(state.focus, "second", "Tab after the click steps further")
         end)
 
-        test.it("A12: без выбора стрелка выбирает первую строку, а не вторую", function()
+        test.it("A12: with no selection an arrow selects the first row, not the second", function()
             for _, kind in ipairs({"list", "table", "tree"}) do
                 local rows = {}
                 for index = 1, 5 do
@@ -646,7 +646,7 @@ local function define_tests()
                     local plan = ui.plan(node, 20, 6, state)
                     test.eq(state.focus, "rows")
                     local action = ui.event(plan, state, {type = "key", key = key, action = "press"})
-                    test.eq(action.index, 1, kind .. ": " .. key .. " без выбора")
+                    test.eq(action.index, 1, kind .. ": " .. key .. " with no selection")
                 end
             end
             local items = {}
@@ -655,35 +655,35 @@ local function define_tests()
                 local state = ui.interaction()
                 local plan = ui.plan({kind = "icons", id = "grid", items = items}, 36, 12, state)
                 local action = ui.event(plan, state, {type = "key", key = key, action = "press"})
-                test.eq(action.index, 1, "icons: " .. key .. " без выбора")
+                test.eq(action.index, 1, "icons: " .. key .. " with no selection")
             end
         end)
 
-        test.it("полоса прокрутки в ячейках одна: список, таблица, дерево и значки рисуют её одинаково", function()
+        test.it("there is one scrollbar in cells: list, table, tree and icons draw it the same way", function()
             local list_rows, tree_rows, table_rows = {}, {}, {}
             for index = 1, 20 do
                 list_rows[index] = "row " .. index
                 tree_rows[index] = {label = "row " .. index, depth = 0}
                 table_rows[index] = {cells = {"row " .. index}}
             end
-            -- scroll.bar(0, 20, 10, 10): стрелка, ползунок 4 из 8, стрелка.
+            -- scroll.bar(0, 20, 10, 10): arrow, thumb 4 of 8, arrow.
             local expected = "▲████░░░░▼"
-            test.eq(bar_column(shot({kind = "list", id = "l", items = list_rows}, 20, 10), 1, 10), expected, "список")
-            test.eq(bar_column(shot({kind = "tree", id = "t", rows = tree_rows}, 20, 10), 1, 10), expected, "дерево")
+            test.eq(bar_column(shot({kind = "list", id = "l", items = list_rows}, 20, 10), 1, 10), expected, "list")
+            test.eq(bar_column(shot({kind = "tree", id = "t", rows = tree_rows}, 20, 10), 1, 10), expected, "tree")
             test.eq(bar_column(shot({kind = "table", id = "g", columns = {{title = "Name"}}, rows = table_rows}, 20, 11), 2, 11),
-                expected, "таблица под заголовком")
-            -- Значки: 12 предметов по 2 в ряд — 6 рядов, страница 3 ряда в 12 строках.
+                expected, "table under the header")
+            -- Icons: 12 items at 2 per row make 6 rows, a page is 3 rows in 12 lines.
             local icons = {}
             for index = 1, 12 do icons[index] = {id = "i" .. index, title = "icon " .. index} end
-            test.eq(bar_column(shot({kind = "icons", id = "n", items = icons}, 24, 12), 1, 12), "▲█████░░░░░▼", "значки")
-            -- Прокручивать нечего — полосы нет, колонка залита лицом.
+            test.eq(bar_column(shot({kind = "icons", id = "n", items = icons}, 24, 12), 1, 12), "▲█████░░░░░▼", "icons")
+            -- Nothing to scroll: there is no bar, the column is filled with the face color.
             test.eq(bar_column(shot({kind = "list", id = "s", items = {"a", "b"}}, 20, 4), 1, 4), "    ")
         end)
 
-        test.it("недоступные список, таблица, дерево и значки приглушены в обоих бэкендах", function()
+        test.it("disabled list, table, tree and icons are dimmed in both backends", function()
             local probe = widgets.styles.face_dim:render("x")
             local dim = probe:sub(1, (probe:find("x", 1, true) or 1) - 1)
-            test.is_true(dim ~= "", "у приглушённого стиля нет своей последовательности")
+            test.is_true(dim ~= "", "the dimmed style has no escape sequence of its own")
             local nodes: any = {
                 list = {kind = "list", id = "l", items = {"alpha", "beta"}, selected = 1},
                 table = {kind = "table", id = "g", columns = {{title = "Name"}}, rows = {{cells = {"alpha"}}}, selected = 1},
@@ -696,8 +696,8 @@ local function define_tests()
                 node.disabled = true
                 local disabled = table.concat(shot(node, 24, 6), "\n")
                 node.disabled = nil
-                test.is_nil(enabled:find(dim, 1, true), kind .. ": доступный не приглушён")
-                test.not_nil(disabled:find(dim, 1, true), kind .. ": недоступный в ячейках приглушён")
+                test.is_nil(enabled:find(dim, 1, true), kind .. ": the enabled one is not dimmed")
+                test.not_nil(disabled:find(dim, 1, true), kind .. ": the disabled one is dimmed in cells")
 
                 local store = rasters.store()
                 store.begin()
@@ -709,7 +709,7 @@ local function define_tests()
                 local off = assert(render.placement({id = "off-" .. kind, content_state = {sdk = 1, revision = 1, ui = node}},
                     inner, cell, face, store))
                 node.disabled = nil
-                test.is_true(off.raster:encode("png") ~= lit, kind .. ": недоступный в пикселях выглядит иначе")
+                test.is_true(off.raster:encode("png") ~= lit, kind .. ": the disabled one looks different in pixels")
             end
         end)
     end)

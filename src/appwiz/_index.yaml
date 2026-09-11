@@ -1,30 +1,31 @@
 version: "1.0"
 namespace: butschster.windows.appwiz
 
-# «Установка и удаление программ» — appwiz, как в Windows. Программа здесь —
-# модуль wippy; окно показывает объявленные и закэшированные модули и правит
-# файл объявлений приложения. Ставит и снимает их `wippy update` после
-# перезапуска — окно об этом говорит, а не притворяется.
+# "Add/Remove Programs" is appwiz, as in Windows. A program here is a wippy
+# module; the window shows declared and cached modules and edits the
+# application's declarations file. `wippy update` installs and removes them
+# after a restart; the window says so rather than pretending.
 
 entries:
   # butschster.windows.appwiz:model
   - name: model
     kind: library.lua
     meta:
-      comment: Чистая модель панели установки — слияние объявлений с кэшем, правка текста объявлений, имя новой записи.
+      comment: The pure model of the install panel — merging declarations with the cache, editing the declarations text, the name of a new entry.
     source: file://model.lua
     imports:
       geometry: butschster.tui_desktop.desktop:geometry
 
-  # Права: то же, что у поставщика вида (контекст, композитор в реестре
-  # процессов, отправка ему состояния), плюс прочитать реестр и кэш модулей,
-  # окружение (имя папки объявлений) и саму папку. Ни порождать процессы, ни
-  # менять реестр окно не может: снять модуль из работающего рантайма ему
-  # нечем, и права на это не дают.
+  # Permissions: the same as the view provider's (context, the compositor in
+  # the process registry, sending state to it), plus reading the registry and
+  # the module cache, the environment (the name of the declarations folder)
+  # and the folder itself. The window can neither spawn processes nor change
+  # the registry: it has nothing to remove a module from the running runtime
+  # with, and the permissions do not grant that.
   - name: window_scope
     kind: security.policy
     meta:
-      comment: Права панели установки — реестр и кэш модулей читать, папку объявлений читать и писать, состояние публиковать композитору; процессов и реестра не трогать.
+      comment: Permissions of the install panel — read the registry and the module cache, read and write the declarations folder, publish state to the compositor; do not touch processes or the registry.
     policy:
       actions:
         - process.context
@@ -55,7 +56,7 @@ entries:
       resizable: true
       pixel_render: butschster.windows.sdk:render
       pixel_state: butschster.windows.appwiz:window
-      comment: Установка и удаление программ — модули wippy из объявлений приложения и кэша; снять и добавить объявление, вступает в силу после wippy update и перезапуска.
+      comment: Add/Remove Programs — wippy modules from the application's declarations and the cache; remove and add a declaration, takes effect after wippy update and a restart.
     source: file://window.lua
     method: main
     modules:

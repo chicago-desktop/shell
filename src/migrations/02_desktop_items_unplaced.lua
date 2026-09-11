@@ -1,30 +1,32 @@
--- Значок, чьё место никто не называл.
+-- An icon whose place nobody named.
 --
--- Оболочка раскладывает значки раньше, чем терминал сообщил свой размер,
--- поэтому место, выбранное ею, может оказаться за краем экрана — а значок за
--- краем не обрезается, он исчезает целиком и молча. Это ровно тот отказ,
--- который FR запрещает для битого ярлыка: пропавший значок читается как «я его
--- случайно удалил».
+-- The shell lays out icons before the terminal has reported its size, so a
+-- place it chose could end up past the edge of the screen — and an icon past
+-- the edge is not clipped, it disappears entirely and silently. That is
+-- exactly the failure the FR forbids for a broken shortcut: a vanished icon
+-- reads as "I deleted it by accident".
 --
--- Переложить всё, что не поместилось, нельзя: тогда поедет и то, что человек
--- перетащил руками, а «подвинул и перезапустил — значок там же» перестанет
--- быть правдой. Переставлять можно только то, что человек не ставил.
+-- Relaying everything that did not fit is not possible: then what the person
+-- dragged by hand would move too, and "moved it and restarted — the icon is
+-- in the same place" would stop being true. Only what the person did not
+-- place may be rearranged.
 --
--- Отдельного флага «поставлено человеком» здесь НЕТ намеренно. Флаг рядом с
--- колонками, которые он описывает, — второй источник истины, и схема
--- допускала бы его противоречие: «поставлено» при пустых координатах и
--- «не поставлено» при координатах, выставленных руками. Разбирать это пришлось
--- бы тому, кто найдёт значок не там.
+-- There is deliberately NO separate "placed by a person" flag here. A flag
+-- next to the columns it describes is a second source of truth, and the
+-- schema would allow it to contradict them: "placed" with empty coordinates
+-- and "not placed" with coordinates set by hand. Sorting that out would fall
+-- to whoever finds the icon in the wrong place.
 --
--- Поэтому признак — сами координаты. Пусто = места никто не называл, и
--- композитор вправе положить значок в свободную ячейку, зная ширину экрана в
--- момент кадра. Заполнено = место назвал человек, и оно неприкосновенно, даже
--- если ушло за край: в настоящей Windows 95 ушедший за край значок сам не
--- возвращается.
+-- Therefore the marker is the coordinates themselves. Empty = nobody named a
+-- place, and the compositor is free to put the icon into a free cell, knowing
+-- the screen width at the moment of the frame. Filled = a person named the
+-- place, and it is inviolable, even if it went past the edge: in real
+-- Windows 95 an icon that went past the edge does not come back by itself.
 --
--- Существующие строки координаты имеют, поэтому после миграции они считаются
--- поставленными и переставляться не будут. Это консервативный исход, и он
--- получается сам, а не выбором умолчания, который потом пришлось бы объяснять.
+-- Existing rows have coordinates, so after the migration they count as
+-- placed and will not be rearranged. That is the conservative outcome, and it
+-- comes about by itself, not through a choice of default that would later
+-- have to be explained.
 
 return require("migration").define(function()
     migration("Allow desktop items without coordinates", function()
@@ -36,10 +38,10 @@ return require("migration").define(function()
                         .. column .. " DROP NOT NULL")
                     if err then error("Failed to drop NOT NULL on " .. column .. ": " .. err) end
 
-                    -- Умолчание снимается вместе с обязательностью: колонка со
-                    -- значением по умолчанию никогда не окажется пустой, и
-                    -- признак «место не назвали» существовал бы только на
-                    -- словах.
+                    -- The default is removed together with the NOT NULL: a
+                    -- column with a default value will never turn out empty,
+                    -- and the "no place named" marker would exist only in
+                    -- words.
                     local _, derr = db:execute(
                         "ALTER TABLE butschster_windows_desktop_items ALTER COLUMN "
                         .. column .. " DROP DEFAULT")
@@ -56,9 +58,9 @@ return require("migration").define(function()
 
         database("sqlite", function()
             up(function(db)
-                -- SQLite не умеет снять NOT NULL с колонки, поэтому таблица
-                -- пересобирается. Индекс уходит вместе со старой таблицей и
-                -- создаётся заново после переименования.
+                -- SQLite cannot drop NOT NULL from a column, so the table is
+                -- rebuilt. The index goes away together with the old table and
+                -- is created anew after the rename.
                 local _, err = db:execute([[
                     CREATE TABLE butschster_windows_desktop_items_new (
                         id TEXT PRIMARY KEY,

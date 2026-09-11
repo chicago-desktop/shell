@@ -1,10 +1,10 @@
--- Настройки оболочки: то, что человек выбрал в окнах свойств и что должно
--- пережить перезапуск. Пока одна — цвет стола (`desktop_color`).
+-- Shell settings: what the person chose in properties windows and what must
+-- survive a restart. So far just one — the desktop color (`desktop_color`).
 --
--- Таблица «ключ — значение», а не колонка на настройку: колонка на каждую
--- следующую настройку означала бы миграцию на каждый флажок в диалоге.
--- Значение — текст; кто пишет, тот и проверяет форму, кто читает — тоже:
--- строка из базы не доказательство того, что она корректна.
+-- A "key — value" table, not a column per setting: a column for every next
+-- setting would mean a migration for every checkbox in a dialog.
+-- The value is text; whoever writes it checks its form, and so does whoever
+-- reads it: a string from the database is no proof that it is correct.
 return require("migration").define(function()
     migration("Create butschster_windows settings table", function()
         database("postgres", function()
