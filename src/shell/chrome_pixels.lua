@@ -818,21 +818,35 @@ local function subtract(rect: any, cover: any): any
     return pieces
 end
 
-local function visible_placements(placements: any, windows: any, cell: any): any
+-- `menus` — прямоугольники панелей меню в ячейках. Меню — верхний слой для
+-- ВСЕГО, что не меню: окон, значков, таблички отказа, панели задач.
+--
+-- Порядка списка для этого мало, и это не догадка, а поверхность рантайма
+-- (service/terminal/surface.go, appendPlacements): она переотправляет только
+-- новое, изменившееся или накрывающее перерисованную строку, а z-порядка у
+-- sixel нет вовсе. Открытое меню не меняется и не уезжает; растр окна под ним
+-- уезжает на каждом своём тике — и ложится поверх меню. Кусок окна, которого
+-- под меню нет, лечь поверх меню не может.
+local function visible_placements(placements: any, windows: any, menus: any, cell: any): any
     local out = {}
     for _, source in ipairs(placements) do
-        local pieces = {source}
+        local covers: any = {}
         if source.layer ~= nil then
             for index = whole(source.layer) + 1, #windows do
                 local cover = windows[index]
-                if not cover.minimized then
-                    local next_pieces = {}
-                    for _, piece in ipairs(pieces) do
-                        for _, kept in ipairs(subtract(piece, cover)) do next_pieces[#next_pieces + 1] = kept end
-                    end
-                    pieces = next_pieces
-                end
+                if not cover.minimized then covers[#covers + 1] = cover end
             end
+        end
+        if not source.top then
+            for _, cover in ipairs(menus) do covers[#covers + 1] = cover end
+        end
+        local pieces = {source}
+        for _, cover in ipairs(covers) do
+            local next_pieces = {}
+            for _, piece in ipairs(pieces) do
+                for _, kept in ipairs(subtract(piece, cover)) do next_pieces[#next_pieces + 1] = kept end
+            end
+            pieces = next_pieces
         end
         for _, piece in ipairs(pieces) do
             if piece == source then
@@ -959,7 +973,7 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
             local id = "menu:notice"
             local raster = paint_menu_panel(cell, shown.notice, id, fonts)
             out[#out + 1] = {id = id, raster = raster, x = shown.notice.x,
-                             y = shown.notice.y, cols = shown.notice.w, rows = shown.notice.h}
+                             y = shown.notice.y, cols = shown.notice.w, rows = shown.notice.h, top = true}
         end
 
         for index, entry in ipairs(shown.panels) do
@@ -969,7 +983,7 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
             local id = "menu:" .. tostring(index)
             local raster = paint_menu_panel(cell, box, id, fonts)
             out[#out + 1] = {id = id, raster = raster, x = box.x, y = box.y,
-                             cols = box.w, rows = box.h}
+                             cols = box.w, rows = box.h, top = true}
         end
 
         for _, hit in ipairs(shown.hits) do hits.menu[#hits.menu + 1] = hit end
@@ -978,7 +992,15 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     -- Размещения объявляются через хранилище, чтобы `sweep` выбросил то, чего
     -- в кадре не назвали: закрытое меню исчезает отсутствием в списке, а не
     -- рисованием поверх.
-    out = visible_placements(out, view.windows or {}, cell)
+    --
+    -- Панели меню (`top`) вычитаются из всего остального — см.
+    -- `visible_placements`: иначе окно под меню, переотправленное на своём
+    -- тике, ложится поверх неизменного меню.
+    local menus: any = {}
+    for _, item in ipairs(out) do
+        if item.top then menus[#menus + 1] = {x = item.x, y = item.y, w = item.cols, h = item.rows} end
+    end
+    out = visible_placements(out, view.windows or {}, menus, cell)
     for _, item in ipairs(out) do store.place(item.id, item.x, item.y) end
     store.frame(cell)
 

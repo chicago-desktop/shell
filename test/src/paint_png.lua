@@ -414,6 +414,13 @@ local function main(spec)
                 {label = "Open", bold = true, entry = "butschster.windows.explorer:window", title = "My Computer"},
                 {label = "Properties", entry = "butschster.windows.sysprops:window", separator_before = true},
             }}
+        elseif notice == "over" then
+            -- Окно под открытым «Пуском»: его растр режется панелями меню, а
+            -- не ложится поверх них. На снимке порядок наложения тот же, что и
+            -- без правки; видно здесь, что меню целое, а доказательство
+            -- «окно не переотправится поверх» — тест `menu above windows`.
+            state.windows[1].x, state.windows[1].y = 3, 6
+            state.focused_id = "w1"
         elseif notice == "layout" then
             -- Раскладка стола не прочиталась: вместо значков табличка с
             -- причиной, в панели задач — сообщение композитора. Окно одно и
@@ -661,6 +668,7 @@ local function main(spec)
     screen_shot("menu-failure.png", "failure")
     screen_shot("menu-context.png", "context")
     screen_shot("desktop-failure.png", "layout")
+    screen_shot("menu-over-window.png", "over")
 
     -- Native 32px and 16px assets side by side, rendered through the real gfx.
     local atlas = gfx.raster(960, ((#images.NAMES + 4) // 5) * 80)

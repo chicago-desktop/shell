@@ -130,6 +130,7 @@ entries:
       chrome_pixels: butschster.windows.shell:chrome_pixels
       widgets: butschster.windows.shell:widgets
       pixels: butschster.windows.shell:pixels
+      desktop_pixels: butschster.tui_desktop.desktop:pixels
     method: run
 
   - name: images_test

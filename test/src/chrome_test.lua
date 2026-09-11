@@ -12,6 +12,7 @@ local tty = require("tty")
 local pixels = require("pixels")
 local fs = require("fs")
 local gfx = require("gfx")
+local desktop_pixels = require("desktop_pixels")
 
 -- Что реально нарисовано в строке заголовка. Стиль вырезается: нас
 -- интересуют символы и их места, а цвет проверяет пробник.
@@ -802,6 +803,168 @@ local function define_tests()
             test.is_true(ok, "кадр оболочки упал: " .. tostring(painted))
             test.not_nil(find(painted, "win:v:notice"), "отказ вида обязан быть текстом на лице окна")
             test.not_nil(find(painted, "win:v:head"), "рамка окна на месте")
+        end)
+    end)
+
+    -- Меню «Пуск» и контекстное меню — поверх окон ВСЕГДА.
+    --
+    -- Поверхность рантайма переотправляет только новое, изменившееся или
+    -- накрывающее перерисованную строку (surface.go, appendPlacements), а
+    -- z-порядка у sixel нет. Открытое меню не меняется; растр окна под ним
+    -- уезжает на каждом своём тике и ложится сверху. Поэтому проверяется не
+    -- порядок списка, а то, что под меню нет НИ ОДНОГО куска чужого растра — ни
+    -- в первом кадре, ни во втором, где окно изменилось, а меню нет.
+    test.describe("menu above windows", function()
+        local function load_fonts()
+            local files = assert(fs.get("app:system_fonts"))
+            local face = assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
+            local bold = assert(gfx.font(assert(files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
+            chrome_pixels.use_fonts(face, bold)
+            chrome_pixels.use_cell_size(10, 20)
+        end
+        local function overlaps(a: any, b: any): boolean
+            return a.x < b.x + b.cols and b.x < a.x + a.cols and a.y < b.y + b.rows and b.y < a.y + a.rows
+        end
+        local function menus_of(painted: any): any
+            local out = {}
+            for _, item in ipairs(painted.placements) do
+                if tostring(item.id):find("menu:", 1, true) == 1 then out[#out + 1] = item end
+            end
+            return out
+        end
+        local function below_menu(painted: any): any
+            local hits = {}
+            for _, item in ipairs(painted.placements) do
+                if tostring(item.id):find("menu:", 1, true) ~= 1 then
+                    for _, panel in ipairs(menus_of(painted)) do
+                        if overlaps(item, panel) then hits[#hits + 1] = item.id .. " под " .. panel.id end
+                    end
+                end
+            end
+            return hits
+        end
+        local function by_id(painted: any, id: string): any
+            for _, item in ipairs(painted.placements) do if item.id == id then return item end end
+            return nil
+        end
+        -- Окно в ячейках под меню и окно на SDK с пиксельным содержимым,
+        -- верхнее — оно, чтобы его растр резало только меню.
+        local function scene(): any
+            return {width = 80, height = 24, bottom = 22, clock = "12:00", items = {},
+                windows = {
+                    {id = "cells", x = 2, y = 3, w = 40, h = 16, title = "Bash", window_type = "app"},
+                    {id = "sdk", x = 6, y = 8, w = 44, h = 12, title = "Task Manager", window_type = "app",
+                        content = "pixels", render = "butschster.windows.sdk:render", state_revision = 1,
+                        content_state = {sdk = 1, revision = 1, ui = {kind = "label", text = "tick 1"}}},
+                },
+                focused_id = "sdk",
+                menu = {items = {
+                    {entry = "app:calc", title = "Calculator", group = {"Programs"}},
+                    {entry = "app:notepad", title = "Notepad", group = {"Programs"}},
+                    {entry = "app:run", title = "Run…", group = {}},
+                    {entry = "app:shutdown", title = "Shut Down…", group = {}},
+                }, open = {"Programs"}, cursor = 1}}
+        end
+
+        test.it("ни один кусок окна не лежит под меню, и изменение окна меню не трогает", function()
+            load_fonts()
+            local state: any = scene()
+            local first = chrome_pixels.paint(state, 10, 20)
+            local panels = menus_of(first)
+            test.is_true(#panels >= 2, "сцена открывает каскад")
+            test.eq(#below_menu(first), 0, table.concat(below_menu(first), "; "))
+            local cropped = false
+            for _, item in ipairs(first.placements) do
+                if tostring(item.id):find("win:sdk:sdk:crop:", 1, true) == 1 then cropped = true end
+            end
+            test.is_true(cropped, "сцена обязана накрыть меню пиксельное содержимое окна")
+            for _, panel in ipairs(panels) do
+                test.is_nil(tostring(panel.id):find(":crop:", 1, true), "панель меню целая: " .. panel.id)
+            end
+            local kept: any = {}
+            for _, panel in ipairs(panels) do kept[panel.id] = {raster = panel.raster, version = panel.raster:version()} end
+            local crops: any = {}
+            for _, item in ipairs(first.placements) do
+                if tostring(item.id):find("win:sdk:sdk:crop:", 1, true) == 1 then crops[item.id] = item.raster:version() end
+            end
+
+            -- Второй кадр: окно изменилось (тик), меню — нет.
+            state.windows[2].state_revision = 2
+            state.windows[2].content_state = {sdk = 1, revision = 2, ui = {kind = "label", text = "tick 2"}}
+            local second = chrome_pixels.paint(state, 10, 20)
+            test.eq(#below_menu(second), 0, table.concat(below_menu(second), "; "))
+            for _, panel in ipairs(menus_of(second)) do
+                test.eq(panel.raster, kept[panel.id].raster, "растр панели тот же: " .. panel.id)
+                test.eq(panel.raster:version(), kept[panel.id].version, "панель не перерисована: " .. panel.id)
+            end
+            local moved = false
+            for _, item in ipairs(second.placements) do
+                local was = crops[item.id]
+                if was ~= nil and item.raster:version() ~= was then moved = true end
+            end
+            test.is_true(moved, "кропы окна ключуются версией его растра и перерисованы")
+
+            -- Меню закрыто: кропов нет, окно вернулось целым с прежним id.
+            state.menu = nil
+            local closed = chrome_pixels.paint(state, 10, 20)
+            test.not_nil(by_id(closed, "win:sdk:sdk"), "содержимое окна — снова одним размещением")
+            for _, item in ipairs(closed.placements) do
+                test.is_nil(tostring(item.id):find("win:sdk:sdk:crop:", 1, true), "кроп пережил меню: " .. item.id)
+            end
+            chrome_pixels.fonts = nil
+        end)
+
+        test.it("контекстное меню значка — тоже верхний слой", function()
+            load_fonts()
+            local state: any = scene()
+            state.menu = {anchor = {x = 12, y = 10}, cursor = 1, open = {}, items = {
+                {label = "Open", bold = true, entry = "app:x", title = "X"},
+                {label = "Properties", entry = "app:p", separator_before = true},
+            }}
+            local painted = chrome_pixels.paint(state, 10, 20)
+            test.eq(#menus_of(painted), 1)
+            test.eq(#below_menu(painted), 0, table.concat(below_menu(painted), "; "))
+            chrome_pixels.fonts = nil
+        end)
+
+        test.it("pixels.frame основы: под открытым меню канва пуста, после закрытия — снова содержимое", function()
+            load_fonts()
+            local state: any = scene()
+            state.windows = {}
+            local function filled(): any
+                local canvas = tty.canvas(80, 24)
+                for row = 1, 24 do canvas:put(1, row, string.rep("X", 80), 80) end
+                return canvas
+            end
+            local opened = chrome_pixels.paint(state, 10, 20)
+            local panel = menus_of(opened)[1]
+            local canvas = filled()
+            desktop_pixels.frame(canvas, opened)
+            test.eq(visible(canvas:rows()[panel.y])[panel.x], " ", "ячейки под меню стёрты — не просвечивают")
+            state.menu = nil
+            local after = filled()
+            desktop_pixels.frame(after, chrome_pixels.paint(state, 10, 20))
+            test.eq(visible(after:rows()[panel.y])[panel.x], "X", "меню ушло — ячейки снова отдаются содержимому")
+            chrome_pixels.fonts = nil
+        end)
+
+        test.it("в ячейках под меню — меню, а не окно", function()
+            local canvas = tty.canvas(60, 20)
+            local body = {}
+            for index = 1, 17 do body[index] = string.rep("X", 58) end
+            chrome.window(canvas, {x = 1, y = 1, w = 60, h = 19, title = "Под меню", rows = body}, false)
+            local hits = chrome.menu(canvas, 60, 20, {
+                {entry = "app:calc", title = "Калькулятор"},
+                {entry = "app:notepad", title = "Блокнот"},
+            }, nil, {})
+            test.is_true(#hits > 0)
+            local rows = canvas:rows()
+            for _, hit in ipairs(hits) do
+                local line = visible(rows[hit.row] or "")
+                for col = hit.from, hit.to do
+                    test.is_true(line[col] ~= "X", string.format("окно просвечивает в %d,%d", col, hit.row))
+                end
+            end
         end)
     end)
 end
