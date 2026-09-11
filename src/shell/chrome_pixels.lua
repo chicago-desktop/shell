@@ -552,9 +552,11 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
     end
 end
 
--- Меньше шести ячеек под строку состояния — не рисуется вовсе, как у темы в
--- ячейках: три буквы и многоточие читаются мусором, а не сообщением.
-local STATUS_LEAST = 6
+-- Taskbar measures in pixels: a window button of 16 cells (160 px at a 10 px
+-- cell, as in Windows 95), a clock of 9 cells and one cell of gap before it.
+-- The layout rules are `chrome.taskbar_layout`'s, shared with the cell theme.
+local TASK_SPAN = 16
+local CLOCK_SPAN = 9
 
 local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     local w, h = whole(state.width), whole(state.height)
@@ -574,6 +576,8 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     local button_h = height - 6
     local button_y = 1 + (height - button_h) // 2
     local start_span = math.max(6, (whole(bold and bold:measure("Start") or 28) + 44 + whole(cell.w) - 1) // whole(cell.w))
+    local plan: any = chrome.taskbar_layout(w, state.windows or {}, {start = start_span, gap = 0,
+        task_min = TASK_SPAN, task_max = TASK_SPAN, clock = CLOCK_SPAN, clock_gap = 1})
     if dirty then
         bar:fill(color.face)
         bar:rect(1, 1, width, 1, color.light)
@@ -587,13 +591,13 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
             "Start", {font = bold, color = color.face_text}) end
     end
     hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
-        from = 1, to = start_span, action = "menu"}
-    local at = start_span + 1
-    for _, window in ipairs(state.windows or {}) do
-        local span = 16
-        if at + span - 1 > w - 10 then break end
+        from = plan.start.from, to = plan.start.to, action = "menu"}
+    for _, entry in ipairs(plan.tasks) do
+        local task: any = entry
+        local window: any = task.window
+        local span = task.to - task.from + 1
         if dirty then
-            local left = (at - 1) * cell.w + 1
+            local left = (task.from - 1) * cell.w + 1
             local pressed = window.id == state.focused_id and not window.minimized
             local shift = pressed and 1 or 0
             pixels.button(bar, left, button_y, span * cell.w - 2, button_h,
@@ -607,31 +611,32 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
             end
         end
         hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
-            from = at, to = at + span - 1, id = window.id}
-        at = at + span
+            from = task.from, to = task.to, id = window.id}
     end
     -- Строка состояния — в том, что осталось между кнопками окон и часами,
     -- как у темы в ячейках (`chrome.bars`). Без неё пропадают сообщения
     -- композитора — «не открылось: …», жалоба на негодный кадр темы, —
     -- которые больше нигде не показываются: лог терминального хоста заглушён.
-    -- Часы занимают ячейки от `w - 8` до края.
-    local rest = w - 8 - at
-    if dirty and face and status ~= "" and rest >= STATUS_LEAST then
-        local caption = pixels.ellipsize(face, status, rest * cell.w - 8)
+    local room: any = plan.status
+    if dirty and face and status ~= "" and room then
+        local caption = pixels.ellipsize(face, status, (room.to - room.from + 1) * cell.w - 8)
         if caption ~= "" then
-            bar:text((at - 1) * cell.w + 5, button_y + (button_h - 15) // 2, caption,
+            bar:text((room.from - 1) * cell.w + 5, button_y + (button_h - 15) // 2, caption,
                 {font = face, color = color.shadow})
         end
     end
-    if dirty then
-        local x, cw = (w - 9) * cell.w + 1, 9 * cell.w - 4
-        pixels.bevel(bar, x, button_y, cw, button_h, false)
-        pixels.label(bar, x, button_y, cw, button_h,
-            tostring(state.clock or ""), face, color.face_text)
-    end
-    if chrome_pixels.clock_entry then
-        hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
-            from = w - 8, to = w, entry = chrome_pixels.clock_entry}
+    local clock: any = plan.clock
+    if clock then
+        if dirty then
+            local x, cw = (clock.from - 1) * cell.w + 1, (clock.to - clock.from + 1) * cell.w - 4
+            pixels.bevel(bar, x, button_y, cw, button_h, false)
+            pixels.label(bar, x, button_y, cw, button_h,
+                tostring(state.clock or ""), face, color.face_text)
+        end
+        if chrome_pixels.clock_entry then
+            hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
+                from = clock.from, to = clock.to, entry = chrome_pixels.clock_entry}
+        end
     end
     out[#out + 1] = {id = "bars", raster = bar, x = 1, y = top, cols = w, rows = rows}
 end
@@ -702,9 +707,10 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
             local strip = pixels.box(1, 1, box.banner, box.h, cell)
             raster:rect(2, 2, strip.w - 2, strip.h - 4, color.shadow)
 
-            -- Тот же текст, что у темы в ячейках, только не капителью: в
-            -- пикселях надпись набирается шрифтом, а не по букве на строку.
-            local label = "Wippy 2026"
+            -- The same text as the cell theme's (`chrome.MENU_BANNER`), just
+            -- not in capitals: in pixels the caption is set in a font, not
+            -- one letter per row.
+            local label = tostring(chrome.MENU_BANNER or "")
             local text_w = whole(bold:measure(label))
             local text_h = 16
             if label ~= "" and text_w > 0 then
@@ -889,9 +895,9 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     end
     for _, entry in ipairs(items) do
         local item: any = entry
-        local x = whole(item.x)
-        local y = whole(item.y)
-        if x >= 1 and y >= 1 and y + grid.drawn - 1 <= whole(view.bottom) then
+        -- The place follows the same clipping rule as in the cell theme.
+        local x, y = chrome.desktop_spot(item, view.top, view.bottom, view.width, grid.drawn)
+        if x then
             local selected = view.selected ~= nil and item.id == view.selected
             local id, raster = paint_icon(cell, item, selected, grid)
             store.place(id, x, y)
@@ -908,15 +914,9 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
             -- Форма та же, что у `chrome.fill` в режиме символов, и это не
             -- совпадение: composer один на оба режима, и попадание, которое
             -- он не умеет читать, неотличимо от отсутствующего.
+            -- The hit table is `chrome.desktop_hit`'s, one for both themes.
             for row = y, y + grid.drawn - 1 do
-                hits.desktop[#hits.desktop + 1] = {
-                    row = row, from = x, to = x + grid.w - 2,
-                    id = item.id, kind = item.kind,
-                    broken = item.broken and true or false,
-                    entry = item.entry, title = item.title,
-                    w = tonumber(item.w), h = tonumber(item.h), args = item.args,
-                    properties = item.properties,
-                }
+                hits.desktop[#hits.desktop + 1] = chrome.desktop_hit(item, row, x, x + grid.w - 2)
             end
         end
     end

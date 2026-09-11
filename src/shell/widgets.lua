@@ -229,13 +229,27 @@ end
 -- opts.focused — в фокусе: подпись инверсией, грани остаются; пунктирной
 -- рамки в ячейках нарисовать нечем, а инверсия всей кнопки читалась бы как
 -- выделенная строка списка.
+--
+-- `opts.room` is the cells the button has. Two bevels and a space on each
+-- side are the full look; a caption that does not fit with the spaces is
+-- drawn without them, and one that does not fit even so is cut, never
+-- replaced by an ellipsis. So a four-cell calculator key shows "MC" whole
+-- instead of " MC" with the right bevel cut off.
 function widgets.button(label, opts)
     local options: any = type(opts) == "table" and opts or {}
-    local text = " " .. tostring(label or "") .. " "
+    local caption = tostring(label or "")
+    local text, lead = " " .. caption .. " ", 1
+    local room = whole(options.room)
+    if room > 0 then
+        local inner = room - 2 - (options.default and 2 or 0)
+        if cells(text) > inner then
+            text, lead = cells(caption) <= inner and caption or clip(caption, math.max(0, inner)), 0
+        end
+    end
     local face = styles.face
     if options.disabled then face = styles.face_dim elseif options.focused then face = styles.select end
     local body = (options.accel and not options.disabled)
-        and widgets.accel(face, text, whole(options.accel) + 1)
+        and widgets.accel(face, text, whole(options.accel) + lead)
         or face:render(text)
     local out = bezel(body, options.pressed and true or false)
     if options.default then

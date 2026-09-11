@@ -16,6 +16,9 @@ local regedit = require("regedit_window")
 local registry = require("registry")
 local calc_window = require("calc_window")
 local ui = require("ui")
+local fs = require("fs")
+local pixels = require("pixels")
+local widgets = require("widgets")
 
 local CELL = {w = 10, h = 20}
 
@@ -242,6 +245,70 @@ local function define_tests()
             test.is_true(plan.by_id.eq.node.pressed == true)
             test.eq(calc_window.definition.update(state, {type = "channel", channel = watched[4], ok = true}, context), true)
             test.is_nil(state.calc.pressed, "таймер гасит подсветку")
+        end)
+
+        -- The owner's screenshot (2026-09-11): MC, MR, MS, M+ and sqrt showed
+        -- "..." in pixels. At a 10 px cell the old 10 px padding still fitted
+        -- them (test/shots/calc.png); at 9 px it cut sqrt, at 8 px also the
+        -- memory keys — which matches the screenshot. Every key is
+        -- drawn here the way the SDK renderer draws it — its cells minus
+        -- `inset` on each side, the shell's bold Liberation Sans 13 — at cell
+        -- widths terminals actually give, and the caption `pixels.button`
+        -- hands to the raster must be the key's whole caption.
+        test.it("draws every key caption whole in pixels at the shell's font and 8 to 10 px cells", function()
+            local files = assert(fs.get("app:system_fonts"))
+            local bold = assert(gfx.font(assert(files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
+            local state = calc_window.definition.init(nil, {})
+            local plan = ui.plan(calc_window.definition.view(state, {width = 27, height = 14}), 27, 14, ui.interaction())
+            -- Captions are collected in a table field, not an upvalue: go-lua
+            -- splits upvalues after an error caught by pcall.
+            local seen: any = {list = {}}
+            local stub: any = {
+                rect = function() end,
+                set = function() end,
+                text = function(_, _, _, caption) seen.list[#seen.list + 1] = caption; return 0 end,
+            }
+            local checked, cut = 0, {}
+            for _, width in ipairs({8, 9, 10}) do
+                local cell = {w = width, h = 20}
+                for _, item in ipairs(plan.items) do
+                    local node: any = item.node
+                    if node.kind == "button" then
+                        local pad = node.inset or 0
+                        local bw = item.rect.w * cell.w - pad * 2
+                        seen.list = {}
+                        pixels.button(stub, 1, 1, bw, item.rect.h * cell.h - pad * 2,
+                            {label = node.text, font = bold}, cell)
+                        if seen.list[1] ~= node.text then
+                            cut[#cut + 1] = string.format("%s at %d px cell: %q in a %d px key, caption %d px",
+                                tostring(node.id), width, tostring(seen.list[1]), bw, bold:measure(node.text))
+                        end
+                        checked = checked + 1
+                    end
+                end
+            end
+            test.eq(checked, 3 * (3 + 4 * 6), "every key is checked at every cell width")
+            test.eq(table.concat(cut, "; "), "", "every caption is drawn whole")
+            -- 16 px leave 10 px of room: no room for "...", room for "s".
+            test.eq(pixels.caption(bold, "sqrt", 16), "s", "a key too narrow for the dots is cut, not left with an ellipsis")
+        end)
+
+        test.it("draws a caption without its spaces in cells when the spaces do not fit", function()
+            local state = calc_window.definition.init(nil, {})
+            local plan = ui.plan(calc_window.definition.view(state, {width = 27, height = 14}), 27, 14, ui.interaction())
+            for _, item in ipairs(plan.items) do
+                local node: any = item.node
+                if node.kind == "button" then
+                    local shown = tostring(widgets.button(node.text, {room = item.rect.w})):gsub("\27%[[%d;:]*m", "")
+                    test.is_true(widgets.cells(shown) <= item.rect.w, "key " .. tostring(node.id) .. " stays inside its cells")
+                    if widgets.cells(node.text) + 2 <= item.rect.w then
+                        test.is_true(shown:find(node.text, 1, true) ~= nil,
+                            "key " .. tostring(node.id) .. " shows its caption whole: " .. shown)
+                    end
+                    test.is_nil(shown:find("…", 1, true), "no ellipsis on key " .. tostring(node.id))
+                end
+            end
+            test.eq((tostring(widgets.button("MC", {room = 4})):gsub("\27%[[%d;:]*m", "")):gsub("[^%w]", ""), "MC")
         end)
 
         test.it("в меню только «О программе»: лист открывается, под ним клавиши не считают", function()

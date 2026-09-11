@@ -116,7 +116,6 @@ entries:
       # запись механики их не объявляет, поэтому вопрос задаёт оболочка.
       - fs
       - gfx
-      - json
       - logger
       - process
       - registry

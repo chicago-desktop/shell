@@ -20,13 +20,14 @@ python3 build.py        # склеивает сцены с текущими фа
 
 ## Что он утверждает, а не только показывает
 
-**Два попадания не имеют права делить ячейку.** Это не придирка и на снимке
-не видно вовсе. Три кнопки заголовка шириной 16 px с шагом 18 px выглядят
-безупречно, а при ячейке в 10 px их зоны пересекаются: щелчок по общей колонке
-принадлежит двум кнопкам сразу, и выигрывает та, что нашлась первой. Молча.
-Пробник поймал это на первом же прогоне — сцена была написана по пикселям.
-Отсюда `pixels.box` и `pixels.button_at`: место и размер интерактивной детали
-называются в ячейках, свободен только рисунок внутри.
+**Two hits may not share a cell.** This is not nitpicking, and it does not
+show on a snapshot at all. Three title buttons 16 px wide at an 18 px step
+look flawless, but at a 10 px cell their areas overlap: a click on the shared
+column belongs to two buttons at once, and whichever is found first wins.
+Silently. The probe caught this on its very first run — the scene had been
+written in pixels. Hence `pixels.box`: the place and size of an interactive
+detail are named in cells before painting, the hit is the same cells from the
+layout, and only the drawing inside is free. Primitives return no hits.
 
 **Кадр без изменений не двигает ни одной версии** — главная мера FR-005 §4.
 Если растры пересоздаются каждый кадр, экран остаётся ПРАВИЛЬНЫМ, просто всё

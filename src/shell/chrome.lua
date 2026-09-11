@@ -171,6 +171,10 @@ local SUNKEN_CLIENT = true
 -- кнопка, по которой нельзя узнать окно, занимает место зря.
 local TASK_MAX = 20
 local TASK_MIN = 7
+-- Fewer than six cells for the status line and it is not drawn at all: three
+-- letters and an ellipsis read as garbage, not as a message. One number for
+-- both themes.
+local STATUS_LEAST = 6
 
 -- Значок рабочего стола рисует библиотека `icons` — та же, которой рисует
 -- значки окно «Мой компьютер». Здесь только переадресация: два одинаковых
@@ -199,21 +203,16 @@ local MENU_MIN = 22
 -- всегда. Порог оставлен, но опущен до ширины, на которой панель ещё не
 -- выглядит стиснутой.
 local MENU_BANNER_AT = 18
--- Надпись вдоль меню. Это НЕ Windows: оболочка рисует стенд wippy, и
--- баннер называет его. Десять знаков, как у оригинала, — ровно столько
--- строк отдаёт панель на низком экране.
-local MENU_BANNER = "WIPPY 2026"
-
--- Надпись отдана наружу: пиксельная тема рисует её поворотом целой строки, а
--- не по буквам, и своя копия текста разошлась бы с этой — тем же способом,
--- каким разошлись две таблицы стилей.
+-- The caption along the Start menu. This is NOT Windows: the shell draws the
+-- wippy stand, and the banner names it. Ten characters, like the original —
+-- exactly as many rows as the panel gives on a short screen.
 --
--- Стоит ЗДЕСЬ, а не выше по файлу, и это не вкусовщина: присвоение,
--- написанное до объявления локальной, читает её как глобальную, то есть
--- кладёт `nil`. Ровно это и случилось при первой попытке — полоса рисовалась,
--- надписи в ней не было, отказа не происходило. Третий раз за ночь один и тот
--- же класс.
-chrome.MENU_BANNER = MENU_BANNER
+-- One string for both themes: the pixel theme sets it in a font and lays it
+-- down rotated as a whole, the cell theme writes it in capitals, one letter
+-- per panel row. Both read it from here while painting: a copy of its own in
+-- the pixel theme had already drifted from this one in letter case — the same
+-- way the two style tables once drifted apart.
+chrome.MENU_BANNER = "Wippy 2026"
 
 -- Кто вошёл в систему — для верхней строки «Пуска». Одна таблица на обе темы:
 -- пиксельная считает раскладку той же `menu_layout` и читает отсюда же, а
@@ -254,14 +253,6 @@ chrome.button_width = widgets.button_width
 chrome.etched = widgets.etched
 chrome.tabs = widgets.tabs
 
--- Стили темы — общие плюс те, которых у окна не бывает: рабочий стол и
--- полоса заголовка принадлежат только раме.
-local styles: any = {}
-for name, style in pairs(widgets.styles) do styles[name] = style end
-
-styles.desktop = tty.style():background(color.desktop)
-styles.desktop_text = tty.style():bold():foreground(color.desktop_text):background(color.desktop)
-
 -- use_desktop(hex) — цвет стола из «Свойств экрана». Одна точка на все
 -- представления: палитра (её читают пиксели при каждой отрисовке значка),
 -- стили ячеек здесь, у виджетов и у значков. Форму цвета проверяет
@@ -270,17 +261,12 @@ styles.desktop_text = tty.style():bold():foreground(color.desktop_text):backgrou
 function chrome.use_desktop(hex: any): boolean
     local value = tostring(hex or "")
     if not value:match("^#%x%x%x%x%x%x$") then return false end
+    -- `widgets.use_desktop` rebuilds the desktop styles in the very table the
+    -- theme paints with: the theme no longer keeps a copy of its own.
     widgets.use_desktop(value)
     icons.use_desktop()
-    styles.desktop = tty.style():background(color.desktop)
-    styles.desktop_text = tty.style():bold():foreground(color.desktop_text):background(color.desktop)
     return true
 end
-styles.title = tty.style():bold():foreground(color.title_active_fg):background(color.title_active_bg)
-styles.title_idle = tty.style():foreground(color.title_idle_fg):background(color.title_idle_bg)
--- Вертикальная надпись в меню и выделение — одна и та же пара цветов: в
--- Windows 95 это одна величина, и заводить вторую незачем.
-styles.banner = styles.select
 
 -- ─── Геометрия хрома ─────────────────────────────────────────────────────
 
@@ -315,6 +301,39 @@ function chrome.window_insets(window)
 end
 
 -- ─── Рабочий стол ────────────────────────────────────────────────────────
+
+-- desktop_spot(item, top, bottom, width, drawn) -> x, y | nil
+--
+-- Where a desktop icon stands — one clipping rule for both themes. The layout
+-- coordinate is clamped into the desk: an icon stored left of the edge or
+-- above the top of the desk (the layout was written on another screen) moves
+-- to the edge instead of vanishing. Not drawn is an icon right of the screen
+-- and one without enough rows above the bottom of the desk: a row that
+-- climbed onto the taskbar would stay there. The cell theme used to clamp
+-- while the pixel theme silently skipped — the same icon was visible in one
+-- mode and gone in the other.
+function chrome.desktop_spot(item: any, top: any, bottom: any, width: any, drawn: any): (any, any)
+    local x = math.max(1, whole(item.x))
+    local y = math.max(math.max(1, whole(top)), whole(item.y))
+    if x > whole(width) or y + whole(drawn) - 1 > whole(bottom) then return nil, nil end
+    return x, y
+end
+
+-- desktop_hit(item, row, from, to) -> the hit of a desktop icon on one row
+--
+-- One table for both themes: the compositor decides from it what to open and
+-- which items the context menu offers. A field one of two copies forgot
+-- would vanish silently — without `properties` the Properties item goes.
+function chrome.desktop_hit(item: any, row: any, from: any, to: any): any
+    return {
+        row = row, from = from, to = to,
+        id = item.id, kind = item.kind,
+        broken = item.broken and true or false,
+        entry = item.entry, title = item.title,
+        w = tonumber(item.w), h = tonumber(item.h), args = item.args,
+        properties = item.properties,
+    }
+end
 
 -- Стол: заливка, значки раскладки и попадания по ним.
 --
@@ -356,18 +375,13 @@ function chrome.fill(canvas, width: any, height: any, state)
     local selected = desk.selected
 
     for _, item in ipairs(type(desk.items) == "table" and desk.items or {}) do
-        local x = whole(item.x)
-        if x < 1 then x = 1 end
-        local y = whole(item.y)
-        if y < top then y = top end
-        local span = math.min(whole(ICON_GRID.w), w - x + 1)
-
+        local x, y = chrome.desktop_spot(item, top, bottom, w, ICON_GRID.drawn)
         local drawn = nil
-        if y + whole(ICON_GRID.drawn) - 1 <= bottom then
+        if x then
             drawn = icons.cell(canvas, x, y, item, {
                 surface = "desktop",
                 selected = selected ~= nil and item.id == selected,
-                room = span,
+                room = math.min(whole(ICON_GRID.w), w - x + 1),
             })
         end
 
@@ -376,14 +390,7 @@ function chrome.fill(canvas, width: any, height: any, state)
             -- подписи, в том числе по её второй строке. Прямоугольник берётся
             -- у того, кто рисовал, — своя формула разъехалась бы с рисунком.
             for row = drawn.top, drawn.bottom do
-                hits[#hits + 1] = {
-                    row = row, from = drawn.from, to = drawn.to,
-                    id = item.id, kind = item.kind,
-                    broken = item.broken and true or false,
-                    entry = item.entry, title = item.title,
-                    w = tonumber(item.w), h = tonumber(item.h), args = item.args,
-                    properties = item.properties,
-                }
+                hits[#hits + 1] = chrome.desktop_hit(item, row, drawn.from, drawn.to)
             end
         end
     end
@@ -501,6 +508,66 @@ end
 -- клик: {row, from, to, action = "menu"} у «Пуска» и {row, from, to, id} у
 -- кнопки окна. Что делать с попаданием, решает композитор: поднять окно и
 -- развернуть свёрнутое — его работа, не темы.
+-- taskbar_layout(width, windows, metrics) -> {start, tasks, status?, clock?}
+--
+-- The taskbar layout in cells — ONE for both themes. The measures differ per
+-- theme and come as a parameter, as with `menu_layout`; the rules are shared:
+--
+--   * Start on the left, the clock at the right edge, window buttons between;
+--   * when it is tight, window buttons go FIRST: Start and the clock stay as
+--     the only sign that the shell is alive, and the list of windows is also
+--     reachable with alt+tab;
+--   * the room is shared evenly between buttons within `task_min..task_max`;
+--     a button narrower than `task_min` is not placed — it names no window;
+--   * the status line takes what is left, if that is at least `STATUS_LEAST`
+--     cells and a window is open.
+--
+-- `metrics`: `start` — the width of Start; `gap` — the gap after it;
+-- `task_min`, `task_max`; `clock` — the clock width (0 — no clock) and
+-- `clock_narrow` — the fallback when the first does not fit; `clock_gap` —
+-- the gap before the clock.
+--
+-- Computed in two places, the layout drifted apart: in cells a button shared
+-- the room, in pixels it was 16 wide and stopped at `w - 10`, and the clock
+-- started at `w - 8` — three rules written as three numbers in one theme.
+function chrome.taskbar_layout(width: any, windows: any, metrics: any): any
+    local w = whole(width)
+    local m: any = type(metrics) == "table" and metrics or {}
+    local task_min = math.max(1, whole(m.task_min or TASK_MIN))
+    local task_max = math.max(task_min, whole(m.task_max or TASK_MAX))
+    local gap, clock_gap = whole(m.gap), whole(m.clock_gap)
+    local plan: any = {tasks = {}}
+    local used = math.min(w, math.max(1, whole(m.start)))
+    plan.start = {from = 1, to = used}
+
+    local clock = 0
+    for _, want in ipairs({whole(m.clock), whole(m.clock_narrow)}) do
+        if clock == 0 and want > 0 and used + clock_gap + want <= w then clock = want end
+    end
+    local reserve = clock > 0 and clock + clock_gap or 0
+
+    local list: any = type(windows) == "table" and windows or {}
+    local room = w - used - reserve
+    if #list > 0 and room >= task_min + gap then
+        used, room = used + gap, room - gap
+        local share = math.max(task_min, math.min(task_max, room // #list))
+        for _, window in ipairs(list) do
+            local span = math.min(share, room)
+            if span < task_min then break end
+            plan.tasks[#plan.tasks + 1] = {from = used + 1, to = used + span, id = window.id, window = window}
+            used, room = used + span, room - span
+        end
+    end
+
+    -- No windows, no status line: on an empty taskbar the compositor's status
+    -- is its key hint, and the owner wants no text next to Start there
+    -- (2026-09-11). Both themes follow, because both take this plan.
+    local rest = w - used - reserve
+    if #list > 0 and rest >= STATUS_LEAST then plan.status = {from = used + 1, to = used + rest} end
+    if clock > 0 then plan.clock = {from = w - clock + 1, to = w} end
+    return plan
+end
+
 function chrome.bars(canvas, width: any, height: any, state)
     local hits = {}
     local w, h = whole(width), whole(height)
@@ -508,7 +575,6 @@ function chrome.bars(canvas, width: any, height: any, state)
 
     local bar = type(state) == "table" and state or {}
     local row = h
-    local parts, used = {}, 0
 
     -- «Пуск». Открытое меню держит кнопку нажатой: иначе по экрану не
     -- сказать, меню это или окно, всплывшее над панелью.
@@ -516,88 +582,72 @@ function chrome.bars(canvas, width: any, height: any, state)
     local face = pressed and styles.face_bold or styles.face
     local label = START_LABEL
     if w < cells(START_LABEL) + 2 + TASK_MIN then label = glyphs.icons.start end
-    if cells(label) + 2 <= w then
-        parts[#parts + 1] = bezel(face:render(label), pressed)
-        used = cells(label) + 2
-    else
-        parts[#parts + 1] = face:render(glyphs.icons.start)
-        used = 1
-    end
-    hits[#hits + 1] = {row = row, from = 1, to = used, action = "menu"}
+    local boxed = cells(label) + 2 <= w
 
-    -- Утопленное поле часов открывает окно, объявленное хостом.
+    -- The sunken clock field opens the window the host declared. When it
+    -- does not fit with its bevels, the clock goes without them.
     local clock = type(bar.clock) == "string" and bar.clock or ""
-    local clock_render, clock_cells = "", 0
-    if clock ~= "" then
-        local padded = " " .. clock .. " "
-        if used + cells(padded) + 2 <= w then
-            clock_render = bezel(styles.face:render(padded), true)
-            clock_cells = cells(padded) + 2
-        elseif used + cells(clock) <= w then
-            clock_render = styles.face:render(clock)
-            clock_cells = cells(clock)
+    local padded = " " .. clock .. " "
+    local plan = chrome.taskbar_layout(w, bar.windows, {
+        start = boxed and cells(label) + 2 or 1, gap = 1,
+        task_min = TASK_MIN, task_max = TASK_MAX,
+        clock = clock ~= "" and cells(padded) + 2 or 0,
+        clock_narrow = clock ~= "" and cells(clock) or 0,
+    })
+
+    local parts: any = {boxed and bezel(face:render(label), pressed) or face:render(glyphs.icons.start)}
+    hits[#hits + 1] = {row = row, from = plan.start.from, to = plan.start.to, action = "menu"}
+    local used = plan.start.to
+    local function pad(upto: any)
+        if whole(upto) > used then
+            parts[#parts + 1] = styles.face:render(string.rep(" ", whole(upto) - used))
+            used = whole(upto)
         end
     end
 
-    -- Кнопки окон. Экран уже панели — они исчезают ПЕРВЫМИ: «Пуск» и часы
-    -- остаются единственным признаком того, что оболочка жива, а список
-    -- окон можно узнать и alt+tab'ом.
-    local windows = type(bar.windows) == "table" and bar.windows or {}
-    local room = w - used - clock_cells
-    if room >= TASK_MIN + 1 and #windows > 0 then
-        parts[#parts + 1] = styles.face:render(" ")
-        used, room = used + 1, room - 1
+    for _, entry in ipairs(plan.tasks) do
+        local task: any = entry
+        local window: any = task.window
+        local span = task.to - task.from + 1
+        pad(task.from - 1)
+        local active = bar.focused_id ~= nil and window.id == bar.focused_id
+        -- A minimized window gets a dimmed caption. Nothing formally asks
+        -- for it, but otherwise "raise" and "restore" look the same on
+        -- screen, and they are different expectations of one click.
+        local face_style = styles.face
+        if active then face_style = styles.face_bold
+        elseif window.minimized then face_style = styles.face_dim end
 
-        local share = room // #windows
-        if share > TASK_MAX then share = TASK_MAX end
-        if share < TASK_MIN then share = TASK_MIN end
-
-        for _, window in ipairs(windows) do
-            local span = share
-            if span > room then span = room end
-            if span < TASK_MIN then break end
-
-            local active = bar.focused_id ~= nil and window.id == bar.focused_id
-            -- Свёрнутое окно — приглушённой подписью. Формально этого не
-            -- требуют, но иначе «поднять» и «развернуть» на экране
-            -- неразличимы, а это разные ожидания от одного клика.
-            local face_style = styles.face
-            if active then face_style = styles.face_bold
-            elseif window.minimized then face_style = styles.face_dim end
-
-            -- На узкой кнопке значка нет: он одинаковый у всех окон и
-            -- отнимает две ячейки у имени, по которому окно и узнают.
-            local body = " " .. tostring(window.title or "?")
-            if span >= TASK_MIN + 5 then
-                local icon = type(window.icon) == "string" and window.icon or glyphs.icons.program
-                body = " " .. icon .. " " .. tostring(window.title or "?")
-            end
-            parts[#parts + 1] = bezel(fit(face_style, body, span - 2), active)
-            hits[#hits + 1] = {row = row, from = used + 1, to = used + span, id = window.id}
-            used, room = used + span, room - span
+        -- A narrow button has no icon: it is the same for every window and
+        -- takes two cells from the name the window is recognised by.
+        local body = " " .. tostring(window.title or "?")
+        if span >= TASK_MIN + 5 then
+            local icon = type(window.icon) == "string" and window.icon or glyphs.icons.program
+            body = " " .. icon .. " " .. tostring(window.title or "?")
         end
+        parts[#parts + 1] = bezel(fit(face_style, body, span - 2), active)
+        hits[#hits + 1] = {row = row, from = task.from, to = task.to, id = window.id}
+        used = task.to
     end
 
     -- Строка состояния занимает то, что осталось. Своей строки у неё больше
     -- нет — панель заняла единственную нижнюю, — а выбросить её значит
     -- потерять сообщения вроде «не открылось: …», которые больше нигде не
     -- показываются.
-    local rest = w - used - clock_cells
     local status = type(bar.status) == "string" and bar.status or ""
-    if status ~= "" and rest >= 6 then
-        parts[#parts + 1] = fit(styles.face_dim, " " .. status, rest)
-        used = used + rest
-        rest = 0
+    if status ~= "" and plan.status then
+        pad(plan.status.from - 1)
+        parts[#parts + 1] = fit(styles.face_dim, " " .. status, plan.status.to - plan.status.from + 1)
+        used = plan.status.to
     end
 
-    if rest > 0 then
-        parts[#parts + 1] = styles.face:render(string.rep(" ", rest))
-        used = used + rest
-    end
-    if clock_cells > 0 then
-        parts[#parts + 1] = clock_render
+    pad(plan.clock and plan.clock.from - 1 or w)
+    if plan.clock then
+        local span = plan.clock.to - plan.clock.from + 1
+        parts[#parts + 1] = span == cells(padded) + 2 and bezel(styles.face:render(padded), true)
+            or styles.face:render(clock)
         if chrome.clock_entry then
-            hits[#hits + 1] = {row = row, from = w - clock_cells + 1, to = w,
+            hits[#hits + 1] = {row = row, from = plan.clock.from, to = plan.clock.to,
                 -- Заголовка здесь нет нарочно: окно называет его запись, и
                 -- «Часы» поверх «Дата и время» читалось бы как другое окно.
                 entry = chrome.clock_entry}
@@ -967,9 +1017,10 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
                 -- Переменная названа НЕ `slot` нарочно: `slot` в этой же
                 -- функции — номер выбираемой строки, и одно имя на два разных
                 -- числа рано или поздно окажется прочитано не тем.
+                local banner = tostring(chrome.MENU_BANNER or ""):upper()
                 local letter_at = #lines - index + 1
-                if letter_at <= #MENU_BANNER then
-                    letter = MENU_BANNER:sub(letter_at, letter_at)
+                if letter_at <= #banner then
+                    letter = banner:sub(letter_at, letter_at)
                 end
             end
 

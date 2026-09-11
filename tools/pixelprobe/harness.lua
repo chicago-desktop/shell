@@ -365,26 +365,34 @@ end
 
 local font = gfx.font("", {size = 13})
 
+-- Clickable things are placed by CELLS: `pixels.box` gives the place, the hit
+-- is the same cells named BEFORE painting, as the layout does in the shell,
+-- not recomputed from the drawing's pixels. `inset` is how much smaller the
+-- drawing is than its cells: decoration is free, interaction is quantized.
+local function place_button(raster, col, row, cols, rows, spec, inset)
+    local area = pixels.box(col, row, cols, rows, CELL)
+    pixels.button(raster, area.x + inset, area.y + inset,
+        area.w - inset * 2, area.h - inset * 2, spec, CELL)
+    return {id = spec.id, from = col, to = col + cols - 1, row = row, bottom_row = row + rows - 1}
+end
+
 scene("окно: грань в один пиксель, заголовок и три кнопки", 30, 8, function(raster)
     local w, h = raster:size()
     pixels.panel(raster, 1, 1, w, h)
 
     -- Заголовок ВНУТРИ рамки, как на эталоне: полоса начинается после грани.
-    pixels.title(raster, 4, 4, w - 6, CELL.h - 2,
-        {text = "Мой компьютер", font = font, focused = true}, CELL)
+    raster:rect(4, 4, w - 6, CELL.h - 2, "#000080")
+    raster:text(8, 6, "My Computer", {font = font, color = "#ffffff"})
 
     -- Кнопки заголовка ставятся В ЯЧЕЙКАХ, по две на кнопку, и это не
     -- украшательство: поставленные по пикселям с шагом 18, они выглядели бы
     -- так же, а зоны попадания пересекались бы — пробник это и поймал, когда
     -- сцена была написана по пикселям.
-    --
-    -- `inset` оставляет рисунку 16×16 внутри двух ячеек: украшение свободно,
-    -- интерактив квантован.
     local hits = {}
     local ids = {"minimize", "maximize", "close"}
     for index, id in ipairs(ids) do
-        hits[#hits+1] = pixels.button_at(raster, 24 + (index - 1) * 2, 1, 2, 1,
-            {id = id, label = "", font = font, inset = 2}, CELL)
+        hits[#hits+1] = place_button(raster, 24 + (index - 1) * 2, 1, 2, 1,
+            {id = id, label = "", font = font}, 2)
     end
 
     pixels.field(raster, 4, CELL.h + 4, w - 6, h - CELL.h - 7)
@@ -395,18 +403,11 @@ scene("кнопки диалога: обычная, нажатая", 24, 4, func
     local w, h = raster:size()
     pixels.panel(raster, 1, 1, w, h)
     local hits = {}
-    hits[#hits+1] = pixels.button_at(raster, 2, 2, 7, 1,
-        {id = "ok", label = "ОК", font = font, inset = 2}, CELL)
-    hits[#hits+1] = pixels.button_at(raster, 10, 2, 7, 1,
-        {id = "cancel", label = "Отмена", font = font, pressed = true, inset = 2}, CELL)
+    hits[#hits+1] = place_button(raster, 2, 2, 7, 1,
+        {id = "ok", label = "OK", font = font}, 2)
+    hits[#hits+1] = place_button(raster, 10, 2, 7, 1,
+        {id = "cancel", label = "Cancel", font = font, pressed = true}, 2)
     return hits
-end)
-
-scene("неактивный заголовок отличается фоном, а не яркостью текста", 20, 2, function(raster)
-    local w = raster:size()
-    pixels.panel(raster, 1, 1, w, 40)
-    pixels.title(raster, 2, 2, w - 2, CELL.h - 2, {text = "Не в фокусе", font = font}, CELL)
-    return {}
 end)
 
 -- ─── ГЛАВНАЯ МЕРА: кадр, нарисованный дважды ────────────────────────────
@@ -431,8 +432,8 @@ local function paint_frame(store, state)
         state.title .. "|" .. tostring(state.focused))
     if dirty then
         pixels.panel(title, 1, 1, 300, CELL.h)
-        pixels.title(title, 2, 2, 296, CELL.h - 4,
-            {text = state.title, font = font, focused = state.focused}, CELL)
+        title:rect(2, 2, 296, CELL.h - 4, state.focused and "#000080" or "#808080")
+        pixels.label(title, 2, 2, 296, CELL.h - 4, state.title, font, "#ffffff")
     end
     store.place("win:title", 1, 1)
 

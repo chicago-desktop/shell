@@ -20,13 +20,16 @@
 --     новым растром с той же версией — и поверхность его бы НЕ переотправила.
 --     Поэтому кэш здесь, а не у вызывающего.
 --
--- Отказ открыть каталог или файл называется по имени и запоминается: тема
--- зовёт это на каждый кадр, и повторять `fs.get` шестьдесят раз в секунду
--- ради одного и того же «нет права» незачем. Вызывающий при отказе рисует
--- примитивами — как и до появления этого файла.
+-- A failure to open the folder or a file is named and remembered: the theme
+-- calls this every frame, and repeating `fs.get` sixty times a second for the
+-- same "not allowed" is pointless. On a failure the caller draws primitives —
+-- as it did before this file existed; the reason goes to the log here, once
+-- per icon and size.
 
 local fs = require("fs")
 local gfx = require("gfx")
+local logger = require("logger")
+local log = logger:named("windows.icons")
 
 local images = {}
 
@@ -159,17 +162,29 @@ function images.get(name: any, size: any): (any, any)
     return raster, nil
 end
 
--- icon(raster, x, y, item, size) -> true или nil, причина
+-- Failures already told to the log: the theme calls `icon` every frame, and
+-- the same reason sixty times a second would drown the log.
+local reported = {}
+
+-- icon(raster, x, y, item, size) -> true or nil, reason
 --
--- Кладёт значок элемента (и накладку ярлыка, если положена) в растр темы.
--- Координата — верхний левый угол, как у всего в `gfx`. Отказ — повод
--- нарисовать примитивами, а не пустоту; причину стоит показать хотя бы раз.
+-- Puts the item's icon (and the shortcut overlay, when due) into the theme's
+-- raster. The coordinate is the top left corner, as everywhere in `gfx`. A
+-- failure is a reason to draw primitives, not emptiness; the reason goes to
+-- the log once.
 function images.icon(raster: any, x: any, y: any, item: any, size: any): (any, any)
     local name, overlay = images.name_for(item)
     if not name then return nil, "the item has no icon in the package" end
     local px = math.tointeger(tonumber(size) or 32) or 32
     local picture, why = images.get(name, px)
-    if not picture then return nil, why end
+    if not picture then
+        local key = tostring(name) .. "@" .. tostring(px)
+        if not reported[key] then
+            reported[key] = true
+            log:warn("icon not loaded", {icon = key, error = tostring(why)})
+        end
+        return nil, why
+    end
     raster:blit(picture, x, y)
     if overlay then
         -- Стрелка ярлыка в Windows 95 стоит в левом нижнем углу значка.
@@ -185,7 +200,7 @@ end
 
 -- forget() — сбросить кэш; нужен тестам и смене каталога, больше никому.
 function images.forget()
-    store, store_failure, cache = nil, nil, {}
+    store, store_failure, cache, reported = nil, nil, {}, {}
 end
 
 return images

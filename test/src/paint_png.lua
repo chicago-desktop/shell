@@ -95,20 +95,30 @@ end
 -- Те же, что у подставки: снимок и карта обязаны показывать одно и то же,
 -- иначе один из двух уровней проверяет не то, что второй.
 
+-- Clickable things go by CELLS: `pixels.box` gives the place, the drawing is
+-- `inset` pixels smaller than its cells. In the shell the layout computes the
+-- hit, not the drawing, so there is none here.
+local function button_in_cells(raster, col, row, cols, rows, spec, cell, inset)
+    local area = pixels.box(col, row, cols, rows, cell)
+    pixels.button(raster, area.x + inset, area.y + inset, area.w - inset * 2, area.h - inset * 2, spec, cell)
+    return area
+end
+
 local function scene_window(raster, cell, font, bold)
     local w, h = raster:size()
     pixels.panel(raster, 1, 1, w, h)
-    pixels.title(raster, 4, 4, w - 6, cell.h - 2,
-        {text = "My Computer", font = font, bold = bold, focused = true}, cell)
+    -- The title bar, the way the theme paints it: a rectangle and a bold caption.
+    raster:rect(4, 4, w - 6, cell.h - 2, "#000080")
+    if bold then raster:text(8, 4 + (cell.h - 2 - bold:height()) // 2, "My Computer",
+        {font = bold, color = "#ffffff"}) end
 
     -- Кнопки заголовка ставятся В ЯЧЕЙКАХ, по две на кнопку: поставленные по
     -- пикселям с шагом 18, они выглядели бы так же, а зоны попадания
     -- пересекались бы — пробник это и поймал.
     local marks = {"minimize", "maximize", "close"}
     for index, id in ipairs(marks) do
-        local hit = pixels.button_at(raster, 24 + (index - 1) * 2, 1, 2, 1,
-            {id = id, label = "", font = font, inset = 2}, cell)
-        local area = pixels.box(hit.from, hit.row, 2, 1, cell)
+        local area = button_in_cells(raster, 24 + (index - 1) * 2, 1, 2, 1,
+            {id = id, label = "", font = font}, cell, 2)
         -- Знак кладётся по НАРИСОВАННОМУ прямоугольнику, а не по ячейке:
         -- у кнопки есть отступ, и знак, посчитанный от ячейки, съехал бы.
         pixels.caption_mark(raster, id, area.x + 2, area.y + 2, area.w - 4, area.h - 4)
@@ -128,25 +138,14 @@ local function scene_buttons(raster, cell, font, bold)
     local labels = {"OK", "Cancel"}
     local span = pixels.button_span(font, labels, cell, 75)
     for index, label in ipairs(labels) do
-        pixels.button_at(raster, 2 + (index - 1) * (span + 1), 2, span, 1,
-            {id = label, label = label, font = font, inset = 2,
-             pressed = index == 2}, cell)
+        button_in_cells(raster, 2 + (index - 1) * (span + 1), 2, span, 1,
+            {id = label, label = label, font = font, pressed = index == 2}, cell, 2)
     end
-end
-
-local function scene_titles(raster, cell, font, bold)
-    local w = raster:size()
-    pixels.panel(raster, 1, 1, w, cell.h * 2)
-    pixels.title(raster, 2, 2, w - 2, cell.h - 2,
-        {text = "Focused", font = font, bold = bold, focused = true}, cell)
-    pixels.title(raster, 2, cell.h + 2, w - 2, cell.h - 2,
-        {text = "Not focused", font = font, bold = bold}, cell)
 end
 
 local SCENES = {
     {name = "window", cols = 30, rows = 8, paint = scene_window},
     {name = "buttons", cols = 23, rows = 3, paint = scene_buttons},
-    {name = "titles", cols = 20, rows = 2, paint = scene_titles},
 }
 
 -- Та же мера, что у подставки, но на НАСТОЯЩЕМ gfx.
@@ -174,8 +173,8 @@ local function check_frames(cell, font)
             state.title .. "|" .. tostring(state.focused))
         if dirty then
             pixels.panel(title, 1, 1, 30 * cell.w, cell.h)
-            pixels.title(title, 2, 2, 30 * cell.w - 4, cell.h - 4,
-                {text = state.title, font = font, focused = state.focused}, cell)
+            title:rect(2, 2, 30 * cell.w - 4, cell.h - 4, state.focused and "#000080" or "#808080")
+            pixels.label(title, 2, 2, 30 * cell.w - 4, cell.h - 4, state.title, font, "#ffffff")
         end
         store.place("win:title", 1, 1)
 
@@ -637,7 +636,7 @@ local function main(spec)
     -- Проверка поворота отдельно от темы: если надпись не видна на экране,
     -- надо знать, поворот ли это не работает или место посчитано мимо.
     do
-        local label = "WIPPY 2026"
+        local label = chrome.MENU_BANNER
         local tw = bold:measure(label)
         local th = bold:height()
         local temp = gfx.raster(tw, th + 2)

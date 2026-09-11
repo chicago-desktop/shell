@@ -15,19 +15,19 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
         if w > 0 then canvas:put(whole(x), whole(y), widgets.fit(style, tostring(text), whole(w)), whole(w)) end
     end
     local styles = widgets.styles
-    -- Полоса прокрутки списка, таблицы, дерева и сетки значков — одна, та же,
-    -- что у проводника: `widgets.scrollbar`. Числа — из плана (`item.offset`,
-    -- `item.page`), а ползунок считает тот же `scroll.bar`, по которому план
-    -- считает попадание и перетаскивание, — нарисованный и нажимаемый не
-    -- разъедутся. Было четыре встроенные копии. Колонку сначала заливает
-    -- лицо: полосы нет, когда прокручивать нечего.
+    -- The scrollbar of a list, table, tree and icon grid is one and the same as
+    -- the explorer's: `widgets.scrollbar`. The numbers come from the plan (`item.offset`,
+    -- `item.page`), and the thumb is computed by the same `scroll.bar` the plan uses
+    -- to compute hits and dragging, so the drawn thumb and the pressable one do not
+    -- drift apart. There used to be four built-in copies. The column is first filled
+    -- with the face color: there is no bar when there is nothing to scroll.
     local function scrollbar(x: any, y: any, h: any, first: any, visible: any, total: any)
         for row = 0, whole(h) - 1 do put(x, y + row, " ", 1, styles.face) end
         widgets.scrollbar(canvas, whole(x), whole(y), whole(h), {first = first, visible = visible, total = total})
     end
     local function strip(item: any, r: any, current: any, opened: any)
-        -- Полоса заголовков вкладок или меню: « подпись » с гранями у вкладок,
-        -- голая — у меню; текущая жирная, раскрытая — инверсией.
+        -- The strip of tab or menu titles: " caption " with edges for tabs,
+        -- bare for menus; the current one is bold, the open one is inverted.
         local parts, used = {}, 0
         for _, span in ipairs(item.spans or {}) do
             local text = " " .. span.title .. " "
@@ -47,7 +47,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
         local node, r = item.node, item.rect
         local focused = interaction.focus == node.id
         if node.kind == "group" then
-            -- Рамка с заголовком в верхней грани — как у ящиков диспетчера.
+            -- A frame with its title in the top edge — like the Task Manager's boxes.
             local title = " " .. tostring(node.title or "") .. " "
             local top = widgets.edge_top(r.w, false)
             canvas:put(whole(r.x), whole(r.y), top, whole(r.w))
@@ -60,7 +60,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             end
             if r.h >= 2 then canvas:put(whole(r.x), whole(r.y + r.h - 1), widgets.edge_bottom(r.w, false), whole(r.w)) end
         elseif node.kind == "graph" then
-            -- Зелёное по чёрному, сетка точками там, где график пуст.
+            -- Green on black, a dotted grid where the graph is empty.
             local line = tty.style():foreground("#00ff00"):background("#000000")
             local grid = tty.style():foreground("#004400"):background("#000000")
             local rows, top = charts.graph(node.values or {}, r.w, r.h, node.ceiling or 0)
@@ -89,7 +89,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             end
             put(r.x, r.y, tostring(node.caption or node.value or ""), r.w, line)
         elseif node.kind == "calendar" then
-            -- Заголовок дней недели, шесть строк чисел, сегодня — инверсией.
+            -- A header of weekdays, six rows of dates, today inverted.
             local names = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
             local col = math.max(2, whole(r.w) // 7)
             local head = {}
@@ -108,13 +108,13 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 canvas:put(whole(r.x), whole(r.y + row_index), table.concat(parts), whole(math.min(r.w, col * 7)))
             end
         elseif node.kind == "clock" then
-            -- Стрелок в ячейках нет: цифровое время посередине поля.
+            -- There are no hands in cells: digital time in the middle of the field.
             local digital = string.format("%02d:%02d:%02d", whole(node.hour), whole(node.minute), whole(node.second))
             for row = 0, r.h - 1 do canvas:put(whole(r.x), whole(r.y + row), styles.field:render(string.rep(" ", r.w)), whole(r.w)) end
             put(r.x + math.max(0, (r.w - 8) // 2), r.y + r.h // 2, digital, math.min(r.w, 8), styles.field)
         elseif node.kind == "field" then
-            -- Вдавленное поле только для чтения: табло калькулятора, окошко
-            -- памяти. Текст вправо или влево, лишнее обрезается.
+            -- A sunken read-only field: the calculator display, the memory
+            -- box. Text is aligned right or left, the excess is clipped.
             local inner = math.max(0, whole(r.w) - 2)
             local shown = widgets.clip(tostring(node.text or ""), inner)
             local pad = math.max(0, inner - widgets.cells(shown))
@@ -124,7 +124,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 canvas:put(whole(r.x), whole(r.y + row), widgets.bezel(styles.field:render(line), true), whole(r.w))
             end
         elseif node.kind == "monitor" then
-            -- В ячейках монитор — рамка лица и экран цветом стола внутри.
+            -- In cells the monitor is a face-colored frame with a desktop-colored screen inside.
             local screen = tty.style():background(tostring(node.color or "#008080"))
             for row = 0, r.h - 1 do
                 local edge = row == 0 or row == r.h - 1
@@ -136,14 +136,14 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 end
             end
         elseif node.kind == "image" then
-            -- Значок в ячейках — один символ: шрифт растров не знает.
+            -- An icon in cells is one character: the font knows nothing about rasters.
             local glyph = tostring(node.icon or "▸")
             put(r.x + math.max(0, (r.w - 1) // 2), r.y + math.max(0, (r.h - 1) // 2), glyph, 1, styles.face)
         elseif node.kind == "statusbar" then
             widgets.statusbar(canvas, r.x, r.y + r.h - 1, r.w, node.fields or {})
         elseif node.kind == "tabs" then
             strip(item, r, whole(node.active or 1), nil)
-            -- Рамка страницы с разрывом под активной вкладкой — как у widgets.tabs.
+            -- The page frame with a gap under the active tab — like widgets.tabs.
             local frame = item.frame
             if frame and frame.h >= 2 then
                 local gap: any = nil
@@ -167,8 +167,8 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             local open: any = interaction.menus and interaction.menus[node.id] or nil
             strip(item, r, nil, open and open.index or nil)
         elseif node.kind == "table" then
-            -- Заголовок — выпуклые кнопки колонок, как в «Проводнике»; строки —
-            -- ячейки по колонкам одной раскладки, правое выравнивание для чисел.
+            -- The header is raised column buttons, as in "Explorer"; rows are
+            -- cells in the columns of one layout, right-aligned for numbers.
             local columns = ui.columns(node, r.w - 1)
             local styles = widgets.styles
             local header = whole(item.header)
@@ -181,8 +181,8 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 put(r.x + r.w - 1, r.y, " ", 1, styles.face)
             end
             local rows = ui.entries(node)
-            -- Недоступная — лицом и серым текстом, без выделения, как
-            -- недоступное поле: иначе она выглядит рабочей и молча не отвечает.
+            -- A disabled one uses the face color and gray text, with no selection, like
+            -- a disabled field: otherwise it looks working and silently does not respond.
             local ground = node.disabled and styles.face_dim or styles.field
             for row = 0, r.h - 1 - header do
                 local index = item.offset + row + 1
@@ -233,9 +233,9 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             end
             scrollbar(r.x + r.w - 1, r.y, r.h, item.offset, item.page, #rows)
         elseif node.kind == "icons" then
-            -- Значок с подписью рисует общая библиотека оболочки — та же, что
-            -- на столе и в проводнике. Своя копия здесь означала бы третий
-            -- вид одного значка, расходящийся на подписи в две строки.
+            -- The icon with its caption is drawn by the shell's shared library — the same one as
+            -- on the desktop and in the explorer. A copy of our own here would mean a third
+            -- look of the same icon, diverging on two-line captions.
             local ground = node.disabled and styles.face_dim or styles.field
             for row = 0, r.h - 1 do
                 put(r.x, r.y + row, "", r.w - 1, ground)
@@ -260,11 +260,12 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             local style = widgets.styles.face
             if node.kind == "label" and node.alert then style = widgets.styles.alert end
             if node.kind == "button" then
-                -- Та же кнопка, что у Run, проводника и хрома: грани, чёрный
-                -- контур у default, грани наоборот при нажатии, тусклая —
-                -- недоступная. Своя «[ … ]» расходилась с остальной оболочкой.
+                -- The same button as in Run, the explorer and the chrome: edges, a black
+                -- outline on default, reversed edges when pressed, dimmed when
+                -- disabled. Our own "[ … ]" diverged from the rest of the shell.
                 local armed = interaction.armed
                 label = widgets.button(node.text, {
+                    room = r.w,
                     default = ui.default_look(plan, node, focused),
                     pressed = node.pressed == true or (armed ~= nil and armed.id == node.id and armed.inside == true),
                     disabled = node.disabled and true or false,
@@ -279,8 +280,8 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 style = focused and editing and editing.selected and widgets.styles.select or widgets.styles.field
             end
             if node.disabled and node.kind ~= "button" then style = widgets.styles.face_dim end
-            -- Многострочная метка (`\n`): строки подряд, блок по центру
-            -- прямоугольника; однострочная — в средней строке, как раньше.
+            -- A multi-line label (`\n`): lines in a row, the block centered in
+            -- the rectangle; a single-line one sits in the middle row, as before.
             local lines: any = {}
             if node.kind == "label" and label:find("\n", 1, true) then
                 local value: string = label .. "\n"
@@ -289,7 +290,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             local first = #lines > 0 and math.max(0, (r.h - #lines) // 2) or r.h // 2
             for row = 0, r.h - 1 do
                 if node.kind == "button" and row == r.h // 2 then
-                    -- Уже отрисованная строка: `fit` перекрасил бы грани.
+                    -- An already rendered string: `fit` would repaint the edges.
                     canvas:put(whole(r.x), whole(r.y + row), tostring(label), whole(r.w))
                 elseif #lines > 0 then
                     put(r.x, r.y + row, lines[row - first + 1] or "", r.w, style)
@@ -305,7 +306,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             end
         end
     end
-    -- Раскрытые меню — поверх всего, поэтому после остальных.
+    -- Open menus go on top of everything, hence after the rest.
     for _, item in ipairs(plan.overlays or {}) do
         local popup: any = item.popup
         local open: any = interaction.menus[item.node.id]

@@ -60,12 +60,6 @@ local function await(budget)
     end
 end
 
--- running() -> pid | nil
-function control.running()
-    local pid = process.registry.lookup(control.SERVICE_NAME)
-    return pid
-end
-
 -- call(topic, body) -> (ответ, nil, запущена) | (nil, причина, запущена)
 --
 -- Третьим значением — была ли оболочка запущена вообще. Ручке раскладки это

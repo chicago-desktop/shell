@@ -76,11 +76,10 @@ entries:
   - name: pixels
     kind: library.lua
     meta:
-      comment: Пиксельные примитивы Windows 95 — грань в один пиксель, панель, вдавленное поле, кнопка, полоса заголовка; рисует пикселями, попадания отдаёт в ячейках.
+      comment: Windows 95 pixel primitives — a one-pixel edge, panel, sunken field, button, marks, icons; paints pixels at a place named in cells, while the caller's layout computes the hits.
     source: file://pixels.lua
     modules:
       - gfx
-      - logger
     imports:
       text: butschster.tui_desktop.desktop:text
       geometry: butschster.tui_desktop.desktop:geometry
@@ -174,8 +173,9 @@ entries:
   - name: images
     kind: library.lua
     meta:
-      comment: Настоящие значки Windows 95 из PNG — декодирование через gfx.image, наложение через blit, одна таблица «вид → имя».
+      comment: Real Windows 95 icons from PNG — decoded with gfx.image, laid down with blit, one "kind → name" table; a failure goes to the log once per icon.
     source: file://images.lua
     modules:
       - fs
       - gfx
+      - logger

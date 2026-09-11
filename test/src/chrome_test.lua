@@ -689,6 +689,186 @@ local function define_tests()
     -- различающихся ПОСЛЕДНИМ словом. Одна проверка ловит и «текст не
     -- нарисован», и «текст срезан, а не перенесён»: срез съел бы именно конец,
     -- и оба кадра совпали бы.
+    -- One value in two places: the taskbar layout and the desktop icon hit were
+    -- computed by each theme on its own. `chrome` computes them now, so a
+    -- mutation of the shared rule turns both themes red.
+    test.describe("one taskbar and desktop layout for both themes", function()
+        local WINDOWS: any = {}
+        for index = 1, 5 do WINDOWS[index] = {id = "w" .. index, title = "Window " .. index} end
+
+        local function use_fonts()
+            local files = assert(fs.get("app:system_fonts"))
+            chrome_pixels.use_fonts(
+                assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true})),
+                assert(gfx.font(assert(files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true})))
+            chrome_pixels.use_cell_size(10, 20)
+        end
+
+        -- Start first, window buttons in order and sharing no cell, the clock at
+        -- the right edge, and no button reaching into it.
+        local function check_bar(hits: any, w: integer, name: string): any
+            local start, clock = hits[1], hits[#hits]
+            test.eq(start.action, "menu", name)
+            test.eq(start.from, 1, name)
+            test.eq(clock.entry, "app:clock", name)
+            test.eq(clock.to, w, name .. ": the clock sits at the right edge")
+            local previous, ids = start.to, {}
+            for index = 2, #hits - 1 do
+                local hit = hits[index]
+                test.is_true(hit.from > previous, name .. ": " .. tostring(hit.id) .. " overlaps its neighbour")
+                previous = hit.to
+                ids[#ids + 1] = hit.id
+            end
+            test.is_true(previous < clock.from, name .. ": a window button reaches into the clock")
+            test.is_true(#ids >= 3, name .. ": the scene must show several windows")
+            return ids
+        end
+
+        local function same_as_plan(hits: any, plan: any, name: string)
+            test.eq(hits[1].to, plan.start.to, name .. ": Start")
+            test.eq(#hits - 2, #plan.tasks, name .. ": window buttons")
+            for index, task in ipairs(plan.tasks) do
+                test.eq(hits[index + 1].from, task.from, name .. ": start of " .. tostring(task.id))
+                test.eq(hits[index + 1].to, task.to, name .. ": end of " .. tostring(task.id))
+            end
+            test.eq(hits[#hits].from, plan.clock.from, name .. ": clock")
+        end
+
+        test.it("the cell theme takes its taskbar bounds from chrome.taskbar_layout", function()
+            chrome.clock_entry = "app:clock"
+            local hits = chrome.bars(tty.canvas(80, 24), 80, 24, {clock = "12:30", windows = WINDOWS})
+            chrome.clock_entry = nil
+            check_bar(hits, 80, "cells")
+            same_as_plan(hits, chrome.taskbar_layout(80, WINDOWS, {start = hits[1].to, gap = 1, clock = 9}), "cells")
+        end)
+
+        test.it("the pixel theme takes its taskbar bounds from the same layout", function()
+            chrome_pixels.clock_entry = "app:clock"
+            chrome_pixels.use_cell_size(10, 20)
+            local hits = chrome_pixels.paint({width = 80, height = 24, bottom = 22, clock = "12:30",
+                windows = WINDOWS, items = {}}, 10, 20).hits.bars
+            chrome_pixels.clock_entry = nil
+            check_bar(hits, 80, "pixels")
+            same_as_plan(hits, chrome.taskbar_layout(80, WINDOWS,
+                {start = hits[1].to, task_min = 16, task_max = 16, clock = 9, clock_gap = 1}), "pixels")
+        end)
+
+        -- The owner's rule (2026-09-11): no text next to Start while no window
+        -- is open. With a window, the status line is still where messages such
+        -- as "could not open: ..." are shown. The rule lives in the shared
+        -- layout, and each theme is checked on its own.
+        local STATUS = "could not open: app:gone"
+
+        test.it("cells: the status line shows beside a window and not on an empty taskbar", function()
+            local function row(windows: any): string
+                local canvas = tty.canvas(80, 24)
+                chrome.bars(canvas, 80, 24, {clock = "12:30", windows = windows, status = STATUS})
+                local rows: any = canvas:rows()
+                return (tostring(rows[24]):gsub("\27%[[%d;:]*m", ""))
+            end
+            test.is_true(row({WINDOWS[1]}):find(STATUS, 1, true) ~= nil, "the status is shown beside a window")
+            test.is_nil(row({}):find("could not open", 1, true), "no windows, no text beside Start")
+        end)
+
+        test.it("pixels: the status line shows beside a window and not on an empty taskbar", function()
+            local one, status = {WINDOWS[1]}, STATUS
+            use_fonts()
+            -- Bytes are taken right after each frame: the store paints the next
+            -- frame into the same buffer.
+            local function bar_png(windows: any, text: any): any
+                local painted = chrome_pixels.paint({width = 80, height = 24, bottom = 22, clock = "12:00",
+                    windows = windows, items = {}, status = text}, 10, 20)
+                for _, image in ipairs(painted.placements) do
+                    if image.id == "bars" then return assert(image.raster:encode("png")) end
+                end
+                return nil
+            end
+            local shown, bare = bar_png(one, status), bar_png(one, nil)
+            local empty_with, empty_without = bar_png({}, status), bar_png({}, nil)
+            chrome_pixels.fonts = nil
+            test.is_true(shown ~= bare, "the status is drawn beside a window")
+            test.eq(empty_with, empty_without, "no windows, no text beside Start")
+            test.is_nil(chrome.taskbar_layout(80, {}, {start = 11, gap = 1, clock = 9}).status,
+                "the layout gives an empty taskbar no status room")
+        end)
+
+        test.it("places a desktop icon by one clipping rule and gives one hit table", function()
+            chrome_pixels.use_cell_size(10, 20)
+            -- The layout was written on another screen: left of the edge, above the desk.
+            local item = {id = "d1", x = 0, y = 0, kind = "program", entry = "app:x", title = "X",
+                w = 40, h = 12, args = {a = 1}, properties = "app:props"}
+            local cell_hits = chrome.fill(tty.canvas(80, 24), 80, 24, {top = 2, bottom = 22, items = {item}})
+            local pixel_hits = chrome_pixels.paint({width = 80, height = 24, top = 2, bottom = 22,
+                items = {item}, windows = {}}, 10, 20).hits.desktop
+            test.is_true(#cell_hits > 0, "cells: the icon moves to the edge of the desk")
+            test.is_true(#pixel_hits > 0, "pixels: the same, instead of vanishing")
+            local function keys(hit: any): string
+                local out = {}
+                for key in pairs(hit) do out[#out + 1] = tostring(key) end
+                table.sort(out)
+                return table.concat(out, ",")
+            end
+            for name, hits in pairs({cells = cell_hits, pixels = pixel_hits}) do
+                local hit = hits[1]
+                test.eq(hit.from, 1, name .. ": the left edge")
+                test.eq(hit.row, 2, name .. ": the top of the desk, not row zero")
+                test.eq(hit.properties, "app:props", name)
+                test.eq(hit.w, 40, name)
+                test.eq(hit.args.a, 1, name)
+            end
+            test.eq(keys(cell_hits[1]), keys(pixel_hits[1]), "both hits carry the same fields")
+
+            local far = {id = "d2", x = 81, y = 3, kind = "program"}
+            test.eq(#chrome.fill(tty.canvas(80, 24), 80, 24, {top = 2, bottom = 22, items = {far}}), 0,
+                "cells: right of the screen, not drawn")
+            test.eq(#chrome_pixels.paint({width = 80, height = 24, top = 2, bottom = 22, items = {far},
+                windows = {}}, 10, 20).hits.desktop, 0, "pixels: the same")
+        end)
+
+        test.it("draws the Start banner from the one string chrome.MENU_BANNER in both themes", function()
+            -- Long captions: the banner only appears on a wide panel.
+            local long: any, other: any = {}, {}
+            for index = 1, 10 do
+                long[index] = {entry = "app:p" .. index, title = "A program with a long name " .. index}
+                other[index] = {entry = "app:q" .. index, title = "Another program with a name " .. index}
+            end
+            local saved = chrome.MENU_BANNER
+
+            chrome.MENU_BANNER = "Abcdefghij"
+            local plan = chrome.menu_layout(80, 24, long, nil, {}, 1, {})
+            local lines: any = plan.panels[1].lines
+            local letters = ""
+            for index = #lines, 1, -1 do
+                local letter = tostring(lines[index].banner_letter or " ")
+                if letter ~= " " then letters = letters .. letter end
+            end
+
+            use_fonts()
+            local layout = chrome_pixels.layout(100, 30)
+            local function menu_png(items: any): any
+                local painted = chrome_pixels.paint({width = 100, height = 30, bottom = 30 - layout.bottom,
+                    clock = "12:00", windows = {}, items = {}, menu = {items = items, cursor = 1}}, 10, 20)
+                for _, image in ipairs(painted.placements) do
+                    if image.id == "menu:1" then return assert(image.raster:encode("png")) end
+                end
+                return nil
+            end
+            chrome.MENU_BANNER = saved
+            local first = menu_png(long)
+            -- Another state in between, so the menu raster is painted again: its
+            -- key is built from the items, not from the banner.
+            menu_png(other)
+            chrome.MENU_BANNER = "Other 1999"
+            local second = menu_png(long)
+            chrome.MENU_BANNER = saved
+            chrome_pixels.fonts = nil
+
+            test.eq(letters, "ABCDEFGHIJ", "cells write chrome.MENU_BANNER in capitals, bottom to top")
+            test.not_nil(first, "the menu is painted")
+            test.is_true(first ~= second, "the pixel theme paints chrome.MENU_BANNER, not a copy of its own")
+        end)
+    end)
+
     test.describe("pixel desktop failure and taskbar status", function()
         local function use_fonts()
             local files = assert(fs.get("app:system_fonts"))

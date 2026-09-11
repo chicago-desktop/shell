@@ -1,4 +1,4 @@
--- Пиксельные примитивы оболочки: объём, панель, поле, кнопка, заголовок.
+-- Pixel primitives of the shell: bevel, panel, field, button, marks, icons.
 --
 -- Пиксельный двойник `widgets`, и написан по тому же правилу: НИЧЕГО, что
 -- знает про экран целиком. Только арифметика и вызовы в растр, поэтому
@@ -6,15 +6,20 @@
 --
 -- ─── Два правила, из-за которых этот файл выглядит именно так ───────────
 --
--- ПЕРВОЕ. Украшение свободно, интерактив квантован (FR-005 §4а). Грань здесь
--- в ОДИН пиксель — ради этого весь переход и затеян, — но мышь шлёт координаты
--- в ЯЧЕЙКАХ, других SGR 1006 не знает. Поэтому всё, по чему щёлкают, отдаёт
--- попадание в ячейках, а не в пикселях. Отдай мы прямоугольники в пикселях и
--- подели их на размер ячейки — на границе двух соседних кнопок округление
--- решало бы, кому достался щелчок, и решало бы молча.
+-- FIRST. Decoration is free, interaction is quantized (FR-005 §4a). An edge
+-- here is ONE pixel — that is what the whole move was for — but the mouse
+-- reports coordinates in CELLS, SGR 1006 knows no others. So the place of
+-- everything that gets clicked is named in cells and turned into pixels by
+-- `pixels.box`, and the hit is computed by the caller's LAYOUT, in the same
+-- cells and before painting: the taskbar — `chrome.taskbar_layout`, SDK
+-- windows — `ui.plan`, the explorer — `render.layout`. Hand out rectangles
+-- in pixels and divide them by the cell size, and at the border of two
+-- neighbouring buttons rounding would decide who got the click, silently.
 --
--- Отсюда форма: рисующая функция принимает ПИКСЕЛИ и возвращает попадание в
--- ЯЧЕЙКАХ, пересчитывая одно в другое ровно в одном месте — там, где рисует.
+-- Hence the shape: the functions here take PIXELS and return no hits. The
+-- former `button_at` and `title`, which returned a hit from the drawing, were
+-- called only by the snapshots: everything clickable in the shell was already
+-- placed by a layout.
 --
 -- ВТОРОЕ. Растры переживают кадр (FR-005 §4). Ни одна функция здесь растров не
 -- создаёт: растр приходит снаружи, от того, кто хранит его между кадрами.
@@ -26,9 +31,6 @@
 
 local palette = require("palette")
 local images = require("images")
-local logger = require("logger")
-local log = logger:named("windows.icons")
-local reported = {}
 
 local color = palette.exact
 
@@ -43,34 +45,9 @@ local geometry = require("geometry")
 local text_lib = require("text")
 local whole = geometry.whole
 
--- Прямоугольник в пикселях -> прямоугольник в ЯЧЕЙКАХ, единичных.
---
--- Наружу отдаётся то, во что мышь умеет попадать. Ячейка считается занятой,
--- если рисунок её задел: кнопка, нарисованная от середины ячейки, всё равно
--- нажимается по всей ячейке — иначе половина кнопки мертва, а выглядит живой.
-function pixels.cells(x: any, y: any, w: any, h: any, cell: any): any
-    local unit: any = type(cell) == "table" and cell or {}
-    local cw = whole(unit.w)
-    local ch = whole(unit.h)
-    if cw < 1 then cw = 1 end
-    if ch < 1 then ch = 1 end
-
-    local left = whole(x)
-    local top = whole(y)
-    local right = left + math.max(1, whole(w)) - 1
-    local bottom = top + math.max(1, whole(h)) - 1
-
-    return {
-        from = (left - 1) // cw + 1,
-        to = (right - 1) // cw + 1,
-        row = (top - 1) // ch + 1,
-        bottom_row = (bottom - 1) // ch + 1,
-    }
-end
-
 -- box(col, row, cols, rows, cell) -> прямоугольник в ПИКСЕЛЯХ
 --
--- Обратное к `cells`: место, названное в ячейках, превращается в пиксели.
+-- A place named in cells turns into pixels.
 -- Этим кладут всё, по чему щёлкают, и вот почему — а не ради удобства.
 --
 -- Правило «интерактив квантован» дисциплиной не держится. Три кнопки
@@ -243,34 +220,40 @@ function pixels.wrap(font, text, room: any, limit: any): any
     return out
 end
 
--- Кнопка, занимающая целое число ЯЧЕЕК. Место называется в ячейках нарочно —
--- см. `pixels.box`: кнопка, поставленная по пикселям, делит ячейку с соседкой,
--- и щелчок по этой ячейке принадлежит обеим.
+-- A button by pixels. A clickable one is placed by cells — `pixels.box` gives
+-- the rectangle, the drawing may be smaller than it (a 16x14 title button
+-- inside two cells), and the hit comes from the layout: the WHOLE cell, not
+-- only the drawing, or the margin around the button is dead while it looks
+-- like part of it.
+-- caption(font, text, width) -> what a button `width` pixels wide can show.
 --
--- `spec.inset` — насколько рисунок меньше своей ячейки. Так кнопка заголовка
--- рисуется настоящей 16×14 внутри двух ячеек, а нажимается по всем двум.
-function pixels.button_at(raster, col: any, row: any, cols: any, rows: any,
-                          spec: any, cell: any): any
-    local options: any = type(spec) == "table" and spec or {}
-    local area = pixels.box(col, row, cols, rows, cell)
-    local pad = whole(options.inset)
-
-    local hit = pixels.button(raster,
-        area.x + pad, area.y + pad,
-        area.w - pad * 2, area.h - pad * 2, options, cell)
-
-    -- Попадание — ВСЯ ячейка, а не нарисованный прямоугольник: иначе кайма
-    -- вокруг кнопки мертва, а выглядит частью кнопки.
-    hit.from = whole(col)
-    hit.to = whole(col) + math.max(1, whole(cols)) - 1
-    hit.row = whole(row)
-    hit.bottom_row = whole(row) + math.max(1, whole(rows)) - 1
-    return hit
+-- The two bevels take 2 px per side, and a caption that fits between them is
+-- drawn whole and centred, with no further padding. Only a longer caption is
+-- ellipsized, and never down to the ellipsis alone: "..." names no button,
+-- so then the caption is cut to the runes that fit.
+--
+-- Measured with the shell's bold Liberation Sans 13: "MC" is 20 px, "sqrt"
+-- 24 px. At an 8 px cell a four-cell calculator key is 28 px, so the old
+-- 10 px reserve left 18 px and showed "..." on MC, MR, MS, M+ and sqrt, and
+-- even 1 px of air per side would still cut sqrt. The bevels alone leave 24.
+pixels.CAPTION_PAD = 4
+function pixels.caption(font, text, width: any): string
+    local caption = tostring(text or "")
+    if not font or caption == "" then return "" end
+    local room = whole(width) - pixels.CAPTION_PAD
+    if room <= 0 then return "" end
+    if whole(font:measure(caption)) <= room then return caption end
+    local short = pixels.ellipsize(font, caption, room)
+    if short ~= "" and short ~= "..." then return short end
+    local kept = ""
+    for _, rune in ipairs(text_lib.runes(caption)) do
+        if whole(font:measure(kept .. rune)) > room then break end
+        kept = kept .. rune
+    end
+    return kept
 end
 
--- Кнопка по пикселям. Годится для того, что не нажимают, и как основа для
--- `button_at`; для нажимаемого берут её.
-function pixels.button(raster, x: any, y: any, w: any, h: any, spec: any, cell: any): any
+function pixels.button(raster, x: any, y: any, w: any, h: any, spec: any, cell: any)
     local options: any = type(spec) == "table" and spec or {}
     local left, top, width, height = whole(x), whole(y), whole(w), whole(h)
     local pressed = options.pressed and not options.disabled
@@ -286,7 +269,7 @@ function pixels.button(raster, x: any, y: any, w: any, h: any, spec: any, cell: 
         pixels.edge(raster, left, top, width, height, true)
     end
     local shift = pressed and 1 or 0
-    local label = options.font and pixels.ellipsize(options.font, tostring(options.label or ""), math.max(0, width - 10)) or ""
+    local label = options.font and pixels.caption(options.font, options.label, width) or ""
     if options.disabled then
         -- One pass keeps small labels legible; a white offset looks doubled.
         pixels.label(raster, x, y, w, h, label, options.font, color.shadow)
@@ -310,10 +293,6 @@ function pixels.button(raster, x: any, y: any, w: any, h: any, spec: any, cell: 
         end
         if options.focused then pixels.focus_rect(raster, left + 4, top + 4, width - 8, height - 8) end
     end
-
-    local hit = pixels.cells(x, y, w, h, cell)
-    hit.id = options.id
-    return hit
 end
 
 -- Standard 13px checkbox, independent of font glyph coverage.
@@ -475,37 +454,6 @@ function pixels.button_span(font, labels, cell: any, least: any): integer
     return math.tointeger(span) or 1
 end
 
--- Полоса заголовка: тёмно-синяя при фокусе, серая без него. Разница по ФОНУ,
--- а не по яркости текста — иначе на тёмной теме терминала оба заголовка
--- сливаются. В пикселях терминальной темы нет вовсе, но правило остаётся: по
--- фону разница видна и на снимке, и в глазах.
-function pixels.title(raster, x: any, y: any, w: any, h: any, spec: any, cell: any): any
-    local options: any = type(spec) == "table" and spec or {}
-    local focused = options.focused and true or false
-
-    local left, top = whole(x), whole(y)
-    local width, height = whole(w), whole(h)
-
-    raster:rect(left, top, width, height,
-        focused and color.title_active_bg or color.title_idle_bg)
-
-    local tint = focused and color.title_active_fg or color.title_idle_fg
-    -- Полужирный, а не обычный: в Windows 95 подпись заголовка набрана
-    -- полужирным, и это отдельный ФАЙЛ шрифта, а не опция — синтезировать его
-    -- размазыванием пикселей значит перестать быть похожим.
-    local font = options.bold or options.font
-    if font then
-        local _, text_h = font:measure(tostring(options.text or ""))
-        -- Текст прижат влево и центрирован по высоте полосы: заголовок в
-        -- эталоне начинается с отступа в пару пикселей, а не с середины.
-        raster:text(left + whole(options.pad or 4),
-            top + (height - whole(text_h)) // 2,
-            tostring(options.text or ""), {font = font, color = tint})
-    end
-
-    return pixels.cells(x, y, w, h, cell)
-end
-
 -- Clip captions using the actual font rather than character counts.
 function pixels.ellipsize(font, text, room: any)
     local caption = tostring(text or "")
@@ -521,19 +469,12 @@ function pixels.ellipsize(font, text, room: any)
     return kept .. ending
 end
 
--- Native PNGs are cached by images for the lifetime of the process.
--- Keep primitives for missing assets and broken shortcuts; report failures once.
-local function native_icon(raster, x: any, y: any, item: any, size: any)
-    local name = images.name_for(item)
-    if not name then return false end
-    local ok, why = images.icon(raster, whole(x), whole(y), item, size)
-    if ok then return true end
-    local key = tostring(name) .. "@" .. tostring(size)
-    if not reported[key] then
-        reported[key] = true
-        log:warn("icon not loaded", {icon = key, error = tostring(why)})
-    end
-    return false
+-- Native PNGs are cached by images for the lifetime of the process, and a
+-- failure is reported there, once. Primitives stay for missing assets and
+-- broken shortcuts.
+local function native_icon(raster, x: any, y: any, item: any, size: any): boolean
+    if not images.name_for(item) then return false end
+    return images.icon(raster, whole(x), whole(y), item, size) == true
 end
 
 function pixels.icon(raster, x: any, y: any, item: any, size: any)
