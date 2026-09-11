@@ -33,6 +33,8 @@
 local gfx = require("gfx")
 
 local chrome = require("chrome")
+local menu_layout = require("menu_layout")
+local placements = require("placements")
 local palette = require("palette")
 local pixels = require("pixels")
 local rasters = require("rasters")
@@ -803,7 +805,7 @@ end
 
 -- ─── Start menu ──────────────────────────────────────────────────────────
 --
--- The cascade layout is computed by `chrome.menu_layout` — the same function
+-- The cascade layout is computed by `menu_layout.layout` — the same function
 -- by which the menu is drawn in characters. A second computation would drift
 -- from the first, and a click would land on the neighbouring item in one of
 -- the two modes, while both frames would look right.
@@ -1007,68 +1009,24 @@ end
 -- Hits arrive in GROUPS `{desktop, bars, menu}`, not as a flat list: `id`
 -- means different things in the three lists, and a flat one would have to be
 -- parsed by guesswork.
--- Subtract higher windows in cell space before handing images to the surface.
--- Otherwise a lower window's border or a desktop icon erases the foreground text.
-local function subtract(rect: any, cover: any): any
-    local x, y = whole(rect.x), whole(rect.y)
-    local right, bottom = x + whole(rect.cols), y + whole(rect.rows)
-    local cx, cy = whole(cover.x), whole(cover.y)
-    local left = math.max(x, cx)
-    local top = math.max(y, cy)
-    local far = math.min(right, cx + whole(cover.w))
-    local low = math.min(bottom, cy + whole(cover.h))
-    if left >= far or top >= low then return {rect} end
-    local pieces = {}
-    if top > y then pieces[#pieces + 1] = {x = x, y = y, cols = right - x, rows = top - y} end
-    if low < bottom then pieces[#pieces + 1] = {x = x, y = low, cols = right - x, rows = bottom - low} end
-    if left > x then pieces[#pieces + 1] = {x = x, y = top, cols = left - x, rows = low - top} end
-    if far < right then pieces[#pieces + 1] = {x = far, y = top, cols = right - far, rows = low - top} end
-    return pieces
-end
-
--- `menus` are the rectangles of the menu panels in cells. The menu is the top
--- layer for EVERYTHING that is not the menu: windows, icons, the failure
--- plate, the taskbar.
---
--- The list order is not enough for this, and that is not a guess but the
--- runtime surface (service/terminal/surface.go, appendPlacements): it resends
--- only what is new, changed, or covers a repainted row, and sixel has no z
--- order at all. An open menu does not change and is not resent; the raster of
--- a window under it is resent on each of its ticks — and lies over the menu.
--- A piece of the window that is not under the menu cannot lie over the menu.
-local function visible_placements(placements: any, windows: any, menus: any, cell: any): any
+-- Which parts of each picture are visible — higher windows and the menu cut
+-- lower pictures — is pure rectangle geometry and lives in
+-- `butschster.windows.shell:placements` (subtract, the layers, the crop id and
+-- key rule). Here only the rasters: a cropped piece is its own placement, cut
+-- from the source raster once per source version (the store's key).
+local function visible_placements(list: any, windows: any, menus: any, cell: any): any
     local out = {}
-    for _, source in ipairs(placements) do
-        local covers: any = {}
-        if source.layer ~= nil then
-            for index = whole(source.layer) + 1, #windows do
-                local cover = windows[index]
-                if not cover.minimized then covers[#covers + 1] = cover end
-            end
-        end
-        if not source.top then
-            for _, cover in ipairs(menus) do covers[#covers + 1] = cover end
-        end
-        local pieces = {source}
-        for _, cover in ipairs(covers) do
-            local next_pieces = {}
-            for _, piece in ipairs(pieces) do
-                for _, kept in ipairs(subtract(piece, cover)) do next_pieces[#next_pieces + 1] = kept end
-            end
-            pieces = next_pieces
-        end
-        for _, piece in ipairs(pieces) do
-            if piece == source then
-                out[#out + 1] = source
-            else
-                local dx, dy = piece.x - source.x, piece.y - source.y
-                local id = source.id .. ":crop:" .. dx .. ":" .. dy .. ":" .. piece.cols .. ":" .. piece.rows
-                local key = tostring(source.cols) .. ":" .. source.rows .. ":" .. source.raster:version()
-                local raster, dirty = store.take(id, piece.cols, piece.rows, cell, key)
-                if dirty then raster:blit(source.raster, 1 - dx * cell.w, 1 - dy * cell.h) end
-                out[#out + 1] = {id = id, raster = raster, x = piece.x, y = piece.y,
-                    cols = piece.cols, rows = piece.rows}
-            end
+    for _, shown in ipairs(placements.visible(list, windows, menus)) do
+        local source: any, piece: any = shown.source, shown.piece
+        if piece == nil then
+            out[#out + 1] = source
+        else
+            local dx, dy = piece.x - source.x, piece.y - source.y
+            local id = placements.crop_id(source, piece)
+            local raster, dirty = store.take(id, piece.cols, piece.rows, cell, placements.crop_key(source))
+            if dirty then raster:blit(source.raster, 1 - dx * cell.w, 1 - dy * cell.h) end
+            out[#out + 1] = {id = id, raster = raster, x = piece.x, y = piece.y,
+                cols = piece.cols, rows = piece.rows}
         end
     end
     return out
@@ -1156,9 +1114,10 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
         local memo_key = menu_memo_key(view, menu, cell, rows)
         local shown: any = menu_memo.key == memo_key and menu_memo.shown or nil
         if not shown then
-            shown = chrome.menu_layout(view.width, view.height,
+            shown = menu_layout.layout(view.width, view.height,
             menu.items, menu.failure, menu.open, menu.cursor, {
                 compact = true, bottom = rows,
+                banner = chrome.MENU_BANNER,
                 anchor = menu.anchor, context_rows = 1,
                 user = chrome.session.user,
                 root_rows = math.max(1, (32 + cell.h - 1) // cell.h),

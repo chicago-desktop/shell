@@ -120,6 +120,8 @@ entries:
     modules:
       - gfx
     imports:
+      menu_layout: butschster.windows.shell:menu_layout
+      placements: butschster.windows.shell:placements
       geometry: butschster.tui_desktop.desktop:geometry
       # The set of title bar buttons is taken from the cell theme: one table
       # for both modes. A second list would diverge from the first, and a
@@ -150,6 +152,7 @@ entries:
     modules:
       - tty
     imports:
+      menu_layout: butschster.windows.shell:menu_layout
       glyphs: butschster.windows.shell:glyphs
       icons: butschster.windows.shell:icons
       palette: butschster.windows.shell:palette
