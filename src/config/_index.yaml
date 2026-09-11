@@ -11,9 +11,9 @@ entries:
   # butschster.windows.config:environment
   #
   # The library declares ITS OWN modules, the permissions belong to the
-  # process that calls it. The env.get action must be in its policy — today
-  # these are shell_runtime, shell_storage, explorer_window and window_scope
-  # of display and appwiz.
+  # process that calls it. The env.get action must be in its policy, granted
+  # by variable name — today security:shell_env (the shell) and
+  # appwiz:window_env. wiring_test refuses an env.get policy over "*".
   - name: environment
     kind: library.lua
     meta:

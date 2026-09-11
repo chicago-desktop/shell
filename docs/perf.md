@@ -87,9 +87,11 @@ phases. The pixel probe prints what a keystroke resends
 
 ## Open
 
-- **The SDK client is one raster per window**, keyed by the state revision
-  (`sdk/render.lua`): any change re-encodes the whole client, however small.
-  The cache removes only resends of an unchanged revision. Cutting the client
-  into row strips, as the chrome is, is the next step.
+- **Done: the SDK client is cut into rows**, as the chrome is
+  (`render.rows` in `sdk/render.lua`): one placement per client row, keyed by
+  what that row draws, painted by blitting from one full client raster only
+  when the row is dirty. Moving a list selection resends 2 rows — 20 000 px
+  against the 150 000 px of the whole 500×300 client — and a revision that
+  did not change repaints nothing (`test/shots/sdk-rows-cost.txt`).
 - **A window record sized in pixels** — see
   [sdk.md, "Open: a window record sized in pixels"](sdk.md#open-a-window-record-sized-in-pixels).

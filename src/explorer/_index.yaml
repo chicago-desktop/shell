@@ -48,7 +48,6 @@ entries:
       - fs
       - registry
       - sql
-      - env
       - time
       - uuid
     imports:
@@ -139,7 +138,6 @@ entries:
     method: main
     modules:
       - channel
-      - env
       - fs
       - json
       - registry
@@ -169,7 +167,6 @@ entries:
     method: main
     modules:
       - channel
-      - env
       - fs
       - json
       - registry

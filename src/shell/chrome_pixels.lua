@@ -73,7 +73,16 @@ local geometry = require("geometry")
 local whole = geometry.whole
 
 -- Paint and input share these cell rectangles. Pixel decoration stays inside.
-local unit: any = {w = 10, h = 20}
+--
+-- The cell size is NOT guessed. Until use_cell_size names it, paint and fill
+-- refuse and anything that measures in cells raises: "10×20" (or "8×16") is
+-- right often enough to look right, and a theme drawing on a guess puts every
+-- button off by pixels exactly on the terminal where the guess is wrong.
+local NO_CELL = "cell size not set"
+local UNSET: any = setmetatable({}, {__index = function()
+    error("chrome_pixels: " .. NO_CELL .. " — call use_cell_size first", 2)
+end})
+local unit: any = UNSET
 
 -- render entry id → library. The contract is the same for all:
 --   lib.placement(window, inner, cell, fonts, store) -> placement | list | nil, reason
@@ -141,8 +150,16 @@ local function button_size(): (integer, integer)
     return h + 2, h
 end
 
+-- use_cell_size(w, h) — the terminal's cell in pixels. Anything that is not a
+-- positive size, nil included, FORGETS it: a stale size is a guess as well.
+chrome_pixels.NO_CELL = NO_CELL
 function chrome_pixels.use_cell_size(w: any, h: any)
-    unit = {w = math.max(1, whole(w)), h = math.max(1, whole(h))}
+    local cw, ch = whole(w), whole(h)
+    if cw < 1 or ch < 1 then
+        unit = UNSET
+        return
+    end
+    unit = {w = cw, h = ch}
 end
 
 local function taskbar_rows(): integer
@@ -234,6 +251,7 @@ end
 -- Exactly what `chrome.fill` does in character mode, and NOTHING more: there
 -- are no icons here, they are in pixels.
 function chrome_pixels.fill(canvas, width: any, height: any, state)
+    if unit == UNSET then return nil, NO_CELL end
     canvas:clear(widgets.styles.desktop:render(" "))
 
     local h = whole(height)
@@ -299,6 +317,8 @@ end
 
 function chrome_pixels.farewell(canvas, width: any, height: any)
     canvas:clear(widgets.styles.farewell:render(" "))
+    -- Without a cell size the caption goes in cells, as in the character theme.
+    if unit == UNSET then return chrome.farewell(canvas, width, height) end
     store.begin()
     local raster, col, row = chrome_pixels.farewell_raster(unit, width, height)
     if not raster then return chrome.farewell(canvas, width, height) end
@@ -1091,7 +1111,9 @@ local function visible_placements(list: any, windows: any, menus: any, cell: any
 end
 
 function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
-    chrome_pixels.use_cell_size(cell_w, cell_h)
+    -- A size given here wins; none given — the one use_cell_size named.
+    if cell_w ~= nil or cell_h ~= nil then chrome_pixels.use_cell_size(cell_w, cell_h) end
+    if unit == UNSET then return nil, NO_CELL end
     local cell = unit
     local view: any = type(state) == "table" and state or {}
     local fonts = chrome_pixels.fonts

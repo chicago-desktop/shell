@@ -191,6 +191,7 @@ entries:
     imports:
       test: wippy.test:test
       defaults: butschster.windows.programs:defaults
+      repo: butschster.windows.persist:repo
     method: run
 
   # A program WITH A GROUP. Added on purpose: the harness had not a single

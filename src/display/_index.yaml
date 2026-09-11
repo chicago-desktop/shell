@@ -42,8 +42,9 @@ entries:
     auto_init: false
 
   # Permissions: read and write a setting in the shell database (`db.get` on
-  # the resource, the database name comes from the environment), ask and
-  # nudge the compositor.
+  # the resource), ask and nudge the compositor. The database name comes from
+  # the migration entry, read by the repository under
+  # butschster.windows.security:layout_target — no environment.
   - name: window_scope
     kind: security.policy
     meta:
@@ -54,7 +55,6 @@ entries:
         - process.registry
         - process.send
         - db.get
-        - env.get
       resources: "*"
       effect: allow
 
@@ -82,11 +82,10 @@ entries:
     method: main
     modules:
       - sql
-      - env
       - time
       - uuid
     security:
-      policies: [butschster.windows.display:window_scope]
+      policies: [butschster.windows.display:window_scope, butschster.windows.security:layout_target]
     imports:
       geometry: butschster.tui_desktop.desktop:geometry
       app: butschster.windows.sdk:app

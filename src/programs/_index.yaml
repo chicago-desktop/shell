@@ -44,7 +44,6 @@ entries:
     source: file://seed.lua
     modules:
       - sql
-      - env
       - time
       - uuid
     imports:

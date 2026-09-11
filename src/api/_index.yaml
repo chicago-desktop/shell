@@ -63,7 +63,6 @@ entries:
       - security
       - registry
       - sql
-      - env
       - time
       - uuid
     imports:
@@ -110,7 +109,6 @@ entries:
       - security
       - registry
       - sql
-      - env
       - time
       - uuid
       - channel
@@ -144,7 +142,6 @@ entries:
       - json
       - security
       - sql
-      - env
       - time
       - uuid
       - channel
@@ -176,7 +173,6 @@ entries:
       - http
       - security
       - sql
-      - env
       - time
       - uuid
       - channel

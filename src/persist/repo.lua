@@ -7,19 +7,10 @@
 -- accident", and a broken one as "the program is gone".
 
 local sql = require("sql")
-local environment = require("environment")
+local registry = require("registry")
 local time = require("time")
 local uuid = require("uuid")
 
--- A default value in code, overridable by the environment: the database
--- resource belongs to the application, not to the module.
---
--- The default goes through `read_or`, not `read(...) or "app:db"`. The
--- second was here, and the second value of `env.get` was thrown away: a
--- permission denial turned into "the person did not override anything", and
--- an application that asked to keep the layout in another database silently
--- kept it in `app:db`. Now the denial is named in the log.
-local DB_ID = environment.read_or("BUTSCHSTER_WINDOWS_DB_ID", "app:db")
 local ITEMS = "butschster_windows_desktop_items"
 local SETTINGS = "butschster_windows_settings"
 local SEEDED = "butschster_windows_desktop_seeded"
@@ -29,11 +20,53 @@ local repo = {}
 repo.KIND_SHORTCUT = "shortcut"
 repo.KIND_FOLDER = "folder"
 
+-- The database is named ONCE: by the module's `target_db` requirement, which
+-- writes `meta.target_db` into every migration (src/_index.yaml). A migration
+-- cannot read the environment, so the second name that lived here
+-- (BUTSCHSTER_WINDOWS_DB_ID) could only diverge from it: the tables created in
+-- one database, the layout written to another. The repository reads the name
+-- back from the migration that creates its first table.
+--
+-- No default: an unreadable entry is the reason on every call, not "the
+-- application did not override anything".
+repo.MIGRATION = "butschster.windows.migrations:01_create_desktop_items"
+
+local function target_db(): (any, any)
+    local entry, err = registry.get(repo.MIGRATION)
+    if not entry then
+        return nil, "the layout database is named by " .. repo.MIGRATION
+            .. " (meta.target_db), and the entry is unreadable: " .. tostring(err)
+    end
+    local record: any = entry
+    local meta: any = type(record.meta) == "table" and record.meta
+        or (type(record.data) == "table" and type(record.data.meta) == "table" and record.data.meta) or {}
+    local id: any = meta.target_db
+    if type(id) ~= "string" or id == "" then return nil, repo.MIGRATION .. " has no meta.target_db" end
+    return id, nil
+end
+-- Read on first use, not at load: while a library is being loaded the
+-- process has no registry in its context yet ("registry not found in
+-- context"). Only a name that was read is kept, in a table rather than an
+-- upvalue: an error under pcall in go-lua tears upvalues apart (sdk_test).
+local target: any = {}
+
+-- database() -> id | nil, why — the database every query here goes to.
+function repo.database(): (any, any)
+    if target.id == nil then
+        local id, why = target_db()
+        if id == nil then return nil, why end
+        target.id = id
+    end
+    return target.id, nil
+end
+
 -- The connection is returned on EVERY path, including an error inside the
 -- work: a lost connection gives no sign of itself until the pool runs out.
 local function with_db(work)
-    local db, err = sql.get(DB_ID)
-    if err or not db then return nil, err or ("database unavailable: " .. DB_ID) end
+    local id, why = repo.database()
+    if id == nil then return nil, why end
+    local db, err = sql.get(tostring(id))
+    if err or not db then return nil, err or ("database unavailable: " .. tostring(id)) end
     local ok, result, work_err = pcall(work, db)
     db:release()
     if not ok then return nil, tostring(result) end
@@ -43,8 +76,10 @@ end
 -- The same inside a transaction: all or nothing. Work that returned a reason
 -- or crashed is rolled back; the connection is returned on every path.
 local function with_tx(work)
-    local db, err = sql.get(DB_ID)
-    if err or not db then return nil, err or ("database unavailable: " .. DB_ID) end
+    local id, why = repo.database()
+    if id == nil then return nil, why end
+    local db, err = sql.get(tostring(id))
+    if err or not db then return nil, err or ("database unavailable: " .. tostring(id)) end
     local tx, berr = db:begin()
     if berr or not tx then
         db:release()

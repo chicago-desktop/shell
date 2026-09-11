@@ -15,8 +15,10 @@ entries:
       comment: Desktop shortcuts and folders; deletion answers whether the row existed, and the mark of offered programs lives separately and is never deleted.
     source: file://repo.lua
     modules:
+      # `registry` — the database is named by the migration entry's
+      # meta.target_db (the module's target_db requirement), read with
+      # registry.get; the calling process needs that right.
+      - registry
       - sql
       - time
       - uuid
-    imports:
-      environment: butschster.windows.config:environment

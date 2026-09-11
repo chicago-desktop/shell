@@ -20,6 +20,8 @@ entries:
   # do nothing. A shell brought up on its own without this permission would
   # show a menu without the workshop windows and would not explain why they
   # are missing. The restore failure is visible in GET /windows/status.
+  #
+  # The environment is NOT here: it is granted by name in shell_env.
   - name: shell_runtime
     kind: security.policy
     meta:
@@ -60,16 +62,6 @@ entries:
         # `db.get` on the resource identifier, not as `sql.*` — verified on
         # the base.
         - db.get
-        # Read the environment. The `env` module was declared on the entry,
-        # but the action was not — and `env.get_all` silently returned an
-        # EMPTY table, because it puts only permitted keys into it and does
-        # not complain about the denial. That is, a person's request to turn
-        # on pixel mode looked like "the person did not ask".
-        #
-        # A DECLARED MODULE WITHOUT A GRANTED PERMISSION LOOKS LIKE A MODULE
-        # THAT HAS NOTHING TO SAY. This is not about env — it is about any
-        # module in any policy here.
-        - env.get
         # The pixel theme's font. It arrives as BYTES, not as a path: reading
         # a file is governed by the process's permissions, and a module that
         # opened paths by itself would be a road around them. Without this
@@ -77,6 +69,56 @@ entries:
         # shell then comes up in cells.
         - fs.get
       resources: "*"
+      effect: allow
+
+  # butschster.windows.security:shell_env
+  #
+  # The environment the shell reads, BY NAME. `env.get` is checked per
+  # variable name, and under neighbouring names lie tokens: opening the whole
+  # environment for five strings is not the same as opening five strings.
+  #
+  # Who reads what, under the shell's actor:
+  #   windows.lua                        BUTSCHSTER_WINDOWS_PIXELS, BUTSCHSTER_WINDOWS_FONTS
+  #   logon/provider.lua                 BUTSCHSTER_WINDOWS_LOGON_FUNC, BUTSCHSTER_WINDOWS_TOKEN_STORE
+  #   the base's persist/repo.lua, loaded
+  #   by its compositor library          BUTSCHSTER_TUI_DESKTOP_DB_ID
+  #
+  # A name missing here does not fail: `env.get_all` puts only permitted keys
+  # into its table and does not complain, so the variable reads as "not set"
+  # — a request for pixel mode once looked exactly like "the person did not
+  # ask". config/environment.lua tells the denial apart through `env.get` and
+  # logs it. A DECLARED MODULE WITHOUT A GRANTED PERMISSION LOOKS LIKE A
+  # MODULE THAT HAS NOTHING TO SAY.
+  - name: shell_env
+    kind: security.policy
+    meta:
+      comment: The environment variables the shell reads, by name — pixel mode, the font folder, the logon function and token store, and the base's database.
+    policy:
+      actions:
+        - env.get
+      resources:
+        - BUTSCHSTER_WINDOWS_PIXELS
+        - BUTSCHSTER_WINDOWS_FONTS
+        - BUTSCHSTER_WINDOWS_LOGON_FUNC
+        - BUTSCHSTER_WINDOWS_TOKEN_STORE
+        - BUTSCHSTER_TUI_DESKTOP_DB_ID
+      effect: allow
+
+  # butschster.windows.security:layout_target
+  #
+  # The layout database is named by the `target_db` requirement in the
+  # migration entries, and the repository reads it back with registry.get
+  # (persist/repo.lua). A window that uses the repository but reads nothing
+  # else from the registry carries this: that one entry and no other.
+  - name: layout_target
+    kind: security.policy
+    meta:
+      comment: Read the migration entry that names the layout database — for a process that uses the layout repository and otherwise does not read the registry.
+    policy:
+      actions:
+        - registry.get
+      resources:
+        - butschster.windows.migrations:01_create_desktop_items
       effect: allow
 
   # butschster.windows.security:shell_storage
@@ -91,16 +133,16 @@ entries:
     policy:
       actions:
         - process.context
+        # `registry.get` is the check `registry.find` applies to EVERY entry
+        # it returns (the runtime's registry module): without it find answers
+        # an empty catalog, not a refusal. It is also how the repository reads
+        # the layout database's name from the migration entry.
+        # `registry.find` itself is not checked by the runtime and stays to
+        # name the intent. `registry.entry` stood here as well; it is not an
+        # action at all — it is the kind of a registry entry.
         - registry.get
         - registry.find
-        - registry.entry
         - db.get
-        # The database resource is named by the environment
-        # (BUTSCHSTER_WINDOWS_DB_ID), and without this permission the database
-        # a person named would be silently replaced by the default:
-        # `env.get_all` does not complain, it just does not put the key in.
-        # It would be discovered by "the layout is not saved".
-        - env.get
         # The compositor rereads the layout on command: the endpoint must
         # nudge it, otherwise the icon appears only after a restart.
         # Permissions for exactly that — find the addressee and send a
@@ -146,11 +188,6 @@ entries:
         - db.get
         # Drive contents.
         - fs.get
-        # The database resource is named by the environment, and the `env`
-        # module is declared on the entry. Without this permission
-        # `env.get_all` silently returns an empty table — it puts only
-        # permitted keys into it and does not complain about the denial.
-        - env.get
       resources: "*"
       effect: allow
 

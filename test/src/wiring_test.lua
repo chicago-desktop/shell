@@ -280,10 +280,63 @@ local function define_tests()
             local actions = actions_of(get(STORAGE_POLICY_ID))
             test.is_true(has(actions, "db.get"), "the handle needs database access as the db.get action")
             test.is_true(has(actions, "registry.find"), "and reading the catalog from the registry")
+            -- The runtime checks registry.get on every entry registry.find
+            -- returns, and nothing else: without it the catalog is empty, not
+            -- refused.
+            test.is_true(has(actions, "registry.get"),
+                "registry.find returns only the entries registry.get allows")
             test.is_true(has(actions, "process.send"), "and the right to nudge the shell")
             test.is_false(has(actions, "process.spawn"), "the handle cannot spawn processes")
             test.is_false(has(actions, "exec.run"), "the handle cannot run programs")
             test.is_false(has(actions, "registry.apply"), "the handle cannot change the registry")
+        end)
+
+        test.it("grants the environment by variable name, never over \"*\"", function()
+            -- Under neighbouring names lie tokens. `env.get` is checked per
+            -- name, so a policy that grants it names every variable it opens.
+            -- Checked by a rule over every policy of the module, not a list.
+            local found, err = registry.find({[".kind"] = "security.policy"})
+            test.is_nil(err)
+            local checked = 0
+            for _, entry in ipairs(found or {}) do
+                local id = tostring(entry.id)
+                if id:sub(1, #"butschster.windows") == "butschster.windows" and has(actions_of(entry), "env.get") then
+                    checked = checked + 1
+                    local policy = data_of(entry).policy or {}
+                    local resources = policy.resources
+                    test.eq(type(resources), "table", id .. " grants env.get without a list of names")
+                    for _, name in ipairs(type(resources) == "table" and resources or {}) do
+                        test.is_nil(tostring(name):find("*", 1, true), id .. " grants env.get over " .. tostring(name))
+                    end
+                end
+            end
+            test.is_true(checked >= 2, "the shell's and the install panel's env policies were not found")
+        end)
+
+        test.it("names one database for every migration and for the repository", function()
+            -- The requirement writes meta.target_db into each migration it
+            -- aims at; a migration it misses creates its table in app:db while
+            -- the rest go where the application said. The repository reads
+            -- the name back from a migration entry, so it has no second opinion.
+            local requirement = data_of(get("butschster.windows:target_db"))
+            local aimed = {}
+            for _, target in ipairs(requirement.targets or {}) do
+                if target.path == ".meta.target_db" then aimed[tostring(target.entry)] = true end
+            end
+            local db, why = repo.database()
+            test.not_nil(db, "the repository names no database: " .. tostring(why))
+            local found, err = registry.find({["meta.type"] = "migration"})
+            test.is_nil(err)
+            local checked = 0
+            for _, entry in ipairs(found or {}) do
+                local id = tostring(entry.id)
+                if id:sub(1, #"butschster.windows.migrations:") == "butschster.windows.migrations:" then
+                    checked = checked + 1
+                    test.is_true(aimed[id] == true, "the target_db requirement does not aim at " .. id)
+                    test.eq(meta_of(entry).target_db, db, id .. " and the repository name different databases")
+                end
+            end
+            test.is_true(checked >= 3, "the three migrations were not found")
         end)
 
         test.it("lets the shell return workshop windows to the registry", function()
@@ -328,7 +381,9 @@ local function define_tests()
                 fs = {"fs.get"},
                 sql = {"db.get"},
                 gfx = {},          -- drawing is not gated by rights
-                registry = {"registry.get", "registry.find", "registry.entry"},
+                -- registry.find returns only what registry.get allows, and
+                -- the runtime checks nothing else: registry.get is the right.
+                registry = {"registry.get"},
             }
 
             local checked = 0

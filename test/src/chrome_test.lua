@@ -70,6 +70,27 @@ local function drawn_buttons(window_type)
 end
 
 local function define_tests()
+    test.describe("pixel theme without a cell size", function()
+        -- FIRST in this file on purpose: the module is fresh here and nothing
+        -- has named the cell size yet — the state a guessed default hid.
+        test.it("refuses to paint or fill until the cell size is named, and once it is forgotten", function()
+            local canvas = tty.canvas(20, 10)
+            local filled, why = chrome_pixels.fill(canvas, 20, 10, {})
+            test.is_nil(filled, "fill drew on a guessed cell size")
+            test.eq(why, "cell size not set")
+            local painted, pwhy = chrome_pixels.paint({width = 20, height = 10})
+            test.is_nil(painted, "paint drew on a guessed cell size")
+            test.eq(pwhy, "cell size not set")
+
+            chrome_pixels.use_cell_size(10, 20)
+            test.not_nil(chrome_pixels.fill(canvas, 20, 10, {}), "fill refuses a named cell size")
+
+            chrome_pixels.use_cell_size(nil, nil)
+            local _, forgotten = chrome_pixels.fill(canvas, 20, 10, {})
+            test.eq(forgotten, "cell size not set", "a forgotten size is kept")
+        end)
+    end)
+
     test.describe("Bash window colors", function()
         test.it("applies terminal defaults by entry identity in both themes", function()
             local bash = {entry = "butschster.tui_desktop.desktop:window_pty", title = "top"}

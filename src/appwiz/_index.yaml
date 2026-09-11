@@ -18,10 +18,10 @@ entries:
 
   # Permissions: the same as the view provider's (context, the compositor in
   # the process registry, sending state to it), plus reading the registry and
-  # the module cache, the environment (the name of the declarations folder)
-  # and the folder itself. The window can neither spawn processes nor change
-  # the registry: it has nothing to remove a module from the running runtime
-  # with, and the permissions do not grant that.
+  # the module cache and the declarations folder itself. The window can
+  # neither spawn processes nor change the registry: it has nothing to remove
+  # a module from the running runtime with, and the permissions do not grant
+  # that. The environment is granted by name, in window_env.
   - name: window_scope
     kind: security.policy
     meta:
@@ -34,10 +34,22 @@ entries:
         - registry.get
         - registry.find
         - registry.entry
-        - env.get
         - fs.get
         - hub.cache.list
       resources: "*"
+      effect: allow
+
+  # The one variable the window reads (window.lua): the name of the
+  # declarations folder. By name — neighbouring names hold tokens.
+  - name: window_env
+    kind: security.policy
+    meta:
+      comment: The environment the install panel reads — the name of the declarations folder, and nothing else.
+    policy:
+      actions:
+        - env.get
+      resources:
+        - BUTSCHSTER_WINDOWS_DEPS_FS
       effect: allow
 
   # butschster.windows.appwiz:window
@@ -66,7 +78,7 @@ entries:
       - registry
       - time
     security:
-      policies: [butschster.windows.appwiz:window_scope]
+      policies: [butschster.windows.appwiz:window_scope, butschster.windows.appwiz:window_env]
     imports:
       geometry: butschster.tui_desktop.desktop:geometry
       app: butschster.windows.sdk:app
