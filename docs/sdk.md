@@ -126,7 +126,12 @@ current data; `update` changes the model on a component's action.
   and `value`; Enter gives `activate`. Store the selection in the model in `update`.
   `selected` is a 1-based row number **or an item ID** (`{id = …}` on the element):
   that way the selection holds on to the item when new data shifts the rows.
-  The scrollbar is part of the list's rectangle. A `select` from a mouse click
+  The scrollbar is part of the list's rectangle, flush right: one column in
+  cells, in pixels 16 px rounded up to whole cells (`widgets.scroll_cols` — two
+  columns at an 8 or 10 px cell, the same bar as Explorer's). The layout reserves
+  the columns (`ui.plan(…, {scroll_cols = n})`, `item.bar_cols`), text and table
+  columns end before them, and a press on any of them scrolls; `app.run` passes
+  the number from the window's context. A `select` from a mouse click
   carries `pointer = true`: the application may treat a repeated click on the
   already selected item as a double click. An optional `reveal` is the row number
   that must be shown; it is applied once per value (the chat log sets
@@ -162,7 +167,8 @@ current data; `update` changes the model on a component's action.
   takes three rows, the caption two (`ui.icon_grid`, `ui.icon_shape`); `shell:icons`
   has the same numbers, and a test checks that they match.
   **The scroll unit is a ROW of icons**, not an item: the wheel, the scrollbar,
-  Page Up/Down and `scroll.reveal` count rows. A click on a cell gives
+  Page Up/Down and `scroll.reveal` count rows. The grid keeps the scrollbar's
+  columns free of icons, and a press on the bar scrolls, as in a list. A click on a cell gives
   `select` with `index`, the item in `value` and `pointer = true`; the application
   may treat a repeated click on the already selected item as a double click. A click
   on an empty spot of the grid clears the selection (`index = 0`, `value = nil`) — like

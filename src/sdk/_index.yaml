@@ -47,6 +47,7 @@ entries:
       editor: butschster.windows.sdk:editor
       pixels: butschster.windows.shell:pixels
       palette: butschster.windows.shell:palette
+      widgets: butschster.windows.shell:widgets
 
   - name: app
     kind: library.lua
@@ -57,6 +58,7 @@ entries:
       desktop: butschster.tui_desktop.desktop:window_api
       ui: butschster.windows.sdk:ui
       cells: butschster.windows.sdk:cells
+      widgets: butschster.windows.shell:widgets
 
   - name: editor
     kind: library.lua

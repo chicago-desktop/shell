@@ -41,6 +41,7 @@ end
 local shell_icons = require("shell_icons")
 local app = require("app")
 local widgets = require("widgets")
+local explorer_render = require("explorer_render")
 
 local function define_tests()
     test.describe("Window SDK icon grid", function()
@@ -867,6 +868,9 @@ local function define_tests()
             local rows, plan = lines(tree, 30, 6)
             local list, grid = plan.by_id.items.rect, plan.by_id.sizes.rect
             local size = ui.columns(plan.by_id.sizes.node, grid.w - 1)[2]
+            -- In pixels the bar is 16 px of whole cells — two at this cell —
+            -- so there the columns end one cell earlier.
+            local pixel_size = ui.columns(plan.by_id.sizes.node, grid.w - widgets.scroll_cols(CELL.w))[2]
             -- Cells.
             test.eq(rows[list.y]:sub(list.x, list.x + 3), " one", "cells: a list row starts one cell in")
             local data = rows[grid.y + 1]
@@ -878,7 +882,7 @@ local function define_tests()
             local one, alpha, twelve = caption_of(drawn, "one"), caption_of(drawn, "alpha"), caption_of(drawn, "12")
             test.eq(one and one.x, (list.x - 1) * CELL.w + 1 + CELL.w, "pixels: a list row starts one cell in")
             test.eq(alpha and alpha.x, (grid.x - 1) * CELL.w + 1 + CELL.w, "pixels: a table cell starts one cell in")
-            test.eq(twelve and (twelve.x + face:measure("12")), (grid.x - 1 + size.x + size.w - 1) * CELL.w + 1,
+            test.eq(twelve and (twelve.x + face:measure("12")), (grid.x - 1 + pixel_size.x + pixel_size.w - 1) * CELL.w + 1,
                 "pixels: a right-aligned value ends one cell before its column's end")
         end)
 
@@ -906,6 +910,119 @@ local function define_tests()
             test.is_nil(rows[1]:find("[^ ]"), "the row above the field is face: " .. rows[1])
             test.not_nil(rows[2]:find("42", 1, true), "the middle row holds the field")
             test.is_nil(rows[3]:find("[^ ]"), "the row below the field is face: " .. rows[3])
+        end)
+    end)
+
+    -- The Windows 95 scrollbar is 16 px. In pixels it takes 16 px of whole
+    -- cells — two at an 8 or 10 px cell, one at 20 — in every list, table,
+    -- tree and icon grid, the same as the explorer's. The layout reserves
+    -- those columns, so a press on the bar's leftmost column scrolls. In cells
+    -- the bar stays one column.
+    test.describe("Window SDK: the scrollbar is 16 px in pixels", function()
+        local EXPECTED: any = {[8] = 2, [10] = 2, [20] = 1}
+        local function scene(): any
+            local items, rows, nodes, icons = {}, {}, {}, {}
+            for index = 1, 30 do
+                items[index] = "item " .. index
+                rows[index] = {id = "r" .. index, cells = {"row " .. index, tostring(index)}}
+                nodes[index] = {id = "n" .. index, label = "node " .. index, depth = 0, kind = "entry"}
+            end
+            for index = 1, 40 do icons[index] = {id = "i" .. index, title = "Icon " .. index} end
+            return {kind = "column", children = {
+                {kind = "list", id = "list", size = 4, items = items},
+                {kind = "table", id = "table", size = 5, rows = rows,
+                    columns = {{title = "Name", weight = 1}, {title = "Size", width = 6, align = "right"}}},
+                {kind = "tree", id = "tree", size = 4, rows = nodes},
+                {kind = "icons", id = "icons", size = 8, items = icons},
+            }}
+        end
+        local function face(): any
+            local files = assert(fs.get("app:system_fonts"))
+            return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
+        end
+        -- What the renderer draws, through a stub raster: every rectangle and
+        -- every caption with its place.
+        local function drawn(cell: any, font: any): any
+            local out: any = {rects = {}, texts = {}}
+            local raster: any = {fill = function() end, set = function() end, blit = function() end,
+                rect = function(_, x, y, w, h) out.rects[#out.rects + 1] = {x = x, y = y, w = w, h = h} end,
+                text = function(_, x, y, caption) out.texts[#out.texts + 1] = {x = x, y = y, text = caption}; return 0 end}
+            local store: any = {take = function() return raster, true end}
+            local placed, why = render.placement({id = "bars", state_revision = 1,
+                content_state = {sdk = 1, revision = 1, ui = scene()}}, {x = 1, y = 1, cols = 36, rows = 21}, cell, {face = font}, store)
+            assert(placed, tostring(why))
+            return out
+        end
+        local function has_rect(list: any, want: any): boolean
+            for _, r in ipairs(list) do
+                if r.x == want.x and r.y == want.y and r.w == want.w and r.h == want.h then return true end
+            end
+            return false
+        end
+        local function pressed(x: any, y: any): any
+            return {type = "mouse", action = "press", button = "left", x = x, y = y}
+        end
+
+        test.it("takes 16 px of whole cells in list, table, tree and icons, the same as the explorer", function()
+            local font = face()
+            for _, cw in ipairs({8, 10, 20}) do
+                local cols = EXPECTED[cw]
+                test.eq(widgets.scroll_cols(cw), cols, "the rule at a " .. cw .. " px cell")
+                test.eq(explorer_render.pixel_metrics(cw, 20).scroll_cols, cols, "the explorer's bar at " .. cw .. " px")
+                local plan = ui.plan(scene(), 36, 21, ui.interaction(), {scroll_cols = widgets.scroll_cols(cw)})
+                local out = drawn({w = cw, h = 20}, font)
+                for _, id in ipairs({"list", "table", "tree", "icons"}) do
+                    local item = plan.by_id[id]
+                    test.eq(item.bar_cols, cols, id .. ": the plan reserves the bar at " .. cw .. " px")
+                    local r, header = item.rect, geometry.whole(item.header)
+                    local ground = {x = (r.x - 1 + r.w - cols) * cw + 1, y = (r.y - 1 + header) * 20 + 1,
+                        w = cols * cw, h = (r.h - header) * 20}
+                    test.is_true(has_rect(out.rects, ground), id .. ": the bar is drawn " .. cols .. " cells wide at " .. cw .. " px")
+                end
+                local grid = plan.by_id.icons.rect
+                for _, spot in ipairs(plan.by_id.icons.cells) do
+                    test.is_true(spot.box.to < grid.x + grid.w - cols, "icon " .. spot.index .. " lies on the bar at " .. cw .. " px")
+                end
+                -- The table's right-aligned value ends one cell before its
+                -- column's end, and the last column ends where the bar begins.
+                local sheet = plan.by_id.table.rect
+                local value: any = nil
+                for _, entry in ipairs(out.texts) do if entry.text == "1" then value = entry end end
+                test.not_nil(value, "the table draws its first row")
+                test.eq(value.x + geometry.whole(font:measure("1")), (sheet.x - 1 + sheet.w - cols - 1) * cw + 1,
+                    "the right-aligned value ends one cell before the bar at " .. cw .. " px")
+            end
+        end)
+
+        test.it("a press on the bar's leftmost column scrolls; in cells the bar is one column", function()
+            for _, id in ipairs({"list", "table", "tree", "icons"}) do
+                local interaction = ui.interaction()
+                local plan = ui.plan(scene(), 36, 21, interaction, {scroll_cols = 2})
+                local r = plan.by_id[id].rect
+                test.is_nil(ui.event(plan, interaction, pressed(r.x + r.w - 2, r.y + r.h - 1)),
+                    id .. ": a press on the bar is not a selection")
+                test.eq(interaction.offsets[id], 1, id .. ": the down arrow in the bar's leftmost column scrolls")
+            end
+            local interaction = ui.interaction()
+            local plan = ui.plan(scene(), 36, 21, interaction, {scroll_cols = 2})
+            local r = plan.by_id.list.rect
+            local left = ui.event(plan, interaction, pressed(r.x + r.w - 3, r.y))
+            test.eq(left and left.type, "select", "the column left of the bar is still a row")
+            -- Cells: the bar is one column, so the same column is a row.
+            local in_cells = ui.interaction()
+            local cells_plan = ui.plan(scene(), 36, 21, in_cells)
+            test.eq(cells_plan.by_id.list.bar_cols, 1, "cells: the bar is one column")
+            local row = ui.event(cells_plan, in_cells, pressed(r.x + r.w - 2, r.y))
+            test.eq(row and row.type, "select", "cells: the column left of the one-column bar is a row")
+        end)
+
+        test.it("a native window takes the bar width from the compositor's cell and follows a resize", function()
+            test.eq(app.context({native = true, cell_w = 8}).scroll_cols, 2, "an 8 px cell")
+            test.eq(app.context({native = true, cell_w = 20}).scroll_cols, 1, "a 20 px cell")
+            test.eq(app.context({cell_w = 8}).scroll_cols, 1, "cells: one column whatever the cell")
+            local context = app.context({native = true, cell_w = 20, width = 10, height = 5})
+            app.resize(context, {type = "resize", width = 30, height = 12, cell_w = 10})
+            test.eq(context.width .. "x" .. context.height .. ":" .. context.scroll_cols, "30x12:2")
         end)
     end)
 

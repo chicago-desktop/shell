@@ -5,6 +5,7 @@ local text_lib = require("text")
 local geometry = require("geometry")
 local editor = require("editor")
 local pixels = require("pixels")
+local widgets = require("widgets")
 local palette = require("palette")
 local whole = geometry.whole
 local color = palette.exact
@@ -50,7 +51,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
     local plan: any = {items = {}, overlays = {}}
     if dirty then
         interaction = detached(type(state.interaction) == "table" and state.interaction or ui.interaction())
-        plan = ui.plan(state.ui, inner.cols, inner.rows, interaction)
+        plan = ui.plan(state.ui, inner.cols, inner.rows, interaction, {scroll_cols = widgets.scroll_cols(cell.w)})
     end
     if dirty then
         raster:fill(color.face)
@@ -114,6 +115,11 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             local node, rect = item.node, item.rect
             local x, y = (rect.x - 1) * cell.w + 1, (rect.y - 1) * cell.h + 1
             local w, h = rect.w * cell.w, rect.h * cell.h
+            -- The scrollbar of a list, table, tree and icon grid takes the plan's
+            -- columns (`item.bar_cols`, 16 px in whole cells), flush right. Its
+            -- arrow buttons are square, as in Windows 95, and never taller than
+            -- one row, because the hit test counts an arrow as one row.
+            local bar_w = whole(item.bar_cols or 1) * cell.w
             local focused = interaction.focus == node.id
             if node.kind == "calendar" then
                 -- Calendar: weekdays, the month grid, today in blue.
@@ -284,7 +290,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     end
                     if font then
                         local label_x = x + columns.label * cell.w
-                        local room = x + w - cell.w - label_x - 4
+                        local room = x + w - bar_w - label_x - 4
                         local caption = pixels.ellipsize(font, tostring(line.label or ""), whole(math.max(0, room)))
                         local selected = not node.disabled and item.selected_index == index
                         if selected then raster:rect(whole(label_x - 2), whole(top + 2), whole(font:measure(caption)) + 4, whole(cell.h - 4), color.select_bg) end
@@ -292,7 +298,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                             {font = font, color = selected and color.select_fg or (node.disabled and color.shadow or color.field_text)})
                     end
                 end
-                pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)
+                pixels.scrollbar(raster, x + w - bar_w, y, bar_w, h, item.bar, cell.h, math.min(bar_w, cell.h))
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "group" then
                 -- A frame with a title: the edge is half a row lower so that the caption
@@ -434,7 +440,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
             elseif node.kind == "table" then
                 -- The same column layout as in cells; the header is raised
                 -- buttons, numbers are pushed to the right edge by the font's width.
-                local columns = ui.columns(node, rect.w - 1)
+                local columns = ui.columns(node, rect.w - whole(item.bar_cols or 1))
                 local rows = ui.entries(node)
                 local header = whole(item.header)
                 raster:rect(whole(x), whole(y), whole(w), whole(h), node.disabled and color.face or color.field)
@@ -442,7 +448,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     raster:rect(whole(x), whole(y), whole(w), whole(cell.h), color.face)
                     for _, column in ipairs(columns) do
                         local cx, cw = x + column.x * cell.w, column.w * cell.w + cell.w
-                        if column.x + column.w >= rect.w - 1 then cw = column.w * cell.w end
+                        if column.x + column.w >= rect.w - whole(item.bar_cols or 1) then cw = column.w * cell.w end
                         pixels.bevel(raster, whole(cx), whole(y), whole(cw), whole(cell.h), true)
                         text(cx + cell.w, y, cw - cell.w, cell.h, column.title)
                     end
@@ -452,7 +458,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     local record: any = rows[index]
                     local selected = not node.disabled and item.selected_index == index
                     local row_y = y + (row + header) * cell.h
-                    if selected then raster:rect(whole(x), whole(row_y), whole(w - cell.w), whole(cell.h), color.select_bg) end
+                    if selected then raster:rect(whole(x), whole(row_y), whole(w - bar_w), whole(cell.h), color.select_bg) end
                     if record then
                         local values: any = type(record) == "table" and (record.cells or record) or {record}
                         for col, column in ipairs(columns) do
@@ -469,7 +475,8 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                         end
                     end
                 end
-                pixels.scrollbar(raster, x + w - cell.w, y + header * cell.h, cell.w, h - header * cell.h, item.bar, cell.h, cell.h)
+                pixels.scrollbar(raster, x + w - bar_w, y + header * cell.h, bar_w, h - header * cell.h, item.bar, cell.h,
+                    math.min(bar_w, cell.h))
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "icons" then
                 -- An icon grid in pixels: a real 32×32 raster from the package
@@ -500,7 +507,7 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                         if line_index >= 2 then break end
                     end
                 end
-                pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)
+                pixels.scrollbar(raster, x + w - bar_w, y, bar_w, h, item.bar, cell.h, math.min(bar_w, cell.h))
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "list" then
                 raster:rect(whole(x), whole(y), whole(w), whole(h), node.disabled and color.face or color.field)
@@ -510,12 +517,12 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
                     local value: any = (node.items or {})[index]
                     local label = type(value) == "table" and value.text or value
                     local row_y = y + row * cell.h
-                    if selected then raster:rect(whole(x), whole(row_y), whole(w - cell.w), whole(cell.h), color.select_bg) end
+                    if selected then raster:rect(whole(x), whole(row_y), whole(w - bar_w), whole(cell.h), color.select_bg) end
                     -- Text starts one cell in, as in a table and in cells.
-                    text(x + cell.w, row_y, w - 2 * cell.w, cell.h, label,
+                    text(x + cell.w, row_y, w - cell.w - bar_w, cell.h, label,
                         selected and color.select_fg or (node.disabled and color.shadow or color.field_text))
                 end
-                pixels.scrollbar(raster, x + w - cell.w, y, cell.w, h, item.bar, cell.h, cell.h)
+                pixels.scrollbar(raster, x + w - bar_w, y, bar_w, h, item.bar, cell.h, math.min(bar_w, cell.h))
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "button" then
                 -- A regular button is 23 px centered in its rows; `fill` means

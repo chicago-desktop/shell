@@ -126,7 +126,8 @@ function render.pixel_metrics(cell_w: any, cell_h: any): any
         address_rows = address_rows, tool_rows = tool_rows,
         -- A toolbar button is 23×22 px, as in Windows 95; its place is whole cells.
         tool_span = math.max(1, (24 + cw - 1) // cw),
-        scroll_cols = math.max(1, (16 + cw - 1) // cw),
+        -- The scrollbar is the SDK lists' bar: 16 px in whole cells.
+        scroll_cols = widgets.scroll_cols(cw),
         arrow_rows = math.max(1, (16 + ch - 1) // ch), icon_size = 32}
 end
 

@@ -518,6 +518,22 @@ function widgets.statusbar(target, x: any, y: any, width: any, fields)
     target:put(left, row, table.concat(parts), span)
 end
 
+-- How many columns a vertical scrollbar takes. The Windows 95 bar is 16 px
+-- wide; in pixels it takes as many whole cells as 16 px needs — two at an 8
+-- or 10 px cell, one from 16 px up — and in cells one (`cell_w` absent or
+-- zero). ONE rule for the SDK and the explorer: the layout reserves these
+-- columns and the hit test reads the same number, so a bar drawn wider than
+-- the place where it is pressed cannot happen.
+local SCROLLBAR_PX = 16
+widgets.SCROLLBAR_PX = SCROLLBAR_PX
+function widgets.scroll_cols(cell_w: any): integer
+    local cw = whole(cell_w)
+    if cw <= 0 then return 1 end
+    local cols = (SCROLLBAR_PX + cw - 1) // cw
+    if cols < 1 then return 1 end
+    return cols
+end
+
 -- Vertical scroll bar: arrow, track with a thumb, arrow.
 --
 -- Drawn ONLY when there is something to scroll. A bar over fully visible

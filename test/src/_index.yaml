@@ -693,6 +693,7 @@ entries:
       catalog: butschster.windows.programs:catalog
       app: butschster.windows.sdk:app
       widgets: butschster.windows.shell:widgets
+      explorer_render: butschster.windows.explorer:render
 
   - name: workshop_sdk_test
     kind: function.lua

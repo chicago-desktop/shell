@@ -281,7 +281,8 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         end
         return
     end
-    local item: any = {node = node, rect = rect, offset = 0, page = rect.h, bar = nil, header = 0}
+    local item: any = {node = node, rect = rect, offset = 0, page = rect.h, bar = nil, header = 0,
+        bar_cols = plan.scroll_cols or 1}
     if kind == "menu" then
         -- A menu bar: a strip of titles; the open list goes on top of everything,
         -- so it lands in `plan.overlays` and is drawn last.
@@ -297,7 +298,10 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         -- an item and not a line of text. The row is declared here once, and the bar,
         -- the wheel and the keys all count by it.
         local items = node.items or {}
-        local columns, rows_total = ui.icon_shape(rect.w, #items)
+        -- The grid leaves the scrollbar its columns: in cells the bar lies in
+        -- the last cell's air column, and a wider bar in pixels takes that
+        -- many columns more.
+        local columns, rows_total = ui.icon_shape(rect.w - (item.bar_cols - 1), #items)
         local page = whole(rect.h) // ICON_GRID.h
         if page < 1 then page = 1 end
         item.columns, item.rows_total, item.page = columns, rows_total, page
@@ -417,8 +421,19 @@ function ui.release(interaction: any)
     interaction.capture = nil
     interaction.armed = nil
 end
-function ui.plan(tree: any, width: any, height: any, interaction: any): any
-    local plan: any = {items = {}, by_id = {}, focusable = {}, overlays = {}}
+-- plan(tree, width, height, interaction, options?) -> plan
+--
+-- `options.scroll_cols` is how many columns the vertical scrollbar of a list,
+-- table, tree and icon grid takes: one in cells (the default), in pixels 16 px
+-- of whole cells (`widgets.scroll_cols`). It is an input because it depends on
+-- the backend. The layout reserves the columns and the hit test reads them
+-- from the item (`item.bar_cols`), so the window's plan and the renderer's
+-- plan must be given the same number: the window takes it from its context,
+-- the renderer from the cell.
+function ui.plan(tree: any, width: any, height: any, interaction: any, options: any?): any
+    local given: any = type(options) == "table" and options or {}
+    local plan: any = {items = {}, by_id = {}, focusable = {}, overlays = {},
+        scroll_cols = math.max(1, whole(given.scroll_cols or 1))}
     if interaction.menus == nil then interaction.menus = {} end
     if interaction.revealed == nil then interaction.revealed = {} end
     add(tree, geometry.rect(1, 1, width, height), plan, interaction)
@@ -552,7 +567,9 @@ local function list_event(item: any, state: any, event: any): any
         local row = event.y - rect.y - header
         -- The table header is not a row: a click on it selects nothing.
         if row < 0 then return nil end
-        if node.kind == "tree" and event.x < rect.x + rect.w - 1 then
+        -- The scrollbar's columns: one in cells, 16 px of whole cells in pixels.
+        local bar_left = rect.x + rect.w - whole(item.bar_cols or 1)
+        if node.kind == "tree" and event.x < bar_left then
             local index = offset + row + 1
             local line: any = rows[index]
             if not line then return nil end
@@ -562,11 +579,11 @@ local function list_event(item: any, state: any, event: any): any
             end
             return {type = "select", id = node.id, index = index, value = line}
         end
-        if event.x == rect.x + rect.w - 1 then
-            -- The bar's column is not a row, even when there is nothing to scroll.
+        if event.x >= bar_left then
+            -- The bar's columns are not a row, even when there is nothing to scroll.
             if item.bar.limit <= 0 then return nil end
             local shifted, capture = scroll.pointer(offset, total, item.page,
-                {x = rect.x + rect.w - 1, y = rect.y + header, w = 1, h = rect.h - header}, nil, event)
+                {x = bar_left, y = rect.y + header, w = rect.x + rect.w - bar_left, h = rect.h - header}, nil, event)
             state.offsets[node.id] = shifted
             state.capture = capture and {id = node.id, grab = capture.grab} or nil
         else
@@ -592,6 +609,16 @@ local function icons_event(item: any, state: any, event: any): any
         return nil
     end
     if not input.pressed(event) then return nil end
+    -- The scrollbar, as in a list: `icon_shape` keeps its columns free of
+    -- cells, and a press on them scrolls instead of clearing the selection.
+    local bar_left = rect.x + rect.w - whole(item.bar_cols or 1)
+    if item.bar and item.bar.limit > 0 and event.x >= bar_left and geometry.contains(rect, event.x, event.y) then
+        local shifted, capture = scroll.pointer(offset, whole(item.rows_total), whole(item.page),
+            {x = bar_left, y = rect.y, w = rect.x + rect.w - bar_left, h = rect.h}, nil, event)
+        state.offsets[node.id] = shifted
+        state.capture = capture and {id = node.id, grab = capture.grab} or nil
+        return nil
+    end
     for _, cell in ipairs(item.cells or {}) do
         local box: any = cell.box
         if event.x >= box.from and event.x <= box.to and event.y >= box.top and event.y <= box.bottom then

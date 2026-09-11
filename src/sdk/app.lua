@@ -28,6 +28,7 @@ local time = require("time")
 local desktop = require("desktop")
 local ui = require("ui")
 local cells = require("cells")
+local widgets = require("widgets")
 local app = {}
 
 -- The tree shown in place of a crashed application. Without it the window
@@ -55,12 +56,15 @@ end
 -- The loop builds its own with it, and a test builds one the same way, so a
 -- window calls `context.watch`, `context.after` and `context.close` without
 -- asking first whether they exist. `fields` gives `args`, `width`, `height`,
--- `native` and `window_id`. `watched` and `timers` are the lists the loop
+-- `native`, `window_id` and `cell_w`. `watched` and `timers` are the lists the loop
 -- selects on; a test reads them to see what the window asked for.
+-- `scroll_cols` is the scrollbar width the plan reserves: in a native window
+-- it follows the compositor's cell (`widgets.scroll_cols`), in cells it is one.
 function app.context(fields: any?): any
     local given: any = type(fields) == "table" and fields or {}
     local context: any = {args = given.args, width = given.width or 1, height = given.height or 1,
         native = given.native == true, closing = false, failure = nil, window_id = given.window_id,
+        scroll_cols = given.native == true and widgets.scroll_cols(given.cell_w) or 1,
         watched = {}, timers = {}}
     function context.close() context.closing = true end
     -- The application's own channel: the compositor's answer on `desktop.replies()`,
@@ -85,6 +89,14 @@ function app.context(fields: any?): any
         return ch
     end
     return context
+end
+
+-- resize(context, event) — a native window's new size. The compositor puts its
+-- cell into the event, and the scrollbar width follows it: otherwise the
+-- window would hit-test a bar of one width while the renderer draws another.
+function app.resize(context: any, event: any)
+    context.width, context.height = event.width, event.height
+    if event.cell_w ~= nil then context.scroll_cols = widgets.scroll_cols(event.cell_w) end
 end
 
 -- channel_action(context, picked) -> the action for a fired channel of the
@@ -153,7 +165,7 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
 
     local loop: any = {plan = nil, revision = 0}
     local context: any = app.context({args = args, width = width, height = height, native = native,
-        window_id = window_id})
+        window_id = window_id, cell_w = native and viewport.cell_w or nil})
 
     local model: any = definition.init and guarded(context, "init", definition.init, args, context) or {}
     local interaction = ui.interaction()
@@ -164,13 +176,14 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
         local tree: any = nil
         if not context.failure then tree = guarded(context, "view", definition.view, model, context) end
         if context.failure then tree = failure_tree(context.failure) end
-        local ok, built = pcall(ui.plan, tree, context.width, context.height, interaction)
+        local sizing = {scroll_cols = context.scroll_cols}
+        local ok, built = pcall(ui.plan, tree, context.width, context.height, interaction, sizing)
         if ok then loop.plan = built
         else
             -- The tree does not lay out (duplicate id, unknown kind) — this is also
             -- an application error, and it must be visible.
             context.failure = "plan: " .. tostring(built)
-            loop.plan = ui.plan(failure_tree(context.failure), context.width, context.height, interaction)
+            loop.plan = ui.plan(failure_tree(context.failure), context.width, context.height, interaction, sizing)
         end
         loop.revision = loop.revision + 1
         if native then
@@ -222,7 +235,7 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
                 break
             end
             if event.type == "resize" then
-                if native then context.width, context.height = event.width, event.height
+                if native then app.resize(context, event)
                 else context.width, context.height = tty.screen_size() end
                 action = {type = "resize", width = context.width, height = context.height}
             else
