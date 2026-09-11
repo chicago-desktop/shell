@@ -139,7 +139,8 @@ Renderers of their own remain with the explorer and the image viewer.
 - Window: Date/Time; Entry: `butschster.windows.datetime:window`; What's inside: tabs, a month calendar with today's date, an analog clock, digital time, the time zone; **read-only** — there is nothing to adjust, "OK" and "Cancel" close it, "Apply" is disabled for good
 - Window: Calculator; Entry: `butschster.windows.calc:window`; What's inside: the standard Windows 95 view: the display, Back/CE/C, memory MC/MR/MS/M+, digits in blue, operations in red; it calculates like a desk calculator — an operation is applied immediately, 2 + 3 × 4 = 20; keyboard and mouse go into the same button. A window on the shell SDK: works both in cells and in pixels
 - Window: Registry Editor; Entry: `butschster.windows.regedit:window`; What's inside: regedit: on the left a tree of namespaces split by dots and of the entries inside them, on the right `kind`, `meta.*` and `data.*` of the selected entry, at the bottom the path `Registry\a\b\name`. The [+] box, Enter and → expand, ← collapses or goes to the parent, the wheel and the scrollbar scroll; F5 rereads. **Read-only** (FR-004 §3.4): the `regedit_state` policy has `registry.find` but not `registry.apply`. A window on the shell SDK (the `tree` component)
-- Task Manager (Start → Settings → Task Manager) and Run… with its Bash windows are described in their own pages: [docs/taskman.md](docs/taskman.md) and [docs/run.md](docs/run.md).
+- Window: Task Manager; Entry: `butschster.windows.taskman:window`; What's inside: open applications, Wippy processes, performance and the node on four tabs, refreshed every second; opened from Start → Settings → Task Manager. Details: [docs/taskman.md](docs/taskman.md)
+- Window: Run…; Entry: `butschster.windows.run:window`; What's inside: a command field; Enter or "OK" starts the command in its own Bash window, which is the base's terminal window; opened from Start → Run…. Details: [docs/run.md](docs/run.md)
 
 "Date/Time" has `resizable: false`, the calculator too; the registry editor can be resized. The taskbar clock opens "Date/Time": the host
 declares this with a `windows.taskbar_clock` entry (below).
@@ -336,9 +337,12 @@ the desktop stood there until 2026-09-09 and was removed by the owner's decision
 "Start" and stood empty; for those who already have it, the offered mark remains,
 and it is not created again.
 
-Only what has something behind it is created. "Recycle Bin" and "Network Neighborhood"
-are deliberately absent here: an icon that does nothing looks like a working
-part of the system, and the first thing people will ask about it is why it does not work.
+Only what has something behind it is created. A "Recycle Bin" is deliberately
+absent: an icon that does nothing looks like a working part of the system, and the
+first thing people will ask about it is why it does not work. "Network
+Neighborhood" is not furniture: it is a program (`butschster.windows.network:window`)
+that asks for its own shortcut with `desktop: true`, so it reaches the desktop the
+way any program shortcut does, by the rule below.
 
 Furniture counts as offered by the same rule as program shortcuts:
 thrown away — does not come back. Furniture keys start with `!`, which cannot
@@ -516,6 +520,19 @@ It is checked by a rule, not by a list: `wiring_test` takes from every process
 entry its `modules`, from its policies their actions, and requires a permission for every
 module that is gated by permissions. A list would have to be extended with every new
 entry, and it would be forgotten exactly on the one where it matters.
+
+**Open item (2026-09-11): the reverse check is not a rule yet.** "A process declares
+no module it does not use" looks checkable by grep, and is not, yet. The runtime
+builds the imports of every node from that node's own `modules`
+(`component.BuildImports(cfg.Imports, cfg.Modules)` for libraries, processes and
+functions alike), and every library here declares what it requires. So the
+`modules` of a process serve only its own source file. By that rule the shell
+process declares nine modules its file never requires (channel, env, json, process,
+registry, sql, time, tty, uuid; `json` was dropped on 2026-09-11), and 23 more
+entries fail it — API functions, windows, and the deliberate `gfx` markers on
+libraries. Trimming them would also blind the check above, which reads only a
+process's own `modules`. The order is therefore: first make the rights check read
+the whole import closure, then trim the entries, then add the reverse check.
 
 ## Pixel mode: who switches it on
 

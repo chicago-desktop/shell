@@ -51,6 +51,12 @@ for both backends" contract does not guarantee by itself):
 
 ## 2. The migration audit against the code
 
+**Historical (2026-09-08).** The files this section cites as
+`taskman/layout.lua:448`, `run/render.lua:67` and `controller.lua:67-74` no
+longer exist: Run, the calculator, Task Manager and the registry viewer moved to
+the SDK the same day, and their own layouts, controllers and renderers were
+deleted — see §5. The findings stay as the record of why that was done.
+
 The audit honestly calls the specialized windows specialized; but
 several "uses the shared …" claims are not confirmed by the code:
 

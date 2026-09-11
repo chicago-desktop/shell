@@ -124,7 +124,7 @@ disputes exactly that `*` on the window; when it is narrowed, this entry must be
 explicitly.
 
 **A decoded raster lives as long as the process lives.** Rasters outlive the frame
-(FR-005 §4): an icon decoded anew on every frame would be a new
+([FR-005](rfcs/005-pixel-chrome.md) §4): an icon decoded anew on every frame would be a new
 raster with the same version, and the surface would **not resend** it — the
 old one would stay on screen. That is why the cache is in the library, not in the caller, and
 that is why `forget()` exists only for tests.
