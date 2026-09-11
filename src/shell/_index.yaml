@@ -1,49 +1,52 @@
 version: "1.0"
 namespace: butschster.windows.shell
 
-# Вид оболочки и ничего больше.
+# The look of the shell and nothing more.
 #
-# Четыре библиотеки вместо одной — по границе, на которой их правят. Символы
-# меняют, глядя на экран; цвета — глядя на эталонный кадр; примитивы — глядя
-# на деталь; тему — глядя на контракт композитора. Слитые в один файл, они
-# правятся вслепую.
+# Four libraries instead of one — along the border at which they are edited.
+# Characters are changed looking at the screen; colors — looking at the
+# reference frame; primitives — looking at the detail; the theme — looking
+# at the compositor's contract. Merged into one file, they are edited blind.
 #
-# Важнее другое. Рисуют этими примитивами ДВОЕ — тема снаружи окна и само
-# окно внутри своего viewport. Поэтому всё, что не знает про экран целиком,
-# лежит отдельно от темы и импортируется обоими. Своя копия у окна разошлась
-# бы с рамкой вокруг него, и разошлась бы видом, а не отказом.
+# More important is something else. TWO parties draw with these primitives —
+# the theme outside the window and the window itself inside its viewport. So
+# everything that does not know about the whole screen lies apart from the
+# theme and is imported by both. A window's own copy would diverge from the
+# frame around it, and it would diverge in looks, not in a refusal.
 #
-# Ни одна из них не ходит в рантайм — только строки и арифметика. Поэтому их
-# можно мерить тестом без терминала, а это единственный способ поймать
-# разъехавшуюся на ячейку рамку, пока она не уехала на стенд.
+# None of them goes into the runtime — only strings and arithmetic. So they
+# can be measured by a test without a terminal, and that is the only way to
+# catch a frame that has slipped by a cell before it goes out to the running
+# system.
 #
-# ЛОВУШКА ЭТОГО ФАЙЛА. Двоеточие с пробелом внутри незакавыченного значения
-# YAML читает как начало новой пары, и отказ приходит от загрузчика записей
-# с указанием на файл, а не на фразу. В комментариях ниже двоеточий нет
-# нарочно.
+# THE TRAP OF THIS FILE. YAML reads a colon followed by a space inside an
+# unquoted value as the start of a new pair, and the refusal comes from the
+# entry loader pointing at the file, not at the phrase. The comments below
+# have no colons on purpose.
 
 entries:
   # butschster.windows.shell:palette
   - name: palette
     kind: library.lua
     meta:
-      comment: Палитра точными цветами Windows 95 и те же имена базовыми индексами ANSI как запасной путь.
+      comment: The palette in exact Windows 95 colors, and the same names as basic ANSI indices as a fallback.
     source: file://palette.lua
 
   # butschster.windows.shell:glyphs
   - name: glyphs
     kind: library.lua
     meta:
-      comment: Псевдографика оболочки — грани объёма, кнопки, полоса прокрутки, значки. Каждый символ шириной ровно в одну ячейку.
+      comment: The shell's pseudographics — bevel edges, buttons, scroll bar, icons. Every character is exactly one cell wide.
     source: file://glyphs.lua
 
   # butschster.windows.shell:widgets
   #
-  # Примитивы, не знающие про экран. Их импортирует и тема, и окно.
+  # Primitives that do not know about the screen. Both the theme and the
+  # window import them.
   - name: widgets
     kind: library.lua
     meta:
-      comment: Объёмные детали Windows 95 — грани, панель, вдавленное поле, кнопка, этчед-разделитель, строка меню, панель инструментов, статусная строка, вкладки.
+      comment: Windows 95 bevelled details — edges, panel, sunken field, button, etched separator, menu bar, toolbar, status bar, tabs.
     source: file://widgets.lua
     modules:
       - tty
@@ -55,11 +58,12 @@ entries:
 
   # butschster.windows.shell:icons
   #
-  # Значок рисуют двое — стол композитором и окно «Мой компьютер» само.
+  # Two parties draw the icon — the desktop through the compositor and the
+  # "My Computer" window by itself.
   - name: icons
     kind: library.lua
     meta:
-      comment: Значок с подписью, один на всю оболочку — и для рабочего стола, и для списка объектов внутри окна.
+      comment: An icon with a caption, one for the whole shell — both for the desktop and for the list of objects inside a window.
     source: file://icons.lua
     modules:
       - tty
@@ -70,9 +74,10 @@ entries:
 
   # butschster.windows.shell:pixels
   #
-  # Пиксельный двойник примитивов. Растров не создаёт — растр приходит
-  # снаружи, от того, кто хранит его между кадрами; примитив, создающий свой
-  # растр, заставил бы тему переотправлять всё каждый кадр.
+  # The pixel twin of the primitives. It creates no rasters — the raster comes
+  # from outside, from whoever keeps it between frames; a primitive that
+  # created its own raster would force the theme to resend everything every
+  # frame.
   - name: pixels
     kind: library.lua
     meta:
@@ -88,14 +93,14 @@ entries:
 
   # butschster.windows.shell:rasters
   #
-  # Растры переживают кадр, и это не оптимизация. Тема, создающая растр в
-  # функции отрисовки, рисует ПРАВИЛЬНЫЙ экран и переотправляет его целиком
-  # каждый кадр — сорок семь миллисекунд на нажатие клавиши вместо одной.
-  # Глазами это не видно, у медленного нет стека вызовов.
+  # Rasters outlive the frame, and this is not an optimization. A theme that
+  # creates a raster in the draw function draws the CORRECT screen and resends
+  # it whole every frame — forty-seven milliseconds per keystroke instead of
+  # one. The eye does not see it; slowness has no stack trace.
   - name: rasters
     kind: library.lua
     meta:
-      comment: Хранилище растров между кадрами — отдаёт растр по имени и ключу состояния и говорит, надо ли в него рисовать; чего в кадре не назвали, то уходит с экрана.
+      comment: A store of rasters between frames — hands out a raster by name and state key and says whether it needs drawing into; whatever the frame did not name leaves the screen.
     source: file://rasters.lua
     imports:
       geometry: butschster.tui_desktop.desktop:geometry
@@ -104,21 +109,21 @@ entries:
 
   # butschster.windows.shell:chrome_pixels
   #
-  # Пиксельная тема. Отдельной записью по тому же правилу, что и пиксельный
-  # бэкенд проводника: запись, объявившая `gfx`, на рантайме без него не
-  # грузится целиком, и путь в ячейках умер бы вместе с графикой.
+  # The pixel theme. A separate entry by the same rule as the explorer's pixel
+  # backend: an entry that declared `gfx` does not load at all on a runtime
+  # without it, and the cell path would die together with the graphics.
   - name: chrome_pixels
     kind: library.lua
     meta:
-      comment: Пиксельная тема оболочки — заливка остаётся ячейками, пикселями только фаски, значки и подписи; рамка окна нарезана по строкам, чтобы набор текста внутри стоил двух полосок.
+      comment: The shell's pixel theme — the fill stays in cells, only bevels, icons and captions are pixels; the window frame is cut by rows so that typing text inside costs two strips.
     source: file://chrome_pixels.lua
     modules:
       - gfx
     imports:
       geometry: butschster.tui_desktop.desktop:geometry
-      # Состав кнопок заголовка берётся у темы в ячейках: одна таблица на оба
-      # режима. Второй список разошёлся бы с первым, и у диалога в пикселях
-      # оказалось бы три кнопки, а в ячейках две.
+      # The set of title bar buttons is taken from the cell theme: one table
+      # for both modes. A second list would diverge from the first, and a
+      # dialog would end up with three buttons in pixels and two in cells.
       chrome: butschster.windows.shell:chrome
       icons: butschster.windows.shell:icons
       palette: butschster.windows.shell:palette
@@ -127,20 +132,20 @@ entries:
       widgets: butschster.windows.shell:widgets
       explorer_layout: butschster.windows.explorer:render
       explorer_pixels: butschster.windows.explorer:render_pixels
-      # Окна-виды. Композитор не умеет загрузить библиотеку по id из записи
-      # окна — require знает только imports, — поэтому каждый render
-      # импортирован сюда статически и назван в VIEWS темы.
+      # View windows. The compositor cannot load a library by an id from the
+      # window's entry — require knows only imports — so every render is
+      # imported here statically and named in the theme's VIEWS.
       picture_render: butschster.windows.viewers:picture_render
       sdk_render: butschster.windows.sdk:render
 
   # butschster.windows.shell:chrome
   #
-  # Тема по контракту основы. Здесь остаётся только то, что знает про экран
-  # целиком.
+  # The theme per the base's contract. Only what knows about the whole screen
+  # stays here.
   - name: chrome
     kind: library.lua
     meta:
-      comment: Тема по контракту основы — рабочий стол со значками, рамка окна, панель задач и каскадное меню «Пуск».
+      comment: The theme per the base's contract — the desktop with icons, the window frame, the taskbar and the cascading "Start" menu.
     source: file://chrome.lua
     modules:
       - tty
@@ -152,24 +157,25 @@ entries:
 
   # butschster.windows.shell:icon_files
   #
-  # Настоящие значки Windows 95 — PNG 32×32 и 16×16 в assets/icons, см.
-  # SOURCE.md там же. Каталог объявлен модулем (`base: module`), а не
-  # приложением: значки — часть вида, и приложение о них знать не должно.
-  # Только чтение, поэтому auto_init выключен: ни создавать, ни переставлять
-  # права на каталог с чужим артворком нельзя.
+  # The real Windows 95 icons — PNG 32×32 and 16×16 in assets/icons, see
+  # SOURCE.md in the same place. The folder is declared by the module
+  # (`base: module`), not by the application: the icons are part of the look,
+  # and the application should not have to know about them. Read only, so
+  # auto_init is off: neither creating the folder with someone else's artwork
+  # nor rearranging its permissions is allowed.
   - name: icon_files
     kind: fs.directory
     meta:
-      comment: Значки Windows 95 из shell32.dll в PNG — приезжают в gfx байтами, а не путём.
+      comment: Windows 95 icons from shell32.dll as PNG — they arrive in gfx as bytes, not as a path.
     base: module
     directory: ./assets/icons
     auto_init: false
 
   # butschster.windows.shell:images
   #
-  # Растровые значки: имя → файл → декодированный растр, с кэшем на процесс.
-  # Кэш обязателен, а не желателен: значок, декодированный заново на каждый
-  # кадр, — новый растр с той же версией, и поверхность его не переотправит.
+  # Raster icons: name → file → decoded raster, with a per-process cache.
+  # The cache is mandatory, not desirable: an icon decoded anew every frame
+  # is a new raster with the same version, and the surface will not resend it.
   - name: images
     kind: library.lua
     meta:

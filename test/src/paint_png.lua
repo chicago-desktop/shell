@@ -1,17 +1,19 @@
--- Второй уровень пиксельного пробника: настоящий PNG.
+-- The second level of the pixel probe: a real PNG.
 --
--- Подставка на чистом Lua ловит раскладку, перекрытия и попадания за
--- миллисекунды, но глифов у неё нет и метрик шрифта тоже. Что грань вышла в
--- ОДИН пиксель, что кириллица прорисовалась, что цвет тот самый — видно
--- только на снимке, и смотрит на него человек или агент Read'ом.
+-- The pure-Lua stub catches layout, overlaps and hits in milliseconds, but
+-- it has no glyphs and no font metrics either. That an edge came out ONE
+-- pixel wide, that Cyrillic got drawn, that the color is the right one — is
+-- visible only in the screenshot, and a person or an agent looks at it with
+-- Read.
 --
--- Рисует ТОТ ЖЕ `butschster.windows.shell:pixels`, что поедет на стенд. Своя
--- копия отрисовки ради снимка проверяла бы копию.
+-- Draws with THE SAME `butschster.windows.shell:pixels` that will ship to the
+-- running system. A private copy of the painting for the sake of a
+-- screenshot would be checking the copy.
 --
 --   cd test && wippy run --host wippy.terminal:host paint-png
 --
--- Файлы ложатся в `test/shots/`. Каталог не в поставке модуля: снимки — это
--- проверка, а не часть оболочки.
+-- The files land in `test/shots/`. The directory is not in the module's
+-- distribution: screenshots are a check, not part of the shell.
 
 local fs = require("fs")
 local gfx = require("gfx")
@@ -37,63 +39,66 @@ local sdk_render = require("sdk_render")
 local reg_model = require("reg_model")
 local regedit = require("regedit_window")
 
--- Размер ячейки. У этой команды терминала НЕТ — она пишет файлы, а не рисует
--- на экране, — поэтому `gfx.cell_size()` здесь честно молчит, и это измерено,
--- а не предположено.
+-- Cell size. This command has NO terminal — it writes files, it does not
+-- draw on a screen — so `gfx.cell_size()` honestly stays silent here, and
+-- this is measured, not assumed.
 --
--- Отсюда правило: число называют снаружи, аргументом, и отчёт пишет, ОТКУДА
--- оно взялось. Догадка «8×16» права достаточно часто, чтобы выглядеть верной,
--- и картинка не того размера читается как ошибка рисования, а не как
--- незаданный вопрос.
+-- Hence the rule: the number is given from outside, as an argument, and the
+-- report writes WHERE it came from. The guess "8×16" is right often enough
+-- to look correct, and a picture of the wrong size reads as a drawing error,
+-- not as a question that was never asked.
 --
 --   wippy run --host wippy.terminal:host paint-png 10x20
 local FALLBACK = {w = 10, h = 20}
 
--- Отчёт кладётся ФАЙЛОМ рядом со снимками, а не печатается.
+-- The report is put down as a FILE next to the screenshots, not printed.
 --
--- `print` из процесса под терминальным хостом наружу не доходит — измерено:
--- снимки записались, а ни одной строки не появилось. Отчёт, рассказанный
--- только в лог, не рассказан никому: числа про метрики шрифта и про
--- переживающие кадр растры — это половина проверки, и её надо ЧИТАТЬ.
+-- `print` from a process under the terminal host does not get out —
+-- measured: the screenshots were written, and not a single line appeared. A
+-- report told only to the log is told to no one: the numbers about font
+-- metrics and about rasters outliving the frame are half the check, and it
+-- has to be READ.
 local REPORT = "report.txt"
 
--- Бирюзовый стола. В живом кадре его кладут ячейки, здесь — только ради
--- снимка: чтобы человек видел то же, что увидит на экране.
+-- The desktop teal. In a live frame the cells lay it down; here it is only
+-- for the sake of the screenshot: so that a person sees the same thing they
+-- will see on the screen.
 local color_desktop = "#008080"
 
 local SHOTS = "app:shots"
 local FONTS = "app:system_fonts"
 local FACE = "LiberationSans-Regular.ttf"
--- Полужирный — отдельный ФАЙЛ, а не опция: в Windows 95 заголовок набран им,
--- и синтезировать его размазыванием пикселей значит перестать быть похожим.
+-- Bold is a separate FILE, not an option: in Windows 95 the title is set in
+-- it, and synthesizing it by smearing pixels means ceasing to look alike.
 local BOLD = "LiberationSans-Bold.ttf"
 
 local function cell_size(spec)
     local w, h = gfx.cell_size()
-    if w and h then return {w = w, h = h}, "терминал ответил" end
+    if w and h then return {w = w, h = h}, "the terminal answered" end
 
     local given_w, given_h = string.match(tostring(spec or ""), "^(%d+)[xX×](%d+)$")
     if given_w then
         return {w = math.tointeger(tonumber(given_w)) or FALLBACK.w,
-                h = math.tointeger(tonumber(given_h)) or FALLBACK.h}, "названо аргументом"
+                h = math.tointeger(tonumber(given_h)) or FALLBACK.h}, "given as an argument"
     end
 
-    return FALLBACK, "ЗАПАСНОЕ ЗНАЧЕНИЕ — терминал молчит, аргумента нет"
+    return FALLBACK, "FALLBACK VALUE — the terminal is silent, no argument"
 end
 
 local function load_font(file, size)
     local store, err = fs.get(FONTS)
-    if err or not store then return nil, "шрифты не открылись: " .. tostring(err) end
+    if err or not store then return nil, "fonts did not open: " .. tostring(err) end
     local data, rerr = store:readfile(file)
-    if rerr or not data then return nil, "шрифт не прочитан: " .. tostring(rerr) end
+    if rerr or not data then return nil, "font not read: " .. tostring(rerr) end
     local face = gfx.font(data, {size = size, smooth = true})
     return face, nil
 end
 
--- ─── сцены ───────────────────────────────────────────────────────────────
+-- ─── scenes ──────────────────────────────────────────────────────────────
 --
--- Те же, что у подставки: снимок и карта обязаны показывать одно и то же,
--- иначе один из двух уровней проверяет не то, что второй.
+-- The same as in the stub: the screenshot and the map must show one and the
+-- same thing, otherwise one of the two levels checks something other than
+-- the second.
 
 -- Clickable things go by CELLS: `pixels.box` gives the place, the drawing is
 -- `inset` pixels smaller than its cells. In the shell the layout computes the
@@ -112,15 +117,16 @@ local function scene_window(raster, cell, font, bold)
     if bold then raster:text(8, 4 + (cell.h - 2 - bold:height()) // 2, "My Computer",
         {font = bold, color = "#ffffff"}) end
 
-    -- Кнопки заголовка ставятся В ЯЧЕЙКАХ, по две на кнопку: поставленные по
-    -- пикселям с шагом 18, они выглядели бы так же, а зоны попадания
-    -- пересекались бы — пробник это и поймал.
+    -- Title buttons are placed IN CELLS, two per button: placed by pixels
+    -- with a step of 18, they would look the same, but their hit zones would
+    -- overlap — the probe caught exactly that.
     local marks = {"minimize", "maximize", "close"}
     for index, id in ipairs(marks) do
         local area = button_in_cells(raster, 24 + (index - 1) * 2, 1, 2, 1,
             {id = id, label = "", font = font}, cell, 2)
-        -- Знак кладётся по НАРИСОВАННОМУ прямоугольнику, а не по ячейке:
-        -- у кнопки есть отступ, и знак, посчитанный от ячейки, съехал бы.
+        -- The mark is placed by the DRAWN rectangle, not by the cell: the
+        -- button has an inset, and a mark computed from the cell would slide
+        -- off.
         pixels.caption_mark(raster, id, area.x + 2, area.y + 2, area.w - 4, area.h - 4)
     end
 
@@ -131,9 +137,9 @@ local function scene_buttons(raster, cell, font, bold)
     local w, h = raster:size()
     pixels.panel(raster, 1, 1, w, h)
 
-    -- Одна ширина на обе: разноширокие «ОК» и «Отмена» — первое, что выдаёт
-    -- подделку. Считается по самой широкой ИЗМЕРЕННОЙ подписи и округляется
-    -- вверх до целых ячеек, не меньше семидесяти пяти пикселей — как в
+    -- One width for both: "OK" and "Cancel" of different widths are the first
+    -- thing that gives away a fake. Computed by the widest MEASURED caption
+    -- and rounded up to whole cells, no less than seventy-five pixels — as in
     -- Windows 95.
     local labels = {"OK", "Cancel"}
     local span = pixels.button_span(font, labels, cell, 75)
@@ -148,16 +154,17 @@ local SCENES = {
     {name = "buttons", cols = 23, rows = 3, paint = scene_buttons},
 }
 
--- Та же мера, что у подставки, но на НАСТОЯЩЕМ gfx.
+-- The same measure as in the stub, but on the REAL gfx.
 --
--- Подставка своя, и хранилище, проверенное только против неё, доказано против
--- собственной выдумки. Здесь растры настоящие, и `version` двигает рантайм, а
--- не Lua.
+-- The stub is our own, and a store checked only against it is proven
+-- against our own invention. Here the rasters are real, and `version` is
+-- moved by the runtime, not by Lua.
 --
--- Сравнивается ТОЖДЕСТВО растра, а не только его версия. Выяснилось мутацией:
--- хранилище, пересоздающее растр каждый кадр, отдаёт свежий буфер, рисующий
--- код повторяет те же вызовы — и версия приходит та же самая. Числа
--- совпадают, а на экран летит всё заново.
+-- The IDENTITY of the raster is compared, not only its version. Found out by
+-- mutation: a store that recreates the raster every frame hands out a fresh
+-- buffer, the painting code repeats the same calls — and the version comes
+-- out the very same. The numbers match, and everything flies to the screen
+-- anew.
 local lines = {}
 local function say(text)
     lines[#lines + 1] = tostring(text)
@@ -200,8 +207,8 @@ local function check_frames(cell, font)
         local names = {}
         for id, now in pairs(after) do
             local was: any = before[id]
-            if not was then names[#names+1] = id .. " (появился)"
-            elseif was.raster ~= now.raster then names[#names+1] = id .. " (ПЕРЕСОЗДАН)"
+            if not was then names[#names+1] = id .. " (appeared)"
+            elseif was.raster ~= now.raster then names[#names+1] = id .. " (RECREATED)"
             elseif was.version ~= now.version then names[#names+1] = id end
         end
         table.sort(names)
@@ -212,14 +219,14 @@ local function check_frames(cell, font)
     local first = snapshot(paint(state))
     local second = snapshot(paint(state))
     local still = moved(first, second)
-    say(string.format("кадр без изменений: сдвинулось %d из %d размещений%s",
-        #still, 2, #still == 0 and "" or "  ◄ ОШИБКА: " .. table.concat(still, ", ")))
+    say(string.format("frame without changes: %d of %d placements moved%s",
+        #still, 2, #still == 0 and "" or "  ◄ ERROR: " .. table.concat(still, ", ")))
 
     state.clock = "21:48"
     local ticked = moved(second, snapshot(paint(state)))
-    say(string.format("сменились часы: перерисовано %s%s",
+    say(string.format("clock changed: repainted %s%s",
         table.concat(ticked, ", "),
-        (#ticked == 1 and ticked[1] == "taskbar") and "" or "  ◄ ОШИБКА: ожидалась только taskbar"))
+        (#ticked == 1 and ticked[1] == "taskbar") and "" or "  ◄ ERROR: only taskbar was expected"))
 
     return #still == 0 and #ticked == 1 and ticked[1] == "taskbar"
 end
@@ -227,21 +234,21 @@ end
 local function main(spec)
     local store_shots, serr = fs.get(SHOTS)
     if not store_shots then
-        print("ОТКАЗ: каталог снимков не открылся: " .. tostring(serr))
+        print("FAILURE: the screenshots directory did not open: " .. tostring(serr))
         return false, serr
     end
 
     local cell, source = cell_size(spec)
-    say("ячейка " .. cell.w .. "×" .. cell.h .. " px (" .. source .. ")")
+    say("cell " .. cell.w .. "×" .. cell.h .. " px (" .. source .. ")")
 
     local font, ferr = load_font(FACE, 13)
     if not font then
-        say("ОТКАЗ: " .. tostring(ferr))
+        say("FAILURE: " .. tostring(ferr))
         return false, ferr
     end
     local bold, berr = load_font(BOLD, 13)
     if not bold then
-        say("ОТКАЗ: полужирный не загрузился: " .. tostring(berr))
+        say("FAILURE: bold did not load: " .. tostring(berr))
         return false, berr
     end
 
@@ -267,7 +274,7 @@ local function main(spec)
         {id = "butschster.windows.calc:window", meta = {title = "Calculator", image = "calculator", order = 20}},
         {id = "butschster.windows.datetime:window", meta = {title = "Date & Time", image = "clock", order = 30}},
         {id = "butschster.windows.viewers:notepad", meta = {title = "Notepad", image = "text_document", order = 40}},
-        {id = "example:bridge", meta = {title = "Jobs", group = "Программы/Bridge", order = 50}},
+        {id = "example:bridge", meta = {title = "Jobs", group = "Programs/Bridge", order = 50}},
         {id = "example:content", meta = {title = "Articles", group = "Programs/Content machine", order = 60}},
         {id = "butschster.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "program", order = 70}},
         {id = "example:settings", meta = {title = "Properties", group = "Settings", order = 80}},
@@ -286,18 +293,20 @@ local function main(spec)
     end
     assert(store_shots:writefile("font-menu.png", assert(menu_image:encode("png"))))
 
-    -- Метрики шрифта печатаются рядом со снимком: подставка их не знает и
-    -- считает приближением, а расхождение между уровнями иначе обнаружится
-    -- тем, что надпись не влезла в кнопку на стенде.
+    -- Font metrics are printed next to the screenshot: the stub does not know
+    -- them and computes an approximation, and otherwise a divergence between
+    -- the levels would be discovered by a caption not fitting into a button
+    -- on the running system.
     local sample = "My Computer"
     local tw, th = font:measure(sample)
-    say(string.format("шрифт %d px, высота строки %d, ascent %d; «%s» = %d×%d px",
+    say(string.format("font %d px, line height %d, ascent %d; \"%s\" = %d×%d px",
         font:size(), font:height(), font:ascent(), sample, tw, th))
 
 
-    -- «Мой компьютер» ПИКСЕЛЬНЫМ бэкендом. Раскладку считает тот же
-    -- `render.layout`, что и путь в ячейках, — на то и разделение: разъедься
-    -- они, щелчок попадал бы на соседа в одном из двух режимов.
+    -- "My Computer" with the PIXEL backend. The layout is computed by the
+    -- same `render.layout` as the cell path — that is what the separation is
+    -- for: if they drifted apart, a click would land on a neighbor in one of
+    -- the two modes.
     local function explorer_shots(store)
         local view: any = {
             title = "My Computer",
@@ -323,7 +332,7 @@ local function main(spec)
         local placements = render_pixels.paint(store, plan, cell,
             {face = font, bold = bold}, "explorer")
 
-        say(string.format("проводник: размещений %d, попаданий по значкам %d",
+        say(string.format("explorer: %d placements, %d icon hits",
             #placements, #plan.cells))
 
         for _, item in ipairs(placements) do
@@ -331,14 +340,14 @@ local function main(spec)
             local file = "explorer-" .. string.gsub(item.id, "[^%w]", "-") .. ".png"
             if bytes then
                 store_shots:writefile(file, bytes)
-                say(string.format("  %-22s ячейка %2d,%-2d  %2d×%-2d ячеек  → %s",
+                say(string.format("  %-22s cell %2d,%-2d  %2d×%-2d cells  → %s",
                     item.id, item.x, item.y, item.cols, item.rows, file))
             end
         end
 
-        -- Тот же кадр ещё раз: ни одно размещение не имеет права уехать
-        -- заново. Это и есть мера FR-005 §4, применённая к настоящему виду, а
-        -- не к учебной сцене.
+        -- The same frame once more: not a single placement has the right to
+        -- be sent again. This is exactly the FR-005 §4 measure, applied to a
+        -- real view, not to a training scene.
         local before: any = {}
         for _, item in ipairs(placements) do
             before[item.id] = {raster = item.raster, version = item.raster:version()}
@@ -348,24 +357,24 @@ local function main(spec)
         local moved = {}
         for _, item in ipairs(again) do
             local was: any = before[item.id]
-            if not was then moved[#moved+1] = item.id .. " (появился)"
-            elseif was.raster ~= item.raster then moved[#moved+1] = item.id .. " (ПЕРЕСОЗДАН)"
+            if not was then moved[#moved+1] = item.id .. " (appeared)"
+            elseif was.raster ~= item.raster then moved[#moved+1] = item.id .. " (RECREATED)"
             elseif was.version ~= item.raster:version() then moved[#moved+1] = item.id end
         end
-        say("проводник, тот же кадр ещё раз: сдвинулось " .. #moved
+        say("explorer, the same frame once more: moved " .. #moved
             .. (#moved == 0 and "" or " — " .. table.concat(moved, ", ")))
         return #moved == 0
     end
 
-    -- ─── весь экран одним снимком ────────────────────────────────────────
+    -- ─── the whole screen in one screenshot ──────────────────────────────
     --
-    -- Композитор кладёт размещения по отдельности, но человек смотрит на
-    -- ЭКРАН. Куски, разложенные по восьми файлам, не показывают ни того, что
-    -- рамка сошлась, ни того, что значок не наехал на окно.
+    -- The compositor places the placements separately, but a person looks at
+    -- the SCREEN. Pieces laid out across eight files show neither that the
+    -- frame met up nor that an icon did not run over a window.
     --
-    -- `blit` собирает их в один растр по тем же координатам, по которым их
-    -- положит поверхность, — то есть снимок врёт ровно настолько, насколько
-    -- врут координаты, и ни на сколько больше.
+    -- `blit` gathers them into one raster at the same coordinates at which
+    -- the surface will place them — that is, the screenshot lies exactly as
+    -- much as the coordinates lie, and not a bit more.
     local function screen_shot(file, notice)
         chrome_pixels.use_fonts(font, bold)
 
@@ -406,24 +415,26 @@ local function main(spec)
         }
 
         if notice == "context" then
-            -- Контекстное меню значка «Мой компьютер»: якорь у значка,
-            -- «Открыть» жирным, «Свойства» за чертой.
+            -- The context menu of the "My Computer" icon: the anchor at the
+            -- icon, "Open" in bold, "Properties" past the separator line.
             state.selected = "s1"
             state.menu = {anchor = {x = 6, y = 2}, cursor = 2, open = {}, items = {
                 {label = "Open", bold = true, entry = "butschster.windows.explorer:window", title = "My Computer"},
                 {label = "Properties", entry = "butschster.windows.sysprops:window", separator_before = true},
             }}
         elseif notice == "over" then
-            -- Окно под открытым «Пуском»: его растр режется панелями меню, а
-            -- не ложится поверх них. На снимке порядок наложения тот же, что и
-            -- без правки; видно здесь, что меню целое, а доказательство
-            -- «окно не переотправится поверх» — тест `menu above windows`.
+            -- A window under the open "Start": its raster is cut by the menu
+            -- panels, not laid over them. In the screenshot the stacking order
+            -- is the same as without the fix; what is visible here is that the
+            -- menu is whole, and the proof of "the window will not be resent
+            -- on top" is the test `menu above windows`.
             state.windows[1].x, state.windows[1].y = 3, 6
             state.focused_id = "w1"
         elseif notice == "layout" then
-            -- Раскладка стола не прочиталась: вместо значков табличка с
-            -- причиной, в панели задач — сообщение композитора. Окно одно и
-            -- ниже таблички, чтобы причину было видно целиком.
+            -- The desktop layout could not be read: instead of icons, a notice
+            -- box with the reason, in the taskbar — the compositor's message.
+            -- There is one window, and it is below the notice box, so that the
+            -- reason is visible in full.
             state.items, state.selected, state.menu = {}, nil, nil
             state.windows = {state.windows[2]}
             state.failure = "database is locked: SELECT id, x, y, image FROM butschster_windows_desktop"
@@ -435,9 +446,10 @@ local function main(spec)
         end
         local painted = chrome_pixels.paint(state, cell.w, cell.h)
         local screen = gfx.raster(cols * cell.w, rows * cell.h)
-        -- Стол заливкой: в живом кадре это стили ЯЧЕЕК, а не картинка
-        -- (FR-005 §3а). Здесь он закрашен, чтобы снимок показывал то же, что
-        -- увидит человек, — но в кадр такой растр не попадает никогда.
+        -- The desktop as a fill: in a live frame these are CELL styles, not a
+        -- picture (FR-005 §3a). Here it is painted so that the screenshot
+        -- shows the same as a person will see — but such a raster never gets
+        -- into the frame.
         screen:fill(color_desktop)
         for _, window in ipairs(state.windows) do
             screen:rect((window.x - 1) * cell.w + 1, (window.y - 1) * cell.h + 1,
@@ -452,7 +464,7 @@ local function main(spec)
         local bytes = screen:encode("png")
         if bytes then
             store_shots:writefile(file, bytes)
-            say(string.format("экран: размещений %d, значков %d, кнопок панели %d, пунктов меню %d → %s",
+            say(string.format("screen: %d placements, %d icons, %d taskbar buttons, %d menu items → %s",
                 #painted.placements, #painted.hits.desktop, #painted.hits.bars,
                 #painted.hits.menu, file))
         end
@@ -496,7 +508,7 @@ local function main(spec)
             canvas:blit(placement.raster, (placement.x - 1) * cell.w + 1, (placement.y - 1) * cell.h + 1)
         end
         store_shots:writefile("menu-icons.png", assert(canvas:encode("png")))
-        say("каталог → меню и стол: menu-icons.png")
+        say("catalog → menu and desktop: menu-icons.png")
     end
 
     -- Same native window path that the compositor now uses for Explorer.
@@ -528,12 +540,13 @@ local function main(spec)
             canvas:blit(placement.raster, (placement.x - 1) * cell.w + 1, (placement.y - 1) * cell.h + 1)
         end
         store_shots:writefile("explorer-native.png", assert(canvas:encode("png")))
-        say("пиксельное окно проводника: explorer-native.png")
+        say("pixel explorer window: explorer-native.png")
     end
 
     -- Fixture metadata mirrors the declarations; the dialog uses its live renderer.
     local function run_shot()
-        -- Вошедший пользователь — первой строкой «Пуска», как на живом стенде.
+        -- The signed-in user — as the first row of "Start", as on the live
+        -- running system.
         chrome.use_user({id = "u1", name = "butschster"})
         chrome_pixels.use_fonts(font, bold)
         chrome_pixels.use_cell_size(cell.w, cell.h)
@@ -548,8 +561,8 @@ local function main(spec)
             bottom = 32 - chrome_pixels.layout(100, 32).bottom,
             items = {{id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window",
                 title = "My Computer", x = 8, y = 2}},
-            -- Заголовок — тот, что окно называет само (`definition.title`):
-            -- «Run» без многоточия, многоточие остаётся у пункта меню.
+            -- The title is the one the window names itself (`definition.title`):
+            -- "Run" without the ellipsis, the ellipsis stays with the menu item.
             windows = {{id = "run", entry = "butschster.windows.run:window", image = "run",
                 title = run_window.definition.title, window_type = "dialog", content = "pixels", resizable = false,
                 render = "butschster.windows.sdk:render", x = 30, y = 7, w = 50, h = 10,
@@ -633,8 +646,9 @@ local function main(spec)
         store_shots:writefile("bash-black.png", assert(canvas:encode("png")))
     end
 
-    -- Проверка поворота отдельно от темы: если надпись не видна на экране,
-    -- надо знать, поворот ли это не работает или место посчитано мимо.
+    -- A rotation check separate from the theme: if the caption is not visible
+    -- on the screen, we need to know whether it is the rotation that does not
+    -- work or the place that was computed wrong.
     do
         local label = chrome.MENU_BANNER
         local tw = bold:measure(label)
@@ -650,14 +664,14 @@ local function main(spec)
         local bytes = canvas:encode("png")
         if bytes then
             store_shots:writefile("banner.png", bytes)
-            say(string.format("поворот: строка %d×%d px, слева 270°, справа 90° → banner.png",
+            say(string.format("rotation: string %d×%d px, 270° on the left, 90° on the right → banner.png",
                 tw, th))
         end
     end
 
     local steady = check_frames(cell, font)
     if not steady then
-        say("ОТКАЗ: растры не переживают кадр — экран будет правильным, а летать будет всё")
+        say("FAILURE: rasters do not outlive the frame — the screen will be correct, but everything will be flying")
     end
 
     explorer_native_shot()
@@ -686,22 +700,23 @@ local function main(spec)
 
     local explorer_ok = explorer_shots(rasters.store())
     if not explorer_ok then
-        say("ОТКАЗ: проводник пересоздаёт растры — экран останется СТАРЫМ, не медленным")
+        say("FAILURE: the explorer recreates rasters — the screen will stay OLD, not slow")
     end
 
-    -- Окна-виды целиком: куски собираются в один растр по тем же координатам,
-    -- по которым их положит поверхность. Смотреть глазами: календарь,
-    -- стрелки, цвета подписей калькулятора — этого не покажет ни один тест.
+    -- View windows whole: the pieces are gathered into one raster at the same
+    -- coordinates at which the surface will place them. Look with your eyes:
+    -- the calendar, the arrows, the colors of the calculator's captions — no
+    -- test will show this.
     local function view_shot(name, lib: any, window: any, cols: any, rows: any)
         local store = rasters.store()
         local inner = {x = 1, y = 1, cols = cols, rows = rows}
         store.begin()
         local placed, why = lib.placement(window, inner, cell, {face = font, bold = bold}, store)
         if not placed then
-            say("ОТКАЗ: " .. name .. " не нарисовался: " .. tostring(why))
+            say("FAILURE: " .. name .. " was not drawn: " .. tostring(why))
             return
         end
-        -- Отрисовщик вправе отдать одно размещение, а не список (так делает SDK).
+        -- A renderer may return one placement instead of a list (the SDK does so).
         if placed.raster then placed = {placed} end
         local cw = math.tointeger(cell.w) or 10
         local ch = math.tointeger(cell.h) or 20
@@ -715,14 +730,14 @@ local function main(spec)
         local bytes = whole_view:encode("png")
         if bytes then
             store_shots:writefile(name .. ".png", bytes)
-            say(string.format("%s: размещений %d → %s.png", name, #placed, name))
+            say(string.format("%s: %d placements → %s.png", name, #placed, name))
         end
     end
     view_shot("datetime", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
         interaction = ui.interaction(), ui = datetime_window.definition.view({tab = 1, clock = {
             year = 2026, month = 9, day = 8, hour = 21, minute = 47, second = 23,
             first_weekday = 1, days = 30, zone = "UTC+04:00"}}, {width = 42, height = 20})}}, 42, 20)
-    -- «Свойства: Система», три вкладки на одном снимке-состоянии.
+    -- "System Properties", three tabs on one snapshot state.
     do
         local snap: any = {hostname = "kickside", pid = "964748", cwd = "/home/butschster/repos/wippy/kickside",
             node_id = "node-1", node_role = "leader", goroutines = 428, cpu_count = 8, max_procs = 8,
@@ -744,9 +759,10 @@ local function main(spec)
         end
     end
     do
-        -- Сетевое окружение: меш из двух узлов, лидер — сосед. Снимок делается
-        -- с ПРИДУМАННОГО членства нарочно: живой кластер здесь одноузловой, и
-        -- картинка «один компьютер» не показала бы ни лидера, ни адресов.
+        -- Network Neighborhood: a mesh of two nodes, the leader is the
+        -- neighbor. The screenshot is taken from an INVENTED membership on
+        -- purpose: the live cluster here is single-node, and a "one computer"
+        -- picture would show neither the leader nor the addresses.
         local network_window = require("network_window")
         local snap: any = {node_id = "kickside", node_addr = "127.0.0.1:7946", node_role = "voter",
             leader = "mesh-node",
@@ -756,7 +772,7 @@ local function main(spec)
         view_shot("network", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
             interaction = ui.interaction(), ui = network_window.definition.view(state, {width = 60, height = 14})}}, 60, 14)
     end
-    -- «Свойства: Экран»: фон с выбранным цветом и настройка.
+    -- "Display Properties": the Background with the chosen color, and Settings.
     for tab = 1, 2 do
         local state: any = {tab = tab, chosen = "#000080", saved = "#008080",
             info = {screen = {width = 100, height = 28}, cell = {w = cell.w, h = cell.h}, pixels = true},
@@ -764,12 +780,13 @@ local function main(spec)
         view_shot("display-" .. tab, sdk_render, {id = "shot", state_revision = tab, content_state = {sdk = 1, revision = tab,
             interaction = ui.interaction(), ui = display_window.definition.view(state, {width = 58, height = 22})}}, 58, 22)
     end
-    -- Экран прощания: крупный шрифт считается от высоты ячейки, как в оболочке.
+    -- The farewell screen: the large font is computed from the cell height, as
+    -- in the shell.
     do
         local big_size = math.max(20, math.min(64, (cell.h * 17) // 10))
         local big, big_err = load_font(BOLD, big_size)
         if not big then
-            say("ОТКАЗ: крупный шрифт не загрузился: " .. tostring(big_err))
+            say("FAILURE: the large font did not load: " .. tostring(big_err))
         else
             chrome_pixels.use_fonts(font, bold, big)
             chrome_pixels.use_cell_size(cell.w, cell.h)
@@ -782,14 +799,14 @@ local function main(spec)
                 screen:blit(raster :: gfx.Raster, at_x, at_y)
                 local png: any = screen:encode("png")
                 store_shots:writefile("farewell.png", png :: string)
-                say(string.format("прощание: шрифт %d px, растр в ячейке %d,%d → farewell.png", big_size, col, row))
+                say(string.format("farewell: font %d px, raster at cell %d,%d → farewell.png", big_size, col, row))
             else
-                say("ОТКАЗ: экран прощания не нарисовался")
+                say("FAILURE: the farewell screen was not drawn")
             end
         end
     end
     do
-        -- Просмотрщик реестра: дерево с раскрытыми ветками и запись с полями.
+        -- Registry viewer: a tree with expanded branches and an entry with fields.
         local sample = {
             {id = "app:db", kind = "db.sql.sqlite", meta = {comment = "Stand database"}, data = {file = ".wippy/app.db"}},
             {id = "app:api", kind = "http.router", meta = {}, data = {prefix = "/api/v1"}},
@@ -824,24 +841,24 @@ local function main(spec)
 
         local bytes, eerr = raster:encode("png")
         if not bytes then
-            say("ОТКАЗ: " .. scene.name .. " не закодировался: " .. tostring(eerr))
+            say("FAILURE: " .. scene.name .. " did not encode: " .. tostring(eerr))
             return false, eerr
         end
 
         local path = scene.name .. ".png"
         local ok, werr = store_shots:writefile(path, bytes)
         if not ok then
-            say("ОТКАЗ: " .. path .. " не записался: " .. tostring(werr))
+            say("FAILURE: " .. path .. " was not written: " .. tostring(werr))
             return false, werr
         end
-        say(string.format("%-10s %4d×%-4d px  версия %d  %d байт  → test/shots/%s",
+        say(string.format("%-10s %4d×%-4d px  version %d  %d bytes  → test/shots/%s",
             scene.name, scene.cols * cell.w, scene.rows * cell.h,
             raster:version(), #bytes, path))
     end
 
     local report = table.concat(lines, "\n") .. "\n"
     local wrote, rerr = store_shots:writefile(REPORT, report)
-    if not wrote then print("отчёт не записался: " .. tostring(rerr)) end
+    if not wrote then print("report was not written: " .. tostring(rerr)) end
 
     return steady and explorer_ok, nil
 end

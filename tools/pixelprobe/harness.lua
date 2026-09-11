@@ -1,39 +1,42 @@
--- Пиксельный пробник: подставка `gfx` на чистом Lua.
+-- Pixel probe: a `gfx` stand-in in pure Lua.
 --
--- Проверяет то, чего не видно в коде и что на стенде видно только глазом
--- человека: куда легли пиксели, совпали ли попадания с рисунком и выровнено
--- ли по сетке ячеек всё, по чему щёлкают.
+-- It checks what is not visible in the code and on the running system is
+-- visible only to a human eye: where the pixels landed, whether the hits
+-- matched the drawing, and whether everything that gets clicked is aligned to
+-- the cell grid.
 --
--- Работает без рантайма и без терминала, за миллисекунды. Это первый из двух
--- уровней; второй — настоящий PNG через `raster:encode`, и он в наборе
--- тестов. Уровни делят ОДИН И ТОТ ЖЕ код примитивов: подставка подменяет
--- `gfx`, а рисует `src/shell/pixels.lua` — тот самый, что поедет на стенд.
+-- Works without a runtime and without a terminal, in milliseconds. This is the
+-- first of two levels; the second is a real PNG through `raster:encode`, and it
+-- is in the test suite. The levels share ONE AND THE SAME primitive code: the
+-- stand-in replaces `gfx`, and the drawing is done by `src/shell/pixels.lua` —
+-- the very one that goes to the running system.
 --
--- ─── ОГОВОРКА, БЕЗ КОТОРОЙ ПРОБНИК СТАНОВИТСЯ ЛОЖНЫМ СВИДЕТЕЛЕМ ─────────
+-- ─── THE CAVEAT WITHOUT WHICH THE PROBE BECOMES A FALSE WITNESS ─────────
 --
--- Подставка НЕ ЗНАЕТ настоящих метрик шрифта. `font:measure` здесь считает
--- ширину приближением, а не по глифам, поэтому пробник проверяет РАСКЛАДКУ
--- ПРИ ЗАДАННЫХ ИЗМЕРЕНИЯХ, а не сами измерения. Надпись, которая на стенде не
--- поместится в кнопку, здесь поместится.
+-- The stand-in DOES NOT KNOW the real font metrics. `font:measure` here
+-- computes the width by approximation, not by glyphs, so the probe checks the
+-- LAYOUT AT GIVEN MEASUREMENTS, not the measurements themselves. A caption
+-- that will not fit into a button on the running system fits here.
 --
--- Настоящие метрики умеет только второй уровень: там живой `gfx.font` и живой
--- шрифт. Две проверки не заменяют друг друга — эта говорит, куда легли
--- прямоугольники, та — какой ширины оказался текст.
+-- Only the second level knows the real metrics: there it is a live `gfx.font`
+-- and a live font. The two checks do not replace each other — this one says
+-- where the rectangles landed, that one — how wide the text turned out.
 
--- Метки для build.py: строки ниже он заменяет телом самих файлов.
+-- Markers for build.py: it replaces the lines below with the bodies of the
+-- files themselves.
 local BASE = "src/"
 
--- Размер ячейки терминала человека, измеренный: Windows Terminal ответил на
--- `CSI 16 t`. Числа здесь не «примерно такие»: на них стоит вся проверка
--- квантования, и подставь мы 8×16 — выравнивание сошлось бы там, где на
--- живом экране не сходится.
+-- The cell size of the person's terminal, measured: Windows Terminal answered
+-- `CSI 16 t`. The numbers here are not "roughly like this": the whole
+-- quantization check rests on them, and were we to put 8×16 — the alignment
+-- would add up where on the live screen it does not.
 local CELL = {w = 10, h = 20}
 
--- ─── подставка gfx ───────────────────────────────────────────────────────
+-- ─── gfx stand-in ────────────────────────────────────────────────────────
 --
--- Записывает каждый вызов. Пиксели держатся в разреженной таблице: кадр окна
--- это полмиллиона пикселей, и плотный массив здесь считался бы дольше, чем
--- рисуется на стенде.
+-- Records every call. The pixels are held in a sparse table: a window frame
+-- is half a million pixels, and a dense array here would take longer to
+-- compute than it takes to draw on the running system.
 
 local function new_raster(w, h)
     local self = {}
@@ -46,10 +49,11 @@ local function new_raster(w, h)
     local function put(x, y, colour, is_text)
         if x < 1 or y < 1 or x > w or y > h then return false end
         px[(y - 1) * w + x] = colour
-        -- Текст помечается отдельно: залитый прямоугольник и надпись того же
-        -- цвета иначе неотличимы на карте, а разница между «здесь белая
-        -- заливка» и «здесь белая подпись» — это вся разница между «пусто» и
-        -- «надпись вылезла за свою деталь».
+        -- Text is marked separately: a filled rectangle and a caption of the
+        -- same colour are otherwise indistinguishable on the map, and the
+        -- difference between "a white fill here" and "a white caption here"
+        -- is the whole difference between "empty" and "the caption spilled
+        -- out of its element".
         if is_text then ink[(y - 1) * w + x] = true end
         return true
     end
@@ -74,9 +78,9 @@ local function new_raster(w, h)
                 if put(col, row, colour) then touched = true end
             end
         end
-        -- Версия двигается только если пиксели двигались: версия, ушедшая
-        -- вперёд без рисунка, заставила бы поверхность переотправлять ту же
-        -- картинку каждый кадр — неподвижное изображение начало бы мигать.
+        -- The version moves only if pixels moved: a version that went forward
+        -- without a drawing would make the surface resend the same picture
+        -- every frame — a still image would start flickering.
         if touched then version = version + 1 end
         ops[#ops+1] = {op = "rect", x = x, y = y, w = rw, h = rh, colour = colour}
     end
@@ -91,9 +95,9 @@ local function new_raster(w, h)
         local font = opts.font
         local advance = font and font:measure(text) or 0
         local height = font and font:height() or 0
-        -- Текст на пиксели не разбирается — глифов у подставки нет. Занятый
-        -- прямоугольник помечается, чтобы карта показала, ГДЕ надпись, и
-        -- сразу стало видно, если она вылезла за свою деталь.
+        -- Text is not broken down into pixels — the stand-in has no glyphs. The
+        -- occupied rectangle is marked so the map shows WHERE the caption is,
+        -- and it is immediately visible if it spilled out of its element.
         for row = y, y + height - 1 do
             for col = x, x + advance - 1 do put(col, row, opts.color or "#000000", true) end
         end
@@ -103,13 +107,14 @@ local function new_raster(w, h)
         return advance
     end
 
-    -- Перенос одного растра в другой. Подставка не переносит пикселей —
-    -- она отмечает ЗАНЯТУЮ площадь и записывает вызов: карта в ячейках
-    -- показывает, куда рисунок лёг, а точность красок — дело снимка.
+    -- Transfer of one raster into another. The stand-in does not transfer
+    -- pixels — it marks the OCCUPIED area and records the call: the map in
+    -- cells shows where the drawing landed, and the accuracy of the colours is
+    -- the snapshot's business.
     --
-    -- Поворот на прямой угол меняет ширину и высоту местами, и это здесь
-    -- существенно: место под повёрнутую надпись считают по её ВЫСОТЕ, и
-    -- ошибка в этом обмене — как раз то, чего на карте не видно иначе.
+    -- A right-angle rotation swaps width and height, and that matters here:
+    -- the room for a rotated caption is computed from its HEIGHT, and a
+    -- mistake in this swap is exactly what cannot be seen on the map otherwise.
     self.blit = function(_, source, x, y, opts)
         opts = opts or {}
         local sw, sh = source:size()
@@ -130,7 +135,7 @@ local function new_raster(w, h)
     return self
 end
 
--- Шрифт-подставка. Ширина приближением — см. оговорку в шапке.
+-- Font stand-in. Width by approximation — see the caveat in the header.
 local function new_font(size)
     local self = {}
     local advance = math.floor(size * 0.55)
@@ -151,17 +156,17 @@ gfx.cell_size = function() return CELL.w, CELL.h end
 gfx.raster = function(w, h) return new_raster(w, h) end
 gfx.font = function(_, opts) return new_font((opts and opts.size) or 12) end
 
--- ─── подставка tty ───────────────────────────────────────────────────────
+-- ─── tty stand-in ────────────────────────────────────────────────────────
 --
--- УМЕЕТ РОВНО СТОЛЬКО, СКОЛЬКО НУЖНО, ЧТОБЫ БИБЛИОТЕКИ ЗАГРУЗИЛИСЬ. Это
--- условие, а не экономия: стаб, который начнёт притворяться настоящим `tty`,
--- разойдётся с ним, и проверки станут врать в другую сторону.
+-- IT CAN DO EXACTLY AS MUCH AS IS NEEDED FOR THE LIBRARIES TO LOAD. This is a
+-- condition, not economy: a stub that starts pretending to be the real `tty`
+-- will drift from it, and the checks will start lying the other way.
 --
--- `widgets` и `icons` строят таблицы стилей на загрузке — им нужен только
--- `tty.style()`. Холст здесь не нужен НИКОМУ: пробник зовёт `render.layout`,
--- которая ничего не рисует, и `render_pixels`, которая рисует в растр.
--- Поэтому `tty.canvas` отсутствует, и попытка нарисовать в ячейки падает
--- вслух — вместо того чтобы тихо нарисоваться в никуда.
+-- `widgets` and `icons` build style tables at load time — they need only
+-- `tty.style()`. NOBODY here needs a canvas: the probe calls `render.layout`,
+-- which draws nothing, and `render_pixels`, which draws into a raster.
+-- So `tty.canvas` is absent, and an attempt to draw into cells fails loudly —
+-- instead of quietly drawing into nowhere.
 local function new_style()
     local self: any = {}
     local function same() return self end
@@ -185,7 +190,7 @@ tty.text = {
     truncate = function(text) return text end,
 }
 
--- ─── загрузка примитивов ─────────────────────────────────────────────────
+-- ─── loading the primitives ──────────────────────────────────────────────
 -- Decoder double checks placement geometry only. Native PNG bytes, masks and
 -- colours are checked by images_test and the real paint-png renderer.
 gfx.image = function(data) return new_raster(tonumber(data), tonumber(data)) end
@@ -198,7 +203,7 @@ local saved_require = require
 require = function(name)
     if modules[name] then return modules[name] end
     if saved_require then return saved_require(name) end
-    error("нет модуля " .. tostring(name))
+    error("no module " .. tostring(name))
 end
 
 modules.scroll = dofile(BASE .. "core/scroll.lua")
@@ -210,8 +215,8 @@ modules.icons = dofile(BASE .. "shell/icons.lua")
 modules.images = dofile(BASE .. "shell/images.lua")
 modules.pixels = dofile(BASE .. "shell/pixels.lua")
 modules.rasters = dofile(BASE .. "shell/rasters.lua")
--- `chrome` тянется сюда не ради отрисовки в ячейки, а ради ОДНОЙ таблицы
--- составов кнопок заголовка: второй список разошёлся бы с первым.
+-- `chrome` is pulled in here not for drawing into cells but for ONE table of
+-- title-button sets: a second list would drift from the first.
 modules.chrome = dofile(BASE .. "shell/chrome.lua")
 modules.render = dofile(BASE .. "explorer/render.lua")
 modules.render_pixels = dofile(BASE .. "explorer/render_pixels.lua")
@@ -228,12 +233,13 @@ local chrome_pixels = modules.chrome_pixels
 local render = modules.render
 local render_pixels = modules.render_pixels
 
--- ─── печать ──────────────────────────────────────────────────────────────
+-- ─── printing ────────────────────────────────────────────────────────────
 --
--- Карта печатается в ЯЧЕЙКАХ, а не в пикселях: тысяча на пятьсот шестьдесят
--- пикселей нечитаема, а мышь всё равно говорит ячейками. Каждая ячейка —
--- буква преобладающего в ней цвета, и рядом та же сетка попаданий. Это и есть
--- проверка «нажимается то, что нарисовано» в тех единицах, в которых щёлкают.
+-- The map is printed in CELLS, not in pixels: a thousand by five hundred and
+-- sixty pixels is unreadable, and the mouse speaks in cells anyway. Each cell
+-- is the letter of the colour that dominates it, and next to it is the same
+-- grid of hits. This is the check "what is drawn is what gets pressed" in the
+-- units in which one clicks.
 
 local alphabet = "abcdefghijklmnopqrstuvwxyz"
 
@@ -253,16 +259,16 @@ local function cell_map(raster, hits)
         return letters[colour]
     end
 
-    print(string.format("    растр %d×%d px = %d×%d ячеек%s, версия %d, вызовов %d",
+    print(string.format("    raster %d×%d px = %d×%d cells%s, version %d, calls %d",
         w, h, cols, rows,
-        (w % CELL.w == 0 and h % CELL.h == 0) and "" or "  ◄ НЕ ЦЕЛОЕ ЧИСЛО ЯЧЕЕК",
+        (w % CELL.w == 0 and h % CELL.h == 0) and "" or "  ◄ NOT A WHOLE NUMBER OF CELLS",
         raster:version(), #raster.__ops))
 
     for row = 1, rows do
         local line = {}
         for col = 1, cols do
-            -- Преобладающий цвет ячейки: по нему видно, что человек увидит,
-            -- когда картинка ляжет в сетку.
+            -- The dominant colour of the cell: it shows what a person will see
+            -- when the picture lands in the grid.
             local tally, best, top, text = {}, nil, 0, false
             for y = (row - 1) * CELL.h + 1, math.min(row * CELL.h, h) do
                 for x = (col - 1) * CELL.w + 1, math.min(col * CELL.w, w) do
@@ -282,9 +288,9 @@ local function cell_map(raster, hits)
         for col = 1, cols do marks[col] = "·" end
         for index, hit in ipairs(hits or {}) do
             if row >= hit.row and row <= (hit.bottom_row or hit.row) then
-                -- Буква по НОМЕРУ попадания, а не по первой букве имени:
-                -- «minimize» и «maximize» дают одну и ту же букву, и на карте
-                -- две разные кнопки выглядели бы одной.
+                -- The letter by the hit's NUMBER, not by the first letter of the
+                -- name: "minimize" and "maximize" give the same letter, and on
+                -- the map two different buttons would look like one.
                 local letter = alphabet:sub(index, index)
                 for col = hit.from, hit.to do
                     if col >= 1 and col <= cols then marks[col] = letter end
@@ -294,14 +300,14 @@ local function cell_map(raster, hits)
 
         print(string.format("%3d |%s|%s|", row, table.concat(line), table.concat(marks)))
     end
-    print("    цвета — " .. table.concat(legend, ", "))
+    print("    colours — " .. table.concat(legend, ", "))
 end
 
--- ─── проверки ────────────────────────────────────────────────────────────
+-- ─── checks ──────────────────────────────────────────────────────────────
 --
--- Пробник не только показывает, но и УТВЕРЖДАЕТ. Правило FR-005 §4а нельзя
--- проверить глазами по снимку: выровнена ли зона захвата по сетке, видно
--- только числом.
+-- The probe not only shows but also ASSERTS. The FR-005 §4a rule cannot be
+-- checked by eye on a snapshot: whether the grab zone is aligned to the grid
+-- is visible only as a number.
 
 local failures = 0
 local function check(ok, what)
@@ -310,12 +316,12 @@ local function check(ok, what)
     print("    ✗ " .. what)
 end
 
--- Два попадания не имеют права делить ячейку.
+-- Two hits have no right to share a cell.
 --
--- Это НЕ придирка и не то, что видно на снимке. Три кнопки заголовка шириной
--- 16 px с шагом 18 px выглядят безупречно, а при ячейке в 10 px их зоны
--- пересекаются: щелчок по общей колонке принадлежит двум кнопкам сразу, и
--- выигрывает та, что нашлась первой. Молча.
+-- This is NOT nitpicking and not something visible on a snapshot. Three title
+-- buttons 16 px wide at an 18 px pitch look flawless, but with a 10 px cell
+-- their zones overlap: a click on the shared column belongs to two buttons at
+-- once, and the one found first wins. Silently.
 local function check_overlap(hits)
     local owner = {}
     for _, hit in ipairs(hits or {}) do
@@ -324,8 +330,8 @@ local function check_overlap(hits)
                 local key = row .. ":" .. col
                 local taken = owner[key]
                 check(taken == nil,
-                    "ячейка " .. col .. "," .. row .. " принадлежит сразу двум: "
-                        .. tostring(taken) .. " и " .. tostring(hit.id))
+                    "cell " .. col .. "," .. row .. " belongs to two at once: "
+                        .. tostring(taken) .. " and " .. tostring(hit.id))
                 owner[key] = tostring(hit.id)
             end
         end
@@ -337,20 +343,20 @@ local function check_hits(raster, hits)
     local cols = math.ceil(w / CELL.w)
     local rows = math.ceil(h / CELL.h)
     for _, hit in ipairs(hits or {}) do
-        local name = tostring(hit.id or "без имени")
+        local name = tostring(hit.id or "unnamed")
         check(hit.from >= 1 and hit.to <= cols,
-            name .. ": попадание уехало за растр по горизонтали ("
-                .. hit.from .. ".." .. hit.to .. " при " .. cols .. " колонках)")
+            name .. ": the hit ran off the raster horizontally ("
+                .. hit.from .. ".." .. hit.to .. " with " .. cols .. " columns)")
         check(hit.row >= 1 and (hit.bottom_row or hit.row) <= rows,
-            name .. ": попадание уехало за растр по вертикали")
+            name .. ": the hit ran off the raster vertically")
         check(hit.from <= hit.to and hit.row <= (hit.bottom_row or hit.row),
-            name .. ": вырожденное попадание")
+            name .. ": degenerate hit")
         check(math.floor(hit.from) == hit.from and math.floor(hit.row) == hit.row,
-            name .. ": попадание не в целых ячейках — мышь таких координат не знает")
+            name .. ": the hit is not in whole cells — the mouse knows no such coordinates")
     end
 end
 
--- ─── сцены ───────────────────────────────────────────────────────────────
+-- ─── scenes ──────────────────────────────────────────────────────────────
 
 local function scene(title, cols, rows, paint)
     local raster = gfx.raster(cols * CELL.w, rows * CELL.h)
@@ -376,18 +382,19 @@ local function place_button(raster, col, row, cols, rows, spec, inset)
     return {id = spec.id, from = col, to = col + cols - 1, row = row, bottom_row = row + rows - 1}
 end
 
-scene("окно: грань в один пиксель, заголовок и три кнопки", 30, 8, function(raster)
+scene("window: a one-pixel edge, a title and three buttons", 30, 8, function(raster)
     local w, h = raster:size()
     pixels.panel(raster, 1, 1, w, h)
 
-    -- Заголовок ВНУТРИ рамки, как на эталоне: полоса начинается после грани.
+    -- The title INSIDE the frame, as in the reference: the strip starts after
+    -- the edge.
     raster:rect(4, 4, w - 6, CELL.h - 2, "#000080")
     raster:text(8, 6, "My Computer", {font = font, color = "#ffffff"})
 
-    -- Кнопки заголовка ставятся В ЯЧЕЙКАХ, по две на кнопку, и это не
-    -- украшательство: поставленные по пикселям с шагом 18, они выглядели бы
-    -- так же, а зоны попадания пересекались бы — пробник это и поймал, когда
-    -- сцена была написана по пикселям.
+    -- Title buttons are placed IN CELLS, two per button, and this is not
+    -- decoration: placed by pixels at an 18 pitch, they would look the same,
+    -- but the hit zones would overlap — the probe caught exactly this when the
+    -- scene was written in pixels.
     local hits = {}
     local ids = {"minimize", "maximize", "close"}
     for index, id in ipairs(ids) do
@@ -399,7 +406,7 @@ scene("окно: грань в один пиксель, заголовок и т
     return hits
 end)
 
-scene("кнопки диалога: обычная, нажатая", 24, 4, function(raster)
+scene("dialog buttons: normal, pressed", 24, 4, function(raster)
     local w, h = raster:size()
     pixels.panel(raster, 1, 1, w, h)
     local hits = {}
@@ -410,21 +417,22 @@ scene("кнопки диалога: обычная, нажатая", 24, 4, func
     return hits
 end)
 
--- ─── ГЛАВНАЯ МЕРА: кадр, нарисованный дважды ────────────────────────────
+-- ─── THE MAIN MEASURE: a frame drawn twice ──────────────────────────────
 --
--- Это первое, что пробник обязан уметь мерить, и вот почему.
+-- This is the first thing the probe must be able to measure, and here is why.
 --
--- Если растры пересоздаются каждый кадр, экран остаётся ПРАВИЛЬНЫМ. Картинка
--- та же, цвета те же, ничего не мигает — просто всё летит заново, и нажатие
--- клавиши стоит сорока семи миллисекунд вместо одной. Глазами такую ошибку не
--- увидеть ни на снимке, ни на стенде: у медленного нет стека вызовов.
+-- If rasters are recreated every frame, the screen stays CORRECT. The picture
+-- is the same, the colours are the same, nothing flickers — everything just
+-- flies anew, and a keystroke costs forty-seven milliseconds instead of one.
+-- Such an error cannot be seen by eye either on a snapshot or on the running
+-- system: slowness has no call stack.
 --
--- Проверяется единственным способом — версиями. Кадр без изменений не имеет
--- права сдвинуть ни одну.
+-- It is checked in the only possible way — by versions. A frame without
+-- changes has no right to move a single one.
 
--- Кадр оболочки в миниатюре: заголовок, две боковые грани, панель задач.
--- Разрезано по СТРОКАМ нарочно (FR-005 §3): одно размещение на всё окно
--- значило бы, что набор текста внутри перерисовывает весь хром.
+-- A shell frame in miniature: a title, two side edges, a taskbar.
+-- Cut by ROWS on purpose (FR-005 §3): one placement for the whole window
+-- would mean that typing text inside redraws all the chrome.
 local function paint_frame(store, state)
     store.begin()
 
@@ -459,17 +467,17 @@ local function paint_frame(store, state)
     return store.frame(CELL)
 end
 
--- Снимок кадра: для каждого размещения — САМ РАСТР и его версия.
+-- A frame snapshot: for each placement — THE RASTER ITSELF and its version.
 --
--- Растр здесь не для красоты. Сравнение одних только версий эту ошибку НЕ
--- ЛОВИТ, и это выяснилось мутацией: хранилище, пересоздающее растр каждый
--- кадр, отдаёт свежий буфер с версией 0, рисующий в него код повторяет те же
--- вызовы — и версия приходит ТА ЖЕ САМАЯ. Числа совпадают, а на экран летит
--- всё заново.
+-- The raster is not here for beauty. Comparing versions alone does NOT CATCH
+-- this error, and that was found out by mutation: a store that recreates the
+-- raster every frame hands out a fresh buffer with version 0, the code drawing
+-- into it repeats the same calls — and the version comes out THE VERY SAME.
+-- The numbers match, and everything flies to the screen anew.
 --
--- Различает их только тождество: поверхность способна понять, что картинка не
--- менялась, лишь пока это ТОТ ЖЕ растр. Новый объект с тем же номером для неё
--- — новая картинка.
+-- Only identity tells them apart: the surface can understand that the picture
+-- did not change only while it is THE SAME raster. A new object with the same
+-- number is, for the surface, a new picture.
 local function snapshot(placements)
     local out = {}
     for _, item in ipairs(placements) do
@@ -483,9 +491,9 @@ local function moved(before, after)
     for id, now in pairs(after) do
         local was = before[id]
         if not was then
-            names[#names+1] = id .. " (появился)"
+            names[#names+1] = id .. " (appeared)"
         elseif was.raster ~= now.raster then
-            names[#names+1] = id .. " (ПЕРЕСОЗДАН)"
+            names[#names+1] = id .. " (RECREATED)"
         elseif was.version ~= now.version then
             names[#names+1] = id
         end
@@ -496,68 +504,68 @@ end
 
 do
     print("")
-    print("┌── растры переживают кадр")
+    print("┌── rasters outlive the frame")
 
     local store = rasters.store()
-    local state = {title = "Мой компьютер", focused = true, rows = 6, clock = "21:47"}
+    local state = {title = "My Computer", focused = true, rows = 6, clock = "21:47"}
 
     local first = paint_frame(store, state)
     local after_first = snapshot(first)
-    print("    первый кадр: размещений " .. #first .. ", растров в хранилище " .. store.size())
+    print("    first frame: placements " .. #first .. ", rasters in the store " .. store.size())
 
-    -- Тот же кадр ещё раз. Ни одна версия не имеет права сдвинуться.
+    -- The same frame once more. Not a single version has the right to move.
     local second = paint_frame(store, state)
     local after_second = snapshot(second)
     local changed = moved(after_first, after_second)
     check(#changed == 0,
-        "кадр без изменений сдвинул версии: " .. table.concat(changed, ", ")
-            .. " — растры пересоздаются, и экран при этом правильный")
-    print("    повтор того же кадра: сдвинулось версий " .. #changed)
+        "a frame without changes moved versions: " .. table.concat(changed, ", ")
+            .. " — the rasters are recreated, and the screen is correct all the while")
+    print("    the same frame repeated: versions moved " .. #changed)
 
-    -- Сменились часы — обязана перерисоваться ТОЛЬКО панель задач. Если
-    -- перерисовалось больше, значит чей-то ключ зависит от того, от чего
-    -- картинка не зависит.
+    -- The clock changed — ONLY the taskbar must be redrawn. If more was
+    -- redrawn, then someone's key depends on something the picture does not
+    -- depend on.
     state.clock = "21:48"
     local third = paint_frame(store, state)
     local ticked = moved(after_second, snapshot(third))
     check(#ticked == 1 and ticked[1] == "taskbar",
-        "смена часов перерисовала: " .. table.concat(ticked, ", ") .. " (ожидалась только taskbar)")
-    print("    сменились часы: перерисовано " .. table.concat(ticked, ", "))
+        "the clock change redrew: " .. table.concat(ticked, ", ") .. " (expected only taskbar)")
+    print("    the clock changed: redrawn " .. table.concat(ticked, ", "))
 
-    -- Открытое меню добавляет размещение; закрытое обязано ИСЧЕЗНУТЬ из
-    -- списка, а не остаться картинкой поверх экрана.
-    state.menu = "открыто"
+    -- An open menu adds a placement; a closed one must DISAPPEAR from the
+    -- list, not stay as a picture on top of the screen.
+    state.menu = "open"
     local with_menu = paint_frame(store, state)
-    check(#with_menu == #third + 1, "меню не добавило размещения")
+    check(#with_menu == #third + 1, "the menu did not add a placement")
 
     state.menu = nil
     local without_menu = paint_frame(store, state)
-    check(#without_menu == #third, "закрытое меню осталось в списке размещений")
+    check(#without_menu == #third, "the closed menu stayed in the list of placements")
     local names = {}
     for _, item in ipairs(without_menu) do names[#names+1] = item.id end
     check(not (table.concat(names, ",")):find("menu", 1, true),
-        "меню осталось в кадре после закрытия")
-    print("    меню открыто/закрыто: размещений " .. #with_menu .. " / " .. #without_menu
-        .. ", растров в хранилище " .. store.size())
+        "the menu stayed in the frame after closing")
+    print("    menu open/closed: placements " .. #with_menu .. " / " .. #without_menu
+        .. ", rasters in the store " .. store.size())
 
-    -- Хранилище, которое только растёт, — утечка, и заметна она не отказом, а
-    -- памятью. Выброшенное меню обязано уйти и оттуда.
+    -- A store that only grows is a leak, and it shows not as a refusal but as
+    -- memory. The discarded menu must leave the store too.
     check(store.size() == #without_menu,
-        "в хранилище осталось растров больше, чем в кадре: " .. store.size())
+        "the store kept more rasters than there are in the frame: " .. store.size())
 end
 
--- ─── ПРОВОДНИК ПИКСЕЛЬНЫМ БЭКЕНДОМ ──────────────────────────────────────
+-- ─── EXPLORER WITH THE PIXEL BACKEND ────────────────────────────────────
 --
--- Здесь проверяется НАРЕЗКА и КЛЮЧИ — то, что на снимке не видно вовсе и что
--- иначе стоило бы полного прогона на локальной сборке.
+-- What is checked here is the SLICING and the KEYS — something not visible on
+-- a snapshot at all, which would otherwise cost a full run on the local build.
 --
--- Раскладку считает тот же `render.layout`, что и путь в ячейках. Разъедься
--- они — щелчок попадал бы на соседа в одном из двух режимов, а оба снимка
--- выглядели бы правильно.
+-- The layout is computed by the same `render.layout` as the cell path. Were
+-- they to drift apart, a click would land on a neighbour in one of the two
+-- modes, and both snapshots would look right.
 
 local function explorer_view(extra: any)
     local view: any = {
-        title = "Мой компьютер",
+        title = "My Computer",
         selected = 2,
         offset = 0,
         objects = {
@@ -566,9 +574,9 @@ local function explorer_view(extra: any)
              detail = "wippy.facade:public_files"},
             {id = "keeper:ui_static_fs", kind = "drive", title = "keeper ui_static_fs",
              detail = "keeper:ui_static_fs"},
-            {id = "programs", kind = "folder", title = "Программы", detail = "12 объектов"},
-            {id = "desktop", kind = "folder", title = "Рабочий стол", detail = "3 объекта"},
-            {id = "windows", kind = "folder", title = "Открытые окна", detail = "2 объекта"},
+            {id = "programs", kind = "folder", title = "Programs", detail = "12 objects"},
+            {id = "desktop", kind = "folder", title = "Desktop", detail = "3 objects"},
+            {id = "windows", kind = "folder", title = "Open Windows", detail = "2 objects"},
         },
     }
     for key, value in pairs(type(extra) == "table" and extra or {}) do view[key] = value end
@@ -582,97 +590,100 @@ end
 
 do
     print("")
-    print("┌── проводник: нарезка размещений и ключи")
+    print("┌── explorer: slicing into placements and keys")
 
     local store = rasters.store()
     local placements, plan = paint_explorer(store, explorer_view())
 
     for _, item in ipairs(placements) do
-        print(string.format("    %-18s ячейка %2d,%-3d %2d×%-3d ячеек", item.id,
+        print(string.format("    %-18s cell %2d,%-3d %2d×%-3d cells", item.id,
             item.x, item.y, item.cols, item.rows))
     end
 
-    -- Нарезка по СТРОКАМ: размещения не имеют права накрывать друг друга,
-    -- иначе перерисовка одного задевает строки другого и тот уезжает заново.
+    -- Slicing by ROWS: placements have no right to cover each other,
+    -- otherwise redrawing one touches the rows of another and that one is sent
+    -- anew as well.
     local occupied = {}
     for _, item in ipairs(placements) do
         for row = item.y, item.y + item.rows - 1 do
             check(occupied[row] == nil,
-                "строку " .. row .. " делят два размещения: "
-                    .. tostring(occupied[row]) .. " и " .. item.id)
+                "row " .. row .. " is shared by two placements: "
+                    .. tostring(occupied[row]) .. " and " .. item.id)
             occupied[row] = item.id
         end
     end
 
-    -- Каждое попадание значка обязано лежать ВНУТРИ поля: попадание, уехавшее
-    -- за своё размещение, ведёт на картинку, которой там нет.
+    -- Every icon hit must lie INSIDE the field: a hit that ran off its
+    -- placement leads to a picture that is not there.
     local field: any = nil
     for _, item in ipairs(placements) do
         if item.id == "explorer:field" then field = item end
     end
-    check(field ~= nil, "поле не размещено")
+    check(field ~= nil, "the field is not placed")
     if field then
         for _, cell in ipairs(plan.cells) do
             check(cell.from >= field.x and cell.to <= field.x + field.cols - 1
                     and cell.top >= field.y and cell.bottom <= field.y + field.rows - 1,
-                "попадание значка " .. cell.index .. " лежит вне поля")
+                "the hit of icon " .. cell.index .. " lies outside the field")
         end
     end
 
     local before = snapshot(placements)
 
-    -- Тот же кадр ещё раз.
+    -- The same frame once more.
     local again = snapshot((paint_explorer(store, explorer_view())))
     local still = moved(before, again)
-    check(#still == 0, "кадр без изменений сдвинул: " .. table.concat(still, ", "))
-    print("    тот же кадр ещё раз: сдвинулось " .. #still)
+    check(#still == 0, "a frame without changes moved: " .. table.concat(still, ", "))
+    print("    the same frame once more: moved " .. #still)
 
-    -- Сменилось выделение — перерисовываются поле И статусная строка, а меню
-    -- с панелью инструментов НЕТ.
+    -- The selection changed — the field AND the status line are redrawn, and
+    -- the menu with the toolbar are NOT.
     --
-    -- Статусная строка здесь не лишняя: она показывает `detail` выделенного
-    -- объекта — полный идентификатор диска, который в подпись под значком не
-    -- помещается. Выделили другой объект — изменился и её текст. Это
-    -- следствие вида, а не промах ключа, и стоит оно одного размещения 46×1.
+    -- The status line is not superfluous here: it shows the `detail` of the
+    -- selected object — the full drive id, which does not fit into the caption
+    -- under the icon. Another object was selected — its text changed too. This
+    -- is a consequence of the view, not a key miss, and it costs one 46×1
+    -- placement.
     --
-    -- Проверка написана перечислением, а не числом: «перерисовалось два»
-    -- прошло бы и на паре «поле и меню», то есть на настоящей ошибке.
+    -- The check is written as an enumeration, not a number: "two were redrawn"
+    -- would pass on the pair "field and menu" too, that is, on a real error.
     local selected = moved(again, snapshot((paint_explorer(store, explorer_view({selected = 3})))))
     check(table.concat(selected, ",") == "explorer:field,explorer:status",
-        "смена выделения перерисовала: " .. table.concat(selected, ", ")
-            .. " (ожидались поле и статусная строка)")
-    print("    сменилось выделение: перерисовано " .. table.concat(selected, ", "))
+        "the selection change redrew: " .. table.concat(selected, ", ")
+            .. " (expected the field and the status line)")
+    print("    the selection changed: redrawn " .. table.concat(selected, ", "))
 
-    -- Сменилось замечание — только статусная строка.
+    -- The notice changed — only the status line.
     local base = snapshot((paint_explorer(store, explorer_view({selected = 3}))))
     local noticed = moved(base,
-        snapshot((paint_explorer(store, explorer_view({selected = 3, notice = "показаны первые 500"})))))
+        snapshot((paint_explorer(store, explorer_view({selected = 3, notice = "showing the first 500"})))))
     check(#noticed == 1 and noticed[1] == "explorer:status",
-        "смена замечания перерисовала: " .. table.concat(noticed, ", "))
-    print("    сменилось замечание: перерисовано " .. table.concat(noticed, ", "))
+        "the notice change redrew: " .. table.concat(noticed, ", "))
+    print("    the notice changed: redrawn " .. table.concat(noticed, ", "))
 end
 
--- ─── ТЕМА ОБОЛОЧКИ ПИКСЕЛЯМИ ────────────────────────────────────────────
+-- ─── THE SHELL THEME IN PIXELS ──────────────────────────────────────────
 --
--- Здесь проверяется нарезка кадра целиком: стол со значками, рамки окон,
--- панель задач. Ошибка нарезки не видна ни на снимке, ни на стенде — экран
--- правильный, просто набор текста в bash стоит сорока семи миллисекунд.
+-- What is checked here is the slicing of the whole frame: the desktop with
+-- icons, window frames, the taskbar. A slicing error is visible neither on a
+-- snapshot nor on the running system — the screen is correct, typing in bash
+-- just costs forty-seven milliseconds.
 
 local function desktop_state(extra: any)
     local state: any = {
         width = 60, height = 20, top = 1, bottom = 19,
         windows = {
-            {id = "w1", title = "Командная строка", x = 6, y = 3, w = 40, h = 12,
+            {id = "w1", title = "Command Prompt", x = 6, y = 3, w = 40, h = 12,
              window_type = "app"},
         },
         focused_id = "w1",
         items = {
-            {id = "s1", kind = "shortcut", entry = "app:computer", title = "Мой компьютер", x = 2, y = 1},
-            {id = "f1", kind = "folder", title = "Программы", x = 2, y = 5},
-            {id = "s2", kind = "shortcut", entry = "app:gone", title = "Старая", x = 2, y = 9, broken = true},
+            {id = "s1", kind = "shortcut", entry = "app:computer", title = "My Computer", x = 2, y = 1},
+            {id = "f1", kind = "folder", title = "Programs", x = 2, y = 5},
+            {id = "s2", kind = "shortcut", entry = "app:gone", title = "Old program", x = 2, y = 9, broken = true},
         },
         clock = "21:47",
-        status = "Командная строка · 38x9 · окон: 1",
+        status = "Command Prompt · 38x9 · windows: 1",
     }
     for key, value in pairs(type(extra) == "table" and extra or {}) do state[key] = value end
     return state
@@ -680,24 +691,25 @@ end
 
 do
     print("")
-    print("┌── тема оболочки: нарезка кадра")
+    print("┌── shell theme: slicing the frame")
 
     chrome_pixels.use_fonts(font, font)
     local painted = chrome_pixels.paint(desktop_state(), CELL.w, CELL.h)
     local placements = painted.placements
 
     for _, item in ipairs(placements) do
-        print(string.format("    %-18s ячейка %2d,%-3d %2d×%-3d ячеек", item.id,
+        print(string.format("    %-18s cell %2d,%-3d %2d×%-3d cells", item.id,
             item.x, item.y, item.cols, item.rows))
     end
 
-    -- ЦЕНА ОДНОГО НАЖАТИЯ КЛАВИШИ. Содержимое окна меняется на каждое
-    -- нажатие, строки перерисовываются, и КАЖДОЕ размещение, лежащее на этих
-    -- строках, уезжает заново. Это не проверяется «да/нет» — это измеряется,
-    -- потому что вопрос не «задевает ли», а «во что обходится».
+    -- THE COST OF ONE KEYSTROKE. The window content changes on every
+    -- keystroke, the rows are redrawn, and EVERY placement lying on those
+    -- rows is sent anew. This is not checked "yes/no" — it is measured,
+    -- because the question is not "does it touch" but "what does it cost".
     --
-    -- Мерка — полный экран: 1000×560 px, 47 мс, 131 КБ. Ради ухода от них всё
-    -- и затевалось, и держаться надо на порядок ниже.
+    -- The yardstick is the full screen: 1000×560 px, 47 ms, 131 KB. Getting
+    -- away from those is what all this was started for, and we have to stay an
+    -- order of magnitude below.
     local window = desktop_state().windows[1]
     local body_top, body_bottom = window.y + 2, window.y + window.h - 2
     local cost, culprits = 0, {}
@@ -710,44 +722,46 @@ do
     end
 
     local full = 100 * CELL.w * 28 * CELL.h
-    print(string.format("    нажатие клавиши в окне переотправляет %d px (%.1f%% от полного экрана): %s",
+    print(string.format("    a keystroke in the window resends %d px (%.1f%% of the full screen): %s",
         cost, cost * 100 / full, table.concat(culprits, ", ")))
 
-    -- Порог не круглый, а выведенный: одна десятая полного экрана — это уже
-    -- 4–5 мс на нажатие, и по ssh это заметно.
+    -- The threshold is not round but derived: a tenth of the full screen is
+    -- already 4–5 ms per keystroke, and over ssh that is noticeable.
     check(cost < full // 10,
-        "нажатие клавиши переотправляет " .. cost .. " px — это больше десятой доли экрана")
+        "a keystroke resends " .. cost .. " px — that is more than a tenth of the screen")
 
-    -- А вот ШИРОКОЕ размещение поперёк содержимого — всегда ошибка нарезки,
-    -- сколько бы оно ни весило: значит кусок хрома не разрезан по строкам.
+    -- A WIDE placement across the content, on the other hand, is always a
+    -- slicing error, however little it weighs: it means a piece of chrome is
+    -- not cut by rows.
     for _, item in ipairs(placements) do
         local touches = item.y <= body_bottom and item.y + item.rows - 1 >= body_top
         local own_window = string.find(item.id, "^win:") ~= nil
         check(not touches or not own_window or item.cols <= 1,
-            item.id .. " накрывает строки содержимого шириной " .. item.cols
-                .. " — рамка не разрезана по строкам")
+            item.id .. " covers content rows at a width of " .. item.cols
+                .. " — the frame is not cut by rows")
     end
 
-    -- Панель задач лежит на своей строке, куда окна не заходят.
+    -- The taskbar lies on its own row, where windows do not go.
     local bars: any = nil
     for _, item in ipairs(placements) do
         if item.id == "bars" then bars = item end
     end
-    check(bars ~= nil, "панели задач нет в кадре")
+    check(bars ~= nil, "the taskbar is not in the frame")
     if bars then
         check(bars.y + bars.rows - 1 == 20 and bars.rows == chrome_pixels.layout(60, 20).bottom,
-            "панель задач должна занимать объявленную темой нижнюю область")
+            "the taskbar must occupy the bottom area declared by the theme")
     end
 
-    -- Попадания приезжают ГРУППАМИ, а не плоским списком: `id` в трёх
-    -- списках значит разное.
+    -- Hits arrive in GROUPS, not as a flat list: `id` means different things
+    -- in the three lists.
     check(painted.hits.desktop ~= nil and painted.hits.bars ~= nil
             and painted.hits.menu ~= nil,
-        "попадания обязаны приезжать группами {desktop, bars, menu}")
-    -- Числом попадания здесь НЕ проверяются: обе ночные ошибки прошли бы
-    -- проверку «их не меньше двух». Форму сверяет отдельный блок ниже — с тем,
-    -- что отдаёт режим символов на том же состоянии.
-    check(#painted.hits.bars >= 2, "«Пуск» и кнопка окна обязаны быть нажимаемы")
+        "hits must arrive in groups {desktop, bars, menu}")
+    -- Hits are NOT checked by number here: both night-time errors would have
+    -- passed the check "there are at least two of them". The shape is verified
+    -- by a separate block below — against what the character mode gives on the
+    -- same state.
+    check(#painted.hits.bars >= 2, '"Start" and the window button must be clickable')
 
     -- Every visible interactive cell belongs to an image. Covered cells belong
     -- to the foreground window, so a cropped icon need not retain a whole placement.
@@ -766,25 +780,25 @@ do
                         and x >= item.x and x < item.x + item.cols
                         and hit.row >= item.y and hit.row < item.y + item.rows then found = true end
                 end
-                check(found, "у видимой ячейки значка нет изображения")
+                check(found, "a visible icon cell has no image")
             end
         end
     end
 
-    -- ─── ПОПАДАНИЯ ДВУХ РЕЖИМОВ ОБЯЗАНЫ СОВПАДАТЬ ПО ФОРМЕ ──────────────
+    -- ─── THE HITS OF THE TWO MODES MUST MATCH IN SHAPE ─────────────────
     --
-    -- Композитор один на оба режима, и попадание, которое он не умеет читать,
-    -- неотличимо от отсутствующего: щелчок просто ничего не делает.
+    -- There is one compositor for both modes, and a hit it cannot read is
+    -- indistinguishable from a missing one: the click simply does nothing.
     --
-    -- Так пропали два щелчка сразу. «Пуск» отдавал `id = "menu"` вместо
-    -- `action = "menu"` — композитор проверяет `id` первым, искал окно с
-    -- таким именем и не находил. А значки стола отдавали ОДНО попадание на
-    -- три строки с неподдержанным тогда `bottom_row`: значок
-    -- нажимался бы по картинке и не нажимался по подписи.
+    -- That is how two clicks got lost at once. "Start" gave `id = "menu"`
+    -- instead of `action = "menu"` — the compositor checks `id` first, looked
+    -- for a window with that name and did not find one. And the desktop icons
+    -- gave ONE hit for three rows with `bottom_row`, unsupported at the time:
+    -- the icon would be clickable on the picture and not on the caption.
     --
-    -- Проверка не считает попадания, а сравнивает их с тем, что отдаёт РЕЖИМ
-    -- СИМВОЛОВ на том же состоянии. Считать бесполезно: обе ошибки прошли бы
-    -- проверку «попаданий не меньше двух».
+    -- The check does not count hits but compares them with what the CHARACTER
+    -- MODE gives on the same state. Counting is useless: both errors would have
+    -- passed the check "at least two hits".
     do
         local state = desktop_state()
         local canvas = {
@@ -824,43 +838,44 @@ do
         local function compare(what, cells_list, pixels_list)
             local left = shapes(cells_list)
             local right = shapes(pixels_list)
-            check(what == "стол" or #cells_list == #pixels_list,
-                what .. ": в ячейках попаданий " .. #cells_list
-                    .. ", в пикселях " .. #pixels_list)
+            check(what == "desktop" or #cells_list == #pixels_list,
+                what .. ": hits in cells " .. #cells_list
+                    .. ", in pixels " .. #pixels_list)
             check(table.concat(left, " | ") == table.concat(right, " | "),
-                what .. ": форма попаданий разошлась\n        ячейки:  "
-                    .. table.concat(left, " | ") .. "\n        пиксели: "
+                what .. ": the shape of the hits diverged\n        cells:  "
+                    .. table.concat(left, " | ") .. "\n        pixels: "
                     .. table.concat(right, " | "))
-            print("    " .. what .. ": " .. #pixels_list .. " попаданий, формы "
+            print("    " .. what .. ": " .. #pixels_list .. " hits, shapes "
                 .. table.concat(right, " | "))
         end
 
         check(#painted.hits.desktop == #state.items * chrome_pixels.icon_grid().drawn,
-            "значок должен нажиматься по всем строкам своей раскладки")
-        compare("стол", cell_desk, painted.hits.desktop)
-        compare("панель задач", cell_bars, painted.hits.bars)
+            "an icon must be clickable on every row of its layout")
+        compare("desktop", cell_desk, painted.hits.desktop)
+        compare("taskbar", cell_bars, painted.hits.bars)
     end
 
-    -- ─── КУРСОР ДОЕЗЖАЕТ ДО ПИКСЕЛЕЙ ───────────────────────────────────
+    -- ─── THE CURSOR REACHES THE PIXELS ─────────────────────────────────
     --
-    -- В режиме символов подсветку рисует один код, в пикселях другой. Курсор,
-    -- который двигается стрелками и не подсвечивается, — это «стрелки
-    -- работают, но человек не видит, где он»: хуже, чем неработающие стрелки,
-    -- потому что выглядит как работающие.
+    -- In character mode the highlight is drawn by one piece of code, in pixels
+    -- by another. A cursor that moves with the arrows and is not highlighted is
+    -- "the arrows work, but the person does not see where it is": worse than
+    -- arrows that do not work, because it looks like working ones.
     --
-    -- Проверяется не «нарисовалось что-то», а РАЗНИЦА: тот же кадр без
-    -- курсора не имеет права нести подсветку, а с курсором обязан.
+    -- What is checked is not "something got drawn" but the DIFFERENCE: the
+    -- same frame without the cursor has no right to carry a highlight, and with
+    -- the cursor it must.
     do
         local menu_items = {
-            {entry = "app:calc", title = "Калькулятор", group = {"Программы"}},
-            {entry = "app:notepad", title = "Блокнот", group = {"Программы"}},
-            {entry = "app:bash", title = "Сеанс MS-DOS"},
+            {entry = "app:calc", title = "Calculator", group = {"Programs"}},
+            {entry = "app:notepad", title = "Notepad", group = {"Programs"}},
+            {entry = "app:bash", title = "MS-DOS Prompt"},
         }
 
         local function highlights(cursor)
             local fresh = chrome_pixels
             local painted = fresh.paint(desktop_state({
-                menu = {items = menu_items, open = {"Программы"}, cursor = cursor},
+                menu = {items = menu_items, open = {"Programs"}, cursor = cursor},
             }), CELL.w, CELL.h)
 
             local count = 0
@@ -874,18 +889,18 @@ do
             return count, painted
         end
 
-        -- Растры живут между кадрами, поэтому для честного сравнения нужны
-        -- разные ключи: без курсора и с курсором — это разные картинки, и
-        -- хранилище перерисует их обе.
+        -- Rasters live between frames, so an honest comparison needs different
+        -- keys: without the cursor and with the cursor are different pictures,
+        -- and the store will redraw them both.
         local without = highlights(nil)
         local with_cursor = highlights(2)
 
         check(with_cursor > without,
-            "курсор не подсветился в пикселях: подсветок без него " .. without
-                .. ", с ним " .. with_cursor
-                .. " — стрелки будут работать, а человек не увидит, где он")
-        print("    подсветок в меню: без курсора " .. without
-            .. ", с курсором " .. with_cursor)
+            "the cursor was not highlighted in pixels: highlights without it " .. without
+                .. ", with it " .. with_cursor
+                .. " — the arrows will work, and the person will not see where it is")
+        print("    highlights in the menu: without the cursor " .. without
+            .. ", with the cursor " .. with_cursor)
     end
 
     -- The menu scenes above changed the pressed state of Start. Close it
@@ -893,15 +908,15 @@ do
     local before = snapshot(chrome_pixels.paint(desktop_state(), CELL.w, CELL.h).placements)
     local again = snapshot(chrome_pixels.paint(desktop_state(), CELL.w, CELL.h).placements)
     local still = moved(before, again)
-    check(#still == 0, "кадр без изменений сдвинул: " .. table.concat(still, ", "))
-    print("    тот же кадр ещё раз: сдвинулось " .. #still)
+    check(#still == 0, "a frame without changes moved: " .. table.concat(still, ", "))
+    print("    the same frame once more: moved " .. #still)
 
-    -- Сменились часы — обязана перерисоваться ТОЛЬКО панель задач.
+    -- The clock changed — ONLY the taskbar must be redrawn.
     local ticked = moved(again,
         snapshot(chrome_pixels.paint(desktop_state({clock = "21:48"}), CELL.w, CELL.h).placements))
     check(#ticked == 1 and ticked[1] == "bars",
-        "смена часов перерисовала: " .. table.concat(ticked, ", "))
-    print("    сменились часы: перерисовано " .. table.concat(ticked, ", "))
+        "the clock change redrew: " .. table.concat(ticked, ", "))
+    print("    the clock changed: redrawn " .. table.concat(ticked, ", "))
 end
 
 -- Native client placements stay inside the viewport even after a small resize.
@@ -909,8 +924,8 @@ for _, unit in ipairs({{w = 8, h = 16}, {w = 8, h = 18}, {w = 10, h = 20}}) do
     for _, dimensions in ipairs({{12, 3}, {20, 8}, {32, 16}, {62, 18}}) do
         local width, height = dimensions[1], dimensions[2]
         local objects = {}
-        for index = 1, 65 do objects[index] = {id = tostring(index), kind = "drive", title = "Диск " .. index} end
-        local plan = render.layout({title = "Мой компьютер", objects = objects, offset = 0},
+        for index = 1, 65 do objects[index] = {id = tostring(index), kind = "drive", title = "Drive " .. index} end
+        local plan = render.layout({title = "My Computer", objects = objects, offset = 0},
             width, height, render.pixel_metrics(unit.w, unit.h))
         local client = rasters.store()
         local placements = render_pixels.paint(client, plan, unit, {face = font, bold = font}, "native")
@@ -929,8 +944,8 @@ end
 
 print("")
 if failures == 0 then
-    print("проверок не нарушено")
+    print("no checks violated")
 else
-    print("НАРУШЕНО ПРОВЕРОК: " .. failures)
+    print("CHECKS VIOLATED: " .. failures)
     error("pixelprobe failed")
 end

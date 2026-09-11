@@ -1,18 +1,19 @@
 version: "1.0"
 namespace: butschster.windows
 
-# Оболочка терминального десктопа в стиле Windows 95.
+# A Windows 95 style shell for the terminal desktop.
 #
-# Своей механики окон здесь нет: хостинг окон, PTY, командный канал и
-# хранилище собранных на ходу приложений остаются в butschster/tui-desktop.
-# Этот модуль приносит три вещи — вид (тема), раскладку рабочего стола
-# (своя таблица) и меню программ, собираемое из реестра.
+# There is no window mechanics of its own here: window hosting, PTY, the
+# command channel and the store of apps built on the fly stay in
+# butschster/tui-desktop. This module brings three things — the look (the
+# theme), the desktop layout (its own table) and the program menu, built from
+# the registry.
 #
-# Разделение, на котором стоит всё остальное: реестр объявляет, что можно
-# запустить; оболочка хранит, что где лежит. Список программ в состоянии не
-# хранится — иначе установленный модуль не появится, пока кто-то не нажмёт
-# «обновить»; позиция ярлыка в реестре не хранится — иначе перетаскивание
-# значка правит исходники.
+# The split everything else stands on: the registry declares what can be
+# launched; the shell stores what lies where. The program list is not kept in
+# state — otherwise an installed module would not appear until someone
+# pressed "refresh"; a shortcut's position is not kept in the registry —
+# otherwise dragging an icon would edit the sources.
 
 entries:
   - name: definition
@@ -21,28 +22,29 @@ entries:
       title: Windows Shell
       description: A Windows 95 style shell for the terminal desktop — teal desktop, a taskbar with Start and a clock, a program menu built from the registry and a shortcut layout the user rearranges.
 
-  # ─── Зависимости ─────────────────────────────────────────────────────
+  # ─── Dependencies ────────────────────────────────────────────────────
   - version: "*"
     name: dep.wippy.migration
     kind: ns.dependency
     meta:
-      comment: Миграция для таблицы раскладки рабочего стола.
+      comment: Migration for the desktop layout table.
     component: wippy/migration
 
-  # Оболочка — надстройка над основой, а не её копия. Отсюда берутся
-  # композитор, хост окон, PTY-окна, командный канал и мастерская.
+  # The shell is an add-on over the base, not a copy of it. From here come
+  # the compositor, the window host, PTY windows, the command channel and the
+  # workshop.
   - version: "*"
     name: dep.butschster.tui_desktop
     kind: ns.dependency
     meta:
-      comment: Основа десктопа — композитор, окна и командный канал. Оболочка вызывает её композитор со своей темой.
+      comment: The desktop base — compositor, windows and command channel. The shell calls its compositor with its own theme.
     component: butschster/tui-desktop
 
-  # ─── Что модуль просит у приложения ──────────────────────────────────
+  # ─── What the module asks of the application ─────────────────────────
   - name: target_db
     kind: ns.requirement
     meta:
-      comment: База, где хранится раскладка рабочего стола — ярлыки и папки стола.
+      comment: The database where the desktop layout is stored — shortcuts and desktop folders.
     default: app:db
     targets:
       - entry: butschster.windows.migrations:01_create_desktop_items
@@ -50,16 +52,17 @@ entries:
       - entry: butschster.windows.migrations:02_desktop_items_unplaced
         path: .meta.target_db
 
-  # Каталога шрифтов здесь НЕТ, и это не пропуск. `ns.requirement` пишет поле
-  # в запись, а поля записи процесс о себе не читает — значение просто
-  # никуда бы не доехало, и требование стало бы украшением, которое выглядит
-  # настройкой. Каталог называется окружением: BUTSCHSTER_WINDOWS_FONTS,
-  # умолчание `app:system_fonts`. Тем же способом называется и база.
+  # There is NO font folder here, and that is not an omission.
+  # `ns.requirement` writes a field into the entry, and a process does not
+  # read its entry's fields about itself — the value would simply get
+  # nowhere, and the requirement would become a decoration that looks like a
+  # setting. The folder is named by the environment: BUTSCHSTER_WINDOWS_FONTS,
+  # default `app:system_fonts`. The database is named the same way.
 
   - name: api_router
     kind: ns.requirement
     meta:
-      comment: HTTP-роутер, к которому крепятся ручки оболочки. Обязан требовать аутентификацию и endpoint_firewall.
+      comment: The HTTP router the shell handlers attach to. It must require authentication and endpoint_firewall.
     default: app:api
     targets:
       - entry: butschster.windows.api:list_programs.endpoint
@@ -75,32 +78,34 @@ entries:
       - entry: butschster.windows.api:shell_status.endpoint
         path: .meta.router
 
-  # ─── Хост ────────────────────────────────────────────────────────────
-  # Единственный процесс на настоящих stdin/stdout/stderr — оболочка.
+  # ─── Host ────────────────────────────────────────────────────────────
+  # The only process on the real stdin/stdout/stderr is the shell.
   #
-  # hide_logs обязателен: диффер поверхности считает себя единственным
-  # писателем в терминал, и строка лога разъезжает кадр насовсем.
+  # hide_logs is mandatory: the surface differ considers itself the only
+  # writer to the terminal, and a log line knocks the frame apart for good.
   #
-  # ВНИМАНИЕ приложению-хозяину: автодетект терминального хоста в CLI —
-  # просто подсчёт записей `terminal.host` во всём реестре. Установка этого
-  # модуля рядом с основой делает их три, и КАЖДАЯ команда приложения
-  # требует явного `--host`. Это цена второй оболочки, а не дефект.
+  # ATTENTION, host application: terminal host autodetection in the CLI is
+  # just a count of `terminal.host` entries in the whole registry. Installing
+  # this module next to the base makes three of them, and EVERY command of
+  # the application requires an explicit `--host`. This is the price of a
+  # second shell, not a defect.
   - name: terminal
     kind: terminal.host
     hide_logs: true
     lifecycle:
       auto_start: true
 
-  # Хост окон здесь не объявляется: окна порождает композитор основы на
-  # своём `butschster.tui_desktop:workers`. Второй хост означал бы вторую
-  # копию механики окон, которая разошлась бы с оригиналом на первой правке.
+  # The window host is not declared here: windows are spawned by the base's
+  # compositor on its own `butschster.tui_desktop:workers`. A second host
+  # would mean a second copy of the window mechanics, which would diverge
+  # from the original on the first edit.
 
-  # ─── Оболочка ────────────────────────────────────────────────────────
+  # ─── Shell ───────────────────────────────────────────────────────────
   # butschster.windows:shell
   - name: shell
     kind: process.lua
     meta:
-      comment: Оболочка Windows 95 — композитор основы со своей темой, своим каталогом и своей раскладкой стола.
+      comment: The Windows 95 shell — the base's compositor with its own theme, its own catalog and its own desktop layout.
       command:
         name: windows
         short: A Windows 95 style shell for the terminal desktop
@@ -112,8 +117,8 @@ entries:
     modules:
       - channel
       - env
-      # Шрифт приезжает байтами через fs, а размер ячейки спрашивает gfx:
-      # запись механики их не объявляет, поэтому вопрос задаёт оболочка.
+      # The font arrives as bytes through fs, and the cell size is asked of
+      # gfx: the mechanics entry does not declare them, so the shell asks.
       - fs
       - gfx
       - logger

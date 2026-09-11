@@ -1,24 +1,26 @@
--- Настоящие значки Windows 95 — растры из файлов, а не примитивы.
+-- The real Windows 95 icons — rasters from files, not primitives.
 --
--- Значок 32×32 — это тысяча пикселей, и примитивами он не рисуется: силуэт
--- узнаётся, деталей нет. Здесь значки приезжают PNG-файлами из каталога
--- `butschster.windows.shell:icon_files` (assets/icons, см. SOURCE.md там же),
--- декодируются через `gfx.image` и накладываются на растр темы через `blit`.
+-- A 32×32 icon is a thousand pixels, and it cannot be drawn with primitives:
+-- the silhouette is recognizable, the details are missing. Here the icons
+-- arrive as PNG files from the folder `butschster.windows.shell:icon_files`
+-- (assets/icons, see SOURCE.md in the same place), are decoded through
+-- `gfx.image` and laid onto the theme's raster through `blit`.
 --
--- Три правила, по которым это устроено:
+-- Three rules it is built on:
 --
---   * **Файл приезжает БАЙТАМИ через `fs`, а не путём внутри `gfx`.** То же
---     решение, что у шрифта: чтение файла управляется правами процесса, и
---     модуль, открывающий пути сам, был бы дорогой мимо них.
---   * **Имя значка — одно, и оно же имя файла.** Таблица `images.NAMES` —
---     единственный список того, что есть в пакете; тест проверяет, что каждое
---     имя декодируется в обоих размерах. Имя, которого нет в списке, — это
---     отказ с причиной, а не тихий пропуск: значок, который «почему-то не
---     нарисовался», ищут в рисовании, а не в опечатке.
---   * **Декодированный растр живёт, пока жив процесс.** Растры переживают
---     кадр (FR-005 §4): значок, декодированный заново на каждый кадр, был бы
---     новым растром с той же версией — и поверхность его бы НЕ переотправила.
---     Поэтому кэш здесь, а не у вызывающего.
+--   * **The file arrives as BYTES through `fs`, not as a path inside
+--     `gfx`.** The same decision as for the font: reading a file is governed
+--     by the process's permissions, and a module that opened paths by itself
+--     would be a road around them.
+--   * **An icon has one name, and it is also the file name.** The table
+--     `images.NAMES` is the only list of what is in the pack; the test checks
+--     that every name decodes in both sizes. A name that is not in the list
+--     is a refusal with a reason, not a silent skip: an icon that "for some
+--     reason did not draw" gets looked for in the drawing, not in a typo.
+--   * **A decoded raster lives as long as the process lives.** Rasters
+--     outlive the frame (FR-005 §4): an icon decoded anew every frame would
+--     be a new raster with the same version — and the surface would NOT
+--     resend it. That is why the cache is here, not with the caller.
 --
 -- A failure to open the folder or a file is named and remembered: the theme
 -- calls this every frame, and repeating `fs.get` sixty times a second for the
@@ -33,17 +35,18 @@ local log = logger:named("windows.icons")
 
 local images = {}
 
--- Запись реестра с файловой системой значков. Каталог объявлен в модуле
--- (`base: module`), поэтому приложению заводить ничего не нужно.
+-- The registry entry with the icons' filesystem. The folder is declared in
+-- the module (`base: module`), so the application does not need to set up
+-- anything.
 images.STORE = "butschster.windows.shell:icon_files"
 
--- Размеры, в которых пакет собран. Других файлов в каталоге нет, и просить
--- другой размер — ошибка вызывающего, а не повод масштабировать: у `gfx`
--- масштабирования нет нарочно, а 16-цветный значок, растянутый в полтора
--- раза, перестаёт быть тем значком.
+-- The sizes the pack is built in. There are no other files in the folder,
+-- and asking for another size is the caller's mistake, not a reason to
+-- scale: `gfx` has no scaling on purpose, and a 16-color icon stretched by
+-- one and a half times stops being that icon.
 images.SIZES = {32, 16}
 
--- Всё, что есть в пакете. Порядок — как в SOURCE.md.
+-- Everything in the pack. The order is as in SOURCE.md.
 images.NAMES = {
     "calculator", "clock", "my_computer", "folder", "folder_open", "recycle_bin", "recycle_bin_full",
     "programs", "settings", "documents", "find", "help", "run", "shutdown",
@@ -59,14 +62,15 @@ images.NAMES = {
 local known = {}
 for _, name in ipairs(images.NAMES) do known[name] = true end
 
--- Ярлык на окно проводника — это «Мой компьютер», а не программа со
--- стрелкой. Та же особая запись, что и в `pixels.icon`.
+-- A shortcut to the explorer window is "My Computer", not a program with an
+-- arrow. The same special entry as in `pixels.icon`.
 local EXPLORER = "butschster.windows.explorer:window"
 
--- Вид элемента → имя значка. Одна таблица на все места, где значок нужен
--- (стол, меню «Пуск», список проводника): у каждого свой рисовальщик, но имя
--- решается здесь, иначе папка на столе и папка в проводнике однажды окажутся
--- разными папками.
+-- Item kind → icon name. One table for all the places where an icon is
+-- needed (the desktop, the "Start" menu, the explorer list): each has its
+-- own painter, but the name is decided here, otherwise a folder on the
+-- desktop and a folder in the explorer will one day turn out to be
+-- different folders.
 local BY_KIND = {
     folder = "folder",
     directory = "folder",
@@ -78,11 +82,12 @@ local BY_KIND = {
     file = "document",
 }
 
--- name_for(item) -> имя значка, имя накладки или nil
+-- name_for(item) -> icon name, overlay name or nil
 --
--- Явное `item.image` побеждает вид: запись реестра, объявившая
--- `meta.image: printer`, получает принтер. Неизвестное имя не подменяется
--- «чем-нибудь похожим» — отдаётся как есть, и `get` откажет с причиной.
+-- An explicit `item.image` beats the kind: a registry entry that declared
+-- `meta.image: printer` gets a printer. An unknown name is not replaced with
+-- "something similar" — it is returned as is, and `get` will refuse with a
+-- reason.
 function images.name_for(item: any): (any, any)
     if type(item) ~= "table" or item.broken then return nil, nil end
     local explicit: any = item.image
@@ -113,10 +118,11 @@ local function open_store(): (any, any)
     return store, nil
 end
 
--- get(name, size) -> растр или nil, причина
+-- get(name, size) -> raster or nil, reason
 --
--- Растр общий для всех вызывающих и не должен меняться: `blit` из него
--- читает, и этого достаточно. Кто нарисует в него — испортит значок всем.
+-- The raster is shared by all callers and must not change: `blit` reads from
+-- it, and that is enough. Whoever draws into it spoils the icon for
+-- everyone.
 function images.get(name: any, size: any): (any, any)
     if type(name) ~= "string" or not known[name] then
         return nil, "no such icon: " .. tostring(name)
@@ -146,8 +152,8 @@ function images.get(name: any, size: any): (any, any)
         cache[key] = false
         return nil, "icon " .. path .. " not read: " .. tostring(read_err)
     end
-    -- `opened` типизирован как any, и readfile отдаёт any; линтер прав, что
-    -- строку надо назвать строкой, а не догадываться.
+    -- `opened` is typed as any, and readfile returns any; the linter is right
+    -- that a string has to be named a string rather than guessed.
     local raster, decode_err = gfx.image(data :: string)
     if not raster then
         cache[key] = false
@@ -187,7 +193,8 @@ function images.icon(raster: any, x: any, y: any, item: any, size: any): (any, a
     end
     raster:blit(picture, x, y)
     if overlay then
-        -- Стрелка ярлыка в Windows 95 стоит в левом нижнем углу значка.
+        -- In Windows 95 the shortcut arrow sits in the bottom left corner of
+        -- the icon.
         local arrow = images.get(overlay, 16)
         if arrow then
             local ax = math.tointeger(tonumber(x) or 1) or 1
@@ -198,7 +205,8 @@ function images.icon(raster: any, x: any, y: any, item: any, size: any): (any, a
     return true, nil
 end
 
--- forget() — сбросить кэш; нужен тестам и смене каталога, больше никому.
+-- forget() — reset the cache; needed by tests and by a change of folder,
+-- by no one else.
 function images.forget()
     store, store_failure, cache, reported = nil, nil, {}, {}
 end

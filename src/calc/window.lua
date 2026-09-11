@@ -1,18 +1,19 @@
--- Калькулятор — окно на SDK оболочки. Считает `engine`, рисует SDK.
+-- Calculator — a window on the shell SDK. `engine` computes, the SDK draws.
 --
--- Сетка та же, что в обычном виде калькулятора Windows 95, и та же, что
--- была у собственного отрисовщика: табло, строка Back/CE/C с окошком памяти,
--- четыре ряда клавиш с колонкой памяти слева; кнопка — четыре ячейки,
--- между кнопками одна. Раскладку держит `view`: те же числа читают оба
--- отрисовщика и попадания, второй таблицы больше нет.
+-- The grid is the same as in the standard view of the Windows 95 calculator,
+-- and the same as the one its own renderer had: the display, the Back/CE/C
+-- row with the memory box, four rows of keys with the memory column on the
+-- left; a button is four cells, one between buttons. The layout is held by
+-- `view`: both renderers and the hits read the same numbers, there is no
+-- second table any more.
 --
--- Клавиша с клавиатуры идёт в ту же кнопку, что и щелчок (`engine.key`);
--- нажатая ею кнопка подсвечивается на 150 мс — своим каналом-таймером,
--- а не тиком: тик без дела жёг бы кадры.
+-- A key from the keyboard goes to the same button as a click (`engine.key`);
+-- the button it pressed is highlighted for 150 ms — by its own timer channel,
+-- not by the tick: a tick with nothing to do would burn frames.
 --
--- В меню только то, что работает: «Справка → О программе». Правки нет —
--- буфера обмена терминала окну не достать, и Copy/Paste были бы надписями;
--- «Вид» с единственным обычным видом переключать нечего.
+-- The menu has only what works: "Help → About". There is no Edit — the
+-- window cannot reach the terminal's clipboard, and Copy/Paste would be mere
+-- labels; "View" with a single standard view has nothing to switch.
 local time = require("time")
 local app = require("app")
 local ui = require("ui")
@@ -51,9 +52,10 @@ local function spacer(size: any): any
 end
 
 local function key(state: any, id: any, label: any, ink: any, size: any): any
-    -- Клавиша на весь свой прямоугольник с зазором в два пикселя с каждой
-    -- стороны: соседние стоят в четырёх пикселях, как в оригинале; подпись
-    -- жирная, цвет — синий у цифр и функций, красный у операций.
+    -- The key fills its whole rectangle with a two-pixel gap on each side:
+    -- neighboring keys stand four pixels apart, as in the original; the
+    -- caption is bold, the color — blue for digits and functions, red for
+    -- operations.
     return {kind = "button", id = id, text = label, ink = ink, size = size,
         fill = true, inset = 2, bold = true, pressed = state.calc.pressed == id}
 end
@@ -90,9 +92,9 @@ function definition.view(state: any, context: any): any
     if not (type(context) == "table" and context.native) then return cell_view(state) end
     local rows: any = {
         {kind = "menu", id = "bar", size = 1, entries = MENU},
-        -- Табло: две строки ячеек, чтобы у числа был отступ сверху и снизу.
+        -- The display: two rows of cells, so the number has padding above and below.
         {kind = "row", size = 2, children = {spacer(1), {kind = "field", text = engine.display(state.calc), align = "right"}, spacer(1)}},
-        -- Окошко памяти — вдавленное поле цвета лица; Back шире CE и C.
+        -- The memory box is a sunken field in the face color; Back is wider than CE and C.
         {kind = "row", size = 2, children = {
             spacer(1), {kind = "field", size = 4, face = true, text = state.calc.memory ~= nil and "M" or "", align = "left"}, spacer(7),
             key(state, "back", "Back", RED, 6), key(state, "ce", "CE", RED, 4), key(state, "c", "C", RED, 4),
@@ -111,7 +113,7 @@ end
 
 local function press(state: any, id: any, context: any)
     state.calc = engine.press(state.calc, id)
-    -- Подсветка гаснет своим таймером, одинаково для мыши и клавиатуры.
+    -- The highlight goes out by its own timer, the same for mouse and keyboard.
     state.flash = time.after(FLASH)
     if context.watch then context.watch(state.flash) end
 end
@@ -127,8 +129,9 @@ function definition.update(state: any, action: any, context: any)
     elseif action.type == "activate" and action.id == "about_ok" then
         state.about = false
     elseif state.about then
-        -- Под листом «О программе» клавиши не считают: табло не видно, и
-        -- цифра, набранная вслепую, осталась бы в числе. Esc закрывает лист.
+        -- Under the "About" sheet keys do not count: the display is not
+        -- visible, and a digit typed blind would stay in the number. Esc
+        -- closes the sheet.
         if action.type == "key" and action.key_type == "esc" then state.about = false
         else return false end
     elseif action.type == "activate" and action.id then

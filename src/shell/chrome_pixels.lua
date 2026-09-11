@@ -1,33 +1,34 @@
--- Пиксельная тема оболочки: то, что человек видит вместо сетки символов.
+-- The shell's pixel theme: what a person sees instead of the character grid.
 --
--- Отдельная запись, а не ветка внутри `chrome`, по тому же правилу, что и у
--- проводника: запись, объявившая `gfx`, на рантайме без него не грузится
--- ЦЕЛИКОМ. Положи пиксели в `chrome` — путь в ячейках умер бы вместе с
--- графикой, и запасного пути (FR-005 §8б) не осталось бы.
+-- A separate entry, not a branch inside `chrome`, by the same rule as the
+-- explorer's: an entry that declared `gfx` does not load AT ALL on a runtime
+-- without it. Put the pixels in `chrome` and the cell path would die together
+-- with the graphics, and there would be no fallback path (FR-005 §8b) left.
 --
--- ─── ЗАЛИВКА ОСТАЁТСЯ ЯЧЕЙКАМИ, И ЭТО ГЛАВНОЕ ЗДЕСЬ ─────────────────────
+-- ─── THE FILL STAYS IN CELLS, AND THAT IS THE MAIN THING HERE ─────────────
 --
--- Бирюзовый стол, серое лицо панели задач, фон меню — это стили ЯЧЕЕК, а не
--- картинки (FR-005 §3а). Пикселями рисуется только то, чья граница проходит
--- ВНУТРИ ячейки: фаски, значки, подписи.
+-- The teal desktop, the grey face of the taskbar, the menu background — these
+-- are CELL styles, not pictures (FR-005 §3a). Only what has its boundary
+-- running INSIDE a cell is drawn in pixels: bevels, icons, captions.
 --
--- Причина в цене: она идёт от числа пикселей, а не от сложности картинки.
--- Одноцветный стол 1000×540 кодируется 43 мс и весит 2.6 КБ — кодировщик
--- обходит каждый пиксель. А растр во весь стол накрывает строки содержимого
--- окон, и любое нажатие клавиши в bash перерисовывает эти строки, то есть
--- отправляет стол заново. Сорок семь миллисекунд на нажатие — ровно то, ради
--- ухода от чего мы и не рисуем весь экран.
+-- The reason is the cost: it comes from the number of pixels, not from the
+-- complexity of the picture. A single-color 1000×540 desktop encodes in 43 ms
+-- and weighs 2.6 KB — the encoder walks every pixel. And a raster over the
+-- whole desktop covers the rows of window content, and any keystroke in bash
+-- repaints those rows, that is, sends the desktop again. Forty-seven
+-- milliseconds per keystroke — exactly what we get away from by not drawing
+-- the whole screen.
 --
--- `fill` заливает стол ячейками; `window_background` заливает каждое окно
--- перед его содержимым; `paint` возвращает растры и попадания.
+-- `fill` fills the desktop with cells; `window_background` fills each window
+-- before its content; `paint` returns rasters and hits.
 --
--- ─── ЧТО НАРЕЗАНО ПО СТРОКАМ ────────────────────────────────────────────
+-- ─── WHAT IS SLICED BY ROWS ─────────────────────────────────────────────
 --
--- Рамка окна режется на четыре куска (FR-005 §3), потому что боковые грани
--- делят строки с содержимым и уезжают на каждое нажатие, а заголовок и низ —
--- нет. Панель задач лежит на своей строке, куда окна не заходят. Каждый
--- значок стола — своё размещение: значок меняется, когда его переставили или
--- выделили, и не тянет за собой соседей.
+-- The window frame is cut into four pieces (FR-005 §3), because the side edges
+-- share rows with the content and are resent on every keystroke, while the
+-- title and the bottom are not. The taskbar lies on its own row, where
+-- windows do not go. Every desktop icon is its own placement: an icon changes
+-- when it is moved or selected, and does not drag its neighbours along.
 
 local gfx = require("gfx")
 
@@ -39,12 +40,13 @@ local widgets = require("widgets")
 local explorer_layout = require("explorer_layout")
 local explorer_pixels = require("explorer_pixels")
 
--- Окна-виды: содержимое рисует не процесс, а чистая библиотека `render`,
--- названная в записи окна (FR-005 §4б). Композитор её позвать не может —
--- `require` умеет только объявленные imports, а не произвольный id из
--- реестра, — поэтому зовёт тема, и каждая такая библиотека импортирована
--- здесь СТАТИЧЕСКИ и названа в VIEWS по id своей записи. Окно, назвавшее
--- render, которого в VIEWS нет, получает не пустоту, а текст с причиной.
+-- View windows: the content is drawn not by a process but by a pure `render`
+-- library named in the window's entry (FR-005 §4b). The compositor cannot
+-- call it — `require` only knows the declared imports, not an arbitrary id
+-- from the registry — so the theme calls it, and every such library is
+-- imported here STATICALLY and named in VIEWS by the id of its entry. A window
+-- that named a render that is not in VIEWS gets not emptiness but a text with
+-- the reason.
 local picture_render = require("picture_render")
 local sdk_render = require("sdk_render")
 
@@ -52,28 +54,30 @@ local color = palette.exact
 
 local chrome_pixels = {}
 
--- Тема хранит растры между кадрами, и хранить их больше негде: контракт
--- `paint` состояния не носит. Значит это состояние модуля, по одному на
--- процесс — а процесс здесь один, оболочка.
+-- The theme keeps rasters between frames, and there is nowhere else to keep
+-- them: the `paint` contract carries no state. So this is module state, one
+-- per process — and there is only one process here, the shell.
 local store = rasters.store()
 local clients: any = {}
 
--- Признак для композитора: по нему он решает, что тема умеет пиксели.
+-- A flag for the compositor: by it, it decides that the theme can do pixels.
 chrome_pixels.pixel = true
 chrome_pixels.content_colors = chrome.content_colors
 
--- Панель задач снизу, стол сверху. Пиксельная сетка учитывает размер ячейки.
+-- The taskbar at the bottom, the desktop on top. The pixel grid takes the cell
+-- size into account.
 local geometry = require("geometry")
 local whole = geometry.whole
 
 -- Paint and input share these cell rectangles. Pixel decoration stays inside.
 local unit: any = {w = 10, h = 20}
 
--- id записи render → библиотека. Контракт у всех один:
---   lib.placement(window, inner, cell, fonts, store) -> размещение | список | nil, причина
--- `inner` — прямоугольник ВНУТРИ рамки в ячейках, `cell` — размер ячейки,
--- `fonts` — {face, bold} темы, `store` — хранилище растров темы (кто взял
--- растр из него, того размещение и переживёт кадр без своего хранилища).
+-- render entry id → library. The contract is the same for all:
+--   lib.placement(window, inner, cell, fonts, store) -> placement | list | nil, reason
+-- `inner` is the rectangle INSIDE the frame in cells, `cell` is the cell size,
+-- `fonts` is the theme's {face, bold}, `store` is the theme's raster store
+-- (whoever took a raster from it, that one's placement survives the frame
+-- without a store of its own).
 -- Explorer shares layout with its controller and keeps four cached slices.
 local function explorer_placement(window: any, inner: any, cell: any, fonts: any)
     local client = clients[window.id] or rasters.store()
@@ -101,20 +105,22 @@ function chrome_pixels.renders(reference)
     return VIEWS[tostring(reference)] ~= nil
 end
 
--- Метрики заголовка — по Windows 95, в пикселях: над синей полосой две
--- строки рамки (лицо и свет), сама полоса 18 px, кнопки 16×14 в двух
--- пикселях от её краёв, рамка окна четыре пикселя.
+-- The title metrics follow Windows 95, in pixels: above the blue bar, two rows
+-- of the frame (face and light), the bar itself 18 px, buttons 16×14 two
+-- pixels from its edges, the window frame four pixels.
 --
--- Полоса живёт в ОДНОЙ строке терминала, пока строка не ниже 16 px, и
--- ужимается под неё: при ячейке в 20 px это ровно 18 px оригинала, при 16 —
--- 14 px с кнопками 12×10. Иначе заголовок брал бы две строки и оставлял под
--- собой серую ленту, которую читают как ошибку; вторую строку полоса берёт
--- только там, где в одну не входит и 14 px (ячейка ниже 16).
+-- The bar lives in ONE terminal row as long as the row is no shorter than
+-- 16 px, and shrinks to fit it: at a 20 px cell that is exactly the original's
+-- 18 px, at 16 — 14 px with 12×10 buttons. Otherwise the title would take two
+-- rows and leave a grey strip under itself, which is read as an error; the bar
+-- takes a second row only where even 14 px do not fit in one (a cell under
+-- 16).
 local TITLE_TOP = 3
 local TITLE_HEIGHT = 18
 local TITLE_LEAST = 14
 local TITLE_BUTTON_H = 14
--- Синий зазор между кнопкой и рамкой; ширина рамки окна.
+-- The blue gap between the button and the frame; the width of the window
+-- frame.
 local TITLE_MARGIN = 2
 local FRAME = 4
 local function header_rows(): integer
@@ -124,8 +130,8 @@ local function title_height(): integer
     local room = header_rows() * whole(unit.h) - (TITLE_TOP - 1)
     return whole(math.max(TITLE_LEAST, math.min(TITLE_HEIGHT, room)))
 end
--- Кнопка на четыре пикселя ниже полосы и на два шире своей высоты: 16×14
--- при полосе в 18, 12×10 при 14.
+-- A button is four pixels shorter than the bar and two wider than its own
+-- height: 16×14 with an 18 bar, 12×10 with 14.
 local function button_size(): (integer, integer)
     local h = whole(title_height() - (TITLE_HEIGHT - TITLE_BUTTON_H))
     return h + 2, h
@@ -153,16 +159,17 @@ function chrome_pixels.icon_grid()
             h = drawn, drawn = drawn, left = 2}
 end
 
--- Кнопки заголовка: «свернуть» и «развернуть» стоят вплотную, «закрыть» —
--- отдельно, в двух синих пикселях от рамки. Всё это в пикселях, а мышь ходит
--- в ячейках, поэтому каждая кнопка получает СВОИ ячейки и рисуется только
--- внутри них: пиксель одной кнопки в ячейке соседки нажимал бы соседку.
+-- Title buttons: "minimize" and "maximize" stand flush, "close" stands apart,
+-- two blue pixels from the frame. All of this is in pixels, while the mouse
+-- moves in cells, so every button gets ITS OWN cells and is drawn only inside
+-- them: a pixel of one button in its neighbour's cell would press the
+-- neighbour.
 --
--- Отсюда единственное отступление от оригинала при ячейке в 10 px: слитная
--- пара делится ровно по границе ячеек, а «закрыть» вместе с зазором и рамкой
--- должна уместиться в свои две ячейки — она на два пикселя уже, и просвет
--- перед ней четыре пикселя вместо двух. При ячейке в 8 px всё сходится
--- пиксель в пиксель.
+-- Hence the only departure from the original at a 10 px cell: the joined pair
+-- is split exactly on the cell boundary, and "close" together with the gap and
+-- the frame has to fit into its own two cells — it is two pixels narrower, and
+-- the gap before it is four pixels instead of two. At an 8 px cell everything
+-- matches pixel for pixel.
 function chrome_pixels.title_buttons(window: any): any
     local set = chrome.buttons_for(window)
     local out = {}
@@ -170,8 +177,8 @@ function chrome_pixels.title_buttons(window: any): any
     local cw = whole(unit.w)
     local bw, bh = button_size()
     local span = math.max(1, (bw + cw - 1) // cw)
-    -- Последняя кнопка отдаёт до двух пикселей ширины прежде, чем возьмёт
-    -- ещё ячейку.
+    -- The last button gives up to two pixels of width before it takes one
+    -- more cell.
     local last_span = span
     while last_span * cw - FRAME - TITLE_MARGIN < bw - 2 do last_span = last_span + 1 end
     local last_w = math.min(bw, last_span * cw - FRAME - TITLE_MARGIN)
@@ -188,8 +195,9 @@ function chrome_pixels.title_buttons(window: any): any
             rect = {x = width - FRAME - TITLE_MARGIN - last_w + 1, y = top, w = last_w, h = bh}
         else
             local start = (left - whole(window.x)) * cw + 1
-            -- В слитной паре первая прижата к правому краю своих ячеек, вторая
-            -- к левому: так они смыкаются ровно на границе ячеек.
+            -- In the joined pair the first is pressed to the right edge of its
+            -- cells, the second to the left: this way they meet exactly on
+            -- the cell boundary.
             local joined = #set > 2 and index == #set - 1
             rect = {x = joined and start or start + span * cw - bw, y = top, w = bw, h = bh}
         end
@@ -217,10 +225,10 @@ function chrome_pixels.window_background(canvas, window: any)
     end
 end
 
--- ─── заливка ячейками ────────────────────────────────────────────────────
+-- ─── fill in cells ───────────────────────────────────────────────────────
 --
--- Ровно то же, что делает `chrome.fill` в режиме символов, и НИЧЕГО больше:
--- значков здесь нет, они пикселями.
+-- Exactly what `chrome.fill` does in character mode, and NOTHING more: there
+-- are no icons here, they are in pixels.
 function chrome_pixels.fill(canvas, width: any, height: any, state)
     canvas:clear(widgets.styles.desktop:render(" "))
 
@@ -229,24 +237,26 @@ function chrome_pixels.fill(canvas, width: any, height: any, state)
     if h < 1 or w < 1 then return {} end
     if type(state) == "table" and state.bare then return {} end
 
-    -- Лицо панели задач: под картинками всё равно будут пробелы, но строка,
-    -- не закрашенная лицом, светится цветом терминала в промежутках между
-    -- размещениями.
+    -- The taskbar face: there will be spaces under the pictures anyway, but a
+    -- row not painted with the face shows the terminal's color in the gaps
+    -- between placements.
     for row = math.max(1, h - taskbar_rows() + 1), h do
         canvas:put(1, row, widgets.styles.face:render(string.rep(" ", w)), w)
     end
     return {}
 end
 
--- Экран прощания пикселями: чёрная заливка ячейками, надпись — растром
--- полужирным шрифтом темы. Без шрифта — надпись ячейками, как в теме
--- символов; чёрный экран без слов читался бы как повисший терминал.
+-- The farewell screen in pixels: a black fill in cells, the caption as a
+-- raster in the theme's bold font. Without a font — the caption in cells, as
+-- in the character theme; a black screen without words would read as a hung
+-- terminal.
 chrome_pixels.FAREWELL_HOLD = chrome.FAREWELL_HOLD
 
--- farewell_raster(cell, width, height) -> растр, колонка, строка | nil
+-- farewell_raster(cell, width, height) -> raster, column, row | nil
 --
--- Надпись крупным шрифтом в две-три строки по центру, как в оригинале. Отдельно
--- от `farewell`, чтобы PNG-пробник мог нарисовать её без холста.
+-- The caption in a large font in two or three lines in the center, as in the
+-- original. Separate from `farewell`, so that the PNG probe can draw it
+-- without a canvas.
 function chrome_pixels.farewell_raster(cell: any, width: any, height: any): (any, any, any)
     local fonts: any = chrome_pixels.fonts
     local font: any = type(fonts) == "table" and (fonts.display or fonts.bold or fonts.face) or nil
@@ -254,8 +264,9 @@ function chrome_pixels.farewell_raster(cell: any, width: any, height: any): (any
     local w, h = whole(width), whole(height)
     local cw, ch = whole(cell.w), whole(cell.h)
 
-    -- Строки ломаются по измеренной ширине, не шире двух третей экрана:
-    -- в оригинале надпись занимает середину, а не тянется от края до края.
+    -- Lines are broken by measured width, no wider than two thirds of the
+    -- screen: in the original the caption takes the middle, it does not
+    -- stretch from edge to edge.
     local room = (w * cw) * 2 // 3
     local lines = pixels.wrap(font, chrome.FAREWELL_TEXT, room, 4)
     if #lines == 0 then return nil, nil, nil end
@@ -291,46 +302,49 @@ function chrome_pixels.farewell(canvas, width: any, height: any)
     return {placements = store.frame(unit), hits = {desktop = {}, bars = {}, menu = {}}}
 end
 
--- ─── значки стола ────────────────────────────────────────────────────────
+-- ─── desktop icons ───────────────────────────────────────────────────────
 
 local function icon_key(item: any, selected)
     return table.concat({
         tostring(item.id), tostring(item.title or ""), tostring(item.kind or ""),
         tostring(item.icon or ""), tostring(item.image or ""), tostring(item.entry or ""), item.broken and "!" or "",
         selected and "1" or "0",
-        -- Цвет стола запечён в растр значка: сменили цвет — растр другой.
+        -- The desktop color is baked into the icon raster: change the color
+        -- and the raster is a different one.
         tostring(color.desktop),
     }, "\30")
 end
 
--- Значок целиком: рисунок и подпись, каждый своим размещением.
+-- The whole icon: the picture and the caption, each as its own placement.
 --
--- Своё размещение у каждого значка нарочно. Один растр на весь стол стоил бы
--- сорока трёх миллисекунд и уезжал бы на каждое нажатие клавиши в окне,
--- которое накрыло хоть одну его строку.
+-- Every icon has its own placement on purpose. One raster for the whole
+-- desktop would cost forty-three milliseconds and would be resent on every
+-- keystroke in a window that covered even one of its rows.
 local function paint_icon(cell: any, item: any, selected, grid: any)
     local id = "desk:" .. tostring(item.id)
     local cols = grid.w - 1
     local raster, dirty = store.take(id, cols, grid.drawn, cell, icon_key(item, selected))
     if dirty then
         local box = pixels.box(1, 1, cols, grid.drawn, cell)
-        -- Фон совпадает с заливкой стола; перекрытые окнами части растра
-        -- обрезаются перед размещением.
+        -- The background matches the desktop fill; the parts of the raster
+        -- covered by windows are cropped before placement.
         raster:rect(1, 1, box.w, box.h, color.desktop)
         chrome_pixels.draw_icon(raster, box, item, selected)
     end
     return id, raster
 end
 
--- Рисунок значка ВМЕСТЕ С ПОДПИСЬЮ.
+-- The icon picture TOGETHER WITH ITS CAPTION.
 --
--- Подпись здесь не украшение: значок без неё — это картинка, про которую
--- нечего сказать. Первый снимок всего экрана показал ровно это — ряд
--- безымянных квадратиков, — и не показал бы ни пробник, ни куски по
--- отдельности: каждый из них был правильным.
+-- The caption here is not decoration: an icon without it is a picture about
+-- which there is nothing to say. The first screenshot of the whole screen
+-- showed exactly that — a row of nameless little squares — and neither the
+-- probe nor the pieces separately would have shown it: each of them was
+-- correct.
 --
--- Выделение — инверсией по ТЕКСТУ, а не по всей колонке: в Windows 95 синий
--- прямоугольник обнимает подпись, и по нему видно, где она кончается.
+-- Selection is an inversion over the TEXT, not over the whole column: in
+-- Windows 95 the blue rectangle hugs the caption, and it shows where the
+-- caption ends.
 function chrome_pixels.draw_icon(raster, box: any, item: any, selected)
     local side = 32
     local left = box.x + (box.w - side) // 2
@@ -352,16 +366,17 @@ function chrome_pixels.draw_icon(raster, box: any, item: any, selected)
     end
 end
 
--- ─── отказ раскладки стола ───────────────────────────────────────────────
+-- ─── desktop layout failure ──────────────────────────────────────────────
 --
--- «Раскладка не прочитана» и «на столе пусто» — разные утверждения, и тема
--- в ячейках их различает (`chrome.fill`). Здесь `failure` не читался вовсе:
--- нечитаемая раскладка выглядела пустым столом, и человек шёл искать ярлыки,
--- которых не терял.
+-- "The layout was not read" and "the desktop is empty" are different
+-- statements, and the cell theme tells them apart (`chrome.fill`). Here
+-- `failure` was not read at all: an unreadable layout looked like an empty
+-- desktop, and the person went looking for shortcuts they had never lost.
 --
--- Место то же, что у темы в ячейках: третья колонка, строка под верхом стола,
--- не шире сорока восьми ячеек. Причина переносится по ИЗМЕРЕННОЙ ширине, а не
--- срезается: у ошибки базы самое нужное — имя таблицы — стоит в конце.
+-- The place is the same as in the cell theme: the third column, the row under
+-- the top of the desktop, no wider than forty-eight cells. The reason is
+-- wrapped by MEASURED width, not cut off: in a database error the most needed
+-- part — the table name — stands at the end.
 local FAILURE_HEADER = "layout not read:"
 local FAILURE_WIDTH = 48
 local FAILURE_LINES = 3
@@ -379,7 +394,8 @@ local function paint_failure(cell: any, view: any): any
     local bottom = whole(view.bottom)
     if bottom < 1 or bottom > whole(view.height) then bottom = whole(view.height) end
 
-    -- Строк причины — сколько влезает над панелью задач, но не больше трёх.
+    -- Lines of the reason — as many as fit above the taskbar, but no more
+    -- than three.
     local fit = ((bottom - row + 1) * ch - FAILURE_PAD * 2) // LINE_STEP - 1
     if fit < 1 then return nil end
     local reason = tostring(view.failure)
@@ -397,16 +413,18 @@ local function paint_failure(cell: any, view: any): any
             raster:text(left, top + index * LINE_STEP, line, {font = face, color = color.face_text})
         end
     end
-    -- Слой стола: окно, накрывшее табличку, обрезает её, как значок.
+    -- The desktop layer: a window that covered the plate crops it, like an
+    -- icon.
     return {id = id, raster = raster, x = 3, y = row, cols = cols, rows = rows, layer = 0}
 end
 
--- ─── рамка окна ──────────────────────────────────────────────────────────
+-- ─── window frame ────────────────────────────────────────────────────────
 
--- Содержимое окна-вида. Отказ любой природы — нет библиотеки, вид ещё ждёт
--- состояния, библиотека отказала — превращается в текст на лице окна, а не в
--- пустоту: пустое окно неотличимо от «вид нарисован, но данных нет», и
--- человек пойдёт искать поломку не там.
+-- The content of a view window. A failure of any nature — no library, the
+-- view is still waiting for state, the library refused — turns into text on
+-- the window's face, not into emptiness: an empty window is indistinguishable
+-- from "the view is drawn, but there is no data", and the person will go
+-- looking for the breakage in the wrong place.
 local function paint_view(cell: any, window: any, fonts: any, out, inner: any)
     local lib: any = VIEWS[tostring(window.render)]
     local state: any = type(window.content_state) == "table" and window.content_state or {}
@@ -417,14 +435,15 @@ local function paint_view(cell: any, window: any, fonts: any, out, inner: any)
         why = type(state.caption) == "string" and state.caption ~= "" and state.caption
             or "waiting for data…"
     else
-        -- БЕЗ `pcall`, и это не недосмотр. Ошибка, пойманная `pcall`, в
-        -- go-lua рвёт upvalue не только у кадра, звавшего `pcall`, но и у
-        -- кадров НИЖЕ (тест в sdk_test, «go-lua: ошибка под pcall…»). Здесь
-        -- ниже — цикл композитора основы, чьи замыкания пишут его локальные
-        -- (`refuse` → `notice`): поймай мы ошибку вида, композитор молча
-        -- разошёлся бы сам с собой. Поэтому вид обязан не бросать, а
-        -- отказывать: `render.placement` проверяет дерево `ui.problem` и
-        -- возвращает причину, а она становится текстом ниже.
+        -- WITHOUT `pcall`, and this is not an oversight. An error caught by
+        -- `pcall` in go-lua breaks upvalues not only of the frame that
+        -- called `pcall`, but also of the frames BELOW (the test in
+        -- sdk_test, "go-lua: error under pcall…"). Below here is the base
+        -- compositor's loop, whose closures write its locals (`refuse` →
+        -- `notice`): were we to catch a view's error, the compositor would
+        -- silently diverge from itself. So a view must not throw but refuse:
+        -- `render.placement` checks the tree with `ui.problem` and returns
+        -- the reason, and that becomes the text below.
         placed, why = lib.placement(window, inner, cell, fonts, store)
     end
 
@@ -475,8 +494,9 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
     if dirty then
         local width, height = w * cell.w, head_rows * cell.h
         head:fill(inside)
-        -- Рамка Windows 95: снаружи лицо и чёрный, внутри свет и тень —
-        -- порядок обратный кнопке, у которой снаружи свет.
+        -- The Windows 95 frame: face and black outside, light and shadow
+        -- inside — the order is the reverse of a button's, which has the
+        -- light outside.
         head:rect(1, 1, width, TITLE_TOP - 1 + title_height(), color.face)
         head:rect(1, 1, FRAME, height, color.face)
         head:rect(width - FRAME + 1, 1, FRAME, height, color.face)
@@ -490,8 +510,8 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
         -- Reserve actual title-button rectangles before clipping text.
         local text_right = #buttons > 0 and buttons[1].rect.x - 4 or width - FRAME - TITLE_MARGIN
         local caption_x = FRAME + 5
-        -- Значок 16 px есть только там, где входит в полосу: в 14 px он
-        -- лёг бы на рамку.
+        -- The 16 px icon is there only where it fits in the bar: in 14 px it
+        -- would lie on the frame.
         if (window.window_type == nil or window.window_type == "app") and title_h >= 16 then
             pixels.icon(head, FRAME + 3, title_top + (title_h - 16) // 2, {kind = "window", image = window.image}, 16)
             caption_x = FRAME + 3 + 16 + 4
@@ -544,8 +564,9 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
     end
     out[#out + 1] = {id = foot_id, raster = foot, x = window.x, y = window.y + h - 1, cols = w, rows = 1}
 
-    -- Окно-вид: внутри рамки процесса нет, содержимое кладёт тема. Прямоугольник
-    -- тот же, что получил бы viewport обычного окна, — по инсетам темы.
+    -- A view window: there is no process inside the frame, the theme puts the
+    -- content. The rectangle is the same one an ordinary window's viewport
+    -- would get — by the theme's insets.
     if window.content == "pixels" and w > 2 and body > 0 then
         paint_view(cell, window, fonts, out,
             {x = window.x + 1, y = window.y + head_rows, cols = w - 2, rows = body})
@@ -596,7 +617,7 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
         bar:fill(color.face)
         bar:rect(1, 1, width, 1, color.light)
         bar:rect(1, 2, width, 1, color.face)
-        -- Та же кнопка, что везде: нажата, пока меню открыто.
+        -- The same button as everywhere: pressed while the menu is open.
         pixels.button(bar, 3, button_y, start_span * cell.w - 5, button_h,
             {label = "", pressed = state.menu ~= nil and state.menu.anchor == nil}, cell)
         local shift = (state.menu and not state.menu.anchor) and 1 or 0
@@ -627,10 +648,11 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
         hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
             from = task.from, to = task.to, id = window.id}
     end
-    -- Строка состояния — в том, что осталось между кнопками окон и часами,
-    -- как у темы в ячейках (`chrome.bars`). Без неё пропадают сообщения
-    -- композитора — «не открылось: …», жалоба на негодный кадр темы, —
-    -- которые больше нигде не показываются: лог терминального хоста заглушён.
+    -- The status line — in what is left between the window buttons and the
+    -- clock, as in the cell theme (`chrome.bars`). Without it the
+    -- compositor's messages are lost — "could not open: …", the complaint
+    -- about a bad frame from the theme — which are shown nowhere else: the
+    -- terminal host's log is muted.
     local room: any = plan.status
     if dirty and face and status ~= "" and room then
         local caption = pixels.ellipsize(face, status, (room.to - room.from + 1) * cell.w - 8)
@@ -675,20 +697,20 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     out[#out + 1] = {id = "bars", raster = bar, x = 1, y = top, cols = w, rows = rows}
 end
 
--- ─── меню «Пуск» ─────────────────────────────────────────────────────────
+-- ─── Start menu ──────────────────────────────────────────────────────────
 --
--- Раскладку каскада считает `chrome.menu_layout` — та же функция, по которой
--- меню рисуется символами. Второй расчёт разъехался бы с первым, и щелчок
--- попадал бы на соседний пункт в одном из двух режимов, а оба кадра выглядели
--- бы правильными.
+-- The cascade layout is computed by `chrome.menu_layout` — the same function
+-- by which the menu is drawn in characters. A second computation would drift
+-- from the first, and a click would land on the neighbouring item in one of
+-- the two modes, while both frames would look right.
 --
--- Каждая панель — своё размещение. Панели каскада делят строки между собой, и
--- это неизбежно: они стоят рядом. Но меню открыто ровно тогда, когда человек
--- на него смотрит, — набора текста в это время нет, и перерисовывать их
--- нечему.
+-- Every panel is its own placement. The cascade panels share rows with each
+-- other, and that is unavoidable: they stand side by side. But the menu is
+-- open exactly while the person is looking at it — there is no typing at that
+-- time, and nothing to repaint them.
 --
--- Закрытое меню исчезает ОТСУТСТВИЕМ в списке размещений, а не рисованием
--- поверх: `store.frame` выбрасывает то, чего в кадре не назвали.
+-- A closed menu disappears by ABSENCE from the list of placements, not by
+-- drawing over it: `store.frame` throws away whatever the frame did not name.
 
 local function menu_key(box: any)
     local parts = {tostring(box.x), tostring(box.y), tostring(box.w), tostring(box.h),
@@ -707,16 +729,18 @@ end
 
 local function paint_menu_panel(cell: any, box: any, id, fonts: any)
     local face: any = type(fonts) == "table" and fonts.face or nil
-    -- Тип НАЗВАН, а не сглажен `any`, и приведение здесь честнее заглушки.
+    -- The type is NAMED, not smoothed over with `any`, and the cast here is
+    -- more honest than a stub.
     --
-    -- Шрифт приезжает полем обычной таблицы, через `use_fonts`, поэтому у него
-    -- нет типа. Без имени типа пришлось бы объявить `any` у самого растра —
-    -- и выключить заодно проверку КООРДИНАТ, а на вызове ниже недавно стоял
-    -- `y = 0`, из-за которого строка уходила за край растра целиком, молча.
+    -- The font arrives as a field of an ordinary table, through `use_fonts`,
+    -- so it has no type. Without the type name we would have to declare `any`
+    -- on the raster itself — and switch off the COORDINATE check along with
+    -- it, and the call below recently had `y = 0`, because of which the line
+    -- went off the edge of the raster entirely, silently.
     --
-    -- Приведение утверждает ровно то, что и так обязано быть верным:
-    -- `use_fonts` зовут результатом `gfx.font`, и всё остальное упало бы в
-    -- рантайме на первом же вызове.
+    -- The cast asserts exactly what must be true anyway: `use_fonts` is
+    -- called with the result of `gfx.font`, and anything else would crash in
+    -- the runtime on the very first call.
     local given: any = type(fonts) == "table" and fonts.bold or face
     local bold = given :: gfx.Font
 
@@ -725,18 +749,20 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
         local area = pixels.box(1, 1, box.w, box.h, cell)
         pixels.panel(raster, 1, 1, area.w, area.h)
 
-        -- Вертикальная надпись «Windows 95» — ПОВЁРНУТАЯ СТРОКА, а не колонка
-        -- букв.
+        -- The vertical "Windows 95" caption is a ROTATED STRING, not a
+        -- column of letters.
         --
-        -- В ячейках иначе было нельзя: там буква занимает клетку, и надпись
-        -- складывалась по строкам панели — а когда панель становилась короче
-        -- девяти строк, надпись пропадала МОЛЧА, по букве за строку. В
-        -- пикселях у неё своя высота, не связанная с числом пунктов меню.
+        -- In cells it could not be otherwise: there a letter takes a cell,
+        -- and the caption was laid out along the panel rows — and when the
+        -- panel got shorter than nine rows, the caption vanished SILENTLY, a
+        -- letter per row. In pixels it has its own height, unrelated to the
+        -- number of menu items.
         --
-        -- Текст рисуется горизонтально во временный растр и кладётся
-        -- повёрнутым на 270°: так он читается снизу вверх, как на эталоне.
-        -- Временный растр не размещается на экране и живёт только внутри
-        -- перерисовки — версия от него не двигается ни у кого.
+        -- The text is drawn horizontally into a temporary raster and laid
+        -- down rotated by 270°: this way it reads bottom to top, as on the
+        -- reference. The temporary raster is not placed on the screen and
+        -- lives only inside the repaint — nobody's version moves because of
+        -- it.
         if whole(box.banner) > 0 and bold then
             local strip = pixels.box(1, 1, box.banner, box.h, cell)
             raster:rect(2, 2, strip.w - 2, strip.h - 4, color.shadow)
@@ -751,21 +777,24 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
                 local temp = gfx.raster(text_w, text_h)
                 temp:fill(color.shadow)
 
-                -- Перо вынесено в переменную с `any` НАРОЧНО и точечно.
+                -- The pen is taken out into a variable with `any` ON PURPOSE
+                -- and pointwise.
                 --
-                -- `temp` — настоящий `gfx.Raster`, а не растр из хранилища,
-                -- поэтому его аргументы проверяются по-настоящему; шрифт же
-                -- приезжает сюда через `use_fonts`, полем обычной таблицы, и
-                -- типа `gfx.Font` у него нет. Заглушить это, объявив `any` у
-                -- самого растра, значило бы выключить заодно проверку
-                -- КООРДИНАТ — на этом самом вызове недавно стоял `y = 0`, и
-                -- строка уходила за край растра целиком, молча.
+                -- `temp` is a real `gfx.Raster`, not a raster from the
+                -- store, so its arguments are checked for real; the font,
+                -- however, arrives here through `use_fonts`, as a field of an
+                -- ordinary table, and has no `gfx.Font` type. Silencing this
+                -- by declaring `any` on the raster itself would mean
+                -- switching off the COORDINATE check along with it — this
+                -- very call recently had `y = 0`, and the line went off the
+                -- edge of the raster entirely, silently.
                 --
-                -- Координаты ЕДИНИЧНЫЕ, и теперь это проверяет линтер.
+                -- Coordinates are ONE-BASED, and the linter now checks this.
                 temp:text(1, 1, label, {font = bold, color = color.select_fg})
 
-                -- После поворота ширина и высота меняются местами: ширина
-                -- рисунка на экране — это высота строки, и наоборот.
+                -- After rotation, width and height swap places: the width of
+                -- the picture on screen is the height of the line, and vice
+                -- versa.
                 local room = strip.h - 6
                 local at_y = 3
                 if text_w < room then at_y = strip.h - 3 - text_w end
@@ -780,13 +809,14 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
             local line_h = math.max(1, whole(line.rows or 1)) * cell.h
             local inset = line_h >= 28 and 4 or 2
 
-            -- Выделение — полосой во всю ширину списка, как в Windows 95:
-            -- в меню синий прямоугольник обнимает строку целиком, а не
-            -- подпись, в отличие от значка на столе.
+            -- Selection is a strip across the whole list width, as in
+            -- Windows 95: in a menu the blue rectangle hugs the whole row,
+            -- not the caption, unlike an icon on the desktop.
             local tint = color.face_text
             if line.selected then
-                -- Полоса — до правой грани панели, а не до конца «списка» в
-                -- ячейках: ширина списка считалась с ячейкой рамки справа.
+                -- The strip goes to the panel's right edge, not to the end
+                -- of the "list" in cells: the list width was computed with
+                -- the frame cell on the right.
                 local list_x = pixels.box(whole(box.banner) + 1, 1, 1, 1, cell).x
                 raster:rect(list_x + 2, top + inset, area.w - list_x - 4, line_h - inset * 2, color.select_bg)
                 tint = color.select_fg
@@ -797,7 +827,7 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
             -- Root entries use their native 32px frame; submenus use 16px.
             local mark_size = whole(box.banner) > 0 and 32 or 16
             local mark_top = top + (line_h - mark_size) // 2
-            -- У контекстного меню значков нет, как в Windows 95.
+            -- The context menu has no icons, as in Windows 95.
             if box.context then
                 mark_size = 0
             elseif line.kind == "group" then
@@ -820,10 +850,11 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
                 raster:text(label_left, top + (line_h - 15) // 2, line.label or line.text,
                     {font = font, color = tint})
 
-                -- Стрелка подменю — тем же примитивом и по правому краю
-                -- списка, как в Windows 95.
+                -- The submenu arrow — with the same primitive and at the
+                -- right edge of the list, as in Windows 95.
                 if line.arrow then
-                    -- У правой грани панели, как в Windows 95: 4 px до грани.
+                    -- At the panel's right edge, as in Windows 95: 4 px to the
+                    -- edge.
                     pixels.mark_submenu(raster, area.w - 3 - 4 - 8, top + (line_h - 8) // 2, 8, tint)
                 end
             end
@@ -832,13 +863,13 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
     return raster
 end
 
--- ─── кадр целиком ────────────────────────────────────────────────────────
+-- ─── the whole frame ─────────────────────────────────────────────────────
 --
 -- paint(state, cell_w, cell_h) -> {placements, hits}
 --
--- Попадания приезжают ГРУППАМИ `{desktop, bars, menu}`, а не плоским списком:
--- `id` в трёх списках значит разное, и плоский пришлось бы разбирать по
--- догадке.
+-- Hits arrive in GROUPS `{desktop, bars, menu}`, not as a flat list: `id`
+-- means different things in the three lists, and a flat one would have to be
+-- parsed by guesswork.
 -- Subtract higher windows in cell space before handing images to the surface.
 -- Otherwise a lower window's border or a desktop icon erases the foreground text.
 local function subtract(rect: any, cover: any): any
@@ -858,15 +889,16 @@ local function subtract(rect: any, cover: any): any
     return pieces
 end
 
--- `menus` — прямоугольники панелей меню в ячейках. Меню — верхний слой для
--- ВСЕГО, что не меню: окон, значков, таблички отказа, панели задач.
+-- `menus` are the rectangles of the menu panels in cells. The menu is the top
+-- layer for EVERYTHING that is not the menu: windows, icons, the failure
+-- plate, the taskbar.
 --
--- Порядка списка для этого мало, и это не догадка, а поверхность рантайма
--- (service/terminal/surface.go, appendPlacements): она переотправляет только
--- новое, изменившееся или накрывающее перерисованную строку, а z-порядка у
--- sixel нет вовсе. Открытое меню не меняется и не уезжает; растр окна под ним
--- уезжает на каждом своём тике — и ложится поверх меню. Кусок окна, которого
--- под меню нет, лечь поверх меню не может.
+-- The list order is not enough for this, and that is not a guess but the
+-- runtime surface (service/terminal/surface.go, appendPlacements): it resends
+-- only what is new, changed, or covers a repainted row, and sixel has no z
+-- order at all. An open menu does not change and is not resent; the raster of
+-- a window under it is resent on each of its ticks — and lies over the menu.
+-- A piece of the window that is not under the menu cannot lie over the menu.
 local function visible_placements(placements: any, windows: any, menus: any, cell: any): any
     local out = {}
     for _, source in ipairs(placements) do
@@ -916,11 +948,11 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     local out = {}
     local hits: any = {desktop = {}, bars = {}, menu = {}}
 
-    -- Значки стола — под окнами, поэтому первыми: порядок списка и есть
-    -- порядок рисования.
+    -- Desktop icons are under the windows, so they go first: the list order is
+    -- the painting order.
     --
-    -- Отказ раскладки — вместо значков, а не рядом с ними, как у темы в
-    -- ячейках: значков непрочитанной раскладки никто не обещал.
+    -- The layout failure goes instead of the icons, not next to them as in the
+    -- cell theme: nobody promised the icons of an unread layout.
     local items: any = view.items or {}
     if view.failure then
         items = {}
@@ -937,17 +969,18 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
             store.place(id, x, y)
             out[#out + 1] = {id = id, raster = raster, x = x, y = y,
                              cols = grid.w - 1, rows = grid.drawn, layer = 0}
-            -- Попадание на КАЖДУЮ строку значка, а не одно на всю высоту.
+            -- A hit on EVERY row of the icon, not one for the whole height.
             --
-            -- Композитор сверяет `event.y == spot.row` — ровно одну строку, —
-            -- и поля `bottom_row` не знает вовсе. Одно попадание на три
-            -- строки означало бы значок, который нажимается по картинке и не
-            -- нажимается по подписи. Молча: щелчок по подписи просто ничего
-            -- не делает.
+            -- The compositor checks `event.y == spot.row` — exactly one row —
+            -- and does not know the `bottom_row` field at all. One hit for
+            -- three rows would mean an icon that is pressed on the picture
+            -- and not pressed on the caption. Silently: a click on the
+            -- caption simply does nothing.
             --
-            -- Форма та же, что у `chrome.fill` в режиме символов, и это не
-            -- совпадение: composer один на оба режима, и попадание, которое
-            -- он не умеет читать, неотличимо от отсутствующего.
+            -- The shape is the same as `chrome.fill`'s in character mode, and
+            -- that is no coincidence: there is one composer for both modes,
+            -- and a hit it cannot read is indistinguishable from a missing
+            -- one.
             -- The hit table is `chrome.desktop_hit`'s, one for both themes.
             for row = y, y + grid.drawn - 1 do
                 hits.desktop[#hits.desktop + 1] = chrome.desktop_hit(item, row, x, x + grid.w - 2)
@@ -968,12 +1001,12 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     end
 
     clients = live_clients
-    -- Голый стол — без панели задач: так рисуется экран входа, где «Пуска»
-    -- ещё нет, потому что нет и пользователя.
+    -- A bare desktop has no taskbar: this is how the logon screen is drawn,
+    -- where there is no Start yet, because there is no user yet either.
     if not view.bare then paint_bars(cell, view, fonts, out, hits) end
 
-    -- Меню поверх всего: оно и на экране поверх всего, а порядок списка и есть
-    -- порядок рисования.
+    -- The menu over everything: on screen it is over everything too, and the
+    -- list order is the painting order.
     if view.menu then
         local menu: any = view.menu
         local shown = chrome.menu_layout(view.width, view.height,
@@ -983,14 +1016,14 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
                 user = chrome.session.user,
                 root_rows = math.max(1, (32 + cell.h - 1) // cell.h),
                 item_rows = math.max(1, (24 + cell.h - 1) // cell.h),
-                -- Ширина строки в ячейках, МИНУС две ячейки, которые
-                -- `menu_layout` добавит на рамку: в ячейках рамка — по
-                -- ячейке с каждого края, в пикселях — три пикселя, и без
-                -- вычета они ложились пустотой у правого края панели.
-                -- Слагаемые — те же, что у рисовальщика: 8 px до значка,
-                -- значок (32 на корне, 16 в подменю, 0 у контекстного),
-                -- зазор до подписи, подпись, хвост (стрелка папки 20, иначе 8),
-                -- две грани по 3 px.
+                -- The row width in cells, MINUS the two cells `menu_layout`
+                -- will add for the frame: in cells the frame is a cell on
+                -- each side, in pixels three pixels, and without the
+                -- subtraction they lay as emptiness at the panel's right
+                -- edge. The terms are the same as the painter's: 8 px to the
+                -- icon, the icon (32 on the root, 16 in a submenu, 0 in the
+                -- context menu), the gap to the caption, the caption, the
+                -- tail (folder arrow 20, otherwise 8), two edges of 3 px.
                 measure = function(label, level, kind)
                     local font: any = fonts and fonts.face
                     local text_w = whole(font and font:measure(label) or 0)
@@ -1012,8 +1045,9 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
 
         for index, entry in ipairs(shown.panels) do
             local box: any = entry
-            -- Имя размещения — по УРОВНЮ, а не по порядку: уровень не меняется,
-            -- пока панель на экране, и поверхность узнаёт ту же картинку.
+            -- The placement name is by LEVEL, not by order: the level does not
+            -- change while the panel is on screen, and the surface recognises
+            -- the same picture.
             local id = "menu:" .. tostring(index)
             local raster = paint_menu_panel(cell, box, id, fonts)
             out[#out + 1] = {id = id, raster = raster, x = box.x, y = box.y,
@@ -1023,13 +1057,13 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
         for _, hit in ipairs(shown.hits) do hits.menu[#hits.menu + 1] = hit end
     end
 
-    -- Размещения объявляются через хранилище, чтобы `sweep` выбросил то, чего
-    -- в кадре не назвали: закрытое меню исчезает отсутствием в списке, а не
-    -- рисованием поверх.
+    -- Placements are declared through the store, so that `sweep` throws away
+    -- whatever the frame did not name: a closed menu disappears by absence
+    -- from the list, not by drawing over it.
     --
-    -- Панели меню (`top`) вычитаются из всего остального — см.
-    -- `visible_placements`: иначе окно под меню, переотправленное на своём
-    -- тике, ложится поверх неизменного меню.
+    -- The menu panels (`top`) are subtracted from everything else — see
+    -- `visible_placements`: otherwise a window under the menu, resent on its
+    -- tick, lies over the unchanged menu.
     local menus: any = {}
     for _, item in ipairs(out) do
         if item.top then menus[#menus + 1] = {x = item.x, y = item.y, w = item.cols, h = item.rows} end
@@ -1041,12 +1075,12 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     return {placements = out, hits = hits}
 end
 
--- Шрифты приносит тот, кто умеет читать файлы: у темы нет ни прав, ни
--- модуля `fs`, и это не оплошность — шрифт приезжает БАЙТАМИ, потому что
--- чтение файла управляется правами процесса, а модуль, открывающий пути сам,
--- был бы дорогой мимо них.
--- `display` — крупный полужирный для экрана прощания; без него надпись
--- набирается обычным полужирным и выглядит подписью, а не экраном.
+-- Fonts are brought by whoever can read files: the theme has neither the
+-- rights nor the `fs` module, and that is not a blunder — a font arrives AS
+-- BYTES, because reading a file is governed by the process's rights, and a
+-- module that opens paths itself would be a road around them.
+-- `display` is the large bold for the farewell screen; without it the caption
+-- is set in the ordinary bold and looks like a caption, not a screen.
 function chrome_pixels.use_fonts(face, bold, display)
     chrome_pixels.fonts = {face = face, bold = bold or face, display = display or bold or face}
 end

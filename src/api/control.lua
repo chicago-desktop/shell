@@ -1,15 +1,17 @@
--- Командный канал к оболочке.
+-- Command channel to the shell.
 --
--- Оболочка — обычный процесс, зарегистрированный под именем. Ручка находит
--- его по имени, шлёт сообщение и ждёт ответа на собственный inbox.
+-- The shell is an ordinary process registered under a name. A handler finds
+-- it by name, sends a message and waits for the answer on its own inbox.
 --
--- Зачем это ручкам раскладки: композитор читает раскладку не каждый кадр, а
--- по команде. Ручка, изменившая строку и не сказавшая об этом, выглядит не
--- сработавшей — значок появился бы только после перезапуска.
+-- Why the layout handlers need this: the compositor reads the layout not
+-- every frame but on command. A handler that changed a row and did not say
+-- so looks as if it did not work — the icon would appear only after a
+-- restart.
 --
--- Отсюда важное следствие для читателя ответа: «оболочка не отвечает» и
--- «оболочка не запущена» — разные вещи. Вторая нормальна: раскладку можно
--- править и при погашенной оболочке, и называть это отказом нельзя.
+-- Hence an important consequence for whoever reads the answer: "the shell
+-- does not answer" and "the shell is not running" are different things. The
+-- second is normal: the layout can be edited with the shell shut down too,
+-- and that must not be called a refusal.
 
 local channel = require("channel")
 local process = require("process")
@@ -20,13 +22,14 @@ local control = {}
 control.SERVICE_NAME = "butschster.windows.shell"
 
 local REPLY_TOPIC = "desktop.reply"
--- Короче, чем у основы: оболочка на той же машине, а ручка, которая двигает
--- значок, не должна висеть пять секунд из-за занятого композитора.
+-- Shorter than the base's: the shell is on the same machine, and a handler
+-- that moves an icon must not hang for five seconds because of a busy
+-- compositor.
 local BUDGET = "2s"
 
--- Сообщение приезжает обёрнутым: payload — userdata, внутри бывает ещё и
--- массив из одного элемента. Поле, прочитанное напрямую, окажется nil без
--- всякой ошибки.
+-- The message arrives wrapped: payload is userdata, and inside there is
+-- sometimes also an array of one element. A field read directly turns out
+-- nil without any error.
 local function unwrap(value)
     if type(value) == "userdata" then
         local ok, decoded = pcall(function() return value:data() end)
@@ -56,14 +59,14 @@ local function await(budget)
         if message:topic() == REPLY_TOPIC then
             return unwrap(message:payload()), nil
         end
-        -- Чужое сообщение не съедаем: оно адресовано не нам.
+        -- We do not swallow someone else's message: it is not addressed to us.
     end
 end
 
--- call(topic, body) -> (ответ, nil, запущена) | (nil, причина, запущена)
+-- call(topic, body) -> (answer, nil, running) | (nil, reason, running)
 --
--- Третьим значением — была ли оболочка запущена вообще. Ручке раскладки это
--- нужно, чтобы не выдавать погашенную оболочку за отказ.
+-- The third value is whether the shell was running at all. The layout
+-- handler needs it so as not to pass off a shut-down shell as a refusal.
 function control.call(topic, body)
     local pid, lerr = process.registry.lookup(control.SERVICE_NAME)
     if not pid then
@@ -89,9 +92,9 @@ end
 
 -- refresh() -> {refreshed, error}
 --
--- Не отказ и не исключение: раскладка уже записана, и провал перечитывания —
--- отдельный факт, который ручка обязана назвать, не выдавая запись за
--- неудавшуюся. Погашенная оболочка — не ошибка вовсе.
+-- Neither a refusal nor an exception: the layout is already written, and a
+-- failed re-read is a separate fact that the handler must name without
+-- passing off the write as failed. A shut-down shell is not an error at all.
 function control.refresh()
     local answer, err, running = control.call("desktop.refresh", {})
     if answer then return {refreshed = true} end

@@ -1,10 +1,10 @@
--- Проверки формы реестра. Харнесс не ходит в свой роутер, поэтому ручки
--- проверяются как проводка: записи существуют и ссылаются друг на друга.
+-- Registry shape checks. The harness does not go through its own router, so
+-- the handles are checked as wiring: the entries exist and reference each other.
 --
--- Здесь же закреплены инварианты, нарушение которых снаружи выглядит не как
--- ошибка, а как странность: терминальный хост обязан глушить лог, ручки
--- раскладки обязаны НЕ уметь порождать процессы, а ручки на создание
--- программы обязано не быть вовсе.
+-- Pinned here too are invariants whose violation looks from outside not like
+-- an error but like an oddity: the terminal host must silence the log, the
+-- layout handles must NOT be able to spawn processes, and a handle for
+-- creating a program must not exist at all.
 local test = require("test")
 local registry = require("registry")
 local defaults = require("defaults")
@@ -73,34 +73,34 @@ end
 
 local function define_tests()
     test.describe("butschster.windows hosts", function()
-        test.it("глушит лог на своём терминальном хосте", function()
-            -- Без этого строка лога рантайма разъезжает кадр насовсем: диффер
-            -- поверхности считает себя единственным писателем.
+        test.it("silences the log on its own terminal host", function()
+            -- Without this a runtime log line throws the frame out of alignment
+            -- for good: the surface differ considers itself the only writer.
             local terminal = data_of(get(TERMINAL_ID))
             test.eq(terminal.hide_logs, true)
         end)
 
-        test.it("не заводит своего хоста окон", function()
-            -- Окна хостит основа. Второй хост означал бы вторую копию
-            -- механики окон, которая разошлась бы с оригиналом на первой
-            -- правке — и обнаружилось бы это через неделю.
-            -- registry.get на отсутствующую запись отвечает (nil, "entry not
-            -- found"), а не (nil, nil): проверять надо запись, а не отсутствие
-            -- ошибки — иначе тест падает ровно тогда, когда всё правильно.
+        test.it("does not set up a window host of its own", function()
+            -- Windows are hosted by the base. A second host would mean a second
+            -- copy of the window mechanics, which would drift from the original
+            -- at the first edit — and that would come to light a week later.
+            -- registry.get on a missing entry answers (nil, "entry not
+            -- found"), not (nil, nil): check the entry, not the absence of an
+            -- error — otherwise the test fails exactly when everything is right.
             local workers = registry.get("butschster.windows:workers")
-            test.is_nil(workers, "хост окон принадлежит основе")
+            test.is_nil(workers, "the window host belongs to the base")
         end)
     end)
 
     test.describe("butschster.windows explorer", function()
-        test.it("объявляет «Мой компьютер» обычной программой реестра", function()
-            -- Оболочка находит его тем же registry.find, что и всё остальное.
-            -- Особый путь для своего окна означал бы, что окно оболочки
-            -- живёт по другим правилам, чем окно любого другого модуля.
+        test.it("declares \"My Computer\" as an ordinary registry program", function()
+            -- The shell finds it by the same registry.find as everything else.
+            -- A special path for its own window would mean that the shell's
+            -- window lives by different rules than a window of any other module.
             local entry = get(EXPLORER_ID)
             local meta = meta_of(entry)
             test.eq(meta.type, "tui_desktop.window",
-                "без этого типа окно не попадёт ни в меню, ни в каталог")
+                "without this type the window gets into neither the menu nor the catalog")
             test.not_nil(meta.title)
 
             local data = data_of(entry)
@@ -108,30 +108,31 @@ local function define_tests()
             test.eq(data.method, "main")
             for _, needed in ipairs({"channel", "tty", "fs", "registry", "sql"}) do
                 test.is_true(has(data.modules or {}, needed),
-                    "окну нужен модуль " .. needed)
+                    "the window needs the module " .. needed)
             end
         end)
 
-        test.it("просит композитор библиотекой основы, а не своим протоколом", function()
-            -- Имя композитора приезжает окну в контексте процесса. Своя
-            -- константа работала бы только под нашей оболочкой и молча
-            -- промахивалась бы под любой другой — а `open` ответа не ждёт,
-            -- так что промах выглядел бы как успех.
+        test.it("asks the compositor through the base's library, not a protocol of its own", function()
+            -- The compositor's name reaches the window in the process context.
+            -- A constant of our own would work only under our shell and would
+            -- silently miss under any other — and `open` does not wait for an
+            -- answer, so a miss would look like success.
             local imports = data_of(get(EXPLORER_ID)).imports or {}
             test.eq(qualify(imports.desktop, "butschster.windows.explorer"),
                 "butschster.tui_desktop.desktop:window_api")
 
-            -- С процессами окно само не разговаривает: за него это делает
-            -- библиотека, и модуль объявлен у неё. Модуль `process` у окна
-            -- означал бы второй, свой протокол рядом с общим.
+            -- The window does not talk to processes itself: the library does it
+            -- for the window, and the module is declared on the library. A
+            -- `process` module on the window would mean a second protocol of its
+            -- own next to the shared one.
             test.is_false(has(data_of(get(EXPLORER_ID)).modules or {}, "process"),
-                "окно не разговаривает с процессами напрямую")
+                "the window does not talk to processes directly")
         end)
 
-        test.it("рисует общими примитивами темы, а не своей копией", function()
-            -- Своя, чуть другая кнопка означала бы, что внутри окна Windows 95
-            -- живёт другая Windows. Разошлись бы они видом, а не отказом, — то
-            -- есть заметили бы через неделю.
+        test.it("draws with the theme's shared primitives, not a copy of its own", function()
+            -- A button of its own, slightly different, would mean that inside a
+            -- Windows 95 window lives a different Windows. They would diverge in
+            -- look, not in a failure — that is, it would be noticed a week later.
             local imports = data_of(get(EXPLORER_ID)).imports or {}
             test.eq(qualify(imports.render, "butschster.windows.explorer"), RENDER_ID)
             test.eq(qualify(imports.sources, "butschster.windows.explorer"),
@@ -144,92 +145,93 @@ local function define_tests()
                 "butschster.windows.shell:icons")
         end)
 
-        test.it("держит вид окна вне процесса окна", function()
-            -- Полноэкранную программу не проверить кодом возврата, а кадр,
-            -- собираемый внутри процесса, не посмотреть ничем, кроме стенда.
-            -- Отсюда правило: содержимое рисует библиотека, которой нужен
-            -- только tty, — её гоняет пробник без рантайма.
+        test.it("keeps the window's view outside the window's process", function()
+            -- A full-screen program cannot be checked by an exit code, and a
+            -- frame assembled inside the process cannot be looked at by anything
+            -- but the running system. Hence the rule: the content is drawn by a
+            -- library that needs only tty — the probe runs it without a runtime.
             local data = data_of(get(RENDER_ID))
             test.eq(data.kind or get(RENDER_ID).kind, "library.lua")
             for _, forbidden in ipairs({"process", "sql", "registry", "fs"}) do
                 test.is_false(has(data.modules or {}, forbidden),
-                    "виду нечего делать с модулем " .. forbidden)
+                    "the view has no business with the module " .. forbidden)
             end
         end)
 
-        test.it("не даёт окну порождать процессы и запускать программы", function()
-            -- Окно с правом порождать процессы рано или поздно запустит не то,
-            -- чем ему открыли файл. Открыть соседнее окно оно может только
-            -- просьбой к композитору, который решает сам.
+        test.it("does not let the window spawn processes or run programs", function()
+            -- A window with the right to spawn processes will sooner or later
+            -- launch something other than what the file was opened with. It can
+            -- open a neighbouring window only by asking the compositor, which
+            -- decides for itself.
             local actions = actions_of(get(EXPLORER_POLICY_ID))
-            test.is_false(has(actions, "process.spawn"), "порождать процессы окно не может")
+            test.is_false(has(actions, "process.spawn"), "the window cannot spawn processes")
             test.is_false(has(actions, "process.spawn.monitored"))
-            test.is_false(has(actions, "exec.run"), "запускать программы окно не может")
-            test.is_false(has(actions, "registry.apply"), "менять реестр окно не может")
+            test.is_false(has(actions, "exec.run"), "the window cannot run programs")
+            test.is_false(has(actions, "registry.apply"), "the window cannot change the registry")
 
             for _, needed in ipairs({"registry.find", "db.get", "fs.get",
                 "process.send", "process.registry"}) do
-                test.is_true(has(actions, needed), "окну нужно право " .. needed)
+                test.is_true(has(actions, needed), "the window needs the right " .. needed)
             end
         end)
 
-        test.it("ставит на стол ярлыки только на существующие записи", function()
-            -- Ярлык на исчезнувшую программу мебель пропускает МОЛЧА — это
-            -- правильно при первом запуске и невыносимо здесь: переезд
-            -- «Моего компьютера» в другую запись выглядел бы не как ошибка, а
-            -- как пустой стол. Проверяется вся мебель, а не одна строка:
-            -- список, из которого можно забыть добавить проверку, проверяет
-            -- не то, что стоит на столе.
+        test.it("puts shortcuts on the desktop only to existing entries", function()
+            -- The furniture skips a shortcut to a vanished program SILENTLY —
+            -- that is right on the first launch and unbearable here: moving "My
+            -- Computer" to another entry would look not like an error but like
+            -- an empty desktop. All the furniture is checked, not one line: a
+            -- list you can forget to add a check to checks something other than
+            -- what stands on the desktop.
             for _, item in ipairs(defaults.ITEMS) do
                 if item.kind == "shortcut" then
                     test.not_nil(registry.get(item.entry),
-                        "мебель ведёт на " .. tostring(item.entry) ..
-                        " — записи с таким идентификатором нет")
+                        "the furniture points to " .. tostring(item.entry) ..
+                        " — there is no entry with that id")
                 end
             end
         end)
     end)
 
     test.describe("butschster.windows shell", function()
-        test.it("отдаёт оболочку командой windows с собственным актором", function()
+        test.it("serves the shell as the windows command with its own actor", function()
             local entry = get(SHELL_ID)
             local command = meta_of(entry).command or {}
             test.eq(command.name, "windows")
-            test.not_nil(command.security, "команда обязана нести свой контекст безопасности")
+            test.not_nil(command.security, "the command must carry its own security context")
 
             local data = data_of(entry)
             test.eq(data.method, "main")
-            test.is_true(has(data.modules or {}, "tty"), "оболочке нужен модуль tty")
+            test.is_true(has(data.modules or {}, "tty"), "the shell needs the tty module")
         end)
 
-        test.it("зовёт механику основы, а не копирует её", function()
-            -- Ради этого оболочка и вынесена отдельным модулем: она приносит
-            -- вид, каталог и раскладку. Появись здесь свой композитор — он
-            -- разошёлся бы с оригиналом, и сегодняшние находки основы в копию
-            -- не попали бы.
+        test.it("calls the base's mechanics rather than copying them", function()
+            -- This is why the shell is split out into a separate module: it
+            -- brings the look, the catalog and the layout. Were a compositor of
+            -- its own to appear here, it would drift from the original, and
+            -- today's findings in the base would not make it into the copy.
             local imports = data_of(get(SHELL_ID)).imports or {}
             test.eq(qualify(imports.library, "butschster.windows"),
-                "butschster.tui_desktop.desktop:library", "оболочка зовёт композитор основы")
+                "butschster.tui_desktop.desktop:library", "the shell calls the base's compositor")
             test.eq(qualify(imports.catalog, "butschster.windows"), CATALOG_ID)
             test.eq(qualify(imports.seed, "butschster.windows"), SEED_ID)
             test.eq(qualify(imports.view, "butschster.windows"), VIEW_ID)
             test.eq(qualify(imports.repo, "butschster.windows"), REPO_ID)
         end)
 
-        test.it("объявляет зависимость на основу", function()
+        test.it("declares a dependency on the base", function()
             local dep = get("butschster.windows:dep.butschster.tui_desktop")
             test.eq(data_of(dep).component, "butschster/tui-desktop")
         end)
 
-        test.it("несёт миграцию раскладки", function()
+        test.it("carries the layout migration", function()
             local entry = get(MIGRATION_ID)
             test.eq(meta_of(entry).type, "migration")
-            test.not_nil(meta_of(entry).target_db, "миграции нужен ресурс базы")
+            test.not_nil(meta_of(entry).target_db, "the migration needs a database resource")
         end)
     end)
 
     test.describe("butschster.windows handles", function()
-        test.it("сводит каждую ручку с её обработчиком на роутере приложения", function()
+        test.it("wires each handle to its handler on the application router", function()
             for _, expected in ipairs(ENDPOINTS) do
                 get(expected.id)
                 local endpoint = get(expected.id .. ".endpoint")
@@ -242,10 +244,11 @@ local function define_tests()
             get(CONTROL_ID)
         end)
 
-        test.it("не заводит ручки на создание программы", function()
-            -- Программы объявляет реестр: установкой модуля или мастерской
-            -- основы. Своя ручка создания означала бы второй источник истины,
-            -- и разошлись бы они на первом удалении модуля.
+        test.it("does not set up handles for creating a program", function()
+            -- Programs are declared by the registry: by installing a module or
+            -- through the base's workshop. A creation handle of its own would
+            -- mean a second source of truth, and the two would diverge on the
+            -- first removal of a module.
             local found, err = registry.find({[".kind"] = "http.endpoint"})
             test.is_nil(err)
             for _, entry in ipairs(found or {}) do
@@ -254,49 +257,49 @@ local function define_tests()
                 local method = tostring(data.method or "")
                 local creates_program = path == "/windows/programs" and method ~= "GET"
                 test.is_false(creates_program,
-                    "каталог программ доступен только на чтение: " .. method .. " " .. path)
+                    "the program catalog is read-only: " .. method .. " " .. path)
             end
         end)
 
-        test.it("толкает оболочку после изменения раскладки", function()
-            -- Композитор перечитывает раскладку по команде, а не каждый кадр.
-            -- Ручка, изменившая строку и промолчавшая, выглядит не
-            -- сработавшей: значок появился бы только после перезапуска.
+        test.it("nudges the shell after a layout change", function()
+            -- The compositor re-reads the layout on command, not every frame.
+            -- A handle that changed a row and kept quiet looks as if it did not
+            -- work: the icon would appear only after a restart.
             for _, id in ipairs({"butschster.windows.api:create_desktop_item",
                 "butschster.windows.api:update_desktop_item",
                 "butschster.windows.api:delete_desktop_item"}) do
                 local imports = data_of(get(id)).imports or {}
                 test.eq(qualify(imports.control, "butschster.windows.api"), CONTROL_ID,
-                    id .. " обязана уметь толкнуть оболочку")
+                    id .. " must be able to nudge the shell")
             end
         end)
     end)
 
     test.describe("butschster.windows policies", function()
-        test.it("не даёт ручкам раскладки порождать процессы", function()
+        test.it("does not let the layout handles spawn processes", function()
             local actions = actions_of(get(STORAGE_POLICY_ID))
-            test.is_true(has(actions, "db.get"), "ручке нужен доступ к базе как действие db.get")
-            test.is_true(has(actions, "registry.find"), "и чтение каталога из реестра")
-            test.is_true(has(actions, "process.send"), "и право толкнуть оболочку")
-            test.is_false(has(actions, "process.spawn"), "порождать процессы ручка не может")
-            test.is_false(has(actions, "exec.run"), "запускать программы ручка не может")
-            test.is_false(has(actions, "registry.apply"), "менять реестр ручка не может")
+            test.is_true(has(actions, "db.get"), "the handle needs database access as the db.get action")
+            test.is_true(has(actions, "registry.find"), "and reading the catalog from the registry")
+            test.is_true(has(actions, "process.send"), "and the right to nudge the shell")
+            test.is_false(has(actions, "process.spawn"), "the handle cannot spawn processes")
+            test.is_false(has(actions, "exec.run"), "the handle cannot run programs")
+            test.is_false(has(actions, "registry.apply"), "the handle cannot change the registry")
         end)
 
-        test.it("даёт оболочке вернуть окна мастерской в реестр", function()
-            -- Оболочка часто поднимается одна. Без registry.apply её меню
-            -- показало бы каталог без окон мастерской и не объяснило бы,
-            -- почему их нет.
+        test.it("lets the shell return workshop windows to the registry", function()
+            -- The shell often comes up alone. Without registry.apply its menu
+            -- would show the catalog without the workshop windows and would not
+            -- explain why they are missing.
             local actions = actions_of(get(RUNTIME_POLICY_ID))
             test.is_true(has(actions, "registry.apply"),
-                "без registry.apply окна мастерской не появятся во второй оболочке")
+                "without registry.apply workshop windows will not appear in the second shell")
             for _, needed in ipairs({"process.spawn.monitored", "process.terminate",
                 "process.registry.register", "exec.get", "exec.run", "db.get"}) do
-                test.is_true(has(actions, needed), "оболочке нужно право " .. needed)
+                test.is_true(has(actions, needed), "the shell needs the right " .. needed)
             end
         end)
 
-        test.it("закрывает ручки политикой, которую внедряет приложение", function()
+        test.it("closes the handles with a policy the application injects", function()
             local policy = data_of(get(ACCESS_POLICY_ID))
             local resources = policy.policy and policy.policy.resources
             test.not_nil(resources, "policy must list resources")
@@ -307,24 +310,24 @@ local function define_tests()
     end)
 
     test.describe("butschster.windows declared modules have rights", function()
-        test.it("не объявляет модуля, права на который не выдано", function()
-            -- ОБЪЯВЛЕННЫЙ МОДУЛЬ БЕЗ ВЫДАННОГО ПРАВА ВЫГЛЯДИТ КАК МОДУЛЬ,
-            -- КОТОРОМУ НЕЧЕГО СКАЗАТЬ.
+        test.it("declares no module whose right has not been granted", function()
+            -- A DECLARED MODULE WITHOUT A GRANTED RIGHT LOOKS LIKE A MODULE
+            -- THAT HAS NOTHING TO SAY.
             --
-            -- Так пропала целая просьба человека: `modules: [env]` у оболочки
-            -- был, действия `env.get` в политике не было, и `env.get_all`
-            -- отдавал ПУСТУЮ таблицу — он кладёт в неё только разрешённые
-            -- ключи и на отказ не жалуется вовсе. Снаружи это выглядело как
-            -- «человек не просил пиксельного режима».
+            -- That is how a whole request from a person got lost: the shell had
+            -- `modules: [env]`, the policy had no `env.get` action, and
+            -- `env.get_all` returned an EMPTY table — it puts only the permitted
+            -- keys into it and does not complain about a refusal at all. From
+            -- outside this looked like "the person did not ask for pixel mode".
             --
-            -- Проверяется правилом, а не списком: список пришлось бы
-            -- дополнять при каждой новой записи, и его забыли бы ровно на той,
-            -- где это важно.
+            -- Checked by a rule, not a list: a list would have to be extended
+            -- with every new entry, and it would be forgotten exactly on the one
+            -- where it matters.
             local gated = {
                 env = {"env.get"},
                 fs = {"fs.get"},
                 sql = {"db.get"},
-                gfx = {},          -- рисование правами не закрыто
+                gfx = {},          -- drawing is not gated by rights
                 registry = {"registry.get", "registry.find", "registry.entry"},
             }
 
@@ -352,13 +355,13 @@ local function define_tests()
                             if granted[action] then ok = true end
                         end
                         checked = checked + 1
-                        test.is_true(ok, id .. " объявляет модуль " .. module
-                            .. ", но права на него не выдано — он будет молчать, а не отказывать")
+                        test.is_true(ok, id .. " declares the module " .. module
+                            .. ", but no right to it was granted — it will stay silent rather than refuse")
                     end
                 end
             end
 
-            test.is_true(checked > 0, "проверка обязана хоть что-то проверить")
+            test.is_true(checked > 0, "the check must check at least something")
         end)
     end)
 end

@@ -1,9 +1,10 @@
--- Кнопки заголовка окна.
+-- Window title buttons.
 --
--- Проверяется одно правило и его следствия: НАРИСОВАНО и НАЖИМАЕТСЯ обязано
--- быть одним и тем же. Разъехавшись, они дают кнопку на ячейку левее, чем
--- выглядит, — или, хуже, кнопку, которая нарисована и молча не работает.
--- Ни то, ни другое не выглядит ошибкой: выглядит, что «клик не сработал».
+-- One rule and its consequences are checked: what is DRAWN and what is
+-- PRESSED must be one and the same. Drifted apart, they give a button one
+-- cell to the left of where it looks — or, worse, a button that is drawn and
+-- silently does not work. Neither looks like an error: it looks like "the
+-- click did not work".
 local test = require("test")
 local catalog = require("catalog")
 local chrome = require("chrome")
@@ -14,8 +15,9 @@ local fs = require("fs")
 local gfx = require("gfx")
 local desktop_pixels = require("desktop_pixels")
 
--- Что реально нарисовано в строке заголовка. Стиль вырезается: нас
--- интересуют символы и их места, а цвет проверяет пробник.
+-- What is actually drawn in the title row. The style is cut out: we care
+-- about the characters and their places, and the color is checked by the
+-- probe.
 local function visible(row)
     local out, i = {}, 1
     local stack = 0
@@ -45,10 +47,10 @@ local function glyphs_of(set)
     return out
 end
 
--- Какие кнопки НАРИСОВАНЫ в заголовке окна такого типа.
+-- Which buttons are DRAWN in the title of a window of this type.
 local function drawn_buttons(window_type)
     local canvas = tty.canvas(40, 8)
-    local window = {x = 1, y = 1, w = 40, h = 8, title = "Окно",
+    local window = {x = 1, y = 1, w = 40, h = 8, title = "Window",
                     window_type = window_type, rows = {}}
     chrome.window(canvas, window, true)
 
@@ -123,14 +125,14 @@ local function define_tests()
                         end
                         test.is_nil(chrome_pixels.title_button_at(window, button.from, window.y + top))
                     end
-                    -- Слитная пара, отдельная «закрыть» в двух синих пикселях от рамки.
+                    -- A joined pair, a separate "close" two blue pixels from the frame.
                     local bw = caption - 2
                     test.eq(buttons[1].rect.w, bw)
                     test.eq(buttons[2].rect.w, bw)
                     test.eq(buttons[2].rect.x, buttons[1].rect.x + bw, "minimize and maximize touch")
                     test.is_true(buttons[3].rect.w >= bw - 2 and buttons[3].rect.w <= bw)
-                    -- Просвет до «закрыть» — два пикселя плюс то, что пара не
-                    -- добрала до целых ячеек (12 px в двух ячейках по 10 — восемь).
+                    -- The gap before "close" is two pixels plus what the pair
+                    -- fell short of whole cells (12 px in two cells of 10 — eight).
                     local gap = buttons[3].rect.x - buttons[2].rect.x - bw
                     test.is_true(gap >= 2 and gap <= 2 + 2 * cw - bw + 2, "close stands apart by the cell slack")
                     local last = buttons[3].rect
@@ -162,7 +164,7 @@ local function define_tests()
         test.it("keeps shutdown with its icon on a short screen", function()
             local programs = {}
             for index = 1, 30 do
-                programs[index] = {entry = "app:p" .. index, title = "Программа " .. index,
+                programs[index] = {entry = "app:p" .. index, title = "Program " .. index,
                     in_menu = true, order = index}
             end
             local items = catalog.menu_items(programs)
@@ -200,7 +202,7 @@ local function define_tests()
     end)
 
     test.describe("butschster.windows title buttons", function()
-        test.it("пиксельные кнопки имеют отдельные ячейки и выполняют объявленное действие", function()
+        test.it("pixel buttons have separate cells and perform the declared action", function()
             for _, size in ipairs({{10, 20}, {8, 16}}) do
                 chrome_pixels.use_cell_size(size[1], size[2])
                 for _, kind in ipairs({"app", "dialog", "tool"}) do
@@ -211,7 +213,7 @@ local function define_tests()
                     for _, button in ipairs(buttons) do
                         test.is_true(button.to - button.from + 1 >= 2)
                         for x = button.from, button.to do
-                            test.is_nil(occupied[x], "две кнопки делят одну ячейку")
+                            test.is_nil(occupied[x], "two buttons share one cell")
                             occupied[x] = true
                             test.eq(chrome_pixels.title_button_at(window, x, button.row), button.id)
                         end
@@ -222,12 +224,12 @@ local function define_tests()
             chrome_pixels.use_cell_size(10, 20)
         end)
 
-        test.it("пиксельная рамка и значок за передним окном обрезаются и не перерисовываются без изменений", function()
+        test.it("the pixel frame and the icon behind the front window are cropped and not repainted without changes", function()
             local state = {width = 80, height = 24, bottom = 23, clock = "12:00", items = {
                 {id = "icon", x = 2, y = 4, kind = "folder", title = "Folder"},
             }, windows = {
-                {id = "back", x = 4, y = 3, w = 32, h = 14, title = "Сзади"},
-                {id = "front", x = 20, y = 4, w = 25, h = 12, title = "Спереди"},
+                {id = "back", x = 4, y = 3, w = 32, h = 14, title = "Back"},
+                {id = "front", x = 20, y = 4, w = 25, h = 12, title = "Front"},
             }, focused_id = "front"}
             local first = chrome_pixels.paint(state, 10, 20)
             local stored = {}
@@ -238,10 +240,10 @@ local function define_tests()
                 if item.id:find("win:back", 1, true) == 1 or item.id:find("desk:", 1, true) == 1 then
                     test.is_true(item.x + item.cols <= 20 or item.x >= 45
                         or item.y + item.rows <= 4 or item.y >= 16,
-                        "нижнее размещение накрыло переднее окно: " .. item.id)
+                        "a lower placement covered the front window: " .. item.id)
                 end
             end
-            test.is_true(cropped, "сцена должна проверить частичное перекрытие")
+            test.is_true(cropped, "the scene must check a partial overlap")
             local again = chrome_pixels.paint(state, 10, 20)
             test.eq(#again.placements, #first.placements)
             for _, item in ipairs(again.placements) do
@@ -250,13 +252,13 @@ local function define_tests()
             end
         end)
 
-        test.it("панель и высокие пункты меню нажимаются по всей нарисованной высоте", function()
+        test.it("the taskbar and tall menu items are pressable over their whole drawn height", function()
             for _, cell in ipairs({{10, 20}, {12, 23}, {8, 16}}) do
                 chrome_pixels.use_cell_size(cell[1], cell[2])
                 local layout = chrome_pixels.layout(100, 30)
                 local state = {width = 100, height = 30, bottom = 30 - layout.bottom,
                     clock = "12:00", windows = {}, items = {},
-                    menu = {items = {{entry = "app:test", title = "Программа", group = {"Programs"}}}, cursor = 1}}
+                    menu = {items = {{entry = "app:test", title = "Program", group = {"Programs"}}}, cursor = 1}}
                 local painted = chrome_pixels.paint(state, cell[1], cell[2])
                 local bar, menu = nil, nil
                 for _, image in ipairs(painted.placements) do
@@ -265,113 +267,115 @@ local function define_tests()
                 end
                 test.not_nil(bar)
                 test.not_nil(menu)
-                test.is_true(bar.rows * cell[2] >= 28, "панель не должна сжиматься в тонкую полоску")
+                test.is_true(bar.rows * cell[2] >= 28, "the taskbar must not shrink into a thin strip")
                 test.eq(bar.y, state.bottom + 1)
                 test.eq(bar.y + bar.rows - 1, state.height)
-                test.eq(menu.y + menu.rows, bar.y, "меню стоит непосредственно над панелью")
+                test.eq(menu.y + menu.rows, bar.y, "the menu stands directly above the taskbar")
                 local start = painted.hits.bars[1]
                 test.eq(start.row, bar.y)
                 test.eq(start.bottom_row, state.height)
-                test.eq(#painted.hits.menu, 1, "один пункт остаётся одним шагом клавиатуры")
+                test.eq(#painted.hits.menu, 1, "one item stays one keyboard step")
                 local choice = painted.hits.menu[1]
                 test.eq(choice.row, menu.y)
                 test.eq(choice.bottom_row, menu.y + menu.rows - 1)
                 state.menu.open = {"Programs"}
                 local expanded = chrome_pixels.paint(state, cell[1], cell[2])
-                test.eq(#expanded.hits.menu, 2, "папка и программа — два логических попадания")
+                test.eq(#expanded.hits.menu, 2, "a folder and a program are two logical hits")
                 local child = expanded.hits.menu[2]
                 test.is_true((child.bottom_row - child.row + 1) * cell[2] >= 24,
-                    "подменю сохраняет отступы, а не возвращается к тесной строке")
+                    "the submenu keeps its padding and does not go back to a cramped row")
 
             end
         end)
 
-        test.it("закрытый и открытый Пуск дают разные кадры панели задач", function()
+        test.it("closed and open Start give different taskbar frames", function()
             local state = {width = 80, height = 24, bottom = 23, clock = "12:00", windows = {}, items = {}}
             local first = chrome_pixels.paint(state, 10, 20)
             local bar = first.placements[1].raster
             local before = bar:version()
-            state.menu = {items = {{entry = "app:test", title = "Программа"}}, cursor = 1}
+            state.menu = {items = {{entry = "app:test", title = "Program"}}, cursor = 1}
             local after = chrome_pixels.paint(state, 10, 20)
-            test.is_true(bar:version() > before, "Пуск должен стать нажатым")
+            test.is_true(bar:version() > before, "Start must become pressed")
             test.eq(after.hits.bars[1].action, "menu")
         end)
 
-        test.it("даёт каждому типу окна свой состав кнопок", function()
-            -- Три типа объявлены основой; тема выбирает по ним состав, а не
-            -- выводит его из чего-то ещё.
+        test.it("gives each window type its own set of buttons", function()
+            -- The three types are declared by the base; the theme picks the
+            -- set by them, and does not derive it from anything else.
             test.eq(#chrome.buttons_for({window_type = "app"}), 3)
             test.eq(#chrome.buttons_for({window_type = "dialog"}), 2,
-                "диалог не сворачивают и не разворачивают")
+                "a dialog is neither minimized nor maximized")
             test.eq(#chrome.buttons_for({window_type = "tool"}), 1,
-                "служебное окно только закрывают")
+                "a tool window is only closed")
         end)
 
-        test.it("считает неизвестный и неназванный тип обычным окном", function()
-            -- Опечатка в объявлении не повод не нарисовать окно, а решает,
-            -- что делать с неизвестным типом, основа — тема лишь не спорит.
+        test.it("treats an unknown and an unnamed type as an ordinary window", function()
+            -- A typo in the declaration is no reason not to draw the window,
+            -- and what to do with an unknown type is decided by the base —
+            -- the theme merely does not argue.
             test.eq(#chrome.buttons_for({}), 3)
             test.eq(#chrome.buttons_for({window_type = "popup"}), 3)
             test.eq(#chrome.buttons_for(nil), 3)
         end)
 
-        test.it("нажимается ровно то, что нарисовано", function()
-            -- Главное здесь. У диалога рисовалось три кнопки, а нажималось
-            -- две: рисование брало свой набор, попадание — свой.
+        test.it("exactly what is drawn is what gets pressed", function()
+            -- The main thing here. A dialog had three buttons drawn and two
+            -- pressable: the painting took its own set, the hit its own.
             for _, window_type in ipairs({"app", "dialog", "tool"}) do
                 local found, set, window = drawn_buttons(window_type)
 
                 test.eq(#found and true, true)
                 for _, button in ipairs(set) do
                     local at = found[button.glyph]
-                    test.not_nil(at, window_type .. ": кнопка " .. button.id .. " не нарисована")
+                    test.not_nil(at, window_type .. ": button " .. button.id .. " is not drawn")
                     test.eq(chrome.title_button_at(window, at, window.y + 1), button.id,
-                        window_type .. ": под кнопкой " .. button.id .. " попадание другое")
+                        window_type .. ": under button " .. button.id .. " the hit is a different one")
                 end
             end
         end)
 
-        test.it("не рисует диалогу кнопок, которых у него нет", function()
-            -- Нарисованная кнопка, которая молча не работает, хуже её
-            -- отсутствия: первое, что о ней спросят, — почему она не
-            -- работает.
+        test.it("does not draw buttons on a dialog that it does not have", function()
+            -- A drawn button that silently does not work is worse than its
+            -- absence: the first thing anyone will ask about it is why it
+            -- does not work.
             local found = drawn_buttons("dialog")
             for _, button in ipairs(chrome.BUTTONS) do
                 if button.id == "minimize" or button.id == "maximize" then
                     test.is_nil(found[button.glyph],
-                        "у диалога нет кнопки " .. button.id)
+                        "a dialog has no button " .. button.id)
                 end
             end
         end)
 
-        test.it("не рисует в меню цифровых сокращений", function()
-            -- Их не было в Windows 95, и человек, открывающий программы
-            -- мышью, читает колонку цифр как вопрос «а зачем они». Завелись
-            -- они не от замысла, а от инструмента: пробник не умел мышь.
+        test.it("draws no digit shortcuts in the menu", function()
+            -- Windows 95 did not have them, and a person opening programs
+            -- with the mouse reads a column of digits as the question "what
+            -- are they for". They appeared not by design but because of a
+            -- tool: the probe could not do the mouse.
             local canvas = tty.canvas(60, 20)
             chrome.menu(canvas, 60, 20, {
-                {entry = "app:calc", title = "Калькулятор", icon = "▣"},
-                {entry = "app:notepad", title = "Блокнот"},
-                {entry = "app:paint", title = "Редактор"},
+                {entry = "app:calc", title = "Calculator", icon = "▣"},
+                {entry = "app:notepad", title = "Notepad"},
+                {entry = "app:paint", title = "Editor"},
             }, nil, {})
 
             local rows = canvas:rows()
             for index = 1, 20 do
                 local line = table.concat(visible(rows[index] or ""))
                 test.is_true(line:find("%d") == nil or line:find("21:") ~= nil,
-                    "строка " .. index .. " меню несёт цифру: " .. line)
+                    "menu row " .. index .. " carries a digit: " .. line)
             end
         end)
 
-        test.it("подсвечивает ту строку меню, которую откроет Enter", function()
-            -- Композитор не считает заново, что сейчас выбрано, а читает то,
-            -- что НАРИСОВАНО: второй счёт разъехался бы с первым, и Enter
-            -- открывал бы не ту строку, которая подсвечена.
+        test.it("highlights the menu row that Enter will open", function()
+            -- The compositor does not recompute what is selected now, but
+            -- reads what is DRAWN: a second count would drift from the first,
+            -- and Enter would open a row other than the highlighted one.
             local canvas = tty.canvas(60, 20)
             local hits = chrome.menu(canvas, 60, 20, {
-                {entry = "app:calc", title = "Калькулятор", icon = "▣"},
-                {entry = "app:notepad", title = "Блокнот"},
-                {entry = "app:ping", title = "Пинг", group = "Служебные"},
+                {entry = "app:calc", title = "Calculator", icon = "▣"},
+                {entry = "app:notepad", title = "Notepad"},
+                {entry = "app:ping", title = "Ping", group = "System Tools"},
             }, nil, {}, 2)
 
             local under = nil
@@ -379,30 +383,31 @@ local function define_tests()
             for _, hit in ipairs(hits) do
                 if hit.cursor then marked = marked + 1; under = hit end
             end
-            test.eq(marked, 1, "подсвечена ровно одна строка")
-            test.eq(under.slot, 2, "вторая выбираемая строка панели")
+            test.eq(marked, 1, "exactly one row is highlighted")
+            test.eq(under.slot, 2, "the second selectable row of the panel")
             test.eq(under.level, 1)
         end)
 
-        test.it("не подсвечивает ничего, когда курсора нет", function()
-            -- Мышь курсора не заводит: подсвеченная строка при работе мышью
-            -- обещала бы, что Enter что-то откроет, а его никто не нажимал.
+        test.it("highlights nothing when there is no cursor", function()
+            -- The mouse does not set up a cursor: a highlighted row while
+            -- working with the mouse would promise that Enter opens
+            -- something, and nobody pressed it.
             local canvas = tty.canvas(60, 20)
             local hits = chrome.menu(canvas, 60, 20, {
-                {entry = "app:calc", title = "Калькулятор"},
+                {entry = "app:calc", title = "Calculator"},
             }, nil, {})
             for _, hit in ipairs(hits) do
                 test.is_nil(hit.cursor)
             end
         end)
 
-        test.it("считает выбираемые строки, а не все подряд", function()
-            -- Подсказки и обрезка «…ещё N» тоже занимают строки, а выбирать
-            -- их нельзя: считай их — и курсор вставал бы на строку, которую
-            -- нечем открыть.
+        test.it("counts selectable rows, not all of them", function()
+            -- Hints and the "…N more" clipping also take up rows, and they
+            -- cannot be selected: count them, and the cursor would land on a
+            -- row with nothing to open.
             local many = {}
             for index = 1, 40 do
-                many[index] = {entry = "app:p" .. index, title = "Программа " .. index}
+                many[index] = {entry = "app:p" .. index, title = "Program " .. index}
             end
             local canvas = tty.canvas(60, 12)
             local hits = chrome.menu(canvas, 60, 12, many, nil, {}, 1)
@@ -410,77 +415,77 @@ local function define_tests()
             local slots = {}
             for _, hit in ipairs(hits) do slots[#slots + 1] = hit.slot end
             for index, slot in ipairs(slots) do
-                test.eq(slot, index, "номера выбираемых строк идут подряд с единицы")
+                test.eq(slot, index, "the numbers of selectable rows run in a row from one")
             end
         end)
 
-        test.it("уступает место имени, когда кнопки не помещаются", function()
-            -- Заголовок без имени не говорит, какое это окно, а закрыть его
-            -- можно и с панели задач.
-            local narrow = {x = 1, y = 1, w = 10, h = 6, title = "Окно",
+        test.it("gives way to the name when the buttons do not fit", function()
+            -- A title without a name does not say which window this is, and
+            -- it can also be closed from the taskbar.
+            local narrow = {x = 1, y = 1, w = 10, h = 6, title = "Window",
                             window_type = "app", rows = {}}
             test.is_nil(chrome.title_button_at(narrow, 8, 2),
-                "кнопки не нарисованы — значит и попадания нет")
+                "the buttons are not drawn — so there is no hit either")
         end)
 
-        test.it("заливает стол и лицо панели задач в обоих режимах", function()
-            -- ФУНКЦИЯ, КОТОРУЮ НЕ ЗОВУТ, ЗЕЛЁНАЯ В ЛЮБОМ НАБОРЕ.
+        test.it("fills the desktop and the taskbar face in both modes", function()
+            -- A FUNCTION THAT NOBODY CALLS IS GREEN IN ANY SUITE.
             --
-            -- `chrome_pixels.fill` была написана и не вызывалась ничем:
-            -- композитор в пиксельном режиме её пропускал. В первый же живой
-            -- запуск она упала на `widgets.styles.desktop`, которого не
-            -- существовало, — стиль стола лежал во второй, почти такой же
-            -- таблице у темы. Две таблицы одного и того же расходятся ровно
-            -- на тех ключах, которые редко нужны обеим.
+            -- `chrome_pixels.fill` was written and called by nothing: the
+            -- compositor skipped it in pixel mode. In the very first live run
+            -- it crashed on `widgets.styles.desktop`, which did not exist —
+            -- the desktop style lay in a second, almost identical table in
+            -- the theme. Two tables of one and the same thing drift apart
+            -- exactly on the keys both of them rarely need.
             --
-            -- Поэтому здесь зовутся ОБЕ заливки: их не должно быть возможно
-            -- сломать по отдельности.
+            -- So BOTH fills are called here: it must not be possible to
+            -- break them separately.
             for _, theme in ipairs({chrome, chrome_pixels}) do
                 local canvas = tty.canvas(40, 10)
                 local hits = (theme :: any).fill(canvas, 40, 10, {top = 1, bottom = 9, items = {}})
-                test.not_nil(hits, "заливка обязана вернуть разметку, пусть и пустую")
+                test.not_nil(hits, "the fill must return a hit map, even an empty one")
 
                 local rows = canvas:rows()
                 test.eq(#rows, 10)
-                test.is_true(#tostring(rows[1]) > 0, "стол обязан быть закрашен")
-                test.is_true(#tostring(rows[10]) > 0, "лицо панели задач обязано быть закрашено")
+                test.is_true(#tostring(rows[1]) > 0, "the desktop must be painted")
+                test.is_true(#tostring(rows[10]) > 0, "the taskbar face must be painted")
             end
         end)
 
-        test.it("держит стили в одной таблице, а не в двух похожих", function()
-            -- Ключ, живущий у одной темы и отсутствующий у другой, — это
-            -- отказ на живом стенде, а не расхождение вида. Проверяется
-            -- тождеством таблицы: две копии рано или поздно разойдутся, одна
-            -- разойтись не может.
+        test.it("keeps the styles in one table, not in two similar ones", function()
+            -- A key that lives in one theme and is missing from the other is
+            -- a failure on the running system, not a difference in look. It
+            -- is checked by the identity of the table: two copies will sooner
+            -- or later drift apart, one cannot.
             local widgets_styles = require("widgets").styles
             for _, name in ipairs({"desktop", "desktop_text", "desktop_broken",
                                    "title", "title_idle", "banner", "face", "select"}) do
                 test.not_nil(widgets_styles[name],
-                    "стиль " .. name .. " обязан быть в общей таблице")
+                    "style " .. name .. " must be in the shared table")
             end
         end)
 
-        test.it("строки корня идут по order, программа может стоять над папкой, separator_after отделяет следующую", function()
-            -- Как в Windows: «Мой компьютер» сверху, под ним черта, потом
-            -- папки. Папка стоит там, где её самая ранняя программа.
+        test.it("root rows go by order, a program can stand above a folder, separator_after separates the next one", function()
+            -- As in Windows: "My Computer" on top, a line under it, then the
+            -- folders. A folder stands where its earliest program is.
             local items = {
-                {entry = "app:calc", title = "Калькулятор", group = {"Programs"}, order = 20},
+                {entry = "app:calc", title = "Calculator", group = {"Programs"}, order = 20},
                 {entry = "app:reg", title = "Registry", group = {"Settings"}, order = 110},
                 {entry = "app:mycomp", title = "My Computer", group = {}, order = 5, separator_after = true},
-                {entry = "app:run", title = "Выполнить…", group = {}, order = 900},
+                {entry = "app:run", title = "Run…", group = {}, order = 900},
             }
             local shown = chrome.menu_layout(90, 24, items, nil, {})
             local lines = shown.panels[1].lines
             test.eq(lines[1].label, "My Computer")
             test.eq(lines[2].label, "Programs")
             test.eq(lines[3].label, "Settings")
-            test.eq(lines[4].label, "Выполнить…")
-            test.is_true(lines[2].separator_before == true, "черта под «Моим компьютером» — у следующей строки")
+            test.eq(lines[4].label, "Run…")
+            test.is_true(lines[2].separator_before == true, "the line under 'My Computer' belongs to the next row")
             test.is_nil(lines[1].separator_before)
             test.is_nil(lines[3].separator_before)
         end)
 
-        test.it("вошедший пользователь — первой строкой корня, со значком, без попадания и без slot", function()
+        test.it("the logged-on user is the first root row, with an icon, without a hit and without a slot", function()
             local items = {
                 {entry = "app:mycomp", title = "My Computer", group = {}, order = 5, separator_after = true},
                 {entry = "app:calc", title = "Calculator", group = {"Programs"}, order = 20},
@@ -491,36 +496,36 @@ local function define_tests()
             test.eq(lines[1].kind, "user")
             test.eq(lines[1].label, "butschster")
             test.eq(lines[1].image, "user")
-            test.is_true(lines[1].bold == true, "имя набрано жирным, как заголовок")
-            test.is_true(not lines[1].dim, "имя не приглушено")
-            test.is_true(lines[2].separator_before == true, "черта под именем — у следующей строки")
+            test.is_true(lines[1].bold == true, "the name is set in bold, like a caption")
+            test.is_true(not lines[1].dim, "the name is not dimmed")
+            test.is_true(lines[2].separator_before == true, "the line under the name belongs to the next row")
             test.eq(lines[2].label, "My Computer")
-            -- Строка не выбирается: попаданий на её ряду нет, а курсор 1 —
-            -- это по-прежнему первая ПРОГРАММА.
+            -- The row is not selectable: there are no hits on its row, and
+            -- cursor 1 is still the first PROGRAM.
             for _, hit in ipairs(shown.hits) do
-                test.is_true(hit.row ~= lines[1].row, "на строке пользователя не должно быть попадания")
+                test.is_true(hit.row ~= lines[1].row, "there must be no hit on the user row")
             end
             test.eq(shown.hits[1].row, lines[2].row)
             test.is_true(shown.hits[1].cursor == true)
             test.eq(shown.hits[1].slot, 1)
-            -- В подменю имени нет.
+            -- There is no name in a submenu.
             local opened = chrome.menu_layout(90, 24, items, nil, {"Programs"}, 1, {user = {name = "butschster"}})
             test.eq(opened.panels[2].lines[1].kind, "item")
-            -- Без пользователя строки нет вовсе; пустое имя — то же самое.
+            -- Without a user there is no row at all; an empty name is the same.
             test.eq(chrome.menu_layout(90, 24, items, nil, {}).panels[1].lines[1].label, "My Computer")
             test.eq(chrome.menu_layout(90, 24, items, nil, {}, 1, {user = {name = ""}}).panels[1].lines[1].label, "My Computer")
-            -- Контекстное меню у якоря имени не показывает.
+            -- The context menu at the anchor does not show the name.
             local context = chrome.menu_layout(90, 24, {{entry = "app:x", label = "Open"}}, nil, {}, 1,
                 {anchor = {x = 5, y = 5}, user = {name = "butschster"}})
             test.eq(context.panels[1].lines[1].label, "Open")
         end)
 
-        test.it("chrome.use_user поднимает имя в общую сессию и снимает его", function()
+        test.it("chrome.use_user raises the name into the shared session and clears it", function()
             local items = {{entry = "app:run", title = "Run…", group = {}, order = 900}}
             chrome.use_user({id = "u1", name = "butschster"})
             test.eq(chrome.session.user.name, "butschster")
             test.eq(chrome.session.user.id, "u1")
-            -- Обе темы передают в раскладку ровно эту таблицу.
+            -- Both themes pass exactly this table into the layout.
             local shown = chrome.menu_layout(90, 24, items, nil, {}, 1, {user = chrome.session.user})
             test.eq(shown.panels[1].lines[1].kind, "user")
             chrome.use_user(nil)
@@ -531,7 +536,7 @@ local function define_tests()
             test.is_nil(chrome.session.user)
         end)
 
-        test.it("в пикселях мерка получает уровень и вид, а попадания покрывают панель целиком", function()
+        test.it("in pixels the measure gets the level and the kind, and the hits cover the whole panel", function()
             local items = {
                 {entry = "app:calc", title = "Calculator", group = {"Programs"}, order = 20},
                 {entry = "app:run", title = "Run…", group = {}, order = 900},
@@ -545,19 +550,19 @@ local function define_tests()
                 {compact = true, bottom = 2, measure = measure})
             local levels, kinds = {}, {}
             for _, call in ipairs(seen) do levels[call.level] = true; kinds[call.kind] = true end
-            test.is_true(levels[1] and levels[2], "мерка видела корень и подменю")
-            test.is_true(kinds.group and kinds.item, "мерка видела папку и программу")
+            test.is_true(levels[1] and levels[2], "the measure saw the root and the submenu")
+            test.is_true(kinds.group and kinds.item, "the measure saw a folder and a program")
             for _, hit in ipairs(shown.hits) do
                 local panel = shown.panels[hit.level]
-                test.eq(hit.from, panel.x + panel.banner, "попадание от первой ячейки списка")
-                test.eq(hit.to, panel.x + panel.w - 1, "попадание до последней ячейки панели")
+                test.eq(hit.from, panel.x + panel.banner, "the hit starts at the first cell of the list")
+                test.eq(hit.to, panel.x + panel.w - 1, "the hit ends at the last cell of the panel")
             end
-            -- В ячейках крайние ячейки — рамка, и они не попадание.
+            -- In cells the outermost cells are the frame, and they are not a hit.
             local cells_mode = chrome.menu_layout(90, 24, items, nil, {})
             local first = cells_mode.hits[1]
             test.eq(first.from, cells_mode.panels[1].x + 1 + cells_mode.panels[1].banner)
             test.eq(first.to, cells_mode.panels[1].x + cells_mode.panels[1].w - 2)
-            -- Контекстное меню меряется уровнем 0.
+            -- The context menu is measured with level 0.
             seen = {}
             chrome.menu_layout(90, 24, {{entry = "app:x", label = "Open"}}, nil, {}, 1,
                 {anchor = {x = 5, y = 5}, compact = true, measure = measure})
@@ -565,9 +570,9 @@ local function define_tests()
             test.eq(seen[1].kind, "context")
         end)
 
-        test.it("контекстное меню значка — одна панель у якоря, без папок и банера, внутри экрана", function()
+        test.it("an icon's context menu is one panel at the anchor, without folders and banner, inside the screen", function()
             local items = {
-                {label = "Открыть", bold = true, entry = "app:mycomp", title = "My Computer"},
+                {label = "Open", bold = true, entry = "app:mycomp", title = "My Computer"},
                 {label = "Properties", entry = "app:sysprops", separator_before = true},
             }
             local shown = chrome.menu_layout(90, 24, items, nil, {}, 2, {anchor = {x = 10, y = 5}})
@@ -575,55 +580,56 @@ local function define_tests()
             local panel = shown.panels[1]
             test.eq(panel.x, 10)
             test.eq(panel.y, 5)
-            test.eq(panel.banner, 0, "у контекстного меню нет банера")
+            test.eq(panel.banner, 0, "the context menu has no banner")
             test.is_true(panel.context == true)
             test.eq(#panel.lines, 2)
-            test.eq(panel.lines[1].label, "Открыть", "подпись — label, а не title окна")
-            test.is_true(panel.lines[1].bold == true, "действие по умолчанию жирное")
+            test.eq(panel.lines[1].label, "Open", "the caption is label, not the window title")
+            test.is_true(panel.lines[1].bold == true, "the default action is bold")
             test.is_true(panel.lines[2].separator_before == true)
-            test.is_true(panel.lines[2].selected == true, "курсор 2 выделяет вторую строку")
+            test.is_true(panel.lines[2].selected == true, "cursor 2 highlights the second row")
             test.eq(#shown.hits, 2)
             test.eq(shown.hits[2].index, 2)
             test.eq(shown.hits[2].slot, 2)
             test.eq(shown.hits[2].cursor, true)
             test.is_true(shown.hits[1].from > panel.x and shown.hits[1].to < panel.x + panel.w)
 
-            -- У края экрана панель сдвигается внутрь, а не режется.
+            -- At the screen edge the panel shifts inwards, it is not cut.
             local edge = chrome.menu_layout(90, 24, items, nil, {}, 1, {anchor = {x = 88, y = 23}})
             local box = edge.panels[1]
-            test.is_true(box.x + box.w - 1 <= 90, "панель не выходит за правый край")
-            test.is_true(box.y + box.h - 1 <= 23, "панель не ложится на панель задач")
+            test.is_true(box.x + box.w - 1 <= 90, "the panel does not go past the right edge")
+            test.is_true(box.y + box.h - 1 <= 23, "the panel does not lie on the taskbar")
 
-            -- Пиксельная тема: одна строка на пункт и якорь — из того же меню.
+            -- The pixel theme: one row per item, and the anchor — from the same menu.
             local flat = chrome.menu_layout(90, 24, items, nil, {}, 1,
                 {anchor = {x = 10, y = 5}, compact = true, context_rows = 1, bottom = 2})
-            test.eq(flat.panels[1].h, 2, "в пикселях по строке на пункт и без рамки")
+            test.eq(flat.panels[1].h, 2, "in pixels one row per item and no frame")
             test.eq(chrome.menu_layout(90, 24, {}, nil, {}, 1, {anchor = {x = 1, y = 1}}).panels[1], nil,
-                "пустой список — панели нет")
+                "an empty list — no panel")
         end)
 
-        test.it("доводит группу от записи реестра до папки в меню", function()
-            -- ВЕСЬ ЭТОТ ПУТЬ БЫЛ ЗЕЛЁНЫМ И НИ РАЗУ НЕ ПРОЙДЕННЫМ. Каталог
-            -- разбирал `meta.group` в ТАБЛИЦУ сегментов, а тема ждала СТРОКУ
-            -- и разбирала второй раз — то есть путь выходил пустым, папка не
-            -- заводилась, программа ложилась на верхний уровень. Ни отказа, ни
-            -- следа: программа видна, просто не там, где просили.
+        test.it("carries a group from the registry entry to a folder in the menu", function()
+            -- THIS WHOLE PATH WAS GREEN AND NEVER ONCE TRAVERSED. The catalog
+            -- parsed `meta.group` into a TABLE of segments, while the theme
+            -- expected a STRING and parsed it a second time — that is, the
+            -- path came out empty, the folder was not created, the program
+            -- lay on the top level. No failure, no trace: the program is
+            -- visible, just not where it was asked to be.
             --
-            -- Проверяется от края до края, через обе чистые функции: реестр
-            -- для этого не нужен, а по отдельности каждая половина была права.
+            -- Checked end to end, through both pure functions: the registry
+            -- is not needed for that, and separately each half was right.
             local built = catalog.build({
                 {id = "app:calc", meta = {type = "tui_desktop.window",
-                                          title = "Калькулятор", group = "Стандартные"}},
+                                          title = "Calculator", group = "Accessories"}},
                 {id = "app:bash", meta = {type = "tui_desktop.window",
-                                          title = "Сеанс MS-DOS", group = ""}},
+                                          title = "MS-DOS Prompt", group = ""}},
             })
 
-            test.eq(#built.tree.folders, 1, "папка обязана появиться в дереве каталога")
-            test.eq(built.tree.folders[1].title, "Стандартные")
-            test.eq(#built.tree.programs, 1, "на верхнем уровне остаётся только та, что попросила корень")
+            test.eq(#built.tree.folders, 1, "the folder must appear in the catalog tree")
+            test.eq(built.tree.folders[1].title, "Accessories")
+            test.eq(#built.tree.programs, 1, "only the one that asked for the root stays on the top level")
 
-            -- А теперь то же самое глазами темы: она получает пункты меню в
-            -- том виде, в каком их кладёт оболочка.
+            -- And now the same through the theme's eyes: it gets the menu
+            -- items in the form the shell puts them in.
             local items = {}
             for _, program in ipairs(catalog.listed(built.programs)) do
                 items[#items + 1] = {
@@ -633,62 +639,63 @@ local function define_tests()
             end
 
             local flat = chrome.menu_layout(90, 24, items, nil, {})
-            test.eq(#flat.panels, 1, "без раскрытия панель одна")
+            test.eq(#flat.panels, 1, "without opening there is one panel")
 
             local folders, programs = 0, 0
             for _, line in ipairs(flat.panels[1].lines) do
                 if line.kind == "group" then folders = folders + 1 end
                 if line.kind == "item" then programs = programs + 1 end
             end
-            test.eq(folders, 1, "тема обязана показать папку, а не разложить всё плоско")
+            test.eq(folders, 1, "the theme must show the folder, not lay everything out flat")
             test.eq(programs, 1)
 
-            -- И раскрытие: только тогда у стрелки появляется, с чем работать.
-            local opened = chrome.menu_layout(90, 24, items, nil, {"Стандартные"})
-            test.eq(#opened.panels, 2, "раскрытая папка обязана дать вторую панель")
+            -- And the opening: only then does the arrow get something to work with.
+            local opened = chrome.menu_layout(90, 24, items, nil, {"Accessories"})
+            test.eq(#opened.panels, 2, "an open folder must give a second panel")
 
             local inside = 0
             for _, line in ipairs(opened.panels[2].lines) do
                 if line.kind == "item" then inside = inside + 1 end
             end
-            test.eq(inside, 1, "внутри папки лежит то, что в неё положили")
+            test.eq(inside, 1, "inside the folder lies what was put into it")
         end)
 
-        test.it("держит глубину меню одним числом, а не двумя", function()
-            -- Обрезка по глубине жила ДВАЖДЫ: `catalog.MAX_DEPTH` и своя
-            -- константа в теме. Два числа одного смысла однажды поменяют
-            -- поодиночке — это та же беда, что две таблицы стилей, только про
-            -- число.
+        test.it("keeps the menu depth as one number, not two", function()
+            -- Depth clipping lived TWICE: `catalog.MAX_DEPTH` and a constant
+            -- of its own in the theme. Two numbers with one meaning will one
+            -- day be changed one at a time — the same trouble as the two
+            -- style tables, only about a number.
             --
-            -- Теперь глубину ограничивает тот, кто путь разбирает, а каскад
-            -- останавливает ширина экрана. Проверяется тем, что тема
-            -- показывает РОВНО столько уровней, сколько дал каталог.
+            -- Now depth is limited by whoever parses the path, and the
+            -- cascade is stopped by the screen width. Checked by the theme
+            -- showing EXACTLY as many levels as the catalog gave.
             local built = catalog.build({
                 {id = "app:deep", meta = {type = "tui_desktop.window",
-                                          title = "Глубоко", group = "А/Б/В/Г/Д"}},
+                                          title = "Deep", group = "A/B/C/D/E"}},
             })
             local program = catalog.find(built.programs, "app:deep")
             test.eq(#program.group, catalog.MAX_DEPTH,
-                "каталог обязан обрезать путь сам, и обрезать до своего числа")
+                "the catalog must clip the path itself, and clip it to its own number")
 
             local items = {{entry = program.entry, title = program.title,
                             group = program.group, order = program.order}}
             local opened = chrome.menu_layout(200, 24, items, nil, program.group)
             test.eq(#opened.panels, catalog.MAX_DEPTH + 1,
-                "тема показывает ровно столько уровней, сколько дал каталог")
+                "the theme shows exactly as many levels as the catalog gave")
         end)
     end)
 
-    -- Отказ раскладки и строка состояния — в пикселях.
+    -- The layout failure and the status line — in pixels.
     --
-    -- Тема в ячейках рисовала обе вещи, пиксельная не читала ни одной:
-    -- нечитаемая раскладка выглядела пустым столом без причины, а сообщения
-    -- композитора — и его жалобы на негодный кадр самой темы — не видел никто.
+    -- The cell theme drew both things, the pixel one read neither: an
+    -- unreadable layout looked like an empty desktop with no reason, and the
+    -- compositor's messages — including its complaints about a bad frame from
+    -- the theme itself — were seen by nobody.
     --
-    -- Прочитать пиксель у растра нечем, поэтому сравниваются PNG-байты кадров,
-    -- различающихся ПОСЛЕДНИМ словом. Одна проверка ловит и «текст не
-    -- нарисован», и «текст срезан, а не перенесён»: срез съел бы именно конец,
-    -- и оба кадра совпали бы.
+    -- There is nothing to read a pixel of a raster with, so the PNG bytes of
+    -- frames differing in the LAST word are compared. One check catches both
+    -- "the text is not drawn" and "the text is cut off, not wrapped": a cut
+    -- would eat exactly the end, and both frames would match.
     -- One value in two places: the taskbar layout and the desktop icon hit were
     -- computed by each theme on its own. `chrome` computes them now, so a
     -- mutation of the shared rule turns both themes red.
@@ -989,23 +996,24 @@ local function define_tests()
             end
             return nil
         end
-        -- Байты снимаются СРАЗУ после кадра: хранилище рисует следующий кадр в
-        -- тот же буфер, и растр из прошлого кадра показывает уже новый.
+        -- The bytes are taken RIGHT AFTER the frame: the store paints the next
+        -- frame into the same buffer, and a raster from the previous frame
+        -- already shows the new one.
         local function png(painted: any, id)
             local item = find(painted, id)
-            test.not_nil(item, "нет размещения " .. id)
+            test.not_nil(item, "no placement " .. id)
             return assert(item.raster:encode("png"))
         end
 
-        test.it("стол называет причину нечитаемой раскладки целиком, переносом, а не срезом", function()
+        test.it("the desktop names the reason for an unreadable layout in full, wrapped, not cut off", function()
             local face = use_fonts()
-            -- Две строки, а не три: на третьей, у предела переноса, другой
-            -- шрифт поставил бы многоточие вместо последнего слова, и кейс
-            -- покраснел бы не за то.
+            -- Two lines, not three: on the third, at the wrap limit, a
+            -- different font would put an ellipsis instead of the last word,
+            -- and the case would turn red for the wrong reason.
             local reason = "database is locked: SELECT id, x, y, image FROM butschster_windows_desktop"
                 .. " ORDER BY position, table "
             test.is_true(face:measure(reason .. "alpha") > 48 * 10,
-                "сцена обязана быть шире таблички, иначе переносить нечего")
+                "the scene must be wider than the plate, otherwise there is nothing to wrap")
             local state: any = {width = 80, height = 24, top = 1, bottom = 22, clock = "12:00",
                 items = {{id = "icon", x = 2, y = 4, kind = "folder", title = "Folder"}},
                 windows = {{id = "w1", title = "Notepad", x = 30, y = 10, w = 40, h = 10}},
@@ -1013,7 +1021,7 @@ local function define_tests()
                 status = "could not open: app:gone — entry not found"}
             local painted = chrome_pixels.paint(state, 10, 20)
 
-            -- Снимок — для глаз, из того же кадра, что проверяется ниже.
+            -- The screenshot is for the eyes, from the same frame that is checked below.
             local screen = gfx.raster(80 * 10, 24 * 20)
             screen:fill("#008080")
             for _, item in ipairs(painted.placements) do
@@ -1022,31 +1030,31 @@ local function define_tests()
             assert(assert(fs.get("app:shots")):writefile("layout-failure.png", assert(screen:encode("png"))))
 
             local plate = find(painted, "desk:failure")
-            test.not_nil(plate, "отказ раскладки обязан быть на столе")
+            test.not_nil(plate, "the layout failure must be on the desktop")
             test.eq(plate.x, 3)
-            test.eq(plate.y, 2, "строка под верхом стола, как в ячейках")
+            test.eq(plate.y, 2, "the row under the top of the desktop, as in cells")
             test.eq(plate.cols, 48)
-            test.is_true(plate.y + plate.rows - 1 <= 22, "табличка не заходит на панель задач")
-            test.is_nil(find(painted, "desk:icon"), "значков непрочитанной раскладки не рисуют")
+            test.is_true(plate.y + plate.rows - 1 <= 22, "the plate does not reach onto the taskbar")
+            test.is_nil(find(painted, "desk:icon"), "the icons of an unread layout are not drawn")
             local first = assert(plate.raster:encode("png"))
             local version = plate.raster:version()
 
             local again = find(chrome_pixels.paint(state, 10, 20), "desk:failure")
-            test.eq(again.raster, plate.raster, "тот же отказ — тот же растр")
-            test.eq(again.raster:version(), version, "тот же отказ не перерисовывается")
+            test.eq(again.raster, plate.raster, "the same failure — the same raster")
+            test.eq(again.raster:version(), version, "the same failure is not repainted")
 
             state.failure = reason .. "omega"
             test.is_true(png(chrome_pixels.paint(state, 10, 20), "desk:failure") ~= first,
-                "конец причины не нарисован: срез вместо переноса")
+                "the end of the reason is not drawn: a cut instead of a wrap")
 
             state.failure = nil
             local cleared = chrome_pixels.paint(state, 10, 20)
-            test.is_nil(find(cleared, "desk:failure"), "раскладка прочиталась — таблички нет")
+            test.is_nil(find(cleared, "desk:failure"), "the layout was read — no plate")
             test.not_nil(find(cleared, "desk:icon"))
             chrome_pixels.fonts = nil
         end)
 
-        test.it("панель задач показывает строку состояния между окнами и часами", function()
+        test.it("the taskbar shows the status line between the windows and the clock", function()
             use_fonts()
             local state: any = {width = 80, height = 24, bottom = 22, clock = "12:00", items = {},
                 windows = {{id = "w1", title = "Notepad", x = 5, y = 3, w = 30, h = 10}}, focused_id = "w1"}
@@ -1055,50 +1063,51 @@ local function define_tests()
             state.status = "could not open: app:gone — entry not found"
             local painted = chrome_pixels.paint(state, 10, 20)
             local shown = png(painted, "bars")
-            test.is_true(shown ~= bare, "строка состояния не нарисована")
+            test.is_true(shown ~= bare, "the status line is not drawn")
             local version = find(painted, "bars").raster:version()
             test.eq(find(chrome_pixels.paint(state, 10, 20), "bars").raster:version(), version,
-                "тот же статус — панель не перерисовывается")
+                "the same status — the taskbar is not repainted")
 
             state.status = "could not open: app:gone — entry missing"
             test.is_true(png(chrome_pixels.paint(state, 10, 20), "bars") ~= shown,
-                "другой конец статуса — другой кадр")
+                "a different end of the status — a different frame")
 
-            -- Тесно: между кнопкой окна и часами меньше шести ячеек.
+            -- Tight: fewer than six cells between the window button and the clock.
             state.width, state.status = 36, nil
             local narrow = chrome_pixels.paint(state, 10, 20)
             local task = narrow.hits.bars[#narrow.hits.bars]
             test.eq(task.id, "w1")
-            test.is_true(36 - 8 - (task.to + 1) < 6, "сцена обязана оставить меньше шести ячеек")
+            test.is_true(36 - 8 - (task.to + 1) < 6, "the scene must leave fewer than six cells")
             local empty = png(narrow, "bars")
             state.status = "could not open: app:gone"
-            test.eq(png(chrome_pixels.paint(state, 10, 20), "bars"), empty, "в тесноте статус не рисуется")
+            test.eq(png(chrome_pixels.paint(state, 10, 20), "bars"), empty, "when tight the status is not drawn")
             chrome_pixels.fonts = nil
         end)
 
-        test.it("вид, бросивший ошибку, — текст отказа в окне, а не упавший кадр оболочки", function()
+        test.it("a view that threw an error is a failure text in the window, not a crashed shell frame", function()
             use_fonts()
-            -- `children` не списком: `ui.plan` бросает внутри библиотеки вида.
+            -- `children` not as a list: `ui.plan` throws inside the view library.
             local window = {id = "v", x = 5, y = 3, w = 30, h = 10, title = "View", content = "pixels",
                 render = "butschster.windows.sdk:render",
                 content_state = {sdk = 1, revision = 1, ui = {kind = "column", children = 42}}}
             local ok, painted = pcall(chrome_pixels.paint, {width = 80, height = 24, bottom = 22, clock = "12:00",
                 items = {}, windows = {window}, focused_id = "v"}, 10, 20)
             chrome_pixels.fonts = nil
-            test.is_true(ok, "кадр оболочки упал: " .. tostring(painted))
-            test.not_nil(find(painted, "win:v:notice"), "отказ вида обязан быть текстом на лице окна")
-            test.not_nil(find(painted, "win:v:head"), "рамка окна на месте")
+            test.is_true(ok, "the shell frame crashed: " .. tostring(painted))
+            test.not_nil(find(painted, "win:v:notice"), "the view failure must be text on the window's face")
+            test.not_nil(find(painted, "win:v:head"), "the window frame is in place")
         end)
     end)
 
-    -- Меню «Пуск» и контекстное меню — поверх окон ВСЕГДА.
+    -- The Start menu and the context menu are over the windows ALWAYS.
     --
-    -- Поверхность рантайма переотправляет только новое, изменившееся или
-    -- накрывающее перерисованную строку (surface.go, appendPlacements), а
-    -- z-порядка у sixel нет. Открытое меню не меняется; растр окна под ним
-    -- уезжает на каждом своём тике и ложится сверху. Поэтому проверяется не
-    -- порядок списка, а то, что под меню нет НИ ОДНОГО куска чужого растра — ни
-    -- в первом кадре, ни во втором, где окно изменилось, а меню нет.
+    -- The runtime surface resends only what is new, changed, or covers a
+    -- repainted row (surface.go, appendPlacements), and sixel has no z order.
+    -- An open menu does not change; the raster of a window under it is resent
+    -- on each of its ticks and lies on top. So what is checked is not the list
+    -- order, but that there is NOT A SINGLE piece of someone else's raster
+    -- under the menu — neither in the first frame nor in the second, where the
+    -- window changed and the menu did not.
     test.describe("menu above windows", function()
         local function load_fonts()
             local files = assert(fs.get("app:system_fonts"))
@@ -1122,7 +1131,7 @@ local function define_tests()
             for _, item in ipairs(painted.placements) do
                 if tostring(item.id):find("menu:", 1, true) ~= 1 then
                     for _, panel in ipairs(menus_of(painted)) do
-                        if overlaps(item, panel) then hits[#hits + 1] = item.id .. " под " .. panel.id end
+                        if overlaps(item, panel) then hits[#hits + 1] = item.id .. " under " .. panel.id end
                     end
                 end
             end
@@ -1132,8 +1141,8 @@ local function define_tests()
             for _, item in ipairs(painted.placements) do if item.id == id then return item end end
             return nil
         end
-        -- Окно в ячейках под меню и окно на SDK с пиксельным содержимым,
-        -- верхнее — оно, чтобы его растр резало только меню.
+        -- A cell window under the menu and an SDK window with pixel content,
+        -- the latter on top, so that its raster is cut only by the menu.
         local function scene(): any
             return {width = 80, height = 24, bottom = 22, clock = "12:00", items = {},
                 windows = {
@@ -1151,20 +1160,20 @@ local function define_tests()
                 }, open = {"Programs"}, cursor = 1}}
         end
 
-        test.it("ни один кусок окна не лежит под меню, и изменение окна меню не трогает", function()
+        test.it("no piece of a window lies under the menu, and a change of the window does not touch the menu", function()
             load_fonts()
             local state: any = scene()
             local first = chrome_pixels.paint(state, 10, 20)
             local panels = menus_of(first)
-            test.is_true(#panels >= 2, "сцена открывает каскад")
+            test.is_true(#panels >= 2, "the scene opens a cascade")
             test.eq(#below_menu(first), 0, table.concat(below_menu(first), "; "))
             local cropped = false
             for _, item in ipairs(first.placements) do
                 if tostring(item.id):find("win:sdk:sdk:crop:", 1, true) == 1 then cropped = true end
             end
-            test.is_true(cropped, "сцена обязана накрыть меню пиксельное содержимое окна")
+            test.is_true(cropped, "the scene must cover the window's pixel content with the menu")
             for _, panel in ipairs(panels) do
-                test.is_nil(tostring(panel.id):find(":crop:", 1, true), "панель меню целая: " .. panel.id)
+                test.is_nil(tostring(panel.id):find(":crop:", 1, true), "the menu panel is whole: " .. panel.id)
             end
             local kept: any = {}
             for _, panel in ipairs(panels) do kept[panel.id] = {raster = panel.raster, version = panel.raster:version()} end
@@ -1173,33 +1182,33 @@ local function define_tests()
                 if tostring(item.id):find("win:sdk:sdk:crop:", 1, true) == 1 then crops[item.id] = item.raster:version() end
             end
 
-            -- Второй кадр: окно изменилось (тик), меню — нет.
+            -- The second frame: the window changed (a tick), the menu did not.
             state.windows[2].state_revision = 2
             state.windows[2].content_state = {sdk = 1, revision = 2, ui = {kind = "label", text = "tick 2"}}
             local second = chrome_pixels.paint(state, 10, 20)
             test.eq(#below_menu(second), 0, table.concat(below_menu(second), "; "))
             for _, panel in ipairs(menus_of(second)) do
-                test.eq(panel.raster, kept[panel.id].raster, "растр панели тот же: " .. panel.id)
-                test.eq(panel.raster:version(), kept[panel.id].version, "панель не перерисована: " .. panel.id)
+                test.eq(panel.raster, kept[panel.id].raster, "the panel raster is the same: " .. panel.id)
+                test.eq(panel.raster:version(), kept[panel.id].version, "the panel is not repainted: " .. panel.id)
             end
             local moved = false
             for _, item in ipairs(second.placements) do
                 local was = crops[item.id]
                 if was ~= nil and item.raster:version() ~= was then moved = true end
             end
-            test.is_true(moved, "кропы окна ключуются версией его растра и перерисованы")
+            test.is_true(moved, "the window's crops are keyed by its raster version and repainted")
 
-            -- Меню закрыто: кропов нет, окно вернулось целым с прежним id.
+            -- The menu is closed: no crops, the window came back whole with its former id.
             state.menu = nil
             local closed = chrome_pixels.paint(state, 10, 20)
-            test.not_nil(by_id(closed, "win:sdk:sdk"), "содержимое окна — снова одним размещением")
+            test.not_nil(by_id(closed, "win:sdk:sdk"), "the window content is one placement again")
             for _, item in ipairs(closed.placements) do
-                test.is_nil(tostring(item.id):find("win:sdk:sdk:crop:", 1, true), "кроп пережил меню: " .. item.id)
+                test.is_nil(tostring(item.id):find("win:sdk:sdk:crop:", 1, true), "a crop outlived the menu: " .. item.id)
             end
             chrome_pixels.fonts = nil
         end)
 
-        test.it("контекстное меню значка — тоже верхний слой", function()
+        test.it("an icon's context menu is the top layer too", function()
             load_fonts()
             local state: any = scene()
             state.menu = {anchor = {x = 12, y = 10}, cursor = 1, open = {}, items = {
@@ -1212,7 +1221,7 @@ local function define_tests()
             chrome_pixels.fonts = nil
         end)
 
-        test.it("pixels.frame основы: под открытым меню канва пуста, после закрытия — снова содержимое", function()
+        test.it("the base's pixels.frame: under an open menu the canvas is empty, after closing it is content again", function()
             load_fonts()
             local state: any = scene()
             state.windows = {}
@@ -1225,29 +1234,29 @@ local function define_tests()
             local panel = menus_of(opened)[1]
             local canvas = filled()
             desktop_pixels.frame(canvas, opened)
-            test.eq(visible(canvas:rows()[panel.y])[panel.x], " ", "ячейки под меню стёрты — не просвечивают")
+            test.eq(visible(canvas:rows()[panel.y])[panel.x], " ", "the cells under the menu are erased — nothing shows through")
             state.menu = nil
             local after = filled()
             desktop_pixels.frame(after, chrome_pixels.paint(state, 10, 20))
-            test.eq(visible(after:rows()[panel.y])[panel.x], "X", "меню ушло — ячейки снова отдаются содержимому")
+            test.eq(visible(after:rows()[panel.y])[panel.x], "X", "the menu is gone — the cells are given back to the content")
             chrome_pixels.fonts = nil
         end)
 
-        test.it("в ячейках под меню — меню, а не окно", function()
+        test.it("in cells, under the menu is the menu, not the window", function()
             local canvas = tty.canvas(60, 20)
             local body = {}
             for index = 1, 17 do body[index] = string.rep("X", 58) end
-            chrome.window(canvas, {x = 1, y = 1, w = 60, h = 19, title = "Под меню", rows = body}, false)
+            chrome.window(canvas, {x = 1, y = 1, w = 60, h = 19, title = "Under the menu", rows = body}, false)
             local hits = chrome.menu(canvas, 60, 20, {
-                {entry = "app:calc", title = "Калькулятор"},
-                {entry = "app:notepad", title = "Блокнот"},
+                {entry = "app:calc", title = "Calculator"},
+                {entry = "app:notepad", title = "Notepad"},
             }, nil, {})
             test.is_true(#hits > 0)
             local rows = canvas:rows()
             for _, hit in ipairs(hits) do
                 local line = visible(rows[hit.row] or "")
                 for col = hit.from, hit.to do
-                    test.is_true(line[col] ~= "X", string.format("окно просвечивает в %d,%d", col, hit.row))
+                    test.is_true(line[col] ~= "X", string.format("the window shows through at %d,%d", col, hit.row))
                 end
             end
         end)

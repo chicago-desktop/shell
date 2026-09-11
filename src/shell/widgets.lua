@@ -1,19 +1,21 @@
--- Примитивы Windows 95, не знающие про экран.
+-- Windows 95 primitives that know nothing about the screen.
 --
--- Отдельная библиотека, потому что рисуют ими ДВОЕ. Тема рисует рамку окна
--- и панель задач; окно «Мой компьютер» рисует внутри себя строку меню,
--- панель инструментов, вкладки и статусную строку — и делает это само, в
--- свой viewport, ничего не зная про тему. Своя копия объёма у второго
--- разошлась бы с рамкой вокруг него, и разошлась бы ВИДОМ, а не отказом:
--- две почти одинаковые кнопки замечают через неделю.
+-- A separate library, because TWO draw with it. The theme draws the window
+-- frame and the taskbar; the "My Computer" window draws its menu bar,
+-- toolbar, tabs and status bar inside itself — and does it on its own, into
+-- its own viewport, knowing nothing about the theme. A private copy of the
+-- relief in the second one would diverge from the frame around it, and it
+-- would diverge in LOOK, not by failing: two almost identical buttons get
+-- noticed a week later.
 --
--- Граница проведена так: здесь то, что рисуется по своим координатам и не
--- спрашивает, какой ширины экран. Всё, что знает про экран целиком, —
--- рамка окна, панель задач, меню «Пуск», значки стола — остаётся в теме.
+-- The border is drawn like this: here is what is drawn at its own
+-- coordinates and does not ask how wide the screen is. Everything that knows
+-- about the screen as a whole — the window frame, the taskbar, the Start
+-- menu, the desktop icons — stays in the theme.
 --
--- Цель рисования — любой `tty.canvas`: и тот, что держит композитор, и тот,
--- что окно заводит себе. Это один и тот же тип, поэтому сечение проходит
--- здесь, а не по границе процессов.
+-- The drawing target is any `tty.canvas`: both the one the compositor holds
+-- and the one a window creates for itself. It is one and the same type, so
+-- the cut runs here, and not along the process boundary.
 
 local tty = require("tty")
 local text_lib = require("text")
@@ -26,7 +28,7 @@ local color = palette.active
 local scroll = require("scroll")
 local widgets = {}
 
--- ─── Мерки ───────────────────────────────────────────────────────────────
+-- ─── Measures ────────────────────────────────────────────────────────────
 
 function widgets.whole(value: any): integer
     return math.tointeger(math.floor(tonumber(value) or 0)) or 0
@@ -34,8 +36,8 @@ end
 
 local whole = widgets.whole
 
--- Ширина считается в ЯЧЕЙКАХ. `#строка` считает байты и не видит SGR: на
--- кириллице врёт вдвое, на стилизованном тексте — втрое.
+-- Width is counted in CELLS. `#text` counts bytes and does not see SGR: on
+-- Cyrillic it lies twofold, on styled text — threefold.
 function widgets.cells(text): integer
     return whole(tty.text.width(text))
 end
@@ -50,11 +52,12 @@ end
 
 local clip = widgets.clip
 
--- fit(style, text, room) — строка РОВНО в `room` ячеек одним стилем.
+-- fit(style, text, room) — a string of EXACTLY `room` cells in one style.
 --
--- Дополнять пробелами приходится вручную: `style:width(n)` кладёт свой фон
--- под чужие SGR-последовательности только до первого сброса, и хвост строки
--- остаётся с фоном терминала — на серой панели это видно как дыра.
+-- Padding with spaces has to be done by hand: `style:width(n)` puts its
+-- background under foreign SGR sequences only up to the first reset, and the
+-- tail of the string is left with the terminal's background — on a gray
+-- panel it shows as a hole.
 function widgets.fit(style, text, room: any)
     local width = whole(room)
     if width <= 0 then return "" end
@@ -75,30 +78,31 @@ function widgets.centered(style, text, room: any)
         .. string.rep(" ", width - left - cells(body)))
 end
 
--- runes(text) — разбор на символы. Нужен там, где важен НОМЕР символа, а не
--- его смещение в байтах: подчёркнутая буква акселератора — четвёртая буква,
--- а не четвёртый байт, и на кириллице это разные места.
+-- runes(text) — splitting into characters. Needed where the character's
+-- NUMBER matters, not its byte offset: the underlined accelerator letter is
+-- the fourth letter, not the fourth byte, and in Cyrillic these are
+-- different places.
 local runes = text_lib.runes
 
--- ─── Стили ───────────────────────────────────────────────────────────────
+-- ─── Styles ──────────────────────────────────────────────────────────────
 --
--- Общая таблица, а не копия у каждого: два одинаковых серых на глаз
--- отличаются, а в коде — нет.
--- Стили — ОДНА таблица на всю оболочку.
+-- A shared table, not a copy for everyone: two identical grays differ to the
+-- eye, but in the code they do not.
+-- Styles are ONE table for the whole shell.
 --
--- Их было две: эта и своя у темы, почти такая же. Разошлись они не сразу, и
--- обнаружилось это отказом на живом стенде: пиксельная тема взяла
--- `widgets.styles.desktop`, которого здесь не было, потому что бирюзовый стол
--- лежал в чужой копии. Две таблицы одного и того же расходятся ровно на тех
--- ключах, которые редко нужны обеим.
+-- There were two: this one and the theme's own, almost the same. They did
+-- not diverge right away, and it was discovered by a failure on the live
+-- running system: the pixel theme took `widgets.styles.desktop`, which was
+-- not here, because the teal desktop lived in someone else's copy. Two tables
+-- of the same thing diverge exactly on the keys that both rarely need.
 widgets.styles = {
-    -- Рабочий стол. Здесь, а не у темы: им красит и тема, и пиксельная
-    -- заливка, и обе обязаны брать один и тот же цвет.
+    -- The desktop. Here, not in the theme: both the theme and the pixel fill
+    -- paint with it, and both must take one and the same color.
     desktop        = tty.style():background(color.desktop),
     desktop_text   = tty.style():bold():foreground(color.desktop_text):background(color.desktop),
     desktop_broken = tty.style():bold():foreground(color.desktop_broken):background(color.desktop),
-    -- Заголовок окна. Разница активного и неактивного — по ФОНУ, а не по
-    -- яркости текста: иначе на тёмной теме терминала оба сливаются.
+    -- Window title. Active and inactive differ by BACKGROUND, not by text
+    -- brightness: otherwise on a dark terminal theme both merge together.
     title          = tty.style():bold():foreground(color.title_active_fg):background(color.title_active_bg),
     title_idle     = tty.style():foreground(color.title_idle_fg):background(color.title_idle_bg),
     banner         = tty.style():bold():foreground(color.select_fg):background(color.select_bg),
@@ -116,10 +120,11 @@ widgets.styles = {
     alert     = tty.style():bold():foreground(color.alert):background(color.face),
     farewell  = tty.style():bold():foreground(color.farewell_text):background(color.farewell_bg),
 }
--- Цвет стола меняет человек («Свойства: Экран»), и стили, снятые с палитры
--- при загрузке, обязаны пересняться: иначе стол в ячейках останется
--- прежним, а значки в пикселях уже перекрасятся — два представления одного
--- значения разошлись бы молча.
+-- The desktop color is changed by a person ("Display Properties"), and the
+-- styles taken from the palette at load time must be re-taken: otherwise the
+-- desktop in cells would stay as before, while the icons in pixels would
+-- already be recolored — two representations of one value would diverge
+-- silently.
 function widgets.use_desktop(hex: any)
     color.desktop = tostring(hex)
     widgets.styles.desktop = tty.style():background(color.desktop)
@@ -130,18 +135,19 @@ end
 
 local styles = widgets.styles
 
--- ─── Объём ───────────────────────────────────────────────────────────────
+-- ─── Relief ──────────────────────────────────────────────────────────────
 --
--- Объём даётся гранью в одну ячейку: светлая сверху и слева, тёмная снизу и
--- справа. Поменять их местами — получить вдавленную деталь тем же кодом; на
--- этом держится и нажатая кнопка, и утопленное поле.
+-- Relief is given by a one-cell edge: light at the top and left, dark at the
+-- bottom and right. Swap them and you get a sunken detail with the same
+-- code; both the pressed button and the recessed field rest on this.
 
--- bezel(body, sunken) — деталь с гранью слева и справа, в одну строку.
+-- bezel(body, sunken) — a detail with an edge on the left and right, in one
+-- row.
 --
--- `body` приходит УЖЕ отрисованным: наложить стиль поверх стилизованной
--- строки значит обернуть её вторым SGR-конвертом, и первый же внутренний
--- сброс оставит хвост с фоном терминала. Ширина результата — ширина тела
--- плюс две ячейки.
+-- `body` arrives ALREADY rendered: applying a style over a styled string
+-- means wrapping it in a second SGR envelope, and the very first inner reset
+-- leaves a tail with the terminal's background. The width of the result is
+-- the width of the body plus two cells.
 function widgets.bezel(body, sunken)
     local left = sunken and styles.shadow or styles.light
     local right = sunken and styles.light or styles.shadow
@@ -166,12 +172,13 @@ function widgets.edge_bottom(width: any, sunken)
     return style:render(string.rep(glyphs.bevel.bottom, w - 1) .. glyphs.bevel.corner_shadow)
 end
 
--- panel(target, x, y, box_w, body, sunken) — прямоугольник с объёмом.
+-- panel(target, x, y, box_w, body, sunken) — a rectangle with relief.
 --
--- `body` — уже отрисованные строки РОВНО в `box_w - 2` ячеек. Высота —
--- `#body + 2`. Выпуклый и вдавленный отличаются только тем, какая грань
--- светлая: одна форма на меню, табличку, поле часов и поле списка. Три
--- разные таблички разъехались бы по виду на первой же правке.
+-- `body` — already rendered rows of EXACTLY `box_w - 2` cells. The height is
+-- `#body + 2`. Raised and sunken differ only in which edge is light: one
+-- shape for the menu, the notice box, the clock field and the list field.
+-- Three different notice boxes would drift apart in look on the very first
+-- edit.
 function widgets.panel(target, x: any, y: any, box_w: any, body, sunken)
     local left, top, span = whole(x), whole(y), whole(box_w)
     if span < 3 then return end
@@ -182,8 +189,8 @@ function widgets.panel(target, x: any, y: any, box_w: any, body, sunken)
     target:put(left, top + #body + 1, widgets.edge_bottom(span, sunken), span)
 end
 
--- Вдавленное поле под чужое содержимое: рисуется рамка, внутренность
--- остаётся вызывающему.
+-- A sunken field for someone else's content: the frame is drawn, the inside
+-- is left to the caller.
 function widgets.field(target, x: any, y: any, box_w: any, box_h: any)
     local w, h = whole(box_w), whole(box_h)
     if w < 3 or h < 2 then return end
@@ -192,14 +199,14 @@ function widgets.field(target, x: any, y: any, box_w: any, box_h: any)
     widgets.panel(target, x, y, w, body, true)
 end
 
--- ─── Части диалога ───────────────────────────────────────────────────────
+-- ─── Dialog parts ────────────────────────────────────────────────────────
 
--- accel(style, text, position) — текст с подчёркнутой буквой-акселератором.
+-- accel(style, text, position) — text with an underlined accelerator letter.
 --
--- Позиция считается в БУКВАХ. Нулевая или выходящая за строку означает
--- «акселератора нет» и отрисовывается обычным текстом: подчеркнуть не ту
--- букву хуже, чем не подчеркнуть ни одной — человек нажмёт её и ничего не
--- произойдёт.
+-- The position is counted in LETTERS. Zero or one past the end of the string
+-- means "no accelerator" and is rendered as plain text: underlining the
+-- wrong letter is worse than underlining none — a person will press it and
+-- nothing will happen.
 function widgets.accel(style, text, position: any)
     local at = whole(position)
     local list = runes(text)
@@ -212,23 +219,24 @@ function widgets.accel(style, text, position: any)
         .. style:render(table.concat(tail))
 end
 
--- Ширина кнопки: две грани, два пробела вокруг подписи и сама подпись;
--- у кнопки по умолчанию ещё две ячейки чёрного контура.
+-- Button width: two edges, two spaces around the caption and the caption
+-- itself; the default button has two more cells of black outline.
 function widgets.button_width(label, opts): integer
     local extra = (type(opts) == "table" and opts.default) and 2 or 0
     return cells(tostring(label or "")) + 4 + extra
 end
 
--- button(label, opts) — выпуклая кнопка в одну строку.
+-- button(label, opts) — a raised button in one row.
 --
--- opts.pressed — нажата (грани меняются местами), opts.default — кнопка по
--- умолчанию: в Windows 95 у неё сверх объёма ещё чёрный контур, и это не
--- украшение, а единственный признак того, что сделает Enter.
--- opts.accel — номер подчёркиваемой буквы. opts.disabled — недоступная:
--- подпись тусклая (белой тени в ячейках нет, этчед — только в пикселях).
--- opts.focused — в фокусе: подпись инверсией, грани остаются; пунктирной
--- рамки в ячейках нарисовать нечем, а инверсия всей кнопки читалась бы как
--- выделенная строка списка.
+-- opts.pressed — pressed (the edges swap places), opts.default — the default
+-- button: in Windows 95 it has a black outline on top of the relief, and
+-- that is not decoration but the only sign of what Enter will do.
+-- opts.accel — the number of the letter to underline. opts.disabled —
+-- unavailable: the caption is dim (there is no white shadow in cells, etched
+-- is only in pixels).
+-- opts.focused — focused: the caption in inverse, the edges stay; there is
+-- nothing to draw a dotted frame with in cells, and inverting the whole
+-- button would read as a selected list row.
 --
 -- `opts.room` is the cells the button has. Two bevels and a space on each
 -- side are the full look; a caption that does not fit with the spaces is
@@ -259,32 +267,34 @@ function widgets.button(label, opts)
     return out
 end
 
--- etched(width) — разделитель диалога в одну строку.
+-- etched(width) — a dialog separator in one row.
 --
--- Половинка блока красит верх ячейки цветом текста, низ — цветом фона:
--- тёмная грань над светлой, то есть настоящий этчед Windows 95, а не просто
--- тонкая черта. Двух строк на разделитель не нужно.
+-- A half block paints the top of the cell with the text color and the
+-- bottom with the background color: a dark edge above a light one, that is,
+-- a real Windows 95 etched line, not just a thin rule. Two rows per
+-- separator are not needed.
 function widgets.etched(width: any)
     local w = whole(width)
     if w <= 0 then return "" end
     return styles.etched:render(string.rep(glyphs.shade.half_top, w))
 end
 
--- ─── Полосы окна ─────────────────────────────────────────────────────────
+-- ─── Window bars ─────────────────────────────────────────────────────────
 --
--- Рисует их САМО окно, внутри своего viewport: пункты меню свои у каждого
--- окна, а «6 объектов» пересчитывается на каждое открытие папки. Отдай их
--- теме — и композитор начал бы знать про устройство чужого окна.
+-- The window ITSELF draws them, inside its own viewport: every window has
+-- its own menu items, and "6 objects" is recounted on every folder open.
+-- Hand them to the theme — and the compositor would start knowing how
+-- someone else's window is built.
 
--- Строка меню: `File Edit View Help` с подчёркнутой буквой.
+-- Menu bar: `File Edit View Help` with an underlined letter.
 --
--- Возвращает попадания. Пункт, нарисованный без попадания, — это слово, по
--- которому щёлкают и ничего не происходит, а отличить его от «меню
--- сломалось» с экрана нельзя.
+-- Returns hits. An item drawn without a hit is a word that gets clicked and
+-- nothing happens, and from the screen it cannot be told apart from "the
+-- menu is broken".
 --
 -- menu_hits(x, y, width, entries) -> {row, from, to, menu, index, accel}
--- Раскладка без отрисовки: по ней рисуют оба бэкенда окна и по ней же окно
--- считает щелчок — как у панели инструментов.
+-- Layout without drawing: both window backends draw by it, and by it the
+-- window also computes a click — as with the toolbar.
 function widgets.menu_hits(x: any, y: any, width: any, entries): any
     local hits: any = {}
     local left, row, span = whole(x), whole(y), whole(width)
@@ -312,8 +322,8 @@ function widgets.menu_bar(target, x: any, y: any, width: any, entries)
     local parts, used = {}, 0
     for _, entry in ipairs(hits) do
         local hit: any = entry
-        -- Ведущий пробел сдвигает букву на одну: акселератор считается по
-        -- ИМЕНИ пункта, а не по нарисованной строке.
+        -- The leading space shifts the letter by one: the accelerator is
+        -- counted by the item's NAME, not by the drawn string.
         parts[#parts + 1] = widgets.accel(styles.face, " " .. hit.menu .. " ", hit.accel + 1)
         used = used + (hit.to - hit.from + 1)
     end
@@ -323,19 +333,20 @@ function widgets.menu_bar(target, x: any, y: any, width: any, entries)
     return hits
 end
 
--- Панель инструментов: кнопки со значком и подписью в одну строку.
--- Раскладка панели инструментов БЕЗ отрисовки.
+-- Toolbar: buttons with an icon and a caption in one row.
+-- Toolbar layout WITHOUT drawing.
 --
--- Вынесено, потому что читателей стало двое: рисует `widgets.toolbar`, а
--- раскладку окна считает `render.layout` — и считает до того, как что-то
--- нарисовано, потому что второй бэкенд рисует не в холст. Своя формула у
--- второго читателя дала бы кнопку на ячейку левее, чем выглядит.
+-- Pulled out because there are now two readers: `widgets.toolbar` draws, and
+-- `render.layout` computes the window layout — and computes it before
+-- anything is drawn, because the second backend does not draw into a canvas.
+-- A private formula in the second reader would give a button one cell to
+-- the left of where it looks.
 --
--- Возвращает попадания и подписи: подпись нужна тому, кто будет рисовать,
--- чтобы не собирать её заново по тем же правилам.
--- `fixed` — ширина кнопки в ячейках, одна на все: пиксельная панель рисует
--- кнопки 23×22 по образцу Windows 95 и называет им место в ячейках сама,
--- а не по длине подписи, которой в пикселях нет.
+-- Returns hits and captions: the caption is needed by whoever will draw, so
+-- as not to assemble it again by the same rules.
+-- `fixed` — button width in cells, one for all: the pixel toolbar draws
+-- 23×22 buttons after the Windows 95 model and names their place in cells
+-- itself, not by the length of the caption, which is absent in pixels.
 function widgets.toolbar_hits(x: any, y: any, width: any, buttons, fixed: any?): any
     local hits: any = {}
     local left, row, span = whole(x), whole(y), whole(width)
@@ -358,9 +369,10 @@ function widgets.toolbar_hits(x: any, y: any, width: any, buttons, fixed: any?):
                 row = row, from = left + used, to = left + used + room - 1,
                 id = button.id, text = text, icon = icon, label = label,
                 pressed = button.pressed and true or false,
-                -- Недоступная кнопка рисуется выцветшей, а не прячется, как в
-                -- Windows 95: панель не меняет форму от того, что выделено.
-                -- Щелчок по ней — не действие, и попадание это говорит.
+                -- An unavailable button is drawn faded, not hidden, as in
+                -- Windows 95: the toolbar does not change shape depending on
+                -- what is selected. A click on it is not an action, and the
+                -- hit says so.
                 disabled = button.disabled and true or false,
                 title = type(button.title) == "string" and button.title or label,
             }
@@ -375,8 +387,8 @@ function widgets.toolbar(target, x: any, y: any, width: any, buttons)
     local hits = widgets.toolbar_hits(x, y, width, buttons)
     if span < 3 then return hits end
 
-    -- Рисуется по ТЕМ ЖЕ числам, что вернула раскладка: разделители между
-    -- кнопками восстанавливаются по промежуткам, а не считаются заново.
+    -- Drawn by THE SAME numbers the layout returned: the separators between
+    -- buttons are restored from the gaps, not computed anew.
     local parts, used = {}, 0
     for _, entry in ipairs(hits) do
         local button: any = entry
@@ -395,22 +407,24 @@ function widgets.toolbar(target, x: any, y: any, width: any, buttons)
     return hits
 end
 
--- Адресная строка: подпись «Адрес», вдавленное поле со значком папки и
--- путём, справа кнопка ▾, раскрывающая список. Как у окна папки Windows 95
--- (там это выпадающий список на панели инструментов; в 98 — своя строка).
+-- Address bar: the caption "Address", a sunken field with a folder icon and
+-- the path, and on the right a ▾ button that opens the list. As in a Windows
+-- 95 folder window (there it is a drop-down list on the toolbar; in 98 — a
+-- row of its own).
 --
--- Возвращает попадания: `field` — само поле, `drop` — кнопка. Оба открывают
--- список: в Windows щелчок по полю выделяет текст, но текст здесь не
--- редактируется, и поле, которое ни на что не отвечает, хуже поля-кнопки.
+-- Returns hits: `field` — the field itself, `drop` — the button. Both open
+-- the list: in Windows a click on the field selects the text, but the text
+-- is not editable here, and a field that responds to nothing is worse than
+-- a field that acts as a button.
 widgets.ADDRESS_LABEL = " Address "
 widgets.ADDRESS_DROP = " ▾ "
 
 -- address_hits(x, y, width) -> {field, drop} | {}
 --
--- Геометрия адресной строки в ячейках — ОДНА на оба бэкенда: по ней рисует
--- `address_bar`, по ней же пиксельный рисовальщик кладёт растр, и по ней
--- окно считает щелчок. Своя формула у любого из трёх дала бы кнопку ▾ на
--- ячейку левее, чем выглядит.
+-- The address bar geometry in cells is ONE for both backends: `address_bar`
+-- draws by it, the pixel painter places the raster by it, and the window
+-- computes a click by it. A private formula in any of the three would give
+-- the ▾ button one cell to the left of where it looks.
 function widgets.address_hits(x: any, y: any, width: any): any
     local left, row, span = whole(x), whole(y), whole(width)
     local hits: any = {}
@@ -438,7 +452,7 @@ function widgets.address_bar(target, x: any, y: any, width: any, text: any, icon
     return hits
 end
 
--- dropdown_hits(x, y, width, count) -> строки списка: {row, from, to, index}
+-- dropdown_hits(x, y, width, count) -> list rows: {row, from, to, index}
 function widgets.dropdown_hits(x: any, y: any, width: any, count: any): any
     local left, top, span = whole(x), whole(y), whole(width)
     local hits: any = {}
@@ -450,9 +464,9 @@ function widgets.dropdown_hits(x: any, y: any, width: any, count: any): any
     return hits
 end
 
--- Выпадающий список: белое поле с рамкой, строка на пункт, текущий выделен.
--- Рисуется поверх того, что под ним, — как и положено списку.
--- Возвращает попадания строк: {row, from, to, index}.
+-- Drop-down list: a white field with a frame, a row per item, the current one
+-- selected. Drawn over whatever is under it — as a list should be.
+-- Returns row hits: {row, from, to, index}.
 function widgets.dropdown(target, x: any, y: any, width: any, items: any, current: any): any
     local left, top, span = whole(x), whole(y), whole(width)
     local hits: any = {}
@@ -471,9 +485,9 @@ function widgets.dropdown(target, x: any, y: any, width: any, items: any, curren
     return hits
 end
 
--- Статусная строка: вдавленные поля. Последнее забирает остаток — иначе на
--- широком окне справа остаётся полоса голого лица, и строка выглядит
--- недорисованной.
+-- Status bar: sunken fields. The last one takes the remainder — otherwise on
+-- a wide window a strip of bare face remains on the right, and the bar looks
+-- unfinished.
 function widgets.statusbar(target, x: any, y: any, width: any, fields)
     local left, row, span = whole(x), whole(y), whole(width)
     if span < 3 then return end
@@ -497,16 +511,17 @@ function widgets.statusbar(target, x: any, y: any, width: any, fields)
     target:put(left, row, table.concat(parts), span)
 end
 
--- Вертикальная полоса прокрутки: стрелка, дорожка с ползунком, стрелка.
+-- Vertical scroll bar: arrow, track with a thumb, arrow.
 --
--- Рисуется ТОЛЬКО когда есть что прокручивать. Полоса при полностью видимом
--- содержимом — обещание, что где-то есть ещё, и человек будет её тянуть.
+-- Drawn ONLY when there is something to scroll. A bar over fully visible
+-- content is a promise that there is more somewhere, and a person will drag
+-- it.
 --
--- `state`: first — первая видимая строка считая с нуля, visible — сколько
--- строк помещается, total — сколько их всего.
+-- `state`: first — the first visible row counting from zero, visible — how
+-- many rows fit, total — how many there are in all.
 --
--- Возвращает попадания стрелок. Стрелка, по которой нельзя щёлкнуть, — та же
--- бутафория, что и кнопка, которая ничего не делает.
+-- Returns the arrows' hits. An arrow that cannot be clicked is the same stage
+-- prop as a button that does nothing.
 function widgets.scrollbar(target, x: any, y: any, box_h: any, state)
     local hits = {}
     local col, top, height = whole(x), whole(y), whole(box_h)
@@ -527,8 +542,8 @@ function widgets.scrollbar(target, x: any, y: any, box_h: any, state)
     hits[#hits + 1] = {row = top, from = col, to = col, id = "scroll_up"}
     hits[#hits + 1] = {row = top + height - 1, from = col, to = col, id = "scroll_down"}
 
-    -- Ползунок ростом не меньше одной ячейки: выродившись в ноль, он исчезает
-    -- ровно там, где прокручивать больше всего.
+    -- The thumb is at least one cell tall: degenerating to zero, it
+    -- disappears exactly where there is the most to scroll.
     local track = height - 2
     local thumb_data = scroll.bar(first, total, visible, height)
     local thumb, offset = thumb_data.size, thumb_data.start - 1
@@ -542,15 +557,15 @@ function widgets.scrollbar(target, x: any, y: any, box_h: any, state)
     return hits
 end
 
--- Вкладки со страницей под ними.
+-- Tabs with a page under them.
 --
--- Весь приём — РАЗРЫВ: рамка страницы прерывается ровно под активной
--- вкладкой, и от этого вкладка сливается со страницей. Без разрыва это
--- просто ряд кнопок над прямоугольником, и какая выбрана — видно только по
--- жирности.
+-- The whole trick is the GAP: the page frame is interrupted exactly under
+-- the active tab, and that makes the tab merge with the page. Without the
+-- gap it is just a row of buttons above a rectangle, and which one is
+-- selected is visible only by boldness.
 --
--- Рисует ряд вкладок, рамку страницы и её пустую внутренность; содержимое
--- страницы кладёт вызывающий по (x + 1, y + 2).
+-- Draws the row of tabs, the page frame and its empty interior; the caller
+-- places the page content at (x + 1, y + 2).
 function widgets.tabs(target, x: any, y: any, box_w: any, box_h: any, labels, active: any)
     local hits = {}
     local left, top = whole(x), whole(y)

@@ -1,10 +1,10 @@
 -- Pixel primitives of the shell: bevel, panel, field, button, marks, icons.
 --
--- Пиксельный двойник `widgets`, и написан по тому же правилу: НИЧЕГО, что
--- знает про экран целиком. Только арифметика и вызовы в растр, поэтому
--- проверяется подставкой без рантайма — `tools/pixelprobe`.
+-- The pixel twin of `widgets`, and written by the same rule: NOTHING that
+-- knows about the screen as a whole. Only arithmetic and calls into a
+-- raster, so it is checked by a stub without the runtime — `tools/pixelprobe`.
 --
--- ─── Два правила, из-за которых этот файл выглядит именно так ───────────
+-- ─── Two rules that make this file look exactly the way it does ─────────
 --
 -- FIRST. Decoration is free, interaction is quantized (FR-005 §4a). An edge
 -- here is ONE pixel — that is what the whole move was for — but the mouse
@@ -21,13 +21,15 @@
 -- called only by the snapshots: everything clickable in the shell was already
 -- placed by a layout.
 --
--- ВТОРОЕ. Растры переживают кадр (FR-005 §4). Ни одна функция здесь растров не
--- создаёт: растр приходит снаружи, от того, кто хранит его между кадрами.
--- Создавай примитив свой растр — тема переотправляла бы всё каждый кадр и
--- получила бы те же сорок семь миллисекунд, только по частям.
+-- SECOND. Rasters outlive the frame (FR-005 §4). No function here creates
+-- rasters: a raster comes from outside, from whoever keeps it between
+-- frames. If a primitive created its own raster, the theme would resend
+-- everything every frame and get the same forty-seven milliseconds, only in
+-- pieces.
 --
--- Цвета — точные значения из общей палитры, той же, что у темы в ячейках.
--- Своя копия значений разошлась бы с первой, и разошлась бы видом.
+-- Colors are exact values from the shared palette, the same one the cell
+-- theme uses. A private copy of the values would diverge from the first,
+-- and diverge in look.
 
 local palette = require("palette")
 local images = require("images")
@@ -36,30 +38,32 @@ local color = palette.exact
 
 local pixels = {}
 
--- Толщина грани. Одна, а не «сколько получится»: в Windows 95 объём — это
--- ровно один пиксель светлого сверху-слева и один тёмного снизу-справа, и
--- вторая грань крупных рамок — это уже другой цвет, а не другая толщина.
+-- Edge thickness. One, not "however many it comes out": in Windows 95 the
+-- relief is exactly one pixel of light at the top-left and one of dark at
+-- the bottom-right, and the second edge of large frames is a different
+-- color, not a different thickness.
 pixels.EDGE = 1
 
 local geometry = require("geometry")
 local text_lib = require("text")
 local whole = geometry.whole
 
--- box(col, row, cols, rows, cell) -> прямоугольник в ПИКСЕЛЯХ
+-- box(col, row, cols, rows, cell) -> a rectangle in PIXELS
 --
 -- A place named in cells turns into pixels.
--- Этим кладут всё, по чему щёлкают, и вот почему — а не ради удобства.
+-- Everything that gets clicked is placed with this, and here is why — not
+-- for convenience.
 --
--- Правило «интерактив квантован» дисциплиной не держится. Три кнопки
--- заголовка шириной 16 px с шагом 18 px выглядят безупречно и дают ЗОНЫ
--- ПОПАДАНИЯ, КОТОРЫЕ ПЕРЕСЕКАЮТСЯ: при ячейке в 10 px первая занимает
--- колонки 24–26, вторая 26–28, третья 28–30, и щелчок по колонке 26
--- принадлежит двум кнопкам сразу. Выигрывает та, что нашлась первой, —
--- молча, и на снимке это не видно вовсе.
+-- The rule "interaction is quantized" does not hold by discipline. Three
+-- title buttons 16 px wide with an 18 px step look flawless and give HIT
+-- ZONES THAT OVERLAP: with a 10 px cell the first occupies columns 24–26,
+-- the second 26–28, the third 28–30, and a click on column 26 belongs to two
+-- buttons at once. The one found first wins — silently, and in a screenshot
+-- it is not visible at all.
 --
--- Поэтому место и размер интерактивной детали называются В ЯЧЕЙКАХ, а
--- свободным остаётся только рисунок ВНУТРИ неё: кнопка шириной в две ячейки
--- может нести картинку 16×14, посаженную по центру.
+-- So the place and size of an interactive detail are named IN CELLS, and
+-- only the drawing INSIDE it stays free: a button two cells wide can carry a
+-- 16×14 picture set in the center.
 function pixels.box(col: any, row: any, cols: any, rows: any, cell: any): any
     local unit: any = type(cell) == "table" and cell or {}
     local cw = whole(unit.w)
@@ -78,8 +82,8 @@ function pixels.box(col: any, row: any, cols: any, rows: any, cell: any): any
     }
 end
 
--- Объёмная грань в один пиксель. Выпуклая и вдавленная — одна и та же
--- функция с переставленными цветами, ровно как `DrawEdge` в GDI.
+-- A one-pixel relief edge. Raised and sunken are one and the same function
+-- with the colors swapped, exactly like `DrawEdge` in GDI.
 function pixels.bevel(raster, x: any, y: any, w: any, h: any, raised)
     local left, top = whole(x), whole(y)
     local width, height = whole(w), whole(h)
@@ -94,8 +98,8 @@ function pixels.bevel(raster, x: any, y: any, w: any, h: any, raised)
     raster:rect(left + width - pixels.EDGE, top, pixels.EDGE, height, far)
 end
 
--- Панель: лицо и выпуклая грань. Из неё сделано всё серое — рамка окна,
--- панель задач, кнопка, панель меню.
+-- Panel: face and a raised edge. Everything gray is made of it — the window
+-- frame, the taskbar, the button, the menu panel.
 function pixels.panel(raster, x: any, y: any, w: any, h: any)
     raster:rect(whole(x), whole(y), whole(w), whole(h), color.face)
     pixels.bevel(raster, x, y, w, h, true)
@@ -133,18 +137,19 @@ function pixels.focus_rect(r: any, x: any, y: any, w: any, h: any)
     end
 end
 
--- Поле списка: белое и вдавленное. Значки внутри окна лежат на нём, а не на
--- лице панели — в проводнике Windows 95 это разные поверхности.
+-- List field: white and sunken. Icons inside a window lie on it, not on the
+-- panel face — in the Windows 95 Explorer these are different surfaces.
 function pixels.field(raster, x: any, y: any, w: any, h: any)
     raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
     pixels.edge(raster, x, y, w, h, false)
 end
 
--- Надпись по центру прямоугольника.
+-- A caption centered in a rectangle.
 --
--- Ширину даёт САМ шрифт (`font:measure`), а не число символов на ширину
--- глифа: пропорциональный шрифт — половина смысла пикселей, и посчитанная
--- ширина промахивается на разную величину в каждом языке.
+-- The width comes from the font ITSELF (`font:measure`), not the number of
+-- characters times the glyph width: a proportional font is half the point
+-- of pixels, and a computed width misses by a different amount in every
+-- language.
 function pixels.label(raster, x: any, y: any, w: any, h: any, text, font, tint)
     if not font then return 0 end
     local caption = tostring(text or "")
@@ -157,14 +162,15 @@ function pixels.label(raster, x: any, y: any, w: any, h: any, text, font, tint)
     return raster:text(left, top, caption, {font = font, color = tint or color.face_text})
 end
 
--- Перенос по словам ПО ИЗМЕРЕННОЙ ширине, а не по числу символов.
+-- Word wrap BY MEASURED width, not by character count.
 --
--- Это половина того, ради чего переходили на пиксели: шрифт пропорциональный,
--- и «сколько символов влезет» — вопрос, у которого нет ответа. Посчитанная
--- по символам подпись промахивается на разную величину в каждом языке.
+-- This is half of what the move to pixels was for: the font is
+-- proportional, and "how many characters will fit" is a question that has no
+-- answer. A caption computed by characters misses by a different amount in
+-- every language.
 --
--- Длинное имя переносится по символам; последняя строка отмечает
--- многоточием часть, которой не хватило места.
+-- A long name is wrapped by characters; the last line marks with an ellipsis
+-- the part that did not have room.
 function pixels.wrap(font, text, room: any, limit: any): any
     local out = {}
     if not font then return out end
@@ -276,9 +282,10 @@ function pixels.button(raster, x: any, y: any, w: any, h: any, spec: any, cell: 
     else
         local tint = options.color or color.face_text
         pixels.label(raster, whole(x) + shift, whole(y) + shift, w, h, label, options.font, tint)
-        -- Акселератор — подчёркнутая буква, как в ячейках у `widgets.accel`.
-        -- Считается той же арифметикой, что кладёт подпись `pixels.label`:
-        -- второй расчёт положения текста разъехался бы с первым.
+        -- The accelerator is an underlined letter, as with `widgets.accel` in
+        -- cells. It is computed by the same arithmetic with which
+        -- `pixels.label` places the caption: a second calculation of the text
+        -- position would drift apart from the first.
         local at = whole(options.accel)
         if at > 0 and options.font and label ~= "" then
             local runes = text_lib.runes(label)
@@ -307,22 +314,23 @@ function pixels.checkbox(r: any, x: any, y: any, checked: any, disabled: any)
     end
 end
 
--- ─── Знаки кнопок заголовка ──────────────────────────────────────────────
+-- ─── Title button marks ──────────────────────────────────────────────────
 --
--- Примитивами, а не шрифтом: в Windows 95 это были маленькие растры, и
--- нарисованные шрифтом они получаются другого веса и не садятся в сетку.
--- Файлом (`gfx.image`, библиотека `images`) они не берутся: знак в шесть
--- пикселей проще нарисовать `rect`, чем держать отдельной картинкой.
+-- With primitives, not with the font: in Windows 95 these were small
+-- rasters, and drawn with a font they come out a different weight and do
+-- not sit on the grid. They are not taken from a file (`gfx.image`, the
+-- `images` library): a six-pixel mark is simpler to draw with `rect` than to
+-- keep as a separate picture.
 
--- Свернуть: короткая жирная линия у нижней грани.
+-- Minimize: a short bold line at the bottom edge.
 function pixels.mark_minimize(raster, x: any, y: any, size: any, tint)
     local side = math.max(6, whole(size))
     local left, top = whole(x), whole(y)
     raster:rect(left + 2, top + side - 4, side - 5, 2, tint or color.face_text)
 end
 
--- Развернуть: рамка с утолщённой верхней гранью — это заголовок окна,
--- нарисованный в шести пикселях.
+-- Maximize: a frame with a thickened top edge — that is a window title bar
+-- drawn in six pixels.
 function pixels.mark_maximize(raster, x: any, y: any, size: any, tint)
     local side = math.max(6, whole(size))
     local left, top = whole(x), whole(y)
@@ -331,9 +339,9 @@ function pixels.mark_maximize(raster, x: any, y: any, size: any, tint)
     raster:rect(left + 2, top + 4, side - 4, side - 6, color.face)
 end
 
--- Закрыть: две диагонали. Диагональ прямоугольниками не рисуется, поэтому
--- она кладётся по пикселям — ровно тот случай, ради которого `set` и есть.
--- Толщина в два пикселя: в один крестик читается как грязь на экране.
+-- Close: two diagonals. A diagonal cannot be drawn with rectangles, so it is
+-- laid down pixel by pixel — exactly the case `set` exists for.
+-- Two pixels thick: at one, the cross reads as dirt on the screen.
 function pixels.mark_close(raster, x: any, y: any, size: any, tint)
     local side = math.max(6, whole(size))
     local left, top = whole(x), whole(y)
@@ -347,8 +355,8 @@ function pixels.mark_close(raster, x: any, y: any, size: any, tint)
     end
 end
 
--- Стрелка подменю: треугольник вправо. Строится полосками разной длины —
--- диагонали нет, а треугольник из неё и состоит.
+-- Submenu arrow: a right-pointing triangle. Built from strips of different
+-- length — there is no diagonal, and a triangle is made of just that.
 function pixels.mark_submenu(raster, x: any, y: any, size: any, tint)
     local side = math.max(4, whole(size))
     local left, top = whole(x), whole(y)
@@ -360,9 +368,9 @@ function pixels.mark_submenu(raster, x: any, y: any, size: any, tint)
     end
 end
 
--- Значок пункта меню: программа — маленькое окно с заголовком, папка —
--- та же папка, что на столе. Примитивами, а не символом: в шрифте
--- геометрических символов нет, и на их месте выходит пустота.
+-- Menu item icon: a program is a small window with a title bar, a folder is
+-- the same folder as on the desktop. With primitives, not a symbol: the font
+-- has no geometric symbols, and in their place emptiness comes out.
 function pixels.mark_program(raster, x: any, y: any, size: any, tint)
     local side = math.max(6, whole(size))
     local left, top = whole(x), whole(y)
@@ -379,12 +387,12 @@ function pixels.mark_folder(raster, x: any, y: any, size: any, tint)
     pixels.bevel(raster, left, top + 2, side, side - 3, true)
 end
 
--- Знаки кнопок заголовка — как растры Windows 95 в кнопке 16×14: полоска
--- «свернуть» 6×2 внизу слева, «развернуть» — рамка 9×9 с двойной верхней
--- гранью, «закрыть» — крест 8×7 штрихом в два пикселя. Считаются от размера
--- КНОПКИ, а не от центра квадрата: кнопка 12×10 на мелкой ячейке получает
--- те же знаки на четыре пикселя меньше, кнопка на два пикселя уже — тот же
--- знак на пиксель левее.
+-- Title button marks — like the Windows 95 rasters in a 16×14 button: the
+-- "minimize" bar 6×2 at the bottom left, "maximize" — a 9×9 frame with a
+-- double top edge, "close" — an 8×7 cross with a two-pixel stroke. Computed
+-- from the size of the BUTTON, not from the center of a square: a 12×10
+-- button on a small cell gets the same marks four pixels smaller, a button
+-- two pixels narrower — the same mark one pixel to the left.
 local CAPTION_GLYPHS = {
     minimize = function(raster, x: any, y: any, w: any, h: any, ink)
         local bar = math.max(2, whole(w) // 2 - 2)
@@ -413,13 +421,14 @@ function pixels.caption_mark(raster, id, x: any, y: any, w: any, h: any, tint)
     local glyph = CAPTION_GLYPHS[tostring(id)]
     if type(glyph) ~= "function" then return end
     local width, height = whole(w), whole(h)
-    -- Знак считается от полной ширины (высота + 2); кнопка уже — сдвиг влево.
+    -- The mark is computed from the full width (height + 2); a narrower
+    -- button — shift left.
     local full = height + 2
     glyph(raster, whole(x) + (width - full) // 2, whole(y), full, height, tint or color.face_text)
 end
 
--- Гравированная рамка группы (EDGE_ETCHED): тень и сразу под ней свет —
--- ровно по одному пикселю, как у рамок диалогов Windows 95.
+-- Etched group frame (EDGE_ETCHED): shadow and right under it light —
+-- exactly one pixel each, as with Windows 95 dialog frames.
 function pixels.etched(r: any, x: any, y: any, w: any, h: any)
     edge_pair(r, x, y, w, h, color.shadow, color.light)
     edge_pair(r, whole(x) + 1, whole(y) + 1, whole(w) - 2, whole(h) - 2, color.light, color.shadow)
@@ -431,14 +440,15 @@ pixels.MARKS = {
     close = pixels.mark_close,
 }
 
--- Ряд кнопок ОДИНАКОВОЙ ширины — по самой широкой подписи.
+-- A row of buttons of the SAME width — by the widest caption.
 --
--- В Windows 95 кнопки диалога были одной ширины, и разноширокие «ОК» и
--- «Отмена» — первое, что выдаёт подделку. Ширина считается по ИЗМЕРЕННОМУ
--- тексту, а потом округляется вверх до целых ячеек: место интерактивной
--- детали называется в ячейках, иначе соседние кнопки делят ячейку.
+-- In Windows 95 dialog buttons were one width, and "OK" and "Cancel" of
+-- different widths are the first thing that gives away a fake. The width is
+-- computed from the MEASURED text and then rounded up to whole cells: the
+-- place of an interactive detail is named in cells, otherwise neighboring
+-- buttons share a cell.
 --
--- Возвращает ширину в ячейках; рисует вызывающий, по ней же.
+-- Returns the width in cells; the caller draws, by the same width.
 function pixels.button_span(font, labels, cell: any, least: any): integer
     local unit: any = type(cell) == "table" and cell or {}
     local cw = math.max(1, whole(unit.w))
@@ -448,7 +458,8 @@ function pixels.button_span(font, labels, cell: any, least: any): integer
         local measured = font and font:measure(tostring(label)) or 0
         if whole(measured) > widest then widest = whole(measured) end
     end
-    -- Поля по бокам подписи: без них текст упирается в грань.
+    -- Margins at the sides of the caption: without them the text runs into
+    -- the edge.
     local span = (widest + 16 + cw - 1) // cw
     if span < 1 then span = 1 end
     return math.tointeger(span) or 1
@@ -571,11 +582,11 @@ function pixels.icon(raster, x: any, y: any, item: any, size: any)
     end
 end
 
--- ─── знаки панели инструментов ──────────────────────────────────────────
+-- ─── toolbar marks ───────────────────────────────────────────────────────
 --
--- Символы панели (✂ ⧉ ⎘ ↶ ✕ ▤ ▦ ▩ ≡ ☷) — это глифы для ячеек; в Liberation их
--- нет, и отсутствующая руна рисуется пробелом. Поэтому в пикселях каждый
--- знак — примитивы в квадрате `size`, как у кнопок заголовка.
+-- The toolbar symbols (✂ ⧉ ⎘ ↶ ✕ ▤ ▦ ▩ ≡ ☷) are glyphs for cells; Liberation
+-- does not have them, and a missing rune is drawn as a space. So in pixels
+-- each mark is primitives in a `size` square, as with the title buttons.
 
 local function hline(raster, x: any, y: any, len: any, ink)
     raster:rect(whole(x), whole(y), math.max(1, whole(len)), 1, ink)
@@ -593,7 +604,7 @@ local function hollow(raster, x: any, y: any, w: any, h: any, ink)
     vline(raster, left + width - 1, top, height, ink)
 end
 
--- Стрелки: древко в две линии и голова из полосок убывающей длины.
+-- Arrows: a shaft of two lines and a head of strips of decreasing length.
 function pixels.mark_back(raster, x: any, y: any, size: any, tint)
     local side = math.max(8, whole(size)); local left, top = whole(x), whole(y)
     local ink = tint or color.face_text
@@ -622,7 +633,7 @@ function pixels.mark_up(raster, x: any, y: any, size: any, tint)
     raster:set(mid, top + 1, ink)
 end
 
--- Ножницы: два лезвия крест-накрест и два кольца рукояток внизу.
+-- Scissors: two blades crossed and two handle rings at the bottom.
 function pixels.mark_cut(raster, x: any, y: any, size: any, tint)
     local side = math.max(10, whole(size)); local left, top = whole(x), whole(y)
     local ink = tint or color.face_text
@@ -634,7 +645,7 @@ function pixels.mark_cut(raster, x: any, y: any, size: any, tint)
     hollow(raster, left + side - 5, top + side - 5, 4, 4, ink)
 end
 
--- Копировать: два листа, второй выглядывает из-под первого.
+-- Copy: two sheets, the second peeking out from under the first.
 function pixels.mark_copy(raster, x: any, y: any, size: any, tint)
     local side = math.max(10, whole(size)); local left, top = whole(x), whole(y)
     local ink = tint or color.face_text
@@ -643,7 +654,7 @@ function pixels.mark_copy(raster, x: any, y: any, size: any, tint)
     hollow(raster, left + 5, top + 5, side - 6, side - 6, ink)
 end
 
--- Вставить: планшет с зажимом и лист на нём.
+-- Paste: a clipboard with a clip and a sheet on it.
 function pixels.mark_paste(raster, x: any, y: any, size: any, tint)
     local side = math.max(10, whole(size)); local left, top = whole(x), whole(y)
     local ink = tint or color.face_text
@@ -653,7 +664,7 @@ function pixels.mark_paste(raster, x: any, y: any, size: any, tint)
     hollow(raster, left + 5, top + 6, side - 6, side - 7, ink)
 end
 
--- Отменить: стрелка влево с хвостом, загнутым вниз и вправо.
+-- Undo: a left arrow with a tail bent down and to the right.
 function pixels.mark_undo(raster, x: any, y: any, size: any, tint)
     local side = math.max(10, whole(size)); local left, top = whole(x), whole(y)
     local ink = tint or color.face_text
@@ -666,7 +677,7 @@ end
 
 pixels.mark_delete = pixels.mark_close
 
--- Свойства: лист с тремя строками.
+-- Properties: a sheet with three lines.
 function pixels.mark_properties(raster, x: any, y: any, size: any, tint)
     local side = math.max(10, whole(size)); local left, top = whole(x), whole(y)
     local ink = tint or color.face_text
@@ -674,7 +685,7 @@ function pixels.mark_properties(raster, x: any, y: any, size: any, tint)
     for line = 0, 2 do hline(raster, left + 4, top + 4 + line * 3, side - 8, ink) end
 end
 
--- Четыре вида: крупные значки, мелкие, список, таблица.
+-- Four views: large icons, small ones, list, details.
 function pixels.mark_view_large(raster, x: any, y: any, size: any, tint)
     local left, top = whole(x), whole(y); local ink = tint or color.face_text
     for row = 0, 1 do for col = 0, 1 do hollow(raster, left + 1 + col * 7, top + 1 + row * 7, 6, 6, ink) end end
@@ -699,7 +710,7 @@ function pixels.mark_view_details(raster, x: any, y: any, size: any, tint)
     vline(raster, left + 1, top + 1, 13, ink); vline(raster, left + 6, top + 1, 13, ink); vline(raster, left + 13, top + 1, 13, ink)
 end
 
--- Треугольник вниз — кнопка раскрытия списка.
+-- A down triangle — the button that opens a list.
 function pixels.mark_drop(raster, x: any, y: any, size: any, tint)
     local side = math.max(8, whole(size)); local left, top = whole(x), whole(y)
     local ink = tint or color.face_text
@@ -722,7 +733,8 @@ pixels.MARKS.view_list = pixels.mark_view_list
 pixels.MARKS.view_details = pixels.mark_view_details
 pixels.MARKS.drop = pixels.mark_drop
 
--- Выцветший знак Windows 95: серый, с белой копией на пиксель ниже и правее.
+-- A faded Windows 95 mark: gray, with a white copy one pixel lower and to
+-- the right.
 function pixels.mark_disabled(raster, mark, x: any, y: any, size: any)
     if type(mark) ~= "function" then return end
     mark(raster, whole(x) + 1, whole(y) + 1, size, color.light)
@@ -755,14 +767,14 @@ function pixels.flag(raster, x: any, y: any)
 end
 
 
--- ─── Полоса прокрутки и статусная строка ─────────────────────────────────
+-- ─── Scroll bar and status bar ───────────────────────────────────────────
 --
--- Одна полоса на всех: списки, таблицы и дерево SDK, поле проводника.
--- Шесть рисовалок над одним `scroll.bar` разъезжались по ширине ползунка и
--- виду стрелок; теперь геометрия приходит готовой (`bar` из `scroll.bar`:
--- start, size, limit — в строках), а вид у полосы один.
+-- One bar for everyone: the SDK lists, tables and tree, the Explorer field.
+-- Six painters over one `scroll.bar` drifted apart in thumb width and arrow
+-- look; now the geometry arrives ready (`bar` from `scroll.bar`: start,
+-- size, limit — in rows), and the bar has one look.
 --
--- `row_h` — высота строки в пикселях, `arrow_h` — высота кнопки-стрелки.
+-- `row_h` — row height in pixels, `arrow_h` — height of the arrow button.
 function pixels.scrollbar(raster, x: any, y: any, w: any, h: any, bar: any, row_h: any, arrow_h: any)
     local left, top, width, height = whole(x), whole(y), whole(w), whole(h)
     if width < 3 or height < 4 then return end
@@ -781,8 +793,8 @@ function pixels.scrollbar(raster, x: any, y: any, w: any, h: any, bar: any, row_
     end
 end
 
--- Статусная строка: вдавленные поля, последнее растягивается; у поля своя
--- ширина в пикселях (`width`) или по тексту.
+-- Status bar: sunken fields, the last one stretches; a field has its own
+-- width in pixels (`width`) or one taken from its text.
 function pixels.statusbar(raster, x: any, y: any, w: any, h: any, fields: any, font: any)
     local left, top, width, height = whole(x), whole(y), whole(w), whole(h)
     raster:rect(left, top, width, height, color.face)

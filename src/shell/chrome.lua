@@ -1,30 +1,32 @@
--- Тема оболочки: вид Windows 95 по контракту темы (FR-002, раздел 4).
+-- The shell theme: the Windows 95 look under the theme contract (FR-002,
+-- section 4).
 --
--- Здесь нет ни одного вызова, уходящего в рантайм: только строки и
--- арифметика. Поэтому файл — библиотека, а не процесс, и его можно звать из
--- любой отрисовки и мерить в тесте без терминала.
+-- There is not a single call here that goes out to the runtime: only strings
+-- and arithmetic. That is why the file is a library, not a process, and it can
+-- be called from any painting and measured in a test without a terminal.
 --
--- Четыре правила, на которых стоит всё остальное:
+-- Four rules everything else stands on:
 --
---   * Рамка и содержимое окна кладутся на холст РАЗДЕЛЬНО. Слить их в одну
---     строку — значит принять решения об обрезке, которые принять уже
---     нельзя: содержимое приходит готовыми строками чужого процесса.
---   * Ширина считается в ЯЧЕЙКАХ. `#строка` считает байты и не видит SGR:
---     на кириллице врёт вдвое, на стилизованном тексте — втрое.
---   * И рисование, и попадание мыши считаются по ОДНОЙ таблице. Отдельная
---     формула для клика однажды разъедется с отрисовкой, и «закрыть»
---     окажется на символ левее, чем выглядит. Отсюда же правило для значков
---     стола: нарисованный значок ОБЯЗАН вернуть своё попадание, иначе он
---     мёртвый, и это не видно на экране.
---   * Сколько места рамка окна забирает у программы, объявляет
---     `window_insets()`, а не считает по месту тот, кому оно понадобилось.
---     Композитор по этим же числам заводит viewport и смещает курсор; два
---     представления о толщине рамки разъезжаются на одну строку, и лишняя
---     строка программы рисуется поверх нижней грани.
+--   * The window frame and the window content are put on the canvas
+--     SEPARATELY. Merging them into one string means making clipping
+--     decisions that can no longer be made: the content arrives as finished
+--     lines of someone else's process.
+--   * Width is counted in CELLS. `#string` counts bytes and does not see SGR:
+--     on Cyrillic it lies twofold, on styled text threefold.
+--   * Both painting and the mouse hit are computed from ONE table. A separate
+--     formula for the click will one day drift from the painting, and "close"
+--     will end up one character to the left of where it looks. Hence also the
+--     rule for desktop icons: a painted icon MUST return its hit, otherwise it
+--     is dead, and that is not visible on screen.
+--   * How much room the window frame takes from the program is declared by
+--     `window_insets()`, not computed on the spot by whoever needed it. The
+--     compositor sets up the viewport and shifts the cursor by these same
+--     numbers; two notions of the frame thickness drift apart by one row, and
+--     the extra row of the program is painted over the bottom edge.
 --
--- Объём даётся гранью в одну ячейку: светлая сверху и слева, тёмная снизу и
--- справа. Поменять их местами — получить вдавленную деталь тем же кодом;
--- на этом держится и нажатая кнопка, и утопленное поле.
+-- Volume is given by a one-cell edge: light on top and on the left, dark at
+-- the bottom and on the right. Swap them and you get a sunken detail with the
+-- same code; both the pressed button and the sunken field rest on this.
 
 local tty = require("tty")
 
@@ -33,19 +35,19 @@ local icons = require("icons")
 local palette = require("palette")
 local widgets = require("widgets")
 
--- Набор цветов. Точный RGB по умолчанию; `palette.basic` — та же палитра
--- индексами 0–15 для терминала без truecolor, замена в одну строку.
+-- The color set. Exact RGB by default; `palette.basic` is the same palette as
+-- indexes 0–15 for a terminal without truecolor, a one-line swap.
 local color = palette.active
 
 local chrome = {}
 
--- Короткие имена для примитивов, не знающих про экран. Объявлены ЗДЕСЬ, до
--- первого использования, и это не вкусовщина: локальная переменная видна
--- только ниже своего объявления, а обращение выше молча читается как
--- глобальное — то есть как nil. Пока эти строки лежали в середине файла,
--- `chrome.title_button_at` падал на первом же вызове с «attempt to call a
--- non-function object», и не падал раньше только потому, что его никто не
--- звал.
+-- Short names for the primitives that know nothing about the screen. Declared
+-- HERE, before the first use, and this is not a matter of taste: a local
+-- variable is visible only below its declaration, and a reference above it is
+-- silently read as a global — that is, as nil. While these lines sat in the
+-- middle of the file, `chrome.title_button_at` failed on its very first call
+-- with "attempt to call a non-function object", and did not fail earlier only
+-- because nobody called it.
 local whole = widgets.whole
 local cells = widgets.cells
 local clip = widgets.clip
@@ -56,15 +58,16 @@ local edge_bottom = widgets.edge_bottom
 local panel = widgets.panel
 local wrap = icons.wrap
 
--- ─── Кнопки заголовка ────────────────────────────────────────────────────
+-- ─── Title buttons ───────────────────────────────────────────────────────
 --
--- Ровно три ячейки на кнопку: композитор ищет кнопку под точкой делением
--- отступа на три. Ширина здесь и шаг там — одно и то же число, и разъехаться
--- им нельзя.
--- Шаг кнопки в ячейках. Отдан наружу, потому что состав кнопок теперь не
--- один: у диалога их две, у окна три, и «делить отступ на три» перестало
--- быть верным. Считать шаг по месту — значит завести второе представление
--- о ширине кнопки, которое разъедется с этим на первой правке состава.
+-- Exactly three cells per button: the compositor finds the button under a
+-- point by dividing the offset by three. The width here and the step there are
+-- one and the same number, and they must not drift apart.
+-- The button step in cells. Exposed, because the set of buttons is no longer
+-- one: a dialog has two, a window three, and "divide the offset by three" has
+-- stopped being true. Computing the step on the spot means starting a second
+-- notion of the button width, which will drift from this one on the first
+-- edit of the set.
 chrome.BUTTON_STEP = 3
 
 chrome.BUTTONS = {
@@ -73,27 +76,30 @@ chrome.BUTTONS = {
     {id = "close",    glyph = glyphs.buttons.close},
 }
 
--- Диалог не сворачивают и не разворачивают: у него нет кнопки на панели
--- задач, и свёрнутый диалог было бы нечем достать. На эталоне в его
--- заголовке «что это?» и «закрыть».
+-- A dialog is neither minimized nor maximized: it has no button on the
+-- taskbar, and a minimized dialog would have nothing to get it back with. On
+-- the reference its title bar has "what's this?" and "close".
 chrome.DIALOG_BUTTONS = {
     {id = "help",  glyph = glyphs.buttons.help},
     {id = "close", glyph = glyphs.buttons.close},
 }
 
--- Служебное окно открывают из другого и закрывают, когда оно больше не
--- нужно. Свернуть его некуда — на панели задач его тоже нет, — а разворачивать
--- на весь экран палитру инструментов незачем.
+-- A tool window is opened from another one and closed when it is no longer
+-- needed. There is nowhere to minimize it to — it is not on the taskbar
+-- either — and there is no reason to maximize a tool palette to the whole
+-- screen.
 chrome.TOOL_BUTTONS = {
     {id = "close", glyph = glyphs.buttons.close},
 }
 
--- Наборы по типу окна. Таблицей, а не цепочкой if: третий тип добавляется
--- строкой, а не веткой, и «какой набор у tool» читается в одном месте.
+-- Sets by window type. As a table, not a chain of ifs: a third type is added
+-- as a line, not a branch, and "which set does tool have" is read in one
+-- place.
 --
--- Значения те же, что объявляет основа (`butschster.tui_desktop.desktop:programs`).
--- Тип, которого здесь нет, — это `app`: неизвестное значение не повод не
--- нарисовать окно, и решает это основа, а не тема.
+-- The values are the same ones the base declares
+-- (`butschster.tui_desktop.desktop:programs`). A type that is not here is
+-- `app`: an unknown value is no reason not to draw the window, and that is
+-- decided by the base, not the theme.
 chrome.BUTTON_SETS = {
     app = chrome.BUTTONS,
     dialog = chrome.DIALOG_BUTTONS,
@@ -102,27 +108,27 @@ chrome.BUTTON_SETS = {
 
 chrome.BUTTONS_WIDTH = #chrome.BUTTONS * chrome.BUTTON_STEP
 
--- Какой набор кнопок у этого окна и сколько он занимает. ОДНА таблица и для
--- рисования, и для попадания — иначе «закрыть» однажды окажется на символ
--- левее, чем выглядит, а у диалога нарисуются три кнопки, из которых
--- нажимаются две.
+-- Which set of buttons this window has and how much room it takes. ONE table
+-- for both painting and the hit — otherwise "close" will one day end up one
+-- character to the left of where it looks, and a dialog will get three
+-- buttons painted, of which two can be pressed.
 --
--- Читается `window_type` — поле, которое кладёт композитор основы. `dialog`
--- как булев признак больше не читается: два имени одного и того же
--- разъезжаются на первой правке, а окно, объявившее себя диалогом обоими
--- способами сразу, выглядело бы по-разному в зависимости от того, какое
--- чтение случилось первым.
+-- What is read is `window_type` — the field the base's compositor puts in.
+-- `dialog` as a boolean flag is no longer read: two names for one and the
+-- same thing drift apart on the first edit, and a window that declared itself
+-- a dialog both ways at once would look different depending on which read
+-- happened first.
 function chrome.buttons_for(window)
     local spec: any = type(window) == "table" and window or {}
     local kind: any = spec.window_type
     local set: any = type(kind) == "string" and chrome.BUTTON_SETS[kind] or nil
     if not set then set = chrome.BUTTONS end
-    -- Окно с фиксированным размером (`meta.resizable: false`) не
-    -- разворачивается, и кнопки «развернуть» у него нет — как у калькулятора
-    -- Windows 95. Признак кладёт композитор основы из записи; фильтр здесь,
-    -- а не третий набор в BUTTON_SETS: размер фиксируют и обычные окна, и
-    -- служебные, и заводить по набору на каждое сочетание значило бы
-    -- размножить таблицу, которая обязана оставаться одной.
+    -- A fixed-size window (`meta.resizable: false`) is not maximized, and it
+    -- has no "maximize" button — like the Windows 95 calculator. The flag is
+    -- put in by the base's compositor from the entry; the filter is here, and
+    -- not a third set in BUTTON_SETS: both ordinary windows and tool windows
+    -- fix their size, and starting a set per combination would mean
+    -- multiplying a table that must stay one.
     if spec.resizable == false then
         local kept = {}
         for _, button in ipairs(set) do
@@ -133,13 +139,13 @@ function chrome.buttons_for(window)
     return set, #set * chrome.BUTTON_STEP
 end
 
--- Кнопка заголовка под точкой, или nil.
+-- The title button under a point, or nil.
 --
--- Живёт в теме, а не в композиторе, нарочно: после того как заголовок
--- переехал внутрь рамки, его строка — это `y + 1`, а не `y`, и правый край
--- кнопок отстоит от края окна на правый инсет. Оба числа знает тема;
--- повторённые в композиторе, они разъезжаются молча, и промах по кнопке
--- выглядит как «клик не сработал».
+-- It lives in the theme, not in the compositor, on purpose: after the title
+-- moved inside the frame, its row is `y + 1`, not `y`, and the right edge of
+-- the buttons stands off the window edge by the right inset. The theme knows
+-- both numbers; repeated in the compositor, they drift apart silently, and a
+-- miss on a button looks like "the click did not work".
 function chrome.title_button_at(window, x: any, y: any)
     local spec: any = type(window) == "table" and window or {}
     local wx, wy = whole(spec.x), whole(spec.y)
@@ -151,7 +157,7 @@ function chrome.title_button_at(window, x: any, y: any)
     local span = ww - 2
     if span < width + 6 then return nil end
 
-    local last = wx + ww - inset.right          -- последняя ячейка перед правой гранью
+    local last = wx + ww - inset.right          -- the last cell before the right edge
     local from = last - width + 1
     local point = whole(x)
     if point < from or point > last then return nil end
@@ -161,14 +167,16 @@ function chrome.title_button_at(window, x: any, y: any)
     return button and button.id or nil
 end
 
--- Клиентская область окна утоплена, как на эталоне: тёмная грань сверху и
--- слева, светлая снизу и справа. Стоит это программе одной строки и двух
--- колонок сверх выпуклой рамки. Выключается здесь одной строкой — тогда
--- рамка остаётся выпуклой, а содержимое лежит прямо на лице окна.
+-- The window's client area is sunken, as on the reference: a dark edge on top
+-- and on the left, a light one at the bottom and on the right. It costs the
+-- program one row and two columns beyond the raised frame. It is switched off
+-- here with one line — then the frame stays raised, and the content lies
+-- straight on the window's face.
 local SUNKEN_CLIENT = true
 
--- Кнопка панели задач. Меньше семи ячеек — это две грани и три буквы имени:
--- кнопка, по которой нельзя узнать окно, занимает место зря.
+-- A taskbar button. Fewer than seven cells is two edges and three letters of
+-- the name: a button by which the window cannot be recognised takes up room
+-- for nothing.
 local TASK_MAX = 20
 local TASK_MIN = 7
 -- Fewer than six cells for the status line and it is not drawn at all: three
@@ -176,9 +184,10 @@ local TASK_MIN = 7
 -- both themes.
 local STATUS_LEAST = 6
 
--- Значок рабочего стола рисует библиотека `icons` — та же, которой рисует
--- значки окно «Мой компьютер». Здесь только переадресация: два одинаковых
--- значка, нарисованных разным кодом, разойдутся видом, а не отказом.
+-- A desktop icon is drawn by the `icons` library — the same one the "My
+-- Computer" window draws its icons with. Here there is only a redirect: two
+-- identical icons drawn by different code will drift apart in look, not in a
+-- failure.
 local ICON_GRID: any = icons.grid()
 
 function chrome.icon_grid()
@@ -193,15 +202,15 @@ chrome.ICON_W = ICON_GRID.w
 chrome.ICON_H = ICON_GRID.h
 chrome.ICON_LEFT = ICON_GRID.left
 
--- Меню «Пуск».
+-- The Start menu.
 local MENU_WIDTH = 38
 local MENU_MIN = 22
--- С этой ширины в меню помещается вертикальная надпись.
+-- From this width on the vertical caption fits in the menu.
 --
--- Было 26, и это оказалось выше, чем бывают наши панели: надпись не
--- показывалась практически никогда, а на эталонном кадре Windows 95 она есть
--- всегда. Порог оставлен, но опущен до ширины, на которой панель ещё не
--- выглядит стиснутой.
+-- It was 26, and that turned out to be more than our panels ever are: the
+-- caption was practically never shown, while on the Windows 95 reference frame
+-- it is always there. The threshold is kept, but lowered to the width at
+-- which the panel does not yet look squeezed.
 local MENU_BANNER_AT = 18
 -- The caption along the Start menu. This is NOT Windows: the shell draws the
 -- wippy stand, and the banner names it. Ten characters, like the original —
@@ -214,15 +223,16 @@ local MENU_BANNER_AT = 18
 -- way the two style tables once drifted apart.
 chrome.MENU_BANNER = "Wippy 2026"
 
--- Кто вошёл в систему — для верхней строки «Пуска». Одна таблица на обе темы:
--- пиксельная считает раскладку той же `menu_layout` и читает отсюда же, а
--- значение поднимается один раз, при входе (`use_user`), и живёт столько же,
--- сколько сама сессия оболочки — личность фиксируется при входе. Без входа
--- (оболочка поднята под своим актором) строки нет вовсе: стол под служебным
--- актором, подписанный чьим-то именем, выглядел бы как чужой вход.
+-- Who is logged on — for the top row of Start. One table for both themes: the
+-- pixel one computes the layout with the same `menu_layout` and reads from
+-- here too, and the value is raised once, at logon (`use_user`), and lives as
+-- long as the shell session itself — the identity is fixed at logon. Without
+-- logon (the shell started under its own actor) there is no row at all: a
+-- desktop under a service actor, signed with somebody's name, would look like
+-- someone else's logon.
 chrome.session = {user = nil}
 
--- use_user(user) — user = {id, name} или nil, чтобы снять.
+-- use_user(user) — user = {id, name}, or nil to clear it.
 function chrome.use_user(user: any)
     if type(user) == "table" and type(user.name) == "string" and user.name ~= "" then
         chrome.session.user = {id = user.id, name = user.name}
@@ -233,16 +243,18 @@ end
 
 local START_LABEL = " " .. glyphs.icons.start .. " Start "
 
--- Стили общие с `widgets`, а не свои. Своя копия здесь БЫЛА и разошлась: в
--- ней жил бирюзовый стол, которого не было у соседей, и пиксельная тема упала
--- на нём в первый же живой запуск. Две таблицы одного и того же расходятся
--- ровно на тех ключах, которые редко нужны обеим.
+-- The styles are shared with `widgets`, not our own. An own copy WAS here and
+-- drifted: the teal desktop lived in it, which the neighbours did not have,
+-- and the pixel theme crashed on it in the very first live run. Two tables of
+-- one and the same thing drift apart exactly on the keys both of them rarely
+-- need.
 local styles = widgets.styles
 
--- ─── Общие мерки и детали ────────────────────────────────────────────────
+-- ─── Shared measures and details ─────────────────────────────────────────
 --
--- Всё, что не знает про экран, живёт в `widgets` и рисуется тем же кодом у
--- окна. Короткие имена для них объявлены в начале файла.
+-- Everything that knows nothing about the screen lives in `widgets` and is
+-- drawn by the same code in a window. Short names for them are declared at
+-- the top of the file.
 
 chrome.clip = clip
 chrome.panel = panel
@@ -253,11 +265,12 @@ chrome.button_width = widgets.button_width
 chrome.etched = widgets.etched
 chrome.tabs = widgets.tabs
 
--- use_desktop(hex) — цвет стола из «Свойств экрана». Одна точка на все
--- представления: палитра (её читают пиксели при каждой отрисовке значка),
--- стили ячеек здесь, у виджетов и у значков. Форму цвета проверяет
--- вызывающий; здесь принимается только `#rrggbb`, остальное молча не
--- принимается и возвращает false — стол с битым цветом хуже прежнего.
+-- use_desktop(hex) — the desktop color from "Display Properties". One point
+-- for all representations: the palette (the pixels read it on every icon
+-- paint), the cell styles here, in the widgets and in the icons. The color's
+-- form is checked by the caller; here only `#rrggbb` is accepted, anything
+-- else is silently not accepted and returns false — a desktop with a broken
+-- color is worse than the previous one.
 function chrome.use_desktop(hex: any): boolean
     local value = tostring(hex or "")
     if not value:match("^#%x%x%x%x%x%x$") then return false end
@@ -268,39 +281,41 @@ function chrome.use_desktop(hex: any): boolean
     return true
 end
 
--- ─── Геометрия хрома ─────────────────────────────────────────────────────
+-- ─── Chrome geometry ─────────────────────────────────────────────────────
 
--- Панель задач занимает нижнюю строку и только её. Сверху хром не берёт
--- ничего: полосы окон в Windows 95 нет, её роль исполняют кнопки на панели.
+-- The taskbar takes the bottom row and only that. The chrome takes nothing on
+-- top: Windows 95 has no window strip, its role is played by the buttons on
+-- the taskbar.
 function chrome.layout(width: any, height: any)
     return {top = 0, bottom = 1}
 end
 
--- Сколько ячеек рамка окна забирает у программы с каждой стороны.
+-- How many cells the window frame takes from the program on each side.
 --
--- Сверху две строки — выпуклая грань и полоса заголовка под ней: на эталоне
--- заголовок лежит ВНУТРИ рамки, а не заменяет её верх, и без этой строки
--- окно читается как панель с текстом. С утопленной клиентской областью
--- сверху три, снизу и по бокам по две.
+-- On top, two rows — the raised edge and the title bar under it: on the
+-- reference the title lies INSIDE the frame rather than replacing its top, and
+-- without this row the window reads as a panel with text. With the sunken
+-- client area it is three on top and two at the bottom and on the sides.
 --
--- Композитор обязан считать по этим числам размер viewport и смещение
--- курсора. Отсюда же нижняя граница размера окна: окно, у которого
--- содержимого не осталось ни одной строки, — это `tty.viewport` с нулевой
--- высотой, то есть отказ на открытии.
+-- The compositor must compute the viewport size and the cursor offset from
+-- these numbers. Hence also the lower bound of the window size: a window with
+-- not a single row of content left is a `tty.viewport` of zero height, that
+-- is, a failure on opening.
 function chrome.window_insets(window)
-    -- Строка меню окна сюда БОЛЬШЕ НЕ ВХОДИТ. Композитор отдаёт окну весь
-    -- прямоугольник внутри рамки, и что там нарисовано — дело окна: пункты
-    -- меню свои у каждого, а «6 объектов» пересчитывается на каждое
-    -- открытие папки. Рисуй их тема — понадобился бы канал «окно сообщает
-    -- теме свои строки», то есть композитор начал бы знать про устройство
-    -- чужого окна.
+    -- The window's menu bar is NO LONGER counted here. The compositor gives
+    -- the window the whole rectangle inside the frame, and what is drawn
+    -- there is the window's business: every window has its own menu items,
+    -- and "6 objects" is recounted on every folder opening. Were the theme to
+    -- draw them, a channel "the window tells the theme its rows" would be
+    -- needed, that is, the compositor would start knowing about the insides
+    -- of someone else's window.
     if SUNKEN_CLIENT then
         return {top = 3, bottom = 2, left = 2, right = 2}
     end
     return {top = 2, bottom = 1, left = 1, right = 1}
 end
 
--- ─── Рабочий стол ────────────────────────────────────────────────────────
+-- ─── Desktop ─────────────────────────────────────────────────────────────
 
 -- desktop_spot(item, top, bottom, width, drawn) -> x, y | nil
 --
@@ -335,14 +350,16 @@ function chrome.desktop_hit(item: any, row: any, from: any, to: any): any
     }
 end
 
--- Стол: заливка, значки раскладки и попадания по ним.
+-- The desktop: the fill, the layout's icons and the hits on them.
 --
--- Заливается весь холст: панель задач и окна лягут поверх, а незалитая
--- полоса под панелью отличалась бы цветом на один кадр при смене размера.
+-- The whole canvas is filled: the taskbar and windows will lie on top, and an
+-- unfilled strip under the taskbar would differ in color for one frame on a
+-- resize.
 --
--- Раскладку тема не хранит и не придумывает — она приходит в `state.items`.
--- Каждый нарисованный значок возвращает попадание; открывает его двойной
--- щелчок, выделяет одиночный, и решает это композитор, а не тема.
+-- The theme neither stores nor invents the layout — it arrives in
+-- `state.items`. Every painted icon returns a hit; a double click opens it, a
+-- single click selects it, and that is decided by the compositor, not the
+-- theme.
 function chrome.fill(canvas, width: any, height: any, state)
     canvas:clear(styles.desktop:render(" "))
 
@@ -356,9 +373,10 @@ function chrome.fill(canvas, width: any, height: any, state)
     local bottom = whole(desk.bottom)
     if bottom < 1 or bottom > h then bottom = h end
 
-    -- «Раскладка не прочитана» и «на столе пусто» — разные утверждения.
-    -- Пустой стол молчит; отказ называет причину, иначе человек пойдёт
-    -- искать пропавшие ярлыки, которых он не терял.
+    -- "The layout was not read" and "the desktop is empty" are different
+    -- statements. An empty desktop is silent; a failure names the reason,
+    -- otherwise the person will go looking for missing shortcuts they never
+    -- lost.
     if desk.failure then
         local box_w = math.min(48, w - 4)
         if box_w >= 12 then
@@ -386,9 +404,10 @@ function chrome.fill(canvas, width: any, height: any, state)
         end
 
         if drawn then
-            -- Попадание на все строки элемента: щёлкают и по картинке, и по
-            -- подписи, в том числе по её второй строке. Прямоугольник берётся
-            -- у того, кто рисовал, — своя формула разъехалась бы с рисунком.
+            -- A hit on every row of the item: people click both the picture
+            -- and the caption, including its second line. The rectangle is
+            -- taken from whoever drew it — a formula of our own would drift
+            -- from the drawing.
             for row = drawn.top, drawn.bottom do
                 hits[#hits + 1] = chrome.desktop_hit(item, row, drawn.from, drawn.to)
             end
@@ -398,24 +417,24 @@ function chrome.fill(canvas, width: any, height: any, state)
     return hits
 end
 
--- ─── Окно ────────────────────────────────────────────────────────────────
+-- ─── Window ──────────────────────────────────────────────────────────────
 
--- Полоса заголовка: идёт в ширину ВНУТРЕННЕЙ области, не касаясь граней.
--- Возвращает строку ровно в `span` ячеек.
+-- The title bar: runs across the width of the INNER area, not touching the
+-- edges. Returns a string of exactly `span` cells.
 local function title_bar(title, span: any, focused, window)
     local width = whole(span)
     if width <= 0 then return "" end
 
     local bar = focused and styles.title or styles.title_idle
 
-    -- Набор берётся у того же `buttons_for`, что и попадание. Рисовать
-    -- всегда три, а нажимать по набору типа — значит нарисовать диалогу
-    -- «свернуть», которая молча не работает; ровно за этим сюда и приехало
-    -- окно, а не одно его имя.
+    -- The set is taken from the same `buttons_for` as the hit. Always drawing
+    -- three while pressing by the type's set means drawing a "minimize" on a
+    -- dialog that silently does not work; that is exactly why the window
+    -- came here, and not just its name.
     local set, set_width = chrome.buttons_for(window)
 
-    -- Кнопки уступают место имени: заголовок без имени не говорит, какое это
-    -- окно, а закрыть его можно и с панели задач.
+    -- The buttons give way to the name: a title without a name does not say
+    -- which window this is, and it can also be closed from the taskbar.
     local buttons = width >= set_width + 6 and set_width or 0
     local room = width - buttons - 2
     local name = room > 0 and clip(title or "", room) or ""
@@ -428,8 +447,8 @@ local function title_bar(title, span: any, focused, window)
 
     if buttons > 0 then
         for _, button in ipairs(set) do
-            -- Кнопка — та же выпуклая деталь, что и всё остальное: светлая
-            -- грань слева, тёмная справа. Три ячейки на каждую.
+            -- A button is the same raised detail as everything else: a light
+            -- edge on the left, a dark one on the right. Three cells each.
             parts[#parts + 1] = bezel(styles.face:render(button.glyph), false)
         end
     end
@@ -439,11 +458,11 @@ end
 
 chrome.title_bar = title_bar
 
--- Окно целиком: выпуклая рамка, заголовок внутри неё, утопленная клиентская
--- область и содержимое.
+-- The whole window: the raised frame, the title inside it, the sunken client
+-- area and the content.
 --
--- `rows` — массив строк, как его отдаёт viewport:snapshot(). Он общий и
--- неизменяемый, поэтому кладётся как есть: put_rows сам обрежет по ширине.
+-- `rows` is an array of lines as viewport:snapshot() returns it. It is shared
+-- and immutable, so it is put as is: put_rows clips to the width itself.
 -- PTY windows need stable defaults through SGR 0/39/49, independent of the
 -- outer terminal theme. Explicit application colors remain authoritative.
 local console_colors = {foreground = color.console_text, background = color.console_bg}
@@ -459,7 +478,7 @@ function chrome.window(canvas, window, focused)
     local inset = chrome.window_insets(window)
     if w < inset.left + inset.right + 1 or h < inset.top + inset.bottom + 1 then return hits end
 
-    -- Выпуклая рамка окна.
+    -- The raised window frame.
     canvas:put(x, y, edge_top(w, false), w)
     canvas:put(x, y + 1, bezel(title_bar(window.title, w - 2, focused, window), false), w)
     local blank = bezel(styles.face:render(string.rep(" ", w - 2)), false)
@@ -468,17 +487,17 @@ function chrome.window(canvas, window, focused)
     end
     canvas:put(x, y + h - 1, edge_bottom(w, false), w)
 
-    -- Утопленная клиентская область внутри неё.
+    -- The sunken client area inside it.
     if SUNKEN_CLIENT then
         widgets.field(canvas, x + 1, y + 2, w - 2, h - 3)
     end
 
-    -- Содержимое кладётся отдельно и обрезается по высоте рамки. Обычно
-    -- viewport окна ровно в неё и сделан, но в момент смены размера кадр
-    -- приходит от прежней геометрии: `put_rows` держит границу ХОЛСТА, а не
-    -- рамки, поэтому лишняя строка нарисовалась бы поверх нижней грани и за
-    -- пределами окна. Читается это как сломанная рамка, а не как отставший
-    -- кадр.
+    -- The content is put separately and clipped to the frame height. Usually
+    -- the window's viewport is made exactly to fit it, but at the moment of a
+    -- resize the frame arrives from the previous geometry: `put_rows` keeps
+    -- the bound of the CANVAS, not of the frame, so an extra row would be
+    -- painted over the bottom edge and outside the window. That reads as a
+    -- broken frame, not as a lagging frame.
     local defaults = chrome.content_colors(window)
     if defaults then
         local width = w - inset.left - inset.right
@@ -500,14 +519,15 @@ function chrome.window(canvas, window, focused)
     return hits
 end
 
--- ─── Панель задач ────────────────────────────────────────────────────────
+-- ─── Taskbar ─────────────────────────────────────────────────────────────
 
--- Панель: «Пуск» слева, кнопки открытых окон, часы справа.
+-- The taskbar: Start on the left, the buttons of open windows, the clock on
+-- the right.
 --
--- Возвращает разметку попаданий — по ней композитор находит, во что попал
--- клик: {row, from, to, action = "menu"} у «Пуска» и {row, from, to, id} у
--- кнопки окна. Что делать с попаданием, решает композитор: поднять окно и
--- развернуть свёрнутое — его работа, не темы.
+-- Returns the hit map — by it the compositor finds what a click landed on:
+-- {row, from, to, action = "menu"} for Start and {row, from, to, id} for a
+-- window button. What to do with a hit is decided by the compositor: raising
+-- a window and restoring a minimized one is its job, not the theme's.
 -- taskbar_layout(width, windows, metrics) -> {start, tasks, status?, clock?}
 --
 -- The taskbar layout in cells — ONE for both themes. The measures differ per
@@ -600,8 +620,9 @@ function chrome.bars(canvas, width: any, height: any, state)
     local bar = type(state) == "table" and state or {}
     local row = h
 
-    -- «Пуск». Открытое меню держит кнопку нажатой: иначе по экрану не
-    -- сказать, меню это или окно, всплывшее над панелью.
+    -- Start. An open menu keeps the button pressed: otherwise the screen
+    -- cannot tell whether this is the menu or a window that popped up above
+    -- the taskbar.
     local pressed = bar.menu_open and true or false
     local face = pressed and styles.face_bold or styles.face
     local label = START_LABEL
@@ -660,10 +681,10 @@ function chrome.bars(canvas, width: any, height: any, state)
         used = task.to
     end
 
-    -- Строка состояния занимает то, что осталось. Своей строки у неё больше
-    -- нет — панель заняла единственную нижнюю, — а выбросить её значит
-    -- потерять сообщения вроде «не открылось: …», которые больше нигде не
-    -- показываются.
+    -- The status line takes what is left. It no longer has a row of its own
+    -- — the taskbar took the only bottom one — and throwing it away would
+    -- mean losing messages like "could not open: …", which are shown nowhere
+    -- else.
     local status = type(bar.status) == "string" and bar.status or ""
     if status ~= "" and plan.status then
         pad(plan.status.from - 1)
@@ -691,8 +712,9 @@ function chrome.bars(canvas, width: any, height: any, state)
             or styles.face:render(clock)
         if chrome.clock_entry then
             hits[#hits + 1] = {row = row, from = plan.clock.from, to = plan.clock.to,
-                -- Заголовка здесь нет нарочно: окно называет его запись, и
-                -- «Часы» поверх «Дата и время» читалось бы как другое окно.
+                -- There is no title here on purpose: the window's entry names
+                -- it, and "Clock" over "Date and Time" would read as a
+                -- different window.
                 entry = chrome.clock_entry}
         end
     end
@@ -701,7 +723,7 @@ function chrome.bars(canvas, width: any, height: any, state)
     return hits
 end
 
--- ─── Меню «Пуск» ─────────────────────────────────────────────────────────
+-- ─── Start menu ──────────────────────────────────────────────────────────
 
 local function title_of(item)
     local title = item.title
@@ -717,26 +739,28 @@ local function new_node()
     return {names = {}, groups = {}, programs = {}, order = math.huge}
 end
 
--- Папка меню задаётся путём в `meta.group`, а не отдельной записью: папка
--- без программ бессмысленна, а объявленная отдельно — разъезжается со своим
--- содержимым при удалении модуля. Глубже трёх уровней путь схлопывается: в
--- терминале четвёртый отступ уже не читается.
--- Путь папок приходит УЖЕ РАЗОБРАННЫМ — списком сегментов, а не строкой.
+-- A menu folder is given by a path in `meta.group`, not by a separate entry:
+-- a folder without programs is meaningless, and one declared separately
+-- drifts away from its content when a module is removed. Deeper than three
+-- levels the path collapses: in a terminal the fourth indent no longer reads.
+-- The folder path arrives ALREADY PARSED — as a list of segments, not a
+-- string.
 --
--- Разбирала его эта функция, и разбирала ВТОРОЙ раз: каталог
--- (`butschster.windows.programs:catalog`) уже сделал это, с обрезкой по
--- глубине и по пробелам, и клал сюда таблицу. Строкой она никогда не была,
--- поэтому `type(item.group) == "string"` не срабатывал ни разу — путь выходил
--- пустым, папка не заводилась, программа ложилась на верхний уровень.
+-- This function used to parse it, and parsed it a SECOND time: the catalog
+-- (`butschster.windows.programs:catalog`) had already done that, with
+-- clipping by depth and by spaces, and put a table here. It was never a
+-- string, so `type(item.group) == "string"` never fired once — the path came
+-- out empty, the folder was not created, the program lay on the top level.
 --
--- Ни отказа, ни следа: программа ВИДНА, просто не там, где просили. Тот же
--- класс, что и `id` вместо `action` в попадании, и что две таблицы стилей:
--- два представления одного и того же, и расхождение молчит.
+-- No failure, no trace: the program IS VISIBLE, just not where it was asked
+-- to be. The same class as `id` instead of `action` in a hit, and as the two
+-- style tables: two representations of one and the same thing, and the
+-- divergence is silent.
 --
--- Своей обрезки по глубине здесь тоже больше нет. Она была вторым числом
--- рядом с `catalog.MAX_DEPTH`, а два числа одного смысла однажды поменяют
--- поодиночке. Глубину ограничивает тот, кто путь разбирает; каскад
--- останавливает ширина экрана, и это ограничение настоящее.
+-- There is no depth clipping of our own here any more either. It was a second
+-- number next to `catalog.MAX_DEPTH`, and two numbers with one meaning will
+-- one day be changed one at a time. Depth is limited by whoever parses the
+-- path; the cascade is stopped by the screen width, and that limit is real.
 local function place(root, index, item)
     local node = root
     local path: any = type(item.group) == "table" and item.group or {}
@@ -750,10 +774,11 @@ local function place(root, index, item)
                 node.groups[name] = child
                 node.names[#node.names + 1] = name
             end
-            -- Папка встаёт туда, где её самая ранняя программа: «Программы»
-            -- выше «Настройки» потому, что так расставлены их пункты, а не
-            -- по алфавиту — алфавит ставил бы наоборот. То же правило, что
-            -- у `catalog.tree`: два порядка одного меню разъехались бы молча.
+            -- A folder takes the place of its earliest program: "Programs"
+            -- is above "Settings" because that is how their items are
+            -- placed, not by alphabet — the alphabet would put them the
+            -- other way round. The same rule as in `catalog.tree`: two
+            -- orders of one menu would drift apart silently.
             if order < child.order then child.order = order end
             node = child
         end
@@ -761,13 +786,13 @@ local function place(root, index, item)
     node.programs[#node.programs + 1] = {index = index, item = item}
 end
 
--- Строки одной панели: папки и программы ВМЕСТЕ, по `order`; папка стоит
--- там, где её самая ранняя программа. Раньше папки шли первыми всегда, и
--- «Мой компьютер» нельзя было положить над «Программами», как в Windows.
--- Между равными — папка раньше программы, дальше алфавит. Отступов нет
--- НАРОЧНО: вложенность показывает отдельная панель, а не сдвиг вправо.
--- Отступами дерево читается как список, и это была не мелочь — по списку
--- не видно, что папка раскрывается.
+-- The rows of one panel: folders and programs TOGETHER, by `order`; a folder
+-- stands where its earliest program is. Folders used to always go first, and
+-- "My Computer" could not be put above "Programs", as in Windows. Between
+-- equals — a folder before a program, then the alphabet. There are no indents
+-- ON PURPOSE: nesting is shown by a separate panel, not by a shift to the
+-- right. With indents the tree reads as a list, and that was no trifle — a
+-- list does not show that a folder opens.
 local function panel_lines(node)
     local lines = {}
     for _, name in ipairs(node.names) do
@@ -784,10 +809,11 @@ local function panel_lines(node)
         if left.kind ~= right.kind then return left.kind == "group" end
         return left.text < right.text
     end)
-    -- Разделитель — свойство СТРОКИ, а не программы: его просит либо сама
-    -- программа (`separator_before`, так у «Завершения работы»), либо
-    -- предыдущая (`separator_after` — так «Мой компьютер» отделяется от
-    -- папок под ним). Папке просить нечем, поэтому считается здесь.
+    -- A separator is a property of the ROW, not of the program: it is asked
+    -- for either by the program itself (`separator_before`, as with "Shut
+    -- Down"), or by the previous one (`separator_after` — this is how "My
+    -- Computer" is separated from the folders under it). A folder has
+    -- nothing to ask with, so it is computed here.
     for index, line in ipairs(lines) do
         local own = line.item and line.item.separator_before
         local prev = lines[index - 1]
@@ -797,18 +823,19 @@ local function panel_lines(node)
     return lines
 end
 
--- Подпись строки без стиля: нужна дважды — чтобы померить панель и чтобы её
--- нарисовать. Считать её в двух местах значит однажды померить одно, а
--- нарисовать другое.
+-- The row's caption without style: needed twice — to measure the panel and to
+-- draw it. Computing it in two places means one day measuring one thing and
+-- drawing another.
 local function line_text(line)
     if line.kind == "item" then
         local item = line.item
-        -- Цифры перед пунктом здесь БЫЛИ и убраны нарочно. Их не было в
-        -- Windows 95, и человек, открывающий программы мышью, читает колонку
-        -- цифр как вопрос «а зачем они». Завелись они не от замысла, а от
-        -- инструмента: пробник не умел мышь, и других способов открыть окно
-        -- в проверке не было. Ограничение инструмента протекло в интерфейс —
-        -- инструмент починен, цифры ушли.
+        -- Digits before the item WERE here and were removed on purpose.
+        -- Windows 95 did not have them, and a person opening programs with
+        -- the mouse reads a column of digits as the question "what are they
+        -- for". They appeared not by design but because of a tool: the probe
+        -- could not do the mouse, and there was no other way to open a window
+        -- in a check. The tool's limitation leaked into the interface — the
+        -- tool is fixed, the digits are gone.
         local icon = type(item.icon) == "string" and item.icon ~= "" and item.icon or glyphs.icons.unknown
         return " " .. icon .. " " .. line.text, ""
     end
@@ -821,43 +848,48 @@ local function line_text(line)
     return " " .. tostring(line.text or ""), ""
 end
 
--- Меню «Пуск»: каскад панелей, наполняется каталогом реестра.
+-- The Start menu: a cascade of panels, filled from the registry catalog.
 --
--- `open` — путь раскрытых папок от корня наружу, например {"Программы",
--- "Стандартные"}. Тема ничего про раскрытие не помнит: что раскрыто,
--- держит композитор, и он же получает готовый путь в попадании — ему
--- достаточно положить его себе, не разбирая дерева.
+-- `open` is the path of open folders from the root outwards, for example
+-- {"Programs", "Accessories"}. The theme remembers nothing about what is open:
+-- that is held by the compositor, and it also gets the ready path in the hit —
+-- it only has to store it, without parsing the tree.
 --
--- Разметка попаданий различает два действия, а не одно:
---   программа — {row, from, to, index = <номер в переданном массиве>}
---   папка     — {row, from, to, open = {…полный путь…}, level = k}
--- Номер программы — именно в ПЕРЕДАННОМ массиве, а не в порядке показа: тот
--- же номер стоит в строке акселератором, и разъехаться им нечем.
--- `cursor` — номер выделенной строки в САМОЙ ГЛУБОКОЙ раскрытой панели, с
--- единицы. Меню его не хранит: тема рисует кадр и ничего не помнит между
--- кадрами, а помнит композитор — он же двигает курсор стрелками.
+-- The hit map tells two actions apart, not one:
+--   program — {row, from, to, index = <number in the passed array>}
+--   folder  — {row, from, to, open = {…full path…}, level = k}
+-- The program's number is in the PASSED array, not in display order: the same
+-- number stands in the row as the accelerator, and they have nothing to drift
+-- apart with.
+-- `cursor` is the number of the highlighted row in the DEEPEST open panel,
+-- from one. The menu does not store it: the theme draws a frame and remembers
+-- nothing between frames; the compositor remembers — it also moves the cursor
+-- with the arrows.
 --
--- Выделенная строка помечается в разметке попаданий полем `cursor`, и это
--- существенно: композитор не считает заново, что сейчас выбрано, а читает то,
--- что НАРИСОВАНО. Второй счёт разъехался бы с первым, и Enter открывал бы не
--- ту строку, которая подсвечена.
+-- The highlighted row is marked in the hit map with the `cursor` field, and
+-- this matters: the compositor does not recompute what is selected now, but
+-- reads what is DRAWN. A second count would drift from the first, and Enter
+-- would open a row other than the highlighted one.
 --
--- У каждого попадания есть `level` и `slot` — уровень панели и номер строки в
--- ней. По ним композитор зажимает курсор, не зная устройства панелей.
--- menu_layout(width, height, items, failure, open, cursor) -> раскладка
+-- Every hit has `level` and `slot` — the panel level and the row number in it.
+-- By them the compositor clamps the cursor without knowing how the panels are
+-- built.
+-- menu_layout(width, height, items, failure, open, cursor) -> layout
 --
--- ЧТО и ГДЕ, без единой краски. Вынесено из отрисовки по той же причине, что
--- и раскладка проводника: рисующих стало двое — символы и пиксели, — и «одна
--- таблица» означает теперь раскладку. Два бэкенда, считающие каскад каждый
--- по-своему, разъедутся молча, и щелчок попадёт на соседний пункт в одном из
--- двух режимов.
+-- WHAT and WHERE, without a single paint. Taken out of painting for the same
+-- reason as the explorer layout: there are now two painters — characters and
+-- pixels — and "one table" now means the layout. Two backends each computing
+-- the cascade their own way will drift apart silently, and a click will land
+-- on the neighbouring item in one of the two modes.
 --
--- Отдаёт `{panels, hits, notice}`:
+-- Returns `{panels, hits, notice}`:
 --
---   panels  список панелей от корня наружу: x, y, w, h, ширина колонки,
---           ширина вертикальной надписи и строки с их видом
---   hits    разметка попаданий, как раньше
---   notice  панель отказа или пустого каталога, когда каскада нет вовсе
+--   panels  the list of panels from the root outwards: x, y, w, h, the column
+--           width, the width of the vertical caption, and the rows with their
+--           look
+--   hits    the hit map, as before
+--   notice  the failure or empty-catalog panel, when there is no cascade at
+--           all
 function chrome.menu_layout(width: any, height: any, items, failure, open, cursor: any, metrics: any): any
     local out: any = {panels = {}, hits = {}, notice = nil}
     local sizing: any = type(metrics) == "table" and metrics or {}
@@ -872,10 +904,11 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
     local room = bottom - 2
     if room < 1 then return out end
 
-    -- Контекстное меню значка: одна панель у якоря, плоский список без
-    -- банера, папок и подсказок. Пункты — те же таблицы, что у каталога;
-    -- подпись — `label` (у «Открыть» `title` — заголовок окна). Панель не
-    -- выходит за экран: у правого и нижнего края она сдвигается внутрь.
+    -- An icon's context menu: one panel at the anchor, a flat list without a
+    -- banner, folders or hints. The items are the same tables as the
+    -- catalog's; the caption is `label` (for "Open", `title` is the window
+    -- title). The panel does not go off the screen: at the right and bottom
+    -- edges it shifts inwards.
     local anchor: any = sizing.anchor
     if type(anchor) == "table" then
         local lines: any = {}
@@ -890,7 +923,7 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
         for _, line in ipairs(lines) do
             local size = cells(line.text) + 3
             if type(sizing.measure) == "function" then
-                -- Уровень 0 — контекстное меню: без значка, подпись ближе.
+                -- Level 0 is the context menu: no icon, the caption closer.
                 size = whole(sizing.measure(line.text, 0, "context"))
             end
             if size > widest then widest = size end
@@ -915,9 +948,10 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
             }
             out.hits[#out.hits + 1] = {
                 row = row, bottom_row = span > 1 and row + span - 1 or nil,
-                -- В пикселях (`compact`) рамка — три пикселя, а не ячейка, и
-                -- крайние ячейки почти целиком содержимое: попадание на всю
-                -- ширину панели. В ячейках крайние ячейки — рамка.
+                -- In pixels (`compact`) the frame is three pixels, not a
+                -- cell, and the outermost cells are almost entirely content:
+                -- the hit spans the whole panel width. In cells the outermost
+                -- cells are the frame.
                 from = compact and left or left + 1,
                 to = compact and left + box_w - 1 or left + box_w - 2, index = index,
                 level = 1, slot = index, cursor = under_cursor or nil,
@@ -927,9 +961,10 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
         return out
     end
 
-    -- Отказ реестра и пустой каталог обязаны различаться на экране:
-    -- одинаковый вид отправляет человека искать ошибку в своём приложении,
-    -- где её нет. Обоим хватает одной панели — каскаду тут неоткуда взяться.
+    -- A registry failure and an empty catalog must differ on screen: the same
+    -- look sends the person looking for an error in their own application,
+    -- where there is none. One panel is enough for both — there is nowhere
+    -- for a cascade to come from here.
     if failure or #catalog == 0 then
         local box_w = math.min(MENU_WIDTH, math.max(MENU_MIN, w - 2))
         if box_w > w then box_w = w end
@@ -955,9 +990,10 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
     local root = new_node()
     for index, item in ipairs(catalog) do place(root, index, item) end
 
-    -- Раскрытые уровни. Путь, который больше не разрешается (папку удалили
-    -- вместе с модулем), обрывается молча: показать три панели вместо двух
-    -- нельзя, а ругаться на исчезнувшую папку не за что.
+    -- The open levels. A path that no longer resolves (the folder was
+    -- removed together with its module) is cut off silently: three panels
+    -- cannot be shown instead of two, and there is nothing to complain about
+    -- in a vanished folder.
     local path = type(open) == "table" and open or {}
     local levels: any = {root}
     local names = {}
@@ -973,35 +1009,37 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
     local at = whole(cursor)
 
     for level, node in ipairs(levels) do
-        -- Номер строки внутри панели. Считается ЗДЕСЬ, а не по индексу в
-        -- списке строк: подсказки и обрезка «…ещё N» строками тоже занимают
-        -- место, а выбирать их нельзя.
+        -- The row number inside the panel. Counted HERE, not by the index in
+        -- the list of rows: hints and the "…N more" clipping also take up
+        -- room as rows, and they cannot be selected.
         local slot = 0
         local lines: any = panel_lines(node)
 
-        -- Вошедший пользователь — первой строкой корня, со значком и
-        -- разделителем под ним. Строка НЕ выбирается: у неё нет ни попадания,
-        -- ни номера `slot`, курсор её перешагивает, и Enter на «первой строке»
-        -- по-прежнему открывает первую программу. Подсказки и обрезка на
-        -- низком экране считаются по той же `#lines`, так что место она
-        -- занимает честно; при обрезке остаётся — режется хвост.
+        -- The logged-on user is the first row of the root, with an icon and
+        -- a separator under it. The row is NOT selectable: it has neither a
+        -- hit nor a `slot` number, the cursor steps over it, and Enter on
+        -- "the first row" still opens the first program. Hints and clipping
+        -- on a short screen are counted by the same `#lines`, so it takes up
+        -- room honestly; on clipping it stays — the tail is cut.
         local user: any = sizing.user
         if level == 1 and type(user) == "table" and type(user.name) == "string" and user.name ~= "" then
             table.insert(lines, 1, {kind = "user", text = user.name, image = "user"})
             if lines[2] then lines[2].separator_before = true end
         end
 
-        -- Ширина панели — по самой длинной подписи, не по константе:
-        -- каскад из трёх панелей одинаковой ширины съедает экран, а узкая
-        -- панель обрезает имена, которые в ней одни и есть.
+        -- The panel width is by the longest caption, not by a constant: a
+        -- cascade of three panels of equal width eats the screen, and a
+        -- narrow panel clips the names, which are all there is in it.
         local widest = 0
         for _, line in ipairs(lines) do
             local text, tail = line_text(line)
             local size = cells(text) + cells(tail) + 1
             if type(sizing.measure) == "function" then
-                -- Мерке нужны уровень и вид строки: на корне значок 32 px, в
-                -- подменю 16, у папки справа ещё стрелка. Без них панель
-                -- считалась по худшему случаю и справа оставался пустой край.
+                -- The measure needs the level and the kind of the row: on
+                -- the root the icon is 32 px, in a submenu 16, and a folder
+                -- also has an arrow on the right. Without them the panel was
+                -- computed for the worst case and an empty margin was left on
+                -- the right.
                 size = whole(sizing.measure(tostring(line.text or ""), level, line.kind))
             end
             if size > widest then widest = size end
@@ -1031,8 +1069,8 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
         end
 
         local box_h = #lines * span + padding
-        -- Корневая панель стоит над «Пуском»; подменю выравнивается своей
-        -- первой строкой по строке той папки, которая его раскрыла.
+        -- The root panel stands above Start; a submenu aligns its first row
+        -- with the row of the folder that opened it.
         local top
         if level == 1 then
             top = bottom - box_h + 1
@@ -1056,10 +1094,11 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
 
             local letter = " "
             if banner_w > 0 then
-                -- Надпись читается снизу вверх, как повёрнутая на 90°.
-                -- Переменная названа НЕ `slot` нарочно: `slot` в этой же
-                -- функции — номер выбираемой строки, и одно имя на два разных
-                -- числа рано или поздно окажется прочитано не тем.
+                -- The caption reads bottom to top, as if rotated by 90°.
+                -- The variable is NOT named `slot` on purpose: `slot` in this
+                -- same function is the number of the selectable row, and one
+                -- name for two different numbers will sooner or later be read
+                -- as the wrong one.
                 local banner = tostring(chrome.MENU_BANNER or ""):upper()
                 local letter_at = #lines - index + 1
                 if letter_at <= #banner then
@@ -1067,12 +1106,13 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
                 end
             end
 
-            -- `label` и `text` — РАЗНЫЕ вещи, и различие не косметическое.
-            -- `text` несёт значок символом (`▢`, `▤`) и годится только для
-            -- ячеек. В шрифте геометрических символов нет: «отсутствующая
-            -- руна advance-ится пробелом», то есть в пикселях на их месте
-            -- пустота — на первом же снимке меню это и вышло. Пиксельный
-            -- бэкенд рисует значок примитивом и берёт `label`.
+            -- `label` and `text` are DIFFERENT things, and the difference is
+            -- not cosmetic. `text` carries the icon as a character (`▢`, `▤`)
+            -- and is good only for cells. The font has no geometric symbols:
+            -- "a missing rune advances as a space", that is, in pixels there
+            -- is emptiness in their place — exactly what came out on the very
+            -- first screenshot of the menu. The pixel backend draws the icon
+            -- with a primitive and takes `label`.
             painted.lines[#painted.lines + 1] = {
                 kind = line.kind, text = text, tail = tail, row = row, rows = span,
                 label = tostring(line.text or ""),
@@ -1087,8 +1127,9 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
                 dim = line.kind == "hint", banner_letter = letter,
             }
 
-            -- В пикселях рамка — три пикселя, не ячейка: попадание на всю
-            -- ширину списка, включая крайние ячейки (см. контекстное меню).
+            -- In pixels the frame is three pixels, not a cell: the hit spans
+            -- the whole list width, including the outermost cells (see the
+            -- context menu).
             local hit_from = compact and left + banner_w or left + 1 + banner_w
             local hit_to = compact and left + box_w - 1 or left + box_w - 2
             if line.kind == "item" then
@@ -1112,7 +1153,7 @@ function chrome.menu_layout(width: any, height: any, items, failure, open, curso
 
         out.panels[#out.panels + 1] = painted
 
-        -- Следующая панель встаёт справа от этой.
+        -- The next panel stands to the right of this one.
         left = left + box_w
         if left > w then break end
     end
@@ -1160,14 +1201,15 @@ function chrome.menu(canvas, width: any, height: any, items, failure, open, curs
     return shown.hits
 end
 
--- ─── Пустой стол ─────────────────────────────────────────────────────────
+-- ─── Empty desktop ───────────────────────────────────────────────────────
 
--- Подсказка на пустом столе — серая табличка посреди бирюзового: белый текст
--- прямо на столе читается как обои, а не как сообщение.
--- Экран прощания после «Завершения работы»: чёрный экран и надпись, которую
--- Windows 95 показывала, когда уже можно выключать питание. Композитор
--- держит его FAREWELL_HOLD секунд и только потом гасит приложение — так
--- выключение выглядит выключением, а не обрывом.
+-- The hint on an empty desktop is a grey plate in the middle of the teal:
+-- white text straight on the desktop reads as wallpaper, not as a message.
+-- The farewell screen after "Shut Down": a black screen and the caption
+-- Windows 95 showed when the power could already be turned off. The
+-- compositor holds it for FAREWELL_HOLD seconds and only then shuts the
+-- application down — this way a shutdown looks like a shutdown, not like a
+-- cut-off.
 chrome.FAREWELL_HOLD = 5
 chrome.FAREWELL_TEXT = "It's now safe to turn off your computer."
 
