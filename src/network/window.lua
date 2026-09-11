@@ -9,6 +9,7 @@
 -- and the window keeps showing the node it runs on.
 local facts = require("facts")
 local app = require("app")
+local ui = require("ui")
 local model = require("model")
 
 local definition: any = {interval = "2s"}
@@ -93,21 +94,7 @@ function definition.view(state: any, context: any): any
                 "Read-only: this window joins nothing and evicts nobody."}
             image = "network_neighborhood"
         end
-        local children: any = {
-            {kind = "row", size = 4, gap = 1, children = {
-                {kind = "image", size = 6, image = image, icon = "▩"},
-                {kind = "label", size = 1, text = title},
-            }},
-        }
-        for _, line in ipairs(lines) do
-            children[#children + 1] = {kind = "label", size = 1, text = tostring(line)}
-        end
-        children[#children + 1] = {kind = "label", text = ""}
-        children[#children + 1] = {kind = "row", size = 2, gap = 1, children = {
-            {kind = "label", text = ""},
-            {kind = "button", id = "sheet_ok", size = 10, text = "OK", default = true},
-        }}
-        return {kind = "column", padding = 1, gap = 0, children = children}
+        return ui.message({title = title, image = image, icon = "▩", lines = lines, ok = "sheet_ok"})
     end
 
     return {kind = "column", gap = 0, children = {
@@ -117,11 +104,9 @@ function definition.view(state: any, context: any): any
                 {separator = true},
                 {id = "close", text = "Close"},
             }},
-            {title = "Edit", accel = 1, items = {{id = "select_all", text = "Select All", disabled = true}}},
-            {title = "View", accel = 1, items = {
-                {id = "large", text = "Large Icons", disabled = true},
-                {id = "refresh", text = "Refresh"},
-            }},
+            -- Только работающие пункты: «Выделить всё» и «Крупные значки» были
+            -- выключены навсегда — выделять здесь нечего, вид один.
+            {title = "View", accel = 1, items = {{id = "refresh", text = "Refresh"}}},
             {title = "Help", accel = 1, items = {{id = "about", text = "About"}}},
         }},
         {kind = "icons", id = "objects", items = model.objects(snap), selected = state.selected},

@@ -19,6 +19,32 @@ local ui = require("ui")
 
 local CELL = {w = 10, h = 20}
 
+-- Заголовки и идентификаторы пунктов строки меню из дерева окна.
+local function menu_of(tree: any): (string, string, boolean)
+    local titles, ids, disabled = {}, {}, false
+    for _, child in ipairs(tree.children or {}) do
+        if child.kind == "menu" then
+            for _, entry in ipairs(child.entries) do
+                titles[#titles + 1] = tostring(entry.title)
+                for _, item in ipairs(entry.items or {}) do
+                    if not item.separator then ids[#ids + 1] = tostring(item.id) end
+                    if item.disabled then disabled = true end
+                end
+            end
+        end
+    end
+    return table.concat(titles, " "), table.concat(ids, " "), disabled
+end
+
+-- Метка с этим текстом в плане и её ширина: заголовок листа, урезанный до
+-- ячейки, виден как одна буква.
+local function label_width(plan: any, text: string): integer
+    for _, item in ipairs(plan.items) do
+        if item.node.kind == "label" and item.node.text == text then return item.rect.w end
+    end
+    return 0
+end
+
 local function versions(placements: any): any
     local out: any = {}
     for _, item in ipairs(placements) do
@@ -217,6 +243,32 @@ local function define_tests()
             test.eq(calc_window.definition.update(state, {type = "channel", channel = watched[4], ok = true}, context), true)
             test.is_nil(state.calc.pressed, "таймер гасит подсветку")
         end)
+
+        test.it("в меню только «О программе»: лист открывается, под ним клавиши не считают", function()
+            local context: any = {watch = function() end, close = function() end}
+            local state = calc_window.definition.init(nil, context)
+            local titles, ids, disabled = menu_of(calc_window.definition.view(state, {width = 27, height = 14}))
+            test.eq(titles, "Help", "Правки нет — буфера обмена у окна нет; Вида нет — вид один")
+            test.eq(ids, "about")
+            test.is_false(disabled, "выключенных навсегда пунктов нет")
+
+            calc_window.definition.update(state, {type = "activate", id = "about", menu = "bar"}, context)
+            test.is_true(state.about, "«О программе» открывает лист")
+            local plan = ui.plan(calc_window.definition.view(state, {width = 27, height = 14}), 27, 14, ui.interaction())
+            test.not_nil(plan.by_id.about_ok, "у листа есть «OK»")
+            local ok = plan.by_id.about_ok.rect
+            test.is_true(ok.x + ok.w - 1 <= 27 and ok.y + ok.h - 1 <= 14, "«OK» в окне")
+            test.is_true(label_width(plan, "Calculator") >= #"Calculator", "заголовок листа виден целиком")
+
+            test.eq(calc_window.definition.update(state, {type = "key", key_type = "runes", key = "7"}, context), false)
+            test.eq(engine.display(state.calc), "0.", "цифра под листом не набирается")
+            calc_window.definition.update(state, {type = "key", key_type = "esc", key = "esc"}, context)
+            test.is_false(state.about, "Esc закрывает лист")
+            calc_window.definition.update(state, {type = "activate", id = "about", menu = "bar"}, context)
+            calc_window.definition.update(state, {type = "activate", id = "about_ok"}, context)
+            test.is_false(state.about, "«OK» закрывает лист")
+            test.eq(engine.display(state.calc), "0.", "ни «about», ни «about_ok» не ушли в калькулятор")
+        end)
     end)
 
     test.describe("butschster.windows просмотрщик реестра", function()
@@ -356,6 +408,34 @@ local function define_tests()
             -- Окно растянули: сдвиг зажался по новой высоте.
             plan = ui.plan(regedit.definition.view(state, {width = 100, height = 40}), 100, 40, interaction)
             test.is_true(interaction.offsets.tree <= 61 - plan.by_id.tree.page, "сдвиг зажат по новой высоте")
+        end)
+
+        test.it("в меню нет выключенных навсегда пунктов, и каждый оставшийся что-то делает", function()
+            local state = regedit.session(records)
+            local closed = 0
+            local context = {width = 78, height = 22, close = function() closed = closed + 1 end}
+            local titles, ids, disabled = menu_of(regedit.definition.view(state, context))
+            test.eq(titles, "Registry View Help", "«Правки» с выключенным Copy Path нет")
+            test.eq(ids, "refresh exit refresh about")
+            test.is_false(disabled)
+
+            regedit.definition.update(state, {type = "activate", id = "refresh", menu = "bar"}, context)
+            test.is_true(state.count > #records, "Refresh перечитал реестр: " .. tostring(state.count))
+
+            regedit.definition.update(state, {type = "activate", id = "about", menu = "bar"}, context)
+            test.is_true(state.about)
+            local plan = ui.plan(regedit.definition.view(state, context), 78, 22, ui.interaction())
+            test.not_nil(plan.by_id.about_ok, "у листа есть «OK»")
+            test.is_true(label_width(plan, "Registry Editor") >= #"Registry Editor", "заголовок листа виден целиком")
+            regedit.definition.update(state, {type = "key", key_type = "esc", key = "esc"}, context)
+            test.is_false(state.about, "Esc закрывает лист")
+            test.eq(closed, 0, "а не окно")
+            regedit.definition.update(state, {type = "activate", id = "about"}, context)
+            regedit.definition.update(state, {type = "activate", id = "about_ok"}, context)
+            test.is_false(state.about, "«OK» закрывает лист")
+
+            regedit.definition.update(state, {type = "activate", id = "exit", menu = "bar"}, context)
+            test.eq(closed, 1, "Exit закрывает окно")
         end)
 
         test.it("пустой фильтр отдаёт весь реестр, и дерево из него строится", function()

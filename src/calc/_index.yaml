@@ -35,4 +35,5 @@ entries:
       policies: [butschster.windows.security:view_state]
     imports:
       app: butschster.windows.sdk:app
+      ui: butschster.windows.sdk:ui
       engine: butschster.windows.calc:engine

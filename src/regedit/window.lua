@@ -12,6 +12,7 @@ local json = require("json")
 local registry = require("registry")
 
 local app = require("app")
+local ui = require("ui")
 local model = require("model")
 
 local function encode(value: any): any
@@ -58,6 +59,11 @@ function definition.init(args: any, context: any): any
 end
 
 function definition.view(state: any, context: any): any
+    if state.about then
+        return ui.message({title = "Registry Editor", image = "regedit", icon = "▤", ok = "about_ok",
+            lines = {"Reads the registry of this runtime.", "Read-only: changing an entry changes",
+                "the running application."}})
+    end
     local rows = {}
     for _, row in ipairs(state.rows) do
         rows[#rows + 1] = {id = row.key, label = row.label, kind = row.kind, depth = row.depth,
@@ -77,9 +83,8 @@ function definition.view(state: any, context: any): any
     return {kind = "column", gap = 0, children = {
         {kind = "menu", id = "bar", size = 1, entries = {
             {title = "Registry", accel = 1, items = {{id = "refresh", text = "Refresh"}, {separator = true}, {id = "exit", text = "Exit"}}},
-            {title = "Edit", accel = 1, items = {{id = "copy_path", text = "Copy Path", disabled = true}}},
             {title = "View", accel = 1, items = {{id = "refresh", text = "Refresh"}}},
-            {title = "Help", accel = 1, items = {{id = "about", text = "About"}}},
+            {title = "Help", accel = 1, items = {{id = "about", text = "About Registry Editor"}}},
         }},
         {kind = "split", gap = 1, children = {
             {kind = "tree", id = "tree", weight = 2, rows = rows, selected = selected_index(state)},
@@ -90,7 +95,15 @@ function definition.view(state: any, context: any): any
 end
 
 function definition.update(state: any, action: any, context: any)
-    if action.id == "tree" and action.type == "select" then
+    if action.type == "activate" and action.id == "about" then
+        state.about = true
+    elseif action.type == "activate" and action.id == "about_ok" then
+        state.about = false
+    elseif state.about then
+        -- Лист «О программе» закрывается Esc, а не всё окно.
+        if action.type == "key" and action.key_type == "esc" then state.about = false
+        else return false end
+    elseif action.id == "tree" and action.type == "select" then
         local picked: any = action.value
         state.selected = picked and picked.id or state.selected
     elseif action.id == "tree" and action.type == "toggle" then

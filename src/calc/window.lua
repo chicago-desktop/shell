@@ -9,8 +9,13 @@
 -- Клавиша с клавиатуры идёт в ту же кнопку, что и щелчок (`engine.key`);
 -- нажатая ею кнопка подсвечивается на 150 мс — своим каналом-таймером,
 -- а не тиком: тик без дела жёг бы кадры.
+--
+-- В меню только то, что работает: «Справка → О программе». Правки нет —
+-- буфера обмена терминала окну не достать, и Copy/Paste были бы надписями;
+-- «Вид» с единственным обычным видом переключать нечего.
 local time = require("time")
 local app = require("app")
+local ui = require("ui")
 local engine = require("engine")
 
 local RED, BLUE = "#ff0000", "#0000ff"
@@ -26,7 +31,7 @@ local KEYPAD: any = {
 local definition: any = {}
 
 function definition.init(args: any, context: any): any
-    return {calc = engine.new(), flash = nil}
+    return {calc = engine.new(), flash = nil, about = false}
 end
 
 local function spacer(size: any): any
@@ -42,11 +47,13 @@ local function key(state: any, id: any, label: any, ink: any, size: any): any
 end
 
 function definition.view(state: any, context: any): any
+    if state.about then
+        return ui.message({title = "Calculator", image = "calculator", icon = "▦", ok = "about_ok",
+            lines = {"Standard view, memory.", "Counts as a desk", "calculator does."}})
+    end
     local rows: any = {
         {kind = "menu", id = "bar", size = 1, entries = {
-            {title = "Edit", accel = 1, items = {{id = "copy", text = "Copy"}, {id = "paste", text = "Paste", disabled = true}}},
-            {title = "View", accel = 1, items = {{id = "normal", text = "Standard"}}},
-            {title = "Help", accel = 1, items = {{id = "about", text = "About"}}},
+            {title = "Help", accel = 1, items = {{id = "about", text = "About Calculator"}}},
         }},
         -- Табло: две строки ячеек, чтобы у числа был отступ сверху и снизу.
         {kind = "row", size = 2, children = {spacer(1), {kind = "field", text = engine.display(state.calc), align = "right"}, spacer(1)}},
@@ -80,9 +87,15 @@ function definition.update(state: any, action: any, context: any)
         state.flash = nil
         state.calc.pressed = nil
         return true
-    elseif action.type == "activate" and action.menu == "bar" then
-        if action.id == "copy" then return false end
-        return false
+    elseif action.type == "activate" and action.id == "about" then
+        state.about = true
+    elseif action.type == "activate" and action.id == "about_ok" then
+        state.about = false
+    elseif state.about then
+        -- Под листом «О программе» клавиши не считают: табло не видно, и
+        -- цифра, набранная вслепую, осталась бы в числе. Esc закрывает лист.
+        if action.type == "key" and action.key_type == "esc" then state.about = false
+        else return false end
     elseif action.type == "activate" and action.id then
         press(state, action.id, context)
     elseif action.type == "key" then

@@ -27,7 +27,8 @@ local function main(service, observer, mode)
                     content = window.content, offset = window.content_state.offset, path = window.content_state.path,
                     selected = window.content_state.selected, width = width, height = height,
                     x = window.x + inset.left - 1, y = window.y + inset.top - 1,
-                    revision = window.state_revision, hits = render.hits(plan), clients = count})
+                    revision = window.state_revision, hits = render.hits(plan), clients = count,
+                    scroll = plan.scroll, notice = window.content_state.notice})
             end
         end
         return result

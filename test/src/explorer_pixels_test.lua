@@ -57,7 +57,7 @@ local function define_tests()
             -- Заголовок в одну строку: клиенту достаётся на строку больше.
             test.eq(shown.height, 12)
             test.eq(shown.offset, 0)
-            test.is_true(#shown.hits.scroll == 2, "the test viewport must require scrolling")
+            test.not_nil(shown.scroll, "the test viewport must require scrolling")
             -- The lower row of the taller address field is clickable too.
             local address = shown.hits.address.field
             test.is_true(address.bottom_row > address.row)
@@ -69,9 +69,9 @@ local function define_tests()
             shown = receive(frames, function(value) return value.clients == 5 end)
             desk.view:send({type = "mouse", action = "wheel", button = "wheel_down", x = shown.hits.cells[1].from + shown.x, y = shown.hits.cells[1].top + shown.y})
             shown = receive(frames, function(value) return value.offset == 1 end)
-            for _, arrow in ipairs(shown.hits.scroll) do
-                if arrow.id == "scroll_up" then click(desk, arrow.to + shown.x, arrow.bottom_row + shown.y) end
-            end
+            -- Стрелка вверх — нижняя правая ячейка её строк у верха полосы.
+            local bar = shown.scroll
+            click(desk, bar.x + (bar.w or 1) - 1 + shown.x, bar.y + (bar.arrow_rows or 1) - 1 + shown.y)
             shown = receive(frames, function(value) return value.offset == 0 end)
             local first = shown.hits.cells[1]
             click(desk, first.from + shown.x, first.top + shown.y)
@@ -94,6 +94,78 @@ local function define_tests()
             end
             test.is_nil(process.registry.lookup(desk.service))
             process.unlisten(frames)
+            desk.view:close()
+        end)
+
+        -- Каждый пункт строки меню что-то делает: строки меню без попаданий
+        -- (было до 2026-09-11) — это слова, по которым щёлкают впустую.
+        test.it("runs every item of the menu bar it draws", function()
+            local frames = process.listen("explorer.painted", {message = true})
+            local replies = process.listen("desktop.reply", {message = true})
+            local desk = boot("pixels")
+            send(desk, "desktop.open", {entry = "butschster.windows.explorer:window", x = 3, y = 2, w = 62, h = 22})
+            local shown = receive(frames, function(value) return value.clients == 5 end)
+            local titles = {}
+            for _, hit in ipairs(shown.hits.menu) do titles[#titles + 1] = hit.menu end
+            test.eq(table.concat(titles, " "), "File View Go Help", "only menus whose items work")
+
+            local function pick(title, id, predicate)
+                local head: any = nil
+                for _, hit in ipairs(shown.hits.menu) do if hit.menu == title then head = hit end end
+                test.not_nil(head, title)
+                click(desk, head.from + shown.x, head.row + shown.y)
+                shown = receive(frames, function(value) return #value.hits.menu_popup > 0 end)
+                test.eq(shown.clients, 6, "the open menu is its own placement")
+                local line: any = nil
+                for _, hit in ipairs(shown.hits.menu_popup) do if hit.id == id then line = hit end end
+                test.not_nil(line, title .. " → " .. id)
+                click(desk, line.from + shown.x, line.row + shown.y)
+                if predicate then
+                    shown = receive(frames, function(value)
+                        return #value.hits.menu_popup == 0 and predicate(value)
+                    end)
+                end
+            end
+
+            local first = shown.hits.cells[1]
+            click(desk, first.from + shown.x, first.top + shown.y)
+            click(desk, first.from + shown.x, first.top + shown.y)
+            shown = receive(frames, function(value) return value.path:sub(1, 6) == "drive/" end)
+            local drive = shown.path
+            pick("Go", "back", function(value) return value.path == "" end)
+            pick("Go", "forward", function(value) return value.path == drive end)
+            pick("Go", "up", function(value) return value.path == "" end)
+
+            -- Refresh перечитывает папку, и выбор снимается: так его видно.
+            test.is_true(#shown.hits.cells >= 2, "the root shows at least two objects")
+            local other = shown.hits.cells[#shown.hits.cells]
+            click(desk, other.from + shown.x, other.top + shown.y)
+            shown = receive(frames, function(value) return value.selected > 0 end)
+            pick("View", "refresh", function(value) return value.selected == 0 and value.path == "" end)
+            pick("Help", "about", function(value)
+                return type(value.notice) == "string" and value.notice:find("My Computer", 1, true) ~= nil
+            end)
+
+            pick("File", "close", nil)
+            local open = -1
+            local deadline = time.now():unix_nano() + 5000000000
+            while time.now():unix_nano() < deadline do
+                send(desk, "desktop.list", {reply_to = tostring(process.pid())})
+                local answer = receive(replies, function(value) return value.command == "desktop.list" end)
+                open = #(answer.windows or {})
+                if open == 0 then break end
+                channel.select({time.after("50ms"):case_receive()})
+            end
+            test.eq(open, 0, "File → Close closes the window")
+
+            desk.view:send({type = "key", action = "press", key_type = "runes", key = "q", ctrl = true})
+            deadline = time.now():unix_nano() + 5000000000
+            while time.now():unix_nano() < deadline and process.registry.lookup(desk.service) do
+                channel.select({time.after("20ms"):case_receive()})
+            end
+            test.is_nil(process.registry.lookup(desk.service))
+            process.unlisten(frames)
+            process.unlisten(replies)
             desk.view:close()
         end)
 

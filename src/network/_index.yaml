@@ -64,5 +64,6 @@ entries:
       policies: [butschster.windows.network:window_scope]
     imports:
       app: butschster.windows.sdk:app
+      ui: butschster.windows.sdk:ui
       model: butschster.windows.network:model
       facts: butschster.windows.config:system

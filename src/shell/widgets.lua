@@ -267,25 +267,41 @@ end
 -- Возвращает попадания. Пункт, нарисованный без попадания, — это слово, по
 -- которому щёлкают и ничего не происходит, а отличить его от «меню
 -- сломалось» с экрана нельзя.
-function widgets.menu_bar(target, x: any, y: any, width: any, entries)
-    local hits = {}
+--
+-- menu_hits(x, y, width, entries) -> {row, from, to, menu, index, accel}
+-- Раскладка без отрисовки: по ней рисуют оба бэкенда окна и по ней же окно
+-- считает щелчок — как у панели инструментов.
+function widgets.menu_hits(x: any, y: any, width: any, entries): any
+    local hits: any = {}
     local left, row, span = whole(x), whole(y), whole(width)
     if span < 1 then return hits end
-
-    local parts, used = {}, 0
-    for _, entry in ipairs(type(entries) == "table" and entries or {}) do
+    local used = 0
+    for index, entry in ipairs(type(entries) == "table" and entries or {}) do
         local record: any = entry
         local text = type(record) == "table" and tostring(record.text or "?") or tostring(record)
         local at = type(record) == "table" and whole(record.accel) or 1
         if at < 1 then at = 1 end
-        local label = " " .. text .. " "
-        local room = cells(label)
+        local room = cells(" " .. text .. " ")
         if used + room > span then break end
+        hits[#hits + 1] = {row = row, from = left + used, to = left + used + room - 1,
+            menu = text, index = index, accel = at}
+        used = used + room
+    end
+    return hits
+end
+
+function widgets.menu_bar(target, x: any, y: any, width: any, entries)
+    local left, row, span = whole(x), whole(y), whole(width)
+    local hits = widgets.menu_hits(x, y, width, entries)
+    if span < 1 then return hits end
+
+    local parts, used = {}, 0
+    for _, entry in ipairs(hits) do
+        local hit: any = entry
         -- Ведущий пробел сдвигает букву на одну: акселератор считается по
         -- ИМЕНИ пункта, а не по нарисованной строке.
-        parts[#parts + 1] = widgets.accel(styles.face, label, at + 1)
-        hits[#hits + 1] = {row = row, from = left + used, to = left + used + room - 1, menu = text}
-        used = used + room
+        parts[#parts + 1] = widgets.accel(styles.face, " " .. hit.menu .. " ", hit.accel + 1)
+        used = used + (hit.to - hit.from + 1)
     end
     if used < span then parts[#parts + 1] = styles.face:render(string.rep(" ", span - used)) end
 

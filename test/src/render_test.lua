@@ -133,6 +133,29 @@ local function define_tests()
             test.eq(#hits.tools, #plan.tools)
         end)
 
+        test.it("раскладывает строку меню и раскрытый список одной таблицей для обоих бэкендов", function()
+            local plan = render.layout({menu_open = 3}, 46, 14)
+            local titles = {}
+            for _, hit in ipairs(plan.menu_hits) do titles[#titles + 1] = hit.menu end
+            test.eq(table.concat(titles, " "), "File View Go Help", "в строке только меню с действиями, «Правки» нет")
+            local ids = {}
+            for _, row in ipairs(plan.menu_popup.hits) do ids[#ids + 1] = row.id end
+            test.eq(table.concat(ids, " "), "back forward up")
+            test.eq(plan.menu_popup.hits[1].row, render.MENU_ROW + 2, "рамка списка — строка под меню, пункт под ней")
+
+            local canvas = tty.canvas(46, 14)
+            local hits = render.cells(canvas, plan)
+            test.eq(#hits.menu, #plan.menu_hits, "попадания заголовков — из плана")
+            test.eq(#hits.menu_popup, 3)
+            local rows: any = canvas:rows()
+            for index, name in ipairs({"Back", "Forward", "Up One Level"}) do
+                local row = plan.menu_popup.hits[index].row
+                local line = tostring(rows[row]):gsub("\27%[[%d;:]*m", "")
+                test.is_true(line:find(name, 1, true) ~= nil, name .. " нарисован в строке своего попадания: " .. line)
+            end
+            test.is_nil(render.layout({}, 46, 14).menu_popup, "закрытое меню списка не раскладывает")
+        end)
+
         test.it("называет отказ вместо объектов, а не вместе с ними", function()
             -- «Не прочитали» и «прочитали пустоту» — разные утверждения, и
             -- значок рядом с причиной означал бы, что прочитали наполовину.

@@ -128,7 +128,9 @@ local function main(service, window_id, args, viewport: any)
     -- Своя формула здесь дала бы кнопку, которая на ячейку левее, чем
     -- выглядит, — и разъехались бы они молча.
     local tools: any = {}
-    local bar: any = {}
+    -- Заголовки строки меню и строки раскрытого списка — тоже из плана.
+    local menu_hits: any = {}
+    local popup_hits: any = {}
     local last_click: any = {x = 0, y = 0, at = 0}
 
     -- Спросить композитор и НЕ ждать: ответ приедет в `desktop.replies()`,
@@ -253,8 +255,49 @@ local function main(service, window_id, args, viewport: any)
             hits = render.cells(canvas, plan)
             assert(out:present(canvas:rows()))
         end
-        cells, tools, bar = hits.cells, hits.tools, hits.scroll or {}
+        cells, tools = hits.cells, hits.tools
+        menu_hits, popup_hits = hits.menu or {}, hits.menu_popup or {}
         address_hits, dropdown_hits = hits.address or {}, hits.dropdown or {}
+    end
+
+    -- ─── команды ─────────────────────────────────────────────────────────
+
+    -- Одна функция на кнопку панели, пункт меню и клавишу: «Вверх» на
+    -- панели и «Go → Up One Level» — одно действие, а не два похожих.
+    local function command(id: any)
+        if id == "back" then
+            local previous = table.remove(history.back :: {any})
+            if previous then
+                history.forward[#history.forward + 1] = state.path
+                go(previous, "back")
+            else
+                state.notice = "Back: no history"
+            end
+        elseif id == "forward" then
+            local next_path = table.remove(history.forward :: {any})
+            if next_path then
+                history.back[#history.back + 1] = state.path
+                go(next_path, "forward")
+            else
+                state.notice = "Forward: no history"
+            end
+        elseif id == "up" then
+            local up = model.parent(state.path)
+            if up then go(up) else state.notice = "Up: this is the root" end
+        elseif id == "refresh" then
+            -- Через `go`, а не `load`: «Открытые окна» надо спросить у
+            -- композитора заново, а не перечитать прошлый ответ.
+            go(state.path)
+        elseif id == "view_large" then
+            state.notice = "Large Icons is the only view so far"
+        elseif id == "about" then
+            state.notice = "My Computer: the drives, folders and open windows of this runtime"
+        elseif id == "close" then
+            -- Окно закрывает композитор и присылает `close`; отказ ложится
+            -- в строку состояния, как у любой другой команды.
+            local ok, err = desktop.close(window_id)
+            if not ok then state.notice = model.refusal("desktop.close", err) end
+        end
     end
 
     -- ─── ввод ────────────────────────────────────────────────────────────
@@ -300,6 +343,7 @@ local function main(service, window_id, args, viewport: any)
             if up then go(up) end
         elseif key == "esc" or key == "escape" then
             state.address_open = false
+            state.menu_open = nil
         elseif event.key == "left" and event.alt then
             local previous = table.remove(history.back :: {any})
             if previous then history.forward[#history.forward + 1] = state.path; go(previous, "back") end
@@ -323,8 +367,8 @@ local function main(service, window_id, args, viewport: any)
         elseif key == "end" then
             state.selected = #state.objects
             scroll(#state.objects)
-        elseif event.key == "r" and event.ctrl then
-            load()
+        elseif (event.key == "r" and event.ctrl) or key == "f5" or event.key == "F5" then
+            command("refresh")
         end
         draw()
     end
@@ -350,36 +394,18 @@ local function main(service, window_id, args, viewport: any)
         end
         return nil
     end
-    local function activate_tool(button: any)
-        if button.id == "back" then
-            local previous = table.remove(history.back :: {any})
-            if previous then
-                history.forward[#history.forward + 1] = state.path
-                go(previous, "back")
-            else
-                state.notice = "Back: no history"
-            end
-        elseif button.id == "forward" then
-            local next_path = table.remove(history.forward :: {any})
-            if next_path then
-                history.back[#history.back + 1] = state.path
-                go(next_path, "forward")
-            else
-                state.notice = "Forward: no history"
-            end
-        elseif button.id == "up" then
-            local up = model.parent(state.path)
-            if up then go(up) else state.notice = "Up: this is the root" end
-        elseif button.id == "refresh" then
-            load()
-        elseif button.id == "view_large" then
-            state.notice = "Large Icons is the only view so far"
+    local function menu_at(x: any, y: any): any
+        for _, hit in ipairs(menu_hits) do
+            local title: any = hit
+            if y == title.row and x >= title.from and x <= title.to then return title end
         end
+        return nil
     end
 
     local scroll_capture: any = nil
     local function handle_mouse(event: any)
         local plan = render.layout(state, width, height, metrics)
+        local covered = state.address_open or state.menu_open ~= nil
         if armed and (event.action == "motion" or event.action == "release") then
             local over = tool_at(event.x, event.y)
             local inside = over ~= nil and over.id == armed.id
@@ -393,17 +419,20 @@ local function main(service, window_id, args, viewport: any)
             state.armed_tool = nil
             local chosen = armed
             armed = nil
-            if inside and event.button == "left" then activate_tool(chosen) end
+            if inside and event.button == "left" then command(chosen.id) end
             draw()
             return
         end
-        if not state.address_open and plan.scroll then
+        -- Полоса прокрутки: щелчок по стрелке, дорожке и ползунку разбирает
+        -- `scroll.pointer` по той же геометрии, по которой она нарисована.
+        -- Под раскрытым списком она не отвечает — щелчок принадлежит списку.
+        if not covered and plan.scroll then
             local offset, capture, handled = scrolling.pointer(state.offset, plan.scroll.total, plan.scroll.visible,
                 plan.scroll, scroll_capture, event)
             if handled then state.offset, scroll_capture = offset, capture; draw(); return end
         elseif scroll_capture then scroll_capture = nil end
         if event.action == "wheel" then
-            if not geometry.contains(plan.inner, event.x, event.y) or state.address_open then return end
+            if not geometry.contains(plan.inner, event.x, event.y) or covered then return end
             if event.button == "wheel_up" then scroll(-1)
             elseif event.button == "wheel_down" then scroll(1)
             else return end
@@ -412,14 +441,33 @@ local function main(service, window_id, args, viewport: any)
         end
         if event.action ~= "press" or event.button ~= "left" then return end
 
-        -- Панель инструментов: «Вверх» — единственная кнопка, у которой есть
-        -- что делать в первой версии. Кнопка, которая ничего не делает, —
-        -- бутафория, и первое, что о ней спросят, почему она не работает;
-        -- поэтому их всего две.
-        -- Полоса прокрутки проверяется раньше значков: она лежит на том же
-        -- поле, и щелчок по стрелке иначе достался бы значку под ней.
+        -- Порядок проверки — порядок слоёв сверху вниз: раскрытое меню,
+        -- список адреса, панель, значки. Полоса прокрутки уже проверена выше:
+        -- она лежит на том же поле, и щелчок по стрелке иначе достался бы
+        -- значку под ней.
 
-        -- Выпадающий список адреса — поверх всего, поэтому первым.
+        -- Раскрытое меню: строка списка исполняет пункт, другой заголовок
+        -- переключает список, щелчок мимо только сворачивает.
+        if state.menu_open then
+            local picked: any = nil
+            for _, hit in ipairs(popup_hits) do
+                local line: any = hit
+                if event.y == line.row and event.x >= line.from and event.x <= line.to then picked = line end
+            end
+            local title = menu_at(event.x, event.y)
+            state.menu_open = (title and title.index ~= state.menu_open) and title.index or nil
+            if picked then command(picked.id) end
+            draw()
+            return
+        end
+        local title = menu_at(event.x, event.y)
+        if title then
+            state.menu_open, state.address_open = title.index, false
+            draw()
+            return
+        end
+
+        -- Выпадающий список адреса.
         for _, hit in ipairs(dropdown_hits) do
             local line: any = hit
             if event.y == line.row and event.x >= line.from and event.x <= line.to then

@@ -40,4 +40,5 @@ entries:
       policies: [butschster.windows.security:regedit_state]
     imports:
       app: butschster.windows.sdk:app
+      ui: butschster.windows.sdk:ui
       model: butschster.windows.regedit:model

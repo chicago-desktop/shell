@@ -156,6 +156,39 @@ local function define_tests()
             test.is_nil(state.sheet, "Escape leaves the sheet instead of closing the window")
         end)
 
+        test.it("keeps only working menu items, and each of them does something", function()
+            local state: any = {snapshot = mesh(), selected = nil, sheet = nil, about = false}
+            local closed = false
+            local context: any = {width = 60, height = 14, close = function() closed = true end}
+            local tree = network.definition.view(state, context)
+            local titles, ids = {}, {}
+            for _, entry in ipairs(tree.children[1].entries) do
+                titles[#titles + 1] = entry.title
+                for _, item in ipairs(entry.items) do
+                    if not item.separator then ids[#ids + 1] = item.id end
+                end
+            end
+            test.eq(table.concat(titles, " "), "File View Help", "no Edit: there is nothing to select all")
+            test.eq(table.concat(ids, " "), "open close refresh about", "no Large Icons: there is one view")
+
+            state.selected = "kickside"
+            network.definition.update(state, {type = "activate", id = "open", menu = "bar"}, context)
+            test.eq(state.sheet, "kickside", "Open opens the selected node")
+            local plan = ui.plan(network.definition.view(state, context), 60, 14, ui.interaction())
+            local title_w = 0
+            for _, item in ipairs(plan.items) do
+                if item.node.kind == "label" and item.node.text == "kickside" then title_w = item.rect.w end
+            end
+            test.is_true(title_w >= #"kickside", "the sheet title is shown whole, not cut to one cell")
+            network.definition.update(state, {type = "activate", id = "sheet_ok"}, context)
+
+            local before = state.snapshot
+            network.definition.update(state, {type = "activate", id = "refresh", menu = "bar"}, context)
+            test.is_true(state.snapshot ~= before, "Refresh reads a new snapshot")
+            network.definition.update(state, {type = "activate", id = "close", menu = "bar"}, context)
+            test.is_true(closed, "Close closes")
+        end)
+
         test.it("switches to About and back, and Escape closes the window", function()
             local state: any = network.definition.init(nil, {})
             state.snapshot = mesh()

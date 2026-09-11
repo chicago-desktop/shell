@@ -56,6 +56,41 @@ local function field_key(plan: any)
     return table.concat(parts, "\31")
 end
 
+-- Выпадающий список поверх окна: строки — попадания плана, по строке на
+-- пункт. `lead` — сколько строк рамки над первым пунктом лежит в растре: у
+-- меню верхняя рамка — своя строка под заголовками, у адреса её нет.
+-- `raised` — меню: лицо и выпуклая грань; иначе белое вдавленное поле.
+local function paint_list(store: any, id: string, hits: any, titles: any, chosen: integer,
+        lead: integer, raised: boolean, face: any, cell: any)
+    local first: any = hits[1]
+    local cols_n = first.to - first.from + 1
+    local rows_n = #hits + lead
+    local key = tostring(cols_n) .. "|" .. tostring(rows_n) .. "|" .. tostring(chosen)
+        .. "|" .. table.concat(titles, "\30")
+    local list, dirty = store.take(id, cols_n, rows_n, cell, key)
+    if dirty then
+        local box = pixels.box(1, 1, cols_n, rows_n, cell)
+        if raised then
+            list:rect(1, 1, box.w, box.h, color.face)
+            pixels.edge(list, 1, 1, box.w, box.h, true)
+        else
+            pixels.field(list, 1, 1, box.w, box.h)
+        end
+        local ink = raised and color.face_text or color.field_text
+        local line_h = whole(cell.h)
+        for index, title in ipairs(titles) do
+            local top = (index - 1 + lead) * line_h + 1
+            if index == chosen then
+                list:rect(2, top + 1, box.w - 2, line_h - 1, color.select_bg)
+            end
+            list:text(6, top + math.max(1, (line_h - 15) // 2),
+                pixels.ellipsize(face, title, box.w - 12),
+                {font = face, color = index == chosen and color.select_fg or ink})
+        end
+    end
+    store.place(id, first.from, first.row - lead)
+end
+
 -- paint(store, plan, cell, fonts, prefix) -> размещения
 --
 -- `fonts`: {face = обычный, bold = полужирный}. Полужирный обязателен для
@@ -71,16 +106,23 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
 
     -- ─── строка меню ─────────────────────────────────────────────────────
     local menu_id = name .. ":menu"
-    local menu, menu_dirty = store.take(menu_id, w, 1, cell, tostring(w))
+    local open_index = plan.menu_popup and plan.menu_popup.index or 0
+    local menu, menu_dirty = store.take(menu_id, w, 1, cell, tostring(w) .. "|" .. tostring(open_index))
     if menu_dirty then
         local box = pixels.box(1, 1, w, 1, cell)
         menu:rect(1, 1, box.w, box.h, color.face)
-        local at = 6
-        for _, item in ipairs(plan.menu or {}) do
-            local text = tostring((item :: any).text or "")
-            local advance = menu:text(at, math.max(1, (box.h - 15) // 2), text,
-                {font = face, color = color.face_text})
-            at = at + advance + 12
+        -- Заголовок стоит в СВОИХ ячейках плана, по центру: по ним окно
+        -- считает щелчок, и слово, нарисованное левее своего попадания,
+        -- нажималось бы соседом.
+        for _, entry in ipairs(plan.menu_hits or {}) do
+            local hit: any = entry
+            local area = pixels.box(hit.from, 1, hit.to - hit.from + 1, 1, cell)
+            local text = tostring(hit.menu)
+            local width = face and whole(face:measure(text)) or 0
+            local open = hit.index == open_index
+            if open then menu:rect(whole(area.x), 1, whole(area.w), whole(box.h), color.select_bg) end
+            menu:text(whole(area.x) + (whole(area.w) - width) // 2, math.max(1, (box.h - 15) // 2), text,
+                {font = face, color = open and color.select_fg or color.face_text})
         end
     end
     store.place(menu_id, 1, plan.rows.menu)
@@ -229,30 +271,18 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
     end
     store.place(status_id, 1, plan.rows.status)
 
-    -- ─── раскрытый список адреса — поверх поля, поэтому последним ─────────
+    -- ─── раскрытые списки — поверх поля, поэтому последними ──────────────
+    -- Текущая папка в списке адреса выделена: она последняя среди предков.
     if address and address.dropdown and #address.dropdown > 0 then
-        local rows_n = #address.dropdown
-        local first: any = address.dropdown[1]
-        local cols_n = first.to - first.from + 1
-        local list_id = name .. ":dropdown"
-        local list_key = tostring(cols_n) .. "|" .. tostring(rows_n) .. "|" .. tostring(address.text)
-        local list, list_dirty = store.take(list_id, cols_n, rows_n, cell, list_key)
-        if list_dirty then
-            local box = pixels.box(1, 1, cols_n, rows_n, cell)
-            pixels.field(list, 1, 1, box.w, box.h)
-            local line_h = whole(cell.h)
-            for index, item in ipairs(address.items or {}) do
-                local record: any = item
-                local top = (index - 1) * line_h + 1
-                if index == #address.items then
-                    list:rect(2, top + 1, box.w - 2, line_h - 1, color.select_bg)
-                end
-                list:text(6, top + math.max(1, (line_h - 15) // 2),
-                    pixels.ellipsize(face, tostring(record.title or ""), box.w - 12),
-                    {font = face, color = index == #address.items and color.select_fg or color.field_text})
-            end
-        end
-        store.place(list_id, first.from, first.row)
+        local titles: any = {}
+        for index, item in ipairs(address.items or {}) do titles[index] = tostring((item :: any).title or "") end
+        paint_list(store, name .. ":dropdown", address.dropdown, titles, #titles, 0, false, face, cell)
+    end
+    local popup: any = plan.menu_popup
+    if popup and #popup.hits > 0 then
+        local titles: any = {}
+        for index, item in ipairs(popup.items) do titles[index] = tostring((item :: any).title or "") end
+        paint_list(store, name .. ":menu_popup", popup.hits, titles, 0, 1, true, face, cell)
     end
 
     return store.frame(cell)

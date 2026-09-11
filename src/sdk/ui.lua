@@ -366,6 +366,32 @@ function ui.problem(tree: any): any
     end
     return walk(tree)
 end
+-- message(spec) -> дерево
+--
+-- Лист сообщения внутри окна: значок и заголовок, строки текста, «OK» у
+-- правого края. Так «Справка → О программе» и «Свойства» объекта — не
+-- отдельное окно: приложение возвращает этот лист из `view`, пока он открыт,
+-- и закрывает его по `activate` кнопки (`spec.ok`, по умолчанию
+-- `"message_ok"`). Одна форма на все окна, а не копия в каждом.
+-- `spec`: `title`, `lines`, `image` (имя из каталога значков), `icon`.
+function ui.message(spec: any): any
+    local sheet: any = type(spec) == "table" and spec or {}
+    local children: any = {
+        {kind = "row", size = 4, gap = 1, children = {
+            {kind = "image", size = 6, image = sheet.image, icon = sheet.icon or "▩"},
+            {kind = "label", text = tostring(sheet.title or "")},
+        }},
+    }
+    for _, line in ipairs(type(sheet.lines) == "table" and sheet.lines or {}) do
+        children[#children + 1] = {kind = "label", size = 1, text = tostring(line)}
+    end
+    children[#children + 1] = {kind = "label", text = ""}
+    children[#children + 1] = {kind = "row", size = 2, gap = 1, children = {
+        {kind = "label", text = ""},
+        {kind = "button", id = sheet.ok or "message_ok", size = 10, text = "OK", default = true},
+    }}
+    return {kind = "column", padding = 1, gap = 0, children = children}
+end
 function ui.interaction(): any
     return {focus = nil, offsets = {}, capture = nil, editors = {}, armed = nil, menus = {}, revealed = {}}
 end

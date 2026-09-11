@@ -33,19 +33,24 @@ local widgets = require("widgets")
 
 local render = {}
 
+-- Строка меню: в ней только пункты, у которых есть действие, и действия те
+-- же, что у кнопок панели и клавиш. «Правки» нет — вырезать и вставлять
+-- проводнику нечем. Пункт — `{id, title}`; окно исполняет его той же
+-- функцией, что и кнопку панели с таким `id`.
 render.MENU = {
-    {text = "File", accel = 1},
-    {text = "Edit", accel = 1},
-    {text = "View", accel = 1},
-    {text = "Help", accel = 1},
+    {text = "File", accel = 1, items = {{id = "close", title = "Close"}}},
+    {text = "View", accel = 1, items = {{id = "refresh", title = "Refresh"}}},
+    {text = "Go", accel = 1, items = {
+        {id = "back", title = "Back"}, {id = "forward", title = "Forward"}, {id = "up", title = "Up One Level"},
+    }},
+    {text = "Help", accel = 1, items = {{id = "about", title = "About My Computer"}}},
 }
 
 -- Панель окна папки Windows 95: назад, вперёд, вверх · вырезать, копировать,
--- вставить · отменить · удалить, свойства · четыре вида. Работают те, у
--- которых есть действие: назад/вперёд по истории окна, вверх, обновить.
--- Остальные объявлены `disabled` и рисуются выцветшими — как в Windows 95,
--- где они серые, пока нечего вырезать. Бутафории здесь нет: недоступная
--- кнопка на щелчок отвечает в статусной строке, почему она недоступна.
+-- вставить · отменить · удалить, свойства · четыре вида. Работают назад и
+-- вперёд по истории окна и вверх. Остальные объявлены `disabled` и рисуются
+-- выцветшими, как в Windows 95, где они серые, пока нечего вырезать: панель
+-- не меняет форму. Щелчок по выцветшей молчит — как в Windows.
 -- Подписей нет — панель одна строка, и с подписями она не влезает в окно.
 render.TOOLS = {
     {id = "back", icon = "←", title = "Back"},
@@ -66,8 +71,8 @@ render.TOOLS = {
     {id = "view_list", icon = "≡", title = "List", disabled = true},
     {id = "view_details", icon = "☷", title = "Details", disabled = true},
 }
--- «Обновить» на панели Windows 95 нет — оно в меню «Вид» и на F5; здесь
--- Ctrl+R. Кнопка не поместилась бы: панель — 64 ячейки, окно — 70.
+-- «Обновить» на панели Windows 95 нет — оно в меню «Вид» и на F5 (и здесь
+-- ещё Ctrl+R). Кнопка не поместилась бы: панель — 64 ячейки, окно — 70.
 
 -- Строки, занятые не содержимым: строка меню, панель инструментов, статусная
 -- строка. Объявлено числами, а не посчитано по месту, чтобы поле и попадания
@@ -95,6 +100,7 @@ render.GAP = 1
 --   inner     его внутренность, куда ложатся значки
 --   shape     сетка: колонки, ряды, всего рядов, с какого начинать
 --   tools     кнопки панели инструментов, с попаданиями
+--   menu_hits заголовки строки меню; menu_popup — раскрытый список, если есть
 --   cells     значки: индекс объекта, его место и его попадание
 --   scroll    полоса прокрутки, если она нужна
 --   status    два поля статусной строки, уже готовым текстом
@@ -157,6 +163,28 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
             open = state.address_open == true,
         },
     }
+    -- Строка меню: заголовки раскладывает та же функция, что их рисует в
+    -- ячейках; раскрытый список лежит под заголовком поверх всего остального.
+    plan.menu_hits = widgets.menu_hits(1, render.MENU_ROW, w, render.MENU)
+    local open_menu: any = nil
+    for _, hit in ipairs(plan.menu_hits) do
+        if hit.index == state.menu_open then open_menu = hit end
+    end
+    if open_menu then
+        local items: any = {}
+        for index, entry in ipairs(render.MENU) do
+            if index == open_menu.index then items = entry.items or {} end
+        end
+        local room = 6
+        for _, item in ipairs(items) do room = math.max(room, widgets.cells(item.title) + 4) end
+        room = math.min(room, w)
+        local from = math.max(1, math.min(open_menu.from, w - room + 1))
+        -- Верхняя рамка списка — строка под меню, пункты ниже неё.
+        local rows = widgets.dropdown_hits(from, render.MENU_ROW + 1, room, #items)
+        for index, row in ipairs(rows) do row.id = items[index].id end
+        plan.menu_popup = {index = open_menu.index, items = items, hits = rows, from = from, width = room}
+    end
+
     plan.address.hits = widgets.address_hits(1, plan.address.row, w)
     for _, hit in pairs(plan.address.hits) do
         hit.bottom_row = hit.row + plan.address.rows - 1
@@ -237,22 +265,15 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
 end
 
 -- Попадания из плана. Собраны в одном месте, чтобы бэкенду не приходилось их
--- пересобирать: пересоберёт — разойдётся.
+-- пересобирать: пересоберёт — разойдётся. Полосы прокрутки здесь нет: щелчок
+-- по ней окно разбирает `scroll.pointer` по `plan.scroll`, той же геометрией,
+-- что у списков SDK.
 function render.hits(plan: any): any
     local address: any = plan.address or {}
-    local out: any = {cells = {}, tools = plan.tools or {}, scroll = {},
+    local popup: any = plan.menu_popup or {}
+    local out: any = {cells = {}, tools = plan.tools or {},
+        menu = plan.menu_hits or {}, menu_popup = popup.hits or {},
         address = address.hits or {}, dropdown = address.dropdown or {}}
-    if plan.scroll then
-        local bar: any = plan.scroll
-        local rows = math.min(bar.arrow_rows or 1, math.max(1, bar.h // 2))
-        local width = bar.w or 1
-        out.scroll = {
-            {id = "scroll_up", row = bar.y, bottom_row = bar.y + rows - 1,
-                from = bar.x, to = bar.x + width - 1},
-            {id = "scroll_down", row = bar.y + bar.h - rows, bottom_row = bar.y + bar.h - 1,
-                from = bar.x, to = bar.x + width - 1},
-        }
-    end
     for _, cell in ipairs(plan.cells or {}) do
         out.cells[#out.cells + 1] = {
             index = cell.index, from = cell.from, to = cell.to,
@@ -264,11 +285,9 @@ end
 
 -- ─── бэкенд ячеек ────────────────────────────────────────────────────────
 
--- cells(canvas, plan) -> {cells = …, tools = …, scroll = …}
+-- cells(canvas, plan) -> {cells = …, tools = …, menu = …, …}
 --
--- Рисует символами. Попадания НЕ считает — берёт из плана; исключение одно и
--- названо: полоса прокрутки возвращает попадания стрелок оттуда же, откуда
--- рисуется.
+-- Рисует символами. Попадания НЕ считает — берёт из плана.
 function render.cells(canvas, plan: any): any
     local hits = render.hits(plan)
 
@@ -292,7 +311,7 @@ function render.cells(canvas, plan: any): any
             widgets.fit(widgets.styles.field, tostring(plan.failure), inner.w - 2), inner.w - 2)
     else
         if plan.scroll then
-            hits.scroll = widgets.scrollbar(canvas, plan.scroll.x, plan.scroll.y, plan.scroll.h, {
+            widgets.scrollbar(canvas, plan.scroll.x, plan.scroll.y, plan.scroll.h, {
                 first = plan.scroll.first, visible = plan.scroll.visible,
                 total = plan.scroll.total,
             })
@@ -318,6 +337,12 @@ function render.cells(canvas, plan: any): any
             widgets.dropdown(canvas, field.from, plan.address.row + 1,
                 field.to - field.from + 1, plan.address.items, #plan.address.items)
         end
+    end
+
+    -- Раскрытое меню — поверх и адреса, и поля.
+    if plan.menu_popup then
+        widgets.dropdown(canvas, plan.menu_popup.from, plan.rows.menu + 1, plan.menu_popup.width,
+            plan.menu_popup.items, 0)
     end
 
     return hits

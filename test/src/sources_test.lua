@@ -71,15 +71,15 @@ local function define_tests()
             view:send({type = "mouse", action = "wheel", button = "wheel_down", x = area.x, y = area.y})
             wait_frame(1)
             view:send({type = "mouse", action = "wheel", button = "wheel_up", x = area.x, y = area.y})
-            local hits = wait_frame(0)
-            for _, direction in ipairs({"scroll_down", "scroll_up"}) do
-                for _, arrow in ipairs(hits.scroll or {}) do
-                    if arrow.id == direction then
-                        view:send({type = "mouse", action = "press", button = "left", x = arrow.from, y = arrow.row})
-                        view:send({type = "mouse", action = "release", button = "left", x = arrow.from, y = arrow.row})
-                    end
-                end
-                hits = wait_frame(direction == "scroll_down" and 1 or 0)
+            wait_frame(0)
+            -- Стрелки полосы — края `plan.scroll`: ту же геометрию окно отдаёт
+            -- `scroll.pointer`, своих попаданий у полосы больше нет.
+            local bar: any = render.layout(state, width, height).scroll
+            test.not_nil(bar, "the fixture shows a scrollbar")
+            for _, arrow in ipairs({{y = bar.y + bar.h - 1, offset = 1}, {y = bar.y, offset = 0}}) do
+                view:send({type = "mouse", action = "press", button = "left", x = bar.x, y = arrow.y})
+                view:send({type = "mouse", action = "release", button = "left", x = bar.x, y = arrow.y})
+                wait_frame(arrow.offset)
             end
             view:send({type = "close"})
             view:close()
