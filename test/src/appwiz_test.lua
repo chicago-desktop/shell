@@ -67,7 +67,7 @@ local function define_tests()
             test.is_true(model.owner_text(rows[4]):find("butschster.windows", 1, true) ~= nil)
         end)
 
-        test.it("the size is written the Russian way, with a comma", function()
+        test.it("size is formatted with a dot and MB", function()
             test.eq(model.human_size(3340000), "3.19 MB")
             test.eq(model.human_size(4096), "4 KB")
             test.eq(model.human_size(0), "—")
