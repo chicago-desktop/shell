@@ -395,6 +395,16 @@ end
 function ui.interaction(): any
     return {focus = nil, offsets = {}, capture = nil, editors = {}, armed = nil, menus = {}, revealed = {}}
 end
+-- release(interaction) — forgets a pressed button and a dragged thumb whose
+-- release this window will never see. `ui.plan` drops them only when their
+-- control disappears, so a press that lost its release — the window was
+-- minimized or covered mid-drag — survived with an unchanged tree. `ui.event`
+-- calls this on the next press; a focus-loss event from the compositor would
+-- be the other caller, and the base sends none today.
+function ui.release(interaction: any)
+    interaction.capture = nil
+    interaction.armed = nil
+end
 function ui.plan(tree: any, width: any, height: any, interaction: any): any
     local plan: any = {items = {}, by_id = {}, focusable = {}, overlays = {}}
     if interaction.menus == nil then interaction.menus = {} end
@@ -585,8 +595,29 @@ local function activate(node: any): any
     if node.kind == "checkbox" then return {type = "change", id = node.id, value = not node.checked} end
     return {type = "activate", id = node.id}
 end
+-- One spelling per key for every component. The runtime's terminal decoder
+-- names Space `key_type = "space"`, while the components, the editor and the
+-- base's typed input know it as the rune " " — so from a real terminal Space
+-- neither pressed a focused button nor typed into a field. Shift+Tab arrives
+-- as `tab` with `shift`; a decoder that says `backtab` means the same.
+local function canonical(event: any)
+    if event.type ~= "key" then return end
+    if event.key_type == "space" then
+        event.key_type, event.key = "runes", " "
+    elseif event.key_type == "backtab" then
+        event.key_type, event.key, event.shift = "tab", "tab", true
+    end
+end
 function ui.event(plan: any, state: any, original: any): any
     local event = input.normalize(original)
+    canonical(event)
+    -- A press cannot come while the previous one is still held: its release
+    -- happened where this window could not see it. What that press armed or
+    -- captured is dropped first — otherwise the next drag anywhere moved the
+    -- old thumb, and letting go over the old button pressed it.
+    if event.type == "mouse" and event.action == "press" and (state.capture or state.armed) then
+        ui.release(state)
+    end
     -- The wheel while a button is armed or a thumb is being dragged belongs to no one.
     if (state.armed or state.capture) and event.action == "wheel" then return nil end
     if state.armed and event.type == "mouse" and (event.action == "motion" or event.action == "release") then

@@ -9,6 +9,23 @@ local palette = require("palette")
 local whole = geometry.whole
 local color = palette.exact
 local render = {}
+-- A copy of the interaction for laying out one frame. `ui.plan` clamps offsets,
+-- moves the focus and forgets stale menus in the table it is given — writes
+-- into the maps one level down — and the table the renderer receives is the
+-- compositor's copy of the window state, kept between frames.
+local function detached(interaction: any): any
+    local copy: any = {}
+    for key, value in pairs(interaction) do
+        if type(value) == "table" then
+            local inner: any = {}
+            for name, item in pairs(value) do inner[name] = item end
+            copy[key] = inner
+        else
+            copy[key] = value
+        end
+    end
+    return copy
+end
 function render.placement(window: any, inner: any, cell: any, fonts: any, store: any): (any, any)
     local state: any = window.content_state
     if type(state) ~= "table" or state.sdk ~= 1 then return nil, "SDK: state version 1 expected" end
@@ -22,10 +39,19 @@ function render.placement(window: any, inner: any, cell: any, fonts: any, store:
     -- and a thrown one would crash the frame of the whole shell.
     local problem = ui.problem(state.ui)
     if problem then return nil, "SDK: " .. tostring(problem) end
-    local interaction: any = type(state.interaction) == "table" and state.interaction or ui.interaction()
-    local plan = ui.plan(state.ui, inner.cols, inner.rows, interaction)
     local id = "win:" .. tostring(window.id) .. ":sdk"
     local raster, dirty = store.take(id, inner.cols, inner.rows, cell, tostring(window.state_revision or state.revision))
+    -- The raster first: a clean one is reused as it is, and the tree is laid
+    -- out only for a frame that is actually painted — before, every frame of
+    -- the shell laid out every SDK window and threw the plan away. The layout
+    -- works on a copy, so the compositor's interaction stays as the window
+    -- published it.
+    local interaction: any = {}
+    local plan: any = {items = {}, overlays = {}}
+    if dirty then
+        interaction = detached(type(state.interaction) == "table" and state.interaction or ui.interaction())
+        plan = ui.plan(state.ui, inner.cols, inner.rows, interaction)
+    end
     if dirty then
         raster:fill(color.face)
         local font = fonts and fonts.face

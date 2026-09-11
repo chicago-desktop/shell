@@ -713,6 +713,115 @@ local function define_tests()
             end
         end)
     end)
+
+    -- Leftovers of docs/sdk-review-2026-09-08.md that were still open by code.
+    test.describe("Window SDK renderer and input, review leftovers", function()
+        -- A stable text of a table with sorted keys: the interaction is compared
+        -- before and after, not trusted.
+        local function dump(value: any): string
+            if type(value) ~= "table" then return type(value) .. ":" .. tostring(value) end
+            local entries: any = {}
+            for key, item in pairs(value) do entries[#entries + 1] = {name = tostring(key), item = item} end
+            table.sort(entries, function(a: any, b: any) return a.name < b.name end)
+            local parts = {}
+            for _, entry in ipairs(entries) do parts[#parts + 1] = entry.name .. "=" .. dump(entry.item) end
+            return "{" .. table.concat(parts, ",") .. "}"
+        end
+
+        test.it("A9: a clean raster is reused without a layout, and the compositor's interaction stays as it was", function()
+            local tree = {kind = "column", children = {
+                {kind = "list", id = "items", items = {"one", "two", "three"}},
+                {kind = "button", id = "ok", size = 2, text = "OK"},
+            }}
+            local interaction = ui.interaction()
+            interaction.offsets.items = 99        -- ui.plan clamps this,
+            interaction.focus = "gone"             -- moves this,
+            interaction.menus.gone = {index = 1}   -- and forgets this.
+            local window = {id = "a9", state_revision = 1,
+                content_state = {sdk = 1, revision = 1, ui = tree, interaction = interaction}}
+            local before = dump(interaction)
+            -- The counter lives in a table field: go-lua splits upvalues after
+            -- an error caught by pcall.
+            local calls: any = {count = 0}
+            local plan = ui.plan
+            ui.plan = function(...) calls.count = calls.count + 1; return plan(...) end
+            local store = rasters.store()
+            local inner, cell = {x = 1, y = 1, cols = 30, rows = 8}, {w = 8, h = 18}
+            store.begin()
+            local first, why = render.placement(window, inner, cell, {}, store)
+            store.begin()
+            local second = render.placement(window, inner, cell, {}, store)
+            ui.plan = plan
+            test.not_nil(first, tostring(why))
+            test.eq(calls.count, 1, "the second frame of the same revision is not laid out again")
+            test.eq(second and second.raster, first and first.raster, "the clean raster is reused")
+            test.eq(dump(interaction), before, "the renderer leaves the compositor's interaction as it was")
+        end)
+
+        test.it("A14: Space presses and types whatever the decoder calls it, and Shift+Tab steps back", function()
+            local tree = {kind = "column", children = {
+                {kind = "button", id = "first", size = 2, text = "First"},
+                {kind = "checkbox", id = "check", size = 1, text = "Check"},
+                {kind = "input", id = "field", size = 2, text = ""},
+            }}
+            local interaction = ui.interaction()
+            local plan = ui.plan(tree, 30, 10, interaction)
+            local function key(event: any): any
+                event.type, event.action = "key", "press"
+                return ui.event(plan, interaction, event)
+            end
+            -- The runtime's decoder says "space"; typed input and old tests say " ".
+            for _, space in ipairs({{key_type = "space", key = "space"}, {key_type = "runes", key = " "}}) do
+                local name = "Space as " .. space.key_type
+                interaction.focus = "first"
+                local pressed = key({key_type = space.key_type, key = space.key})
+                test.eq(pressed and (pressed.type .. ":" .. tostring(pressed.id)), "activate:first", name .. " presses the button")
+                interaction.focus = "check"
+                local toggled = key({key_type = space.key_type, key = space.key})
+                test.eq(toggled and toggled.type, "change", name .. " toggles the checkbox")
+                interaction.focus = "field"
+                local typed = key({key_type = space.key_type, key = space.key})
+                test.eq(typed and typed.value, " ", name .. " types into the field")
+            end
+            interaction.focus = "first"
+            key({key_type = "tab", key = "tab", shift = true})
+            test.eq(interaction.focus, "field", "Shift+Tab from the first control wraps to the last")
+            key({key_type = "backtab", key = "backtab"})
+            test.eq(interaction.focus, "check", "backtab steps back the same way")
+            key({key_type = "tab", key = "tab"})
+            test.eq(interaction.focus, "field", "plain Tab steps forward")
+        end)
+
+        test.it("A11: a new press drops a button and a thumb whose release was never seen", function()
+            local items = {}
+            for index = 1, 30 do items[index] = "row " .. index end
+            local tree = {kind = "column", children = {
+                {kind = "list", id = "items", items = items},
+                {kind = "button", id = "ok", size = 2, text = "OK"},
+            }}
+            local interaction = ui.interaction()
+            local plan = ui.plan(tree, 30, 12, interaction)
+            local ok, list = plan.by_id.ok.rect, plan.by_id.items.rect
+            ui.event(plan, interaction, {type = "mouse", action = "press", button = "left", x = ok.x, y = ok.y})
+            test.not_nil(interaction.armed, "a press arms the button")
+            -- The window is minimized now, and the release goes to no one; a thumb
+            -- was being dragged too. Later the person presses elsewhere.
+            interaction.capture = {id = "items", grab = 0}
+            ui.event(plan, interaction, {type = "mouse", action = "press", button = "left", x = list.x, y = list.y})
+            test.is_nil(interaction.capture, "the new press drops the old capture")
+            test.is_nil(interaction.armed, "and the old armed button")
+            local offset = interaction.offsets.items
+            ui.event(plan, interaction, {type = "mouse", action = "motion", button = "left", x = list.x, y = list.y + 6})
+            test.eq(interaction.offsets.items, offset, "a drag after the new press does not move the old thumb")
+            test.is_nil(ui.event(plan, interaction, {type = "mouse", action = "release", button = "left", x = ok.x, y = ok.y}),
+                "letting go over the old button does not press it")
+
+            interaction.armed, interaction.capture = {id = "ok", inside = true}, {id = "items", grab = 0}
+            ui.release(interaction)
+            test.is_nil(interaction.armed)
+            test.is_nil(interaction.capture)
+        end)
+    end)
 end
 local run_cases = test.run_cases(define_tests)
 return {run = function(options) return run_cases(options) end}

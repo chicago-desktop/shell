@@ -51,8 +51,28 @@ local function define_tests()
             test.not_nil(answer and answer.window, "the answer must describe the viewer window")
             test.eq(answer.window.content, "pixels", "a picture is a view window")
 
-            -- Let the windows draw themselves and the state provider send the picture.
-            channel.select({time.after("1500ms"):case_receive()})
+            -- The three windows are listed as soon as they are open, and the picture
+            -- provider is done when its window stops `waiting`. Asked every 100 ms
+            -- up to a deadline instead of a fixed pause of 1.5 s; then asked once
+            -- more after a grace, because a window that dies right after opening
+            -- drops out of the list, and the first answer would not show it.
+            local function settled(): (any, any)
+                local answer: any, failure = control.call("desktop.list", {})
+                if not answer then return nil, failure end
+                if #(answer.windows or {}) ~= 3 then return nil, "not all three are listed yet" end
+                for _, window in ipairs(answer.windows) do
+                    if window.content == "pixels" and window.waiting ~= false then return nil, "the picture is still waiting" end
+                end
+                return answer, nil
+            end
+            local deadline = time.now():unix_nano() + 5000000000
+            local ready: any, why = settled()
+            while not ready and time.now():unix_nano() < deadline do
+                channel.select({time.after("100ms"):case_receive()})
+                ready, why = settled()
+            end
+            test.not_nil(ready, "the windows did not settle within 5 s: " .. tostring(why))
+            channel.select({time.after("300ms"):case_receive()})
             local listed, lerr = control.call("desktop.list", {})
             test.is_nil(lerr)
             local names = {}
