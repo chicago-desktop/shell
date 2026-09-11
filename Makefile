@@ -8,7 +8,7 @@ VIS    := private
 SHELL := bash
 .SHELLFLAGS := -o pipefail -ec
 
-.PHONY: init setup check lint late-locals test test-pg postgres-up postgres-down verify release-check publish
+.PHONY: init setup check lint late-locals test test-pg postgres-up postgres-down verify release-check publish probes check-probes shots
 init:
 	node scripts/init-module.mjs --organization "$(ORG)" --module "$(MODULE_NAME)" --title "$(TITLE)" $(if $(NAMESPACE),--namespace "$(NAMESPACE)",) $(if $(TAG),--tag "$(TAG)",) $(if $(GITHUB_OWNER),--github-owner "$(GITHUB_OWNER)",)
 setup:
@@ -55,6 +55,27 @@ postgres-up:
 postgres-down:
 	docker compose -f compose.test.yaml down -v
 verify: setup check lint test
+# The probes (tools/pixelprobe, tools/themeprobe) run the REAL theme files
+# outside the runtime, glued into combined.lua by build.py. combined.lua is not
+# stored in git, so a probe run days after the last build checks old code and
+# does not say so. `probes` rebuilds both; `check-probes` builds in memory and
+# fails when a combined.lua on disk differs — older than the harness or any
+# source it embeds. Neither is part of lint or verify: the probes are a tool,
+# not a gate. The Go binaries are built and run by hand (tools/*/README.md).
+probes:
+	python3 tools/pixelprobe/build.py
+	python3 tools/themeprobe/build.py
+check-probes:
+	python3 tools/pixelprobe/build.py --check
+	python3 tools/themeprobe/build.py --check
+# PNG snapshots of the shell and the windows into test/shots. This is a
+# `wippy run` — it brings the application up — so a person runs it; lint and
+# test never do. The snapshots are evidence for the eye: no test compares them.
+# Without a cell size paint-png takes a fallback and says so in its report:
+#   make shots CELL=10x20
+CELL ?=
+shots:
+	cd test && $(WIPPY) run --host wippy.terminal:host paint-png $(CELL)
 release-check: verify
 	$(WIPPY) auth status
 	$(WIPPY) publish --dry-run --create --module-visibility $(VIS) --module-type $(TYPE)

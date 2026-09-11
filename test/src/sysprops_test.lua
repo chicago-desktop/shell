@@ -74,6 +74,22 @@ local function define_tests()
             local plan = ui.plan(sysprops.definition.view(fixture(2), {width = 58, height = 22}), 58, 22, ui.interaction())
             test.is_true(#plan.by_id.devices.node.rows >= 12)
         end)
+        test.it("the runtime resources are a static table: no id, no focus", function()
+            local plan = ui.plan(sysprops.definition.view(fixture(3), {width = 58, height = 22}), 58, 22, ui.interaction())
+            local found = 0
+            for _, item in ipairs(plan.items) do
+                if item.node.kind == "table" then
+                    test.is_true(item.node.static == true, "the name — value table is static")
+                    test.is_nil(item.node.id, "a static table carries no id")
+                    found = found + 1
+                end
+            end
+            test.eq(found, 1, "the Performance tab lays out its resources table")
+            local focusable = {}
+            for index, id in ipairs(plan.focusable) do focusable[index] = id end
+            table.sort(focusable)
+            test.eq(table.concat(focusable, ","), "cancel,ok,pages", "only the tabs and the buttons take focus")
+        end)
         test.it("the tree expands and selects, OK closes", function()
             local state = fixture(2)
             local closed = 0

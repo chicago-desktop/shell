@@ -8,9 +8,15 @@ call — it ends in `return` anyway — and put where its marker stood.
 
 Paths are computed from the location of this file, not from the current
 directory: the probe is run both from the module root and from its own folder.
+
+`--check` builds in memory and fails when combined.lua on disk differs, that
+is, when it is older than harness.lua or any file it embeds (`make
+check-probes`). combined.lua is not stored in git, and a stale one checks
+yesterday's theme without saying so.
 """
 
 import pathlib
+import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 SRC = HERE.parent.parent / "src"
@@ -48,6 +54,11 @@ def main() -> None:
             raise SystemExit(f"harness.lua has no marker for {folder}/{name}")
         text = text.replace(marker, wrapped(folder, name))
     out = HERE / "combined.lua"
+    if "--check" in sys.argv[1:]:
+        if not out.exists() or out.read_text(encoding="utf-8") != text:
+            raise SystemExit(f"stale: {out} differs from harness.lua and the current sources; run `make probes`")
+        print(f"fresh: {out}")
+        return
     out.write_text(text, encoding="utf-8")
     print(f"built: {out}")
 

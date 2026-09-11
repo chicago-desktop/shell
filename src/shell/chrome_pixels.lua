@@ -573,6 +573,30 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
     end
 end
 
+-- Widths measured with the theme's fonts, per font role and text. The taskbar
+-- measured "Start" and every tray caption on every frame, and `font:measure`
+-- shapes the text anew each time. The memo belongs to the font set it was
+-- measured with — `use_fonts` makes a new set and so a new memo — and it is
+-- capped, because the tray brings a new caption every minute.
+local widths: any = {fonts = nil, by = {}, count = 0}
+local WIDTHS_KEPT = 512
+local function text_width(role: string, text: any): integer
+    local fonts: any = chrome_pixels.fonts
+    local font: any = type(fonts) == "table" and fonts[role] or nil
+    if not font then return 0 end
+    if widths.fonts ~= fonts or widths.count >= WIDTHS_KEPT then
+        widths.fonts, widths.by, widths.count = fonts, {}, 0
+    end
+    local key = role .. "\31" .. tostring(text)
+    local known: any = widths.by[key]
+    if known == nil then
+        known = whole(font:measure(tostring(text)))
+        widths.by[key] = known
+        widths.count = widths.count + 1
+    end
+    return known
+end
+
 -- Taskbar measures in pixels: a window button of 16 cells (160 px at a 10 px
 -- cell, as in Windows 95), a clock of 9 cells and one cell of gap before it.
 -- The layout rules are `chrome.taskbar_layout`'s, shared with the cell theme.
@@ -607,7 +631,7 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     local cw = math.max(1, whole(cell.w))
     for index, item in ipairs(tray) do
         local text = tostring(item.text or "")
-        local px = face and whole(face:measure(text)) or #text * 7
+        local px = face and text_width("face", text) or #text * 7
         local image = type(item.image) == "string" and item.image ~= "" and item.image or nil
         if image then px = px + TRAY_ICON + TRAY_GAP end
         tray_widths[index] = (px + TRAY_PAD + cw - 1) // cw
@@ -617,7 +641,7 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     local width, height = w * whole(cell.w), rows * whole(cell.h)
     local button_h = height - 6
     local button_y = 1 + (height - button_h) // 2
-    local start_span = math.max(6, (whole(bold and bold:measure("Start") or 28) + 44 + whole(cell.w) - 1) // whole(cell.w))
+    local start_span = math.max(6, (whole(bold and text_width("bold", "Start") or 28) + 44 + whole(cell.w) - 1) // whole(cell.w))
     local plan: any = chrome.taskbar_layout(w, state.windows or {}, {start = start_span, gap = 0,
         task_min = TASK_SPAN, task_max = TASK_SPAN, clock = CLOCK_SPAN, clock_gap = 1, tray = tray_widths})
     if dirty then
@@ -725,6 +749,39 @@ end
 --
 -- A closed menu disappears by ABSENCE from the list of placements, not by
 -- drawing over it: `store.frame` throws away whatever the frame did not name.
+
+-- The menu layout of the last frame and what it was computed from. An open
+-- menu stands still while a person reads it, and every frame computed the
+-- cascade anew: the folder tree and a `font:measure` per label. The key names
+-- everything `menu_layout` reads — the items by identity AND by the fields the
+-- cascade reads, because a catalog refreshed in place keeps its identity. The
+-- hits of a kept layout are shared between frames: the compositor only reads
+-- them.
+local menu_memo: any = {key = nil, shown = nil}
+local function menu_memo_key(view: any, menu: any, cell: any, rows: any): string
+    local parts: any = {tostring(view.width), tostring(view.height), tostring(cell.w), tostring(cell.h),
+        tostring(rows), tostring(menu.cursor), tostring(menu.failure), tostring(chrome_pixels.fonts),
+        tostring(menu.items)}
+    -- The cast is on `chrome`: its `session.user` starts as nil, and the
+    -- linter keeps that type through an `any` local.
+    local user: any = (chrome :: any).session.user
+    parts[#parts + 1] = type(user) == "table" and tostring(user.name) or ""
+    local anchor: any = menu.anchor
+    parts[#parts + 1] = type(anchor) == "table" and (tostring(anchor.x) .. "," .. tostring(anchor.y)) or "-"
+    for _, name in ipairs(type(menu.open) == "table" and menu.open or {}) do
+        parts[#parts + 1] = "open:" .. tostring(name)
+    end
+    for _, entry in ipairs(type(menu.items) == "table" and menu.items or {}) do
+        local item: any = entry
+        local group: any = {}
+        for _, part in ipairs(type(item.group) == "table" and item.group or {}) do group[#group + 1] = tostring(part) end
+        parts[#parts + 1] = table.concat({tostring(item.title), tostring(item.label), tostring(item.entry),
+            tostring(item.order), table.concat(group, "/"), tostring(item.icon), tostring(item.image),
+            tostring(item.action), item.separator_before and "b" or "", item.separator_after and "a" or "",
+            item.bold and "B" or ""}, "\30")
+    end
+    return table.concat(parts, "\31")
+end
 
 local function menu_key(box: any)
     local parts = {tostring(box.x), tostring(box.y), tostring(box.w), tostring(box.h),
@@ -1023,9 +1080,13 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     -- list order is the painting order.
     if view.menu then
         local menu: any = view.menu
-        local shown = chrome.menu_layout(view.width, view.height,
+        local rows = taskbar_rows()
+        local memo_key = menu_memo_key(view, menu, cell, rows)
+        local shown: any = menu_memo.key == memo_key and menu_memo.shown or nil
+        if not shown then
+            shown = chrome.menu_layout(view.width, view.height,
             menu.items, menu.failure, menu.open, menu.cursor, {
-                compact = true, bottom = taskbar_rows(),
+                compact = true, bottom = rows,
                 anchor = menu.anchor, context_rows = 1,
                 user = chrome.session.user,
                 root_rows = math.max(1, (32 + cell.h - 1) // cell.h),
@@ -1049,6 +1110,8 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
                     return math.max(1, whole((px + cell.w - 1) // cell.w) - 2)
                 end,
             })
+            menu_memo.key, menu_memo.shown = memo_key, shown
+        end
 
         if shown.notice then
             local id = "menu:notice"

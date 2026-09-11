@@ -1178,6 +1178,49 @@ local function define_tests()
                 }, open = {"Programs"}, cursor = 1}}
         end
 
+        -- An open menu and the taskbar's captions are measured once, not every
+        -- frame: a frame with the same menu calls `font:measure` zero times.
+        -- The fonts are instrumented IN PLACE, so the theme sees the same font
+        -- set it measured with; nothing is repainted, so the counting stand-in
+        -- never reaches `raster:text`, which wants a real font.
+        test.it("a frame with the same menu measures no text; a changed menu is laid out anew", function()
+            load_fonts()
+            local state: any = scene()
+            state.tray = {{key = "weather", text = "+21°", entry = "app:weather"}}
+            chrome_pixels.paint(state, 10, 20)
+            local fonts: any = chrome_pixels.fonts
+            local counted: any = {n = 0}
+            local function counting(font: any): any
+                return setmetatable({}, {__index = function(_, name)
+                    return function(_, ...)
+                        if name == "measure" then counted.n = counted.n + 1 end
+                        return font[name](font, ...)
+                    end
+                end})
+            end
+            local face, bold = fonts.face, fonts.bold
+            fonts.face, fonts.bold = counting(face), counting(bold)
+            local again = chrome_pixels.paint(state, 10, 20)
+            fonts.face, fonts.bold = face, bold
+            test.eq(counted.n, 0, "the second frame measured text " .. counted.n .. " times")
+            test.is_true(#again.hits.menu > 0, "the menu is still there, from the kept layout")
+
+            -- A moved cursor and a closed folder are different layouts.
+            state.menu.cursor = 2
+            local under: any = nil
+            for _, hit in ipairs(chrome_pixels.paint(state, 10, 20).hits.menu) do
+                if hit.cursor then under = hit end
+            end
+            test.eq(under and under.slot, 2, "a moved cursor lays the menu out anew")
+            state.menu.open = {}
+            local panels = 0
+            for _, item in ipairs(chrome_pixels.paint(state, 10, 20).placements) do
+                if tostring(item.id):find("menu:", 1, true) == 1 then panels = panels + 1 end
+            end
+            test.eq(panels, 1, "a closed folder is one panel: the kept layout is not reused")
+            chrome_pixels.fonts = nil
+        end)
+
         test.it("no piece of a window lies under the menu, and a change of the window does not touch the menu", function()
             load_fonts()
             local state: any = scene()

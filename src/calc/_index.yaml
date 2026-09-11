@@ -31,7 +31,6 @@ entries:
       comment: Calculator in the Windows 95 look — standard view with memory, computes like a desktop calculator; a window on the shell SDK.
     source: file://window.lua
     method: main
-    modules: [time]
     security:
       policies: [butschster.windows.security:view_state]
     imports:

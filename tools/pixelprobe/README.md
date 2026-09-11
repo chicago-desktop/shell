@@ -12,11 +12,18 @@ substituting `gfx` with a pure-Lua stand-in, and prints three things:
 - **checks** that cannot be seen on a snapshot.
 
 ```bash
+make probes             # from the module root: rebuilds combined.lua for both probes
 cd tools/pixelprobe
 go build ./...          # the path to go-lua in go.mod is ABSOLUTE, adjust it for yourself
-python3 build.py        # glues the scenes together with the current primitive files
 ./pixelprobe combined.lua
 ```
+
+`combined.lua` is generated and not stored in git, so it goes stale silently:
+a probe run on an old one checks yesterday's theme and prints a clean map.
+`make check-probes` builds both probes in memory and fails when a file on disk
+differs from `harness.lua` plus the current sources (`build.py --check`).
+Neither target is part of `make lint` or `make verify`: the probes are a tool
+you run, not a gate.
 
 ## What it asserts, not only shows
 

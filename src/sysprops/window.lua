@@ -123,7 +123,9 @@ end
 local function pairs_table(rows: any): any
     local out = {}
     for _, pair in ipairs(rows) do out[#out + 1] = {cells = {tostring(pair[1]), tostring(pair[2])}} end
-    return {kind = "table", id = "resources", header = false,
+    -- Name — value pairs that nobody selects: a static table takes no focus
+    -- and no clicks, so it needs no id.
+    return {kind = "table", static = true, header = false,
         columns = {{title = "", weight = 3}, {title = "", weight = 2, align = "right"}}, rows = out}
 end
 

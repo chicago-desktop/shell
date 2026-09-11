@@ -69,6 +69,25 @@ local function define_tests()
             test.eq(#plan.by_id.procs.node.rows, 80)
             test.eq(plan.by_id.procs.node.columns[4].align, "right")
         end)
+        test.it("the name — value pairs are static tables: no made-up id, no focus", function()
+            local expected: any = {[3] = "pages,refresh", [4] = "hosts,pages,refresh"}
+            for tab = 3, 4 do
+                local plan = ui.plan(taskman.definition.view(fixture(tab), {width = 76, height = 25}), 76, 25, ui.interaction())
+                local found = 0
+                for _, item in ipairs(plan.items) do
+                    if item.node.kind == "table" and item.node.id ~= "hosts" then
+                        test.is_true(item.node.static == true, "tab " .. tab .. ": a pairs table is static")
+                        test.is_nil(item.node.id, "tab " .. tab .. ": a static table carries no id")
+                        found = found + 1
+                    end
+                end
+                test.eq(found, tab == 3 and 2 or 1, "tab " .. tab .. ": the pairs tables are laid out")
+                local focusable = {}
+                for index, id in ipairs(plan.focusable) do focusable[index] = id end
+                table.sort(focusable)
+                test.eq(table.concat(focusable, ","), expected[tab], "tab " .. tab .. ": only controls take focus")
+            end
+        end)
         test.it("keeps the selected task by id when sampling reorders rows and switches tabs", function()
             local state = fixture(2)
             local context = {width = 76, height = 25, close = function() end}

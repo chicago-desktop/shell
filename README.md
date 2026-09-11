@@ -44,7 +44,7 @@ overridden by `BUTSCHSTER_WINDOWS_FONTS`). Look in the log for the line
 
 ```bash
 make lint                                    # late locals + lint with the gfx build
-make test                                    # 117 tests
+make test                                    # 295 tests
 cd test && $WIPPY run --host wippy.terminal:host paint-png 10x20   # PNG into test/shots
 ```
 
@@ -875,7 +875,15 @@ make lint      # late locals + lint with the gfx build
 make test      # SQLite
 make postgres-up && make test-pg && make postgres-down
 make verify    # setup + check + lint + test
+make probes    # rebuild tools/*probe/combined.lua from the current sources
+make check-probes  # fail when a probe's combined.lua is stale
+make shots     # PNG snapshots into test/shots (CELL=10x20 names the cell) — a wippy run
 ```
+
+Snapshots (`test/shots/*.png`) are refreshed by `make shots`. It brings the
+application up, so a person runs it; lint and test never do. The snapshots are
+evidence for the eye: no test compares them, so a snapshot that did not change
+is not a check that passed.
 
 A full `make verify` requires a local runtime build with `gfx` and the base in
 `../kickside-module`, so it does not run in CI: GitHub Actions
