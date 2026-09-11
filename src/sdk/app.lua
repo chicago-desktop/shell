@@ -121,6 +121,22 @@ function app.channel_action(context: any, picked: any): any
     return {type = "channel", channel = picked.channel, value = picked.value, ok = picked.ok}
 end
 
+-- focus(interaction, event) -> whether the frame changed.
+--
+-- The compositor tells a window when it loses and regains the keyboard, with
+-- the runtime's terminal event `{type = "focus", focused = …}`. On loss an
+-- armed button and a captured drag are dropped: the release they wait for now
+-- goes to another window, and without this a button stayed armed until the
+-- next press here and a release arriving later still activated it
+-- (sdk-review A11). Gaining focus changes nothing. The answer is "redraw" only
+-- when something was held: a pixel window's frame is not free.
+function app.focus(interaction: any, event: any): boolean
+    if type(event) ~= "table" or event.type ~= "focus" or event.focused ~= false then return false end
+    local held = interaction.armed ~= nil or interaction.capture ~= nil
+    ui.release(interaction)
+    return held
+end
+
 local function escape(action: any): boolean
     return type(action) == "table" and action.type == "key" and action.key_type == "esc"
 end
@@ -245,7 +261,7 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
                 if native then app.resize(context, event)
                 else context.width, context.height = tty.screen_size() end
                 action = {type = "resize", width = context.width, height = context.height}
-            else
+            elseif event.type ~= "focus" then
                 action = guarded(context, "event", ui.event, loop.plan, interaction, event)
                 -- A key no component took goes to the application: Esc, F5, Ctrl+S.
                 if action == nil and event.type == "key" and event.action ~= "release" then
@@ -253,9 +269,15 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
                         alt = event.alt, ctrl = event.ctrl, shift = event.shift}
                 end
             end
-            -- A resize always redraws: the frame has to be laid out for the new
-            -- size even when `update` has nothing to say about it (returns false).
-            redraw = app.dispatch(definition, model, context, action) or action.type == "resize"
+            if event.type == "focus" then
+                -- The SDK's own bookkeeping, not an application action: a lost
+                -- keyboard drops what was armed or captured (see `app.focus`).
+                redraw = app.focus(interaction, event)
+            else
+                -- A resize always redraws: the frame has to be laid out for the new
+                -- size even when `update` has nothing to say about it (returns false).
+                redraw = app.dispatch(definition, model, context, action) or action.type == "resize"
+            end
         else
             -- The application's own channel: a timer from `context.after` or a watched one.
             redraw = app.dispatch(definition, model, context, app.channel_action(context, picked))

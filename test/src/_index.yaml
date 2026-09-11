@@ -755,3 +755,18 @@ entries:
       cell_chrome: butschster.windows.shell:chrome
       catalog: butschster.windows.programs:catalog
 
+
+  - name: sdk_focus_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: A window that loses the keyboard drops its armed button and captured drag, so a later release does not press a button pressed before the focus change; gaining focus releases nothing.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://sdk_focus_test.lua
+    modules: [tty]
+    imports:
+      test: wippy.test:test
+      app: butschster.windows.sdk:app
+      ui: butschster.windows.sdk:ui
+    method: run
