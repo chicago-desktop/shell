@@ -28,6 +28,18 @@ local KEYPAD: any = {
     {memory = {"mplus", "M+"}, keys = {{"0", "0", BLUE}, {"neg", "+/-", BLUE}, {"dot", ".", BLUE}, {"add", "+", RED}, {"eq", "=", RED}}},
 }
 
+local MENU: any = {
+    {title = "Help", accel = 1, items = {{id = "about", text = "About Calculator"}}},
+}
+
+-- In cells the client is 25x11: the cell theme's insets take 4 columns and 5
+-- rows of the 29x16 window, so the pixel grid (26 wide, 14 high, keys of 4x2
+-- cells) does not fit there at all, and a cell key needs its caption plus two
+-- bevels. Cells get one-row keys in columns as wide as their longest caption
+-- — "+/-" needs 5, "sqrt" 6 — which with the memory column and one gap is
+-- exactly 25. Pixels keep the Windows 95 grid.
+local CELL_COLUMNS: any = {3, 5, 3, 3, 6}
+
 local definition: any = {}
 
 function definition.init(args: any, context: any): any
@@ -46,15 +58,38 @@ local function key(state: any, id: any, label: any, ink: any, size: any): any
         fill = true, inset = 2, bold = true, pressed = state.calc.pressed == id}
 end
 
+-- The calculator in cells: the same keys and ids, one row each.
+local function cell_view(state: any): any
+    local rows: any = {
+        {kind = "menu", id = "bar", size = 1, entries = MENU},
+        {kind = "field", size = 1, text = engine.display(state.calc), align = "right"},
+        spacer(1),
+        {kind = "row", size = 1, children = {
+            {kind = "field", size = 4, face = true, text = state.calc.memory ~= nil and "M" or "", align = "left"},
+            spacer(8), key(state, "back", "Back", RED, 6), key(state, "ce", "CE", RED, 4), key(state, "c", "C", RED, 3),
+        }},
+        spacer(1),
+    }
+    for _, line in ipairs(KEYPAD) do
+        local children: any = {key(state, line.memory[1], line.memory[2], RED, 4), spacer(1)}
+        for index, button in ipairs(line.keys) do
+            children[#children + 1] = key(state, button[1], button[2], button[3], CELL_COLUMNS[index])
+        end
+        rows[#rows + 1] = {kind = "row", size = 1, children = children}
+    end
+    rows[#rows + 1] = {kind = "label", text = ""}
+    return {kind = "column", children = rows}
+end
+
 function definition.view(state: any, context: any): any
     if state.about then
         return ui.message({title = "Calculator", image = "calculator", icon = "▦", ok = "about_ok",
             lines = {"Standard view, memory.", "Counts as a desk", "calculator does."}})
     end
+    -- `native` is set by the SDK loop when the window is drawn in pixels.
+    if not (type(context) == "table" and context.native) then return cell_view(state) end
     local rows: any = {
-        {kind = "menu", id = "bar", size = 1, entries = {
-            {title = "Help", accel = 1, items = {{id = "about", text = "About Calculator"}}},
-        }},
+        {kind = "menu", id = "bar", size = 1, entries = MENU},
         -- Табло: две строки ячеек, чтобы у числа был отступ сверху и снизу.
         {kind = "row", size = 2, children = {spacer(1), {kind = "field", text = engine.display(state.calc), align = "right"}, spacer(1)}},
         -- Окошко памяти — вдавленное поле цвета лица; Back шире CE и C.

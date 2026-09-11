@@ -815,7 +815,7 @@ local function main(spec)
         calc_state.calc.entry, calc_state.calc.memory, calc_state.calc.pressed = "1234.5", 1, "5"
         view_shot("calc", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
             interaction = ui.interaction(),
-            ui = calc_window.definition.view(calc_state, {width = 27, height = 14})}}, 27, 14)
+            ui = calc_window.definition.view(calc_state, {width = 27, height = 14, native = true})}}, 27, 14)
     end
 
     for _, scene in ipairs(SCENES) do

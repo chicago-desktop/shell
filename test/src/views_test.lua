@@ -208,7 +208,7 @@ local function define_tests()
 
         test.it("кнопки на SDK стоят в сетке оригинала, не делят ячеек и помещаются в окно", function()
             local state = calc_window.definition.init(nil, {})
-            local tree = calc_window.definition.view(state, {width = 27, height = 14})
+            local tree = calc_window.definition.view(state, {width = 27, height = 14, native = true})
             local plan = ui.plan(tree, 27, 14, ui.interaction())
             local buttons = {}
             for _, item in ipairs(plan.items) do
@@ -240,7 +240,7 @@ local function define_tests()
             test.eq(engine.display(state.calc), "42.")
             test.eq(state.calc.pressed, "eq", "последняя кнопка подсвечена")
             test.eq(#watched, 4, "каждое нажатие заводит таймер подсветки")
-            local tree = calc_window.definition.view(state, {width = 27, height = 14})
+            local tree = calc_window.definition.view(state, {width = 27, height = 14, native = true})
             local plan = ui.plan(tree, 27, 14, ui.interaction())
             test.is_true(plan.by_id.eq.node.pressed == true)
             test.eq(calc_window.definition.update(state, {type = "channel", channel = watched[4], ok = true}, context), true)
@@ -259,7 +259,7 @@ local function define_tests()
             local files = assert(fs.get("app:system_fonts"))
             local bold = assert(gfx.font(assert(files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
             local state = calc_window.definition.init(nil, {})
-            local plan = ui.plan(calc_window.definition.view(state, {width = 27, height = 14}), 27, 14, ui.interaction())
+            local plan = ui.plan(calc_window.definition.view(state, {width = 27, height = 14, native = true}), 27, 14, ui.interaction())
             -- Captions are collected in a table field, not an upvalue: go-lua
             -- splits upvalues after an error caught by pcall.
             local seen: any = {list = {}}
@@ -293,35 +293,47 @@ local function define_tests()
             test.eq(pixels.caption(bold, "sqrt", 16), "s", "a key too narrow for the dots is cut, not left with an ellipsis")
         end)
 
-        test.it("draws a caption without its spaces in cells when the spaces do not fit", function()
+        -- In cells the client of the 29x16 window is what the cell theme's
+        -- insets leave, 25x11 — not the 27x14 of pixels. Every key must fit
+        -- there, share no cell, and hold its caption between two bevels.
+        test.it("fits the cell client and shows every caption whole between bevels", function()
+            local inset = chrome.window_insets({})
+            local width, height = 29 - inset.left - inset.right, 16 - inset.top - inset.bottom
+            test.eq(width .. "x" .. height, "25x11", "the cell client of the calculator window")
             local state = calc_window.definition.init(nil, {})
-            local plan = ui.plan(calc_window.definition.view(state, {width = 27, height = 14}), 27, 14, ui.interaction())
+            local plan = ui.plan(calc_window.definition.view(state, {width = width, height = height, native = false}),
+                width, height, ui.interaction())
+            local buttons = {}
             for _, item in ipairs(plan.items) do
                 local node: any = item.node
                 if node.kind == "button" then
-                    local shown = tostring(widgets.button(node.text, {room = item.rect.w})):gsub("\27%[[%d;:]*m", "")
-                    test.is_true(widgets.cells(shown) <= item.rect.w, "key " .. tostring(node.id) .. " stays inside its cells")
-                    if widgets.cells(node.text) + 2 <= item.rect.w then
-                        test.is_true(shown:find(node.text, 1, true) ~= nil,
-                            "key " .. tostring(node.id) .. " shows its caption whole: " .. shown)
-                    end
-                    test.is_nil(shown:find("…", 1, true), "no ellipsis on key " .. tostring(node.id))
+                    local rect = item.rect
+                    local name = "key " .. tostring(node.id)
+                    buttons[#buttons + 1] = {id = node.id, from = rect.x, to = rect.x + rect.w - 1,
+                        row = rect.y, bottom_row = rect.y + rect.h - 1}
+                    test.is_true(rect.x + rect.w - 1 <= width and rect.y + rect.h - 1 <= height, name .. " is inside the client")
+                    test.is_true(widgets.cells(node.text) + 2 <= rect.w, name .. " has room for its caption and both bevels")
+                    local shown = tostring(widgets.button(node.text, {room = rect.w})):gsub("\27%[[%d;:]*m", "")
+                    test.is_true(shown:find(node.text, 1, true) ~= nil, name .. " shows its caption whole: " .. shown)
+                    test.is_true(widgets.cells(shown) <= rect.w, name .. " stays inside its cells")
                 end
             end
+            test.eq(#buttons, 3 + 4 * 6, "every key is laid out")
+            assert_disjoint(buttons)
             test.eq((tostring(widgets.button("MC", {room = 4})):gsub("\27%[[%d;:]*m", "")):gsub("[^%w]", ""), "MC")
         end)
 
         test.it("в меню только «О программе»: лист открывается, под ним клавиши не считают", function()
             local context: any = {watch = function() end, close = function() end}
             local state = calc_window.definition.init(nil, context)
-            local titles, ids, disabled = menu_of(calc_window.definition.view(state, {width = 27, height = 14}))
+            local titles, ids, disabled = menu_of(calc_window.definition.view(state, {width = 27, height = 14, native = true}))
             test.eq(titles, "Help", "Правки нет — буфера обмена у окна нет; Вида нет — вид один")
             test.eq(ids, "about")
             test.is_false(disabled, "выключенных навсегда пунктов нет")
 
             calc_window.definition.update(state, {type = "activate", id = "about", menu = "bar"}, context)
             test.is_true(state.about, "«О программе» открывает лист")
-            local plan = ui.plan(calc_window.definition.view(state, {width = 27, height = 14}), 27, 14, ui.interaction())
+            local plan = ui.plan(calc_window.definition.view(state, {width = 27, height = 14, native = true}), 27, 14, ui.interaction())
             test.not_nil(plan.by_id.about_ok, "у листа есть «OK»")
             local ok = plan.by_id.about_ok.rect
             test.is_true(ok.x + ok.w - 1 <= 27 and ok.y + ok.h - 1 <= 14, "«OK» в окне")
