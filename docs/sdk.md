@@ -1,14 +1,14 @@
-# SDK окон Wippy
+# Wippy window SDK
 
-Это основной контракт для новых окон и исправлений существующих. Механику
-окна предоставляет `butschster/tui-desktop`, оформление и декларативные
-компоненты — `butschster/windows`. Не копируйте цикл, раскладку и прокрутку
-из случайного приложения: специализированные окна используют нижний уровень.
+This is the primary contract for new windows and for fixes to existing ones. The
+window mechanics are provided by `butschster/tui-desktop`, the look and the
+declarative components by `butschster/windows`. Do not copy the loop, layout and
+scrolling from a random application: specialized windows use the lower level.
 
-## Быстрый старт: запись → меню → окно
+## Quick start: entry → menu → window
 
-Новое приложение объявляет обычный `process.lua`, уже известный композитору.
-Нового kind, ручки HTTP или записи в таблице темы не требуется.
+A new application declares an ordinary `process.lua`, already known to the compositor.
+No new kind, HTTP handler or entry in the theme's table is required.
 
 ```yaml
 version: "1.0"
@@ -18,9 +18,9 @@ entries:
     kind: process.lua
     meta:
       type: tui_desktop.window
-      title: Документы
+      title: Documents
       image: program
-      group: [Работа, Документы]
+      group: [Work, Documents]
       order: 100
       width: 62
       height: 23
@@ -36,32 +36,32 @@ entries:
       policies: [butschster.windows.security:view_state]
 ```
 
-Каталог ищет `process.lua` с точным `meta.type: tui_desktop.window`, когда
-открывают меню. После применения записи в живой реестр следующее открытие меню
-увидит программу. Изменение YAML на диске само по себе не применяет реестр.
-`group` задаёт путь папок: строка с `/` или массив сегментов, до трёх уровней.
-Без поля используется «Программы», пустая строка означает корень меню.
-`in_menu: false` прячет пункт, сохраняя возможность открыть окно по ID.
-`image` — имя из [каталога значков](icons.md), одинаковое для меню и окна.
-`width/height` — начальные внешние размеры в ячейках, включая рамку.
-При `resizable: false` действует размер из записи, но маленький терминал всё
-равно ограничивает окно доступным местом.
+The catalog looks for a `process.lua` with the exact `meta.type: tui_desktop.window`
+when the menu is opened. After the entry is applied to the live registry, the next
+menu opening will see the program. Changing the YAML on disk does not by itself apply the registry.
+`group` sets the folder path: a string with `/` or an array of segments, up to three levels.
+Without the field "Programs" is used; an empty string means the menu root.
+`in_menu: false` hides the item while keeping the ability to open the window by ID.
+`image` is a name from the [icon catalog](icons.md), the same for the menu and the window.
+`width/height` are the initial outer sizes in cells, including the frame.
+With `resizable: false` the size from the entry applies, but a small terminal still
+limits the window to the available space.
 
-Запись автоматически добавляет программу в меню, **не создаёт ярлык на рабочем
-столе**: ярлыки — отдельные пользовательские данные. `opens` объявляет расширения
-файлов для проводника; аргумент просмотра собирается библиотекой `viewers:files`.
+The entry adds the program to the menu automatically, **it does not create a desktop
+shortcut**: shortcuts are separate user data. `opens` declares file extensions
+for the explorer; the view argument is assembled by the `viewers:files` library.
 
 ```lua
 local app = require("app")
 local definition = {}
 function definition.init(args, context)
-    return {selected = 1, items = {"Первый документ", "Второй документ"}}
+    return {selected = 1, items = {"First document", "Second document"}}
 end
 function definition.view(model, context)
     return {kind = "column", padding = 1, gap = 1, children = {
-        {kind = "label", size = 1, text = "Документы"},
+        {kind = "label", size = 1, text = "Documents"},
         {kind = "list", id = "documents", items = model.items, selected = model.selected},
-        {kind = "button", id = "close", size = 2, text = "Закрыть"},
+        {kind = "button", id = "close", size = 2, text = "Close"},
     }}
 end
 function definition.update(model, action, context)
@@ -74,248 +74,249 @@ end
 return {main = main}
 ```
 
-Готовый исполняемый пример с двумя панелями и вводом:
-[`test/src/sdk_demo.lua`](../test/src/sdk_demo.lua). Он зарегистрирован только в
-тестовом стенде. Генератор из навыка создаёт такую же пару файлов в вашем модуле.
+A ready runnable example with two panes and input:
+[`test/src/sdk_demo.lua`](../test/src/sdk_demo.lua). It is registered only in the
+test stand. The generator from the skill creates the same pair of files in your module.
 
-## Декларативные компоненты, версия 1
+## Declarative components, version 1
 
-Дерево состоит из обычных таблиц: без функций, userdata, растров, каналов и PID.
-Обработчики остаются в процессе приложения. `view` возвращает дерево для
-текущих данных; `update` меняет модель по действию компонента.
+The tree consists of plain tables: no functions, userdata, rasters, channels or PIDs.
+Handlers stay in the application process. `view` returns the tree for the
+current data; `update` changes the model on a component's action.
 
-- `column`: вертикальное размещение `children`.
-- `row`: горизонтальное размещение `children`.
-- `split`: горизонтальные панели, доли через `weight`. Разделитель пока фиксирован.
-- У контейнеров `padding` и `gap` — целые неотрицательные **ячейки**.
+- `column`: vertical placement of `children`.
+- `row`: horizontal placement of `children`.
+- `split`: horizontal panes, shares via `weight`. The divider is fixed for now.
+- Containers' `padding` and `gap` are non-negative integer **cells**.
   `padding_top` / `padding_right` / `padding_bottom` / `padding_left`
-  переопределяют одну сторону. Диалог с кнопками внизу ставит
-  `padding_bottom = 0`: под нижней рамкой пиксельной темы и так целая строка
-  ячеек, и лишний отступ отодвигал кнопки вдвое дальше, чем в Windows 95.
-- У ребёнка `size` — размер вдоль оси родителя. Без `size` оставшееся место
-  делится по `weight` (по умолчанию 1). При нехватке места компоненты обрезаются;
-  размер контейнера не увеличивается за пределы viewport.
-- `label`: `text`, не получает фокус; `alert = true` — текст отказа (красный).
-  `\n` в тексте — многострочная метка: строки идут с шагом шрифта (15 px в
-  пикселях, по строке в ячейках), блок по центру прямоугольника; так две
-  строки подсказки диалога не разъезжаются на ячейку, как два абзаца.
-- `monitor`: `color` — экран монитора цветом стола, как предпросмотр в
-  «Свойствах экрана»; в пикселях корпус с гранью и подставкой, в ячейках
-  рамка лица и цветной экран. Фокус не получает, `id` не нужен.
-- `image`: `image` (имя из каталога значков), `icon` (символ для ячеек),
-  `size_px` (32 по умолчанию). Значок диалога: в пикселях растр, в ячейках
-  один символ. Фокус не получает, `id` не нужен.
-- Кнопки в ряд стоят у ПРАВОГО края (правило оболочки, 2026-09-09): первым
-  ребёнком ряда — пустая `label` без размера, она забирает остаток; кнопки с
-  фиксированным `size` идут за ней через `gap`. Так у «Выполнить…».
-- `button`: `id`, `text`, `disabled`, `default`; действие `activate` при отпускании левой кнопки внутри,
-  либо по Enter или пробелу. Отпускание за пределами кнопки отменяет нажатие.
-  `default` — чёрный контур в обоих режимах: то, что сделает Enter, и у диалога
-  он ровно один. В ячейках кнопка рисуется `widgets.button` — той же, что у Run
-  и проводника; в пикселях — `pixels.button`. Клавиша Tab/Shift+Tab переключает
-  фокус.
-- `checkbox`: `id`, `text`, `checked`, `disabled`; `change.value` — новое булево
-  значение по щелчку или пробелу. Сохраните его в модели в `update`.
-- `input`: `id`, `text`, необязательный `password` (показывает звёздочки, по одной
-  на символ; в модели и в `change.value` остаётся настоящий текст);
-  `change.value` возвращает новый текст, `activate.value`
-  — подтверждение Enter. Есть UTF-8, стрелки, Home/End, Backspace/Delete,
-  Ctrl+A и вставка. Это однострочный ввод, не текстовый редактор.
-- `list`: `id`, `items`, `selected`, необязательный `wheel_step` (3).
-  Элемент — строка или `{id = ..., text = ...}`. `select` несёт `index` (с 1)
-  и `value`; Enter даёт `activate`. Сохраните выбор в модели в `update`.
-  `selected` — номер строки с 1 **или ID предмета** (`{id = …}` у элемента):
-  так выбор держится за предметом, когда новые данные сдвигают строки.
-  Полоса прокрутки входит в прямоугольник списка. `select` от щелчка мышью
-  несёт `pointer = true`: повторный щелчок по уже выбранному приложение может
-  считать двойным. Необязательный `reveal` — номер строки, которую надо
-  показать; применяется один раз на значение (журнал чата ставит
-  `reveal = #items` и подводит к новой реплике, не сбивая прокрутку человека).
-- `table`: `id`, `columns`, `rows`, `selected`, `wheel_step`. Колонка —
-  `{title, width | weight, align = "left" | "right"}`: `width` в ячейках
-  фиксирует, иначе остаток делится по `weight`; между колонками одна ячейка.
-  Строка — `{id = ..., cells = {...}}`; ячейки — строки, лишнее обрезается,
-  `right` прижимает к краю колонки (числа, размеры). Первая строка
-  прямоугольника — заголовок: выпуклые кнопки колонок, как в Проводнике;
-  щелчок по нему ничего не выбирает. Выбор, клавиши, колесо и полоса — те же,
-  что у `list`, действия `select`/`activate` несут `index` и строку.
-  Сортировки и правки ячеек нет: это таблица для чтения.
-- `tree`: `id`, `rows`, `selected`, `wheel_step`. Строка — видимая строка
-  сплющенного дерева: `{id, label, depth, has_children, expanded, trail,
-  kind = "folder" | "entry", image?}`; `trail` — по уровню предков, есть ли у
-  него ещё братья ниже (по нему рисуются линии). Отступ — две ячейки на
-  уровень: крестик, значок, подпись (`ui.tree_columns`). Щелчок по крестику,
-  Enter и → у закрытой дают `toggle`; → у раскрытой — `select` ребёнка; ← у
-  раскрытой — `toggle`, у закрытой — `select` родителя; остальное — как у
-  `list`. Раскрывает и сплющивает приложение: SDK дерева не хранит.
-- `icons`: `id`, `items`, `selected`, необязательный `wheel_step` (1).
-  Сетка значков с подписями — вид «Крупные значки» Проводника и «Сетевое
-  окружение». Предмет — `{id, title, image?, icon?, kind?, broken?}`: `image`
-  берётся из [каталога значков](icons.md) для пикселей, `icon` — символ для
-  ячеек, остальное как у объектов стола. Шаг сетки — 12×4 ячейки, рисунок
-  занимает три строки, подпись две (`ui.icon_grid`, `ui.icon_shape`); те же
-  числа у `shell:icons`, и совпадение проверяется тестом.
-  **Единица прокрутки — РЯД значков**, а не предмет: колесо, полоса,
-  Page Up/Down и `scroll.reveal` считают рядами. Щелчок по клетке даёт
-  `select` с `index`, предметом в `value` и `pointer = true`; повторный
-  щелчок по уже выбранному приложение вправе считать двойным. Щелчок по
-  пустому месту сетки снимает выбор (`index = 0`, `value = nil`) — как
-  пустота в Проводнике. Стрелки ходят по сетке в двух измерениях (←/→ по
-  предметам, ↑/↓ через ряд), Enter даёт `activate`.
-- `calendar`: `year`, `month`, `day`, `first_weekday` (0 = понедельник),
-  `days` — сетка месяца с днями недели, сегодня выделено; только чтение.
-  Сетку считает `ui.month_grid(first, days)`, високосность — модуль `time`.
-- `clock`: `hour`, `minute`, `second` — стрелочные часы в пикселях,
-  цифровое время в ячейках; только чтение.
-- `group`: `title`, `children`, `padding`, `gap` — рамка с заголовком, дети
-  внутри на ячейку от края; ввода не принимает.
-- `graph`: `values`, `unit`, `ceiling?` — история числа, зелёное по чёрному;
-  потолок круглый (`sdk:charts`), последнее измерение справа.
-- `gauge`: `value`, `ceiling`, `caption` — датчик-полоса к потолку с подписью.
-- `field`: `text`, `align` — вдавленное поле только для чтения (табло).
-- `table.header = false` — таблица без строки заголовка (пары «имя — значение»).
-- `button.ink` — цвет подписи в пикселях; `button.pressed` — нажата принудительно
-  (подсветка клавиши калькулятора); `bold` — жирная подпись; `fill = true` с
-  `inset` (px) — кнопка на весь свой прямоугольник минус отступ, так соседние
-  клавиши стоят в четырёх пикселях. `field.face = true` — фон лица вместо
-  белого (пустое окошко памяти). Полю `input` отдавайте две строки ячеек: в
-  одной текст упирается в грани.
-- `statusbar`: `fields = {{text, width?}, …}` — вдавленные поля в одну строку
-  внизу своего прямоугольника; последнее растягивается. Не получает фокус,
-  `id` не нужен. Это четвёртый по частоте элемент оболочки — до сих пор у
-  каждого окна была своя.
-- `tabs`: `id`, `labels`, `active`, `children`. Контейнер с полосой вкладок в
-  одну строку и рамкой страницы под ней; дети раскладываются внутри рамки
-  колонкой (`padding`, `gap` — как у `column`). Щелчок по вкладке и стрелки
-  ←/→ на фокусе дают `select` с `index`; содержимое страницы переключает само
-  приложение по `active`. Вкладка, не поместившаяся в полосу, не рисуется и не
-  нажимается — половина вкладки нажималась бы «в никуда».
+  override one side. A dialog with buttons at the bottom sets
+  `padding_bottom = 0`: below the pixel theme's bottom frame there is already a whole
+  row of cells, and the extra padding pushed the buttons twice as far away as in Windows 95.
+- A child's `size` is its size along the parent's axis. Without `size` the remaining
+  space is divided by `weight` (1 by default). When space runs short, components are
+  clipped; the container's size does not grow beyond the viewport.
+- `label`: `text`, does not take focus; `alert = true` — refusal text (red).
+  `\n` in the text makes a multi-line label: lines go at the font's step (15 px in
+  pixels, one row per line in cells), the block centered in the rectangle; this way
+  the two hint lines of a dialog do not drift a cell apart like two paragraphs.
+- `monitor`: `color` — a monitor screen in the desktop color, like the preview in
+  "Display Properties"; in pixels a case with a bevel and a stand, in cells
+  a face frame and a colored screen. Does not take focus, no `id` needed.
+- `image`: `image` (a name from the icon catalog), `icon` (a character for cells),
+  `size_px` (32 by default). A dialog icon: a raster in pixels, a single character
+  in cells. Does not take focus, no `id` needed.
+- Buttons in a row stand at the RIGHT edge (shell rule, 2026-09-09): the first
+  child of the row is an empty `label` without a size, it takes the remainder; buttons
+  with a fixed `size` follow it through `gap`. That is how "Run…" does it.
+- `button`: `id`, `text`, `disabled`, `default`; the `activate` action on releasing the left button inside,
+  or on Enter or Space. Releasing outside the button cancels the press.
+  `default` is a black outline in both modes: what Enter will do, and a dialog has
+  exactly one. In cells the button is drawn by `widgets.button` — the same one as in Run
+  and the explorer; in pixels by `pixels.button`. Tab/Shift+Tab moves
+  focus.
+- `checkbox`: `id`, `text`, `checked`, `disabled`; `change.value` is the new boolean
+  value on a click or Space. Store it in the model in `update`.
+- `input`: `id`, `text`, an optional `password` (shows asterisks, one per
+  character; the model and `change.value` keep the real text);
+  `change.value` returns the new text, `activate.value`
+  is the Enter confirmation. Supports UTF-8, arrows, Home/End, Backspace/Delete,
+  Ctrl+A and paste. This is single-line input, not a text editor.
+- `list`: `id`, `items`, `selected`, an optional `wheel_step` (3).
+  An item is a string or `{id = ..., text = ...}`. `select` carries `index` (1-based)
+  and `value`; Enter gives `activate`. Store the selection in the model in `update`.
+  `selected` is a 1-based row number **or an item ID** (`{id = …}` on the element):
+  that way the selection holds on to the item when new data shifts the rows.
+  The scrollbar is part of the list's rectangle. A `select` from a mouse click
+  carries `pointer = true`: the application may treat a repeated click on the
+  already selected item as a double click. An optional `reveal` is the row number
+  that must be shown; it is applied once per value (the chat log sets
+  `reveal = #items` and brings the new message into view without knocking the human's scrolling off).
+- `table`: `id`, `columns`, `rows`, `selected`, `wheel_step`. A column is
+  `{title, width | weight, align = "left" | "right"}`: `width` in cells
+  fixes it, otherwise the remainder is divided by `weight`; one cell between columns.
+  A row is `{id = ..., cells = {...}}`; cells are strings, the excess is clipped,
+  `right` aligns to the column's edge (numbers, sizes). The first row of the
+  rectangle is the header: raised column buttons, as in Explorer;
+  a click on it selects nothing. Selection, keys, wheel and scrollbar are the same
+  as for `list`, the `select`/`activate` actions carry `index` and the row.
+  There is no sorting or cell editing: this is a table for reading.
+- `tree`: `id`, `rows`, `selected`, `wheel_step`. A row is a visible row of the
+  flattened tree: `{id, label, depth, has_children, expanded, trail,
+  kind = "folder" | "entry", image?}`; `trail` says, per ancestor level, whether that
+  ancestor has more siblings below (the lines are drawn from it). Indent is two cells
+  per level: the expander box, the icon, the caption (`ui.tree_columns`). A click on
+  the expander box, Enter and → on a collapsed node give `toggle`; → on an expanded
+  one gives `select` of the child; ← on an expanded one gives `toggle`, on a collapsed
+  one `select` of the parent; the rest is as for `list`. The application expands and
+  flattens: the SDK does not store the tree.
+- `icons`: `id`, `items`, `selected`, an optional `wheel_step` (1).
+  A grid of icons with captions — Explorer's "Large Icons" view and "Network
+  Neighborhood". An item is `{id, title, image?, icon?, kind?, broken?}`: `image`
+  comes from the [icon catalog](icons.md) for pixels, `icon` is a character for
+  cells, the rest is as for desktop objects. The grid step is 12×4 cells, the picture
+  takes three rows, the caption two (`ui.icon_grid`, `ui.icon_shape`); `shell:icons`
+  has the same numbers, and a test checks that they match.
+  **The scroll unit is a ROW of icons**, not an item: the wheel, the scrollbar,
+  Page Up/Down and `scroll.reveal` count rows. A click on a cell gives
+  `select` with `index`, the item in `value` and `pointer = true`; the application
+  may treat a repeated click on the already selected item as a double click. A click
+  on an empty spot of the grid clears the selection (`index = 0`, `value = nil`) — like
+  empty space in Explorer. Arrows move over the grid in two dimensions (←/→ across
+  items, ↑/↓ by a row), Enter gives `activate`.
+- `calendar`: `year`, `month`, `day`, `first_weekday` (0 = Monday),
+  `days` — a month grid with weekdays, today highlighted; read-only.
+  The grid is computed by `ui.month_grid(first, days)`, leap years by the `time` module.
+- `clock`: `hour`, `minute`, `second` — an analog clock in pixels,
+  digital time in cells; read-only.
+- `group`: `title`, `children`, `padding`, `gap` — a frame with a title, the children
+  inside, one cell from the edge; takes no input.
+- `graph`: `values`, `unit`, `ceiling?` — the history of a number, green on black;
+  the ceiling is round (`sdk:charts`), the latest measurement on the right.
+- `gauge`: `value`, `ceiling`, `caption` — a bar gauge toward the ceiling, with a caption.
+- `field`: `text`, `align` — a sunken read-only field (a display).
+- `table.header = false` — a table without the header row ("name — value" pairs).
+- `button.ink` is the caption color in pixels; `button.pressed` — pressed by force
+  (the calculator's key highlight); `bold` — a bold caption; `fill = true` with
+  `inset` (px) — a button over its whole rectangle minus the inset, so neighboring
+  keys stand four pixels apart. `field.face = true` — the face background instead of
+  white (the empty memory box). Give an `input` field two rows of cells: in
+  one the text runs into the bevels.
+- `statusbar`: `fields = {{text, width?}, …}` — sunken fields in one row
+  at the bottom of its rectangle; the last one stretches. Does not take focus,
+  no `id` needed. This is the fourth most frequent element of the shell — until now
+  every window had its own.
+- `tabs`: `id`, `labels`, `active`, `children`. A container with a one-row tab strip
+  and a page frame under it; the children are laid out inside the frame as a
+  column (`padding`, `gap` — as for `column`). A click on a tab and the ←/→ arrows
+  while focused give `select` with `index`; the application itself switches the page
+  content by `active`. A tab that did not fit in the strip is neither drawn nor
+  clickable — half a tab would be clicked "into nowhere".
 - `menu`: `id`, `entries = {{title, accel?, items = {{id, text, accel?,
-  disabled?} | {separator = true}, …}}, …}` — строка меню окна. Щелчок по
-  заголовку или Alt+буква раскрывает список; он лежит поверх всего
-  (`plan.overlays`, рисуется последним, попадания проверяются первыми). Строка
-  списка даёт `activate` с `id` пункта и `menu` — идентификатором строки меню.
-  Пока список раскрыт, ←/→ ходят по заголовкам, ↑/↓ по строкам (разделители и
-  недоступные пропускаются), Enter выбирает, Esc и щелчок мимо сворачивают,
-  и такой щелчок дальше не идёт. В кольцо Tab меню не входит, как в Windows.
+  disabled?} | {separator = true}, …}}, …}` — the window's menu bar. A click on a
+  title or Alt+letter opens the list; it lies on top of everything
+  (`plan.overlays`, drawn last, its hits checked first). A row of
+  the list gives `activate` with the item's `id` and `menu`, the menu bar's identifier.
+  While the list is open, ←/→ move across the titles, ↑/↓ across the rows (separators
+  and disabled items are skipped), Enter chooses, Esc and a click outside collapse it,
+  and such a click goes no further. The menu is not part of the Tab ring, as in Windows.
 
-`id` интерактивного компонента обязателен, уникален в окне и стабилен между
-кадрами. SDK хранит фокус, позицию ввода и сдвиг списка по этому ID. Деревья
-(`tree`), вкладки (`tabs`), меню окна (`menu`) и графики (`graph`, `gauge`) —
-компоненты SDK, описанные выше. К собственным отрисовщикам пока относится
-таблица с сортировкой и правкой ячеек: `table` читается, не редактируется.
+The `id` of an interactive component is mandatory, unique within the window and stable
+between frames. The SDK keeps focus, the input position and the list offset by this ID.
+Trees (`tree`), tabs (`tabs`), window menus (`menu`) and graphs (`graph`, `gauge`) are
+SDK components described above. What still belongs to custom renderers is a table
+with sorting and cell editing: `table` is read, not edited.
 
-`disabled` у `list`, `table`, `tree` и `icons` — как у поля ввода: ввод не
-принимается, и в обоих отрисовщиках вид приглушён — лицо вместо поля, серый
-текст, без выделения. Без выбора стрелка выбирает первую строку (у значков —
-первый значок), а не шагает от неё.
+`disabled` on `list`, `table`, `tree` and `icons` works as on an input field: input is
+not accepted, and in both renderers the look is muted — face instead of field, gray
+text, no selection. With no selection an arrow selects the first row (for icons, the
+first icon) rather than stepping from it.
 
-Дерево, которое не раскладывается (неизвестный `kind`, интерактивный вид без
-`id` или с повторённым, `children` не списком), `app.run` показывает запасным
-деревом. Общий отрисовщик у композитора спрашивает `ui.problem` и показывает
-причину текстом в окне, а не бросает: пойманная `pcall` ошибка в go-lua рвёт
-upvalue у всего стека под ней, а под отрисовщиком лежит цикл композитора.
+A tree that does not lay out (an unknown `kind`, an interactive view without an
+`id` or with a repeated one, `children` that is not a list) is shown by `app.run` as
+a fallback tree. The shared renderer in the compositor asks `ui.problem` and shows the
+reason as text in the window rather than throwing: an error caught by `pcall` in go-lua
+breaks the upvalues of the whole stack beneath it, and beneath the renderer lies the compositor's loop.
 
-## Оформление стандартных элементов
+## Styling of standard elements
 
-Пиксельный SDK использует общие примитивы `shell:pixels`: `button`, `field`,
-`checkbox`, `edge` и `focus_rect`. Кнопка имеет две грани Windows 95: светлую
-сверху/слева и серую с чёрной снаружи снизу/справа. Нажатая кнопка вдавлена,
-подпись смещается на пиксель. `default` добавляет внешний чёрный контур;
-фокус — отдельный пунктир внутри, а не ещё одна вдавленная рамка.
-Недоступная надпись серая, рисуется один раз. Белую копию со сдвигом не
-добавляем: на мелком шрифте она делает буквы нечитаемыми. Это правило общее
-для кнопок и подписей флажков; рамки и значки сохраняют рельеф.
+The pixel SDK uses the shared `shell:pixels` primitives: `button`, `field`,
+`checkbox`, `edge` and `focus_rect`. A button has the two Windows 95 bevels: a light
+one at top/left and a gray one with black outside at bottom/right. A pressed button is
+sunken, its caption shifts by a pixel. `default` adds an outer black outline;
+focus is a separate dotted line inside, not yet another sunken frame.
+A disabled caption is gray and drawn once. We do not add a white shifted copy:
+at a small font size it makes the letters unreadable. This rule is shared by
+buttons and checkbox captions; frames and icons keep their relief.
 
-Шрифты предоставляет оболочка: Liberation Sans 13 px, обычный и полужирный,
-со сглаживанием в `gfx.font(..., {smooth = true})`. Рисуйте переданным шрифтом:
-его настройка действует и при обычном `raster:text`. Не добавляйте белую
-подложку и не выключайте сглаживание локально у текста приложения.
+Fonts are provided by the shell: Liberation Sans 13 px, regular and bold,
+with antialiasing in `gfx.font(..., {smooth = true})`. Draw with the font you are given:
+its setting applies with a plain `raster:text` too. Do not add a white
+backing and do not turn antialiasing off locally for the application's text.
 
-Обычная кнопка рисуется высотой до 23 px, поле ввода — до 24 px, по центру
-выделенных ячеек. Прямоугольник попадания остаётся целым числом ячеек. Список
-и поле имеют двойную вдавленную грань; флажок — квадрат 13×13 px.
-Кнопкам панели можно задать одинаковый `size`, вместо растягивания по всей
-ширине окна. Для собственного оформления используйте эти примитивы,
-не копируйте в приложение сочетания `panel` и `bevel`.
+A normal button is drawn up to 23 px tall, an input field up to 24 px, centered in
+the allotted cells. The hit rectangle stays an integer number of cells. A list
+and a field have a double sunken bevel; a checkbox is a 13×13 px square.
+Panel buttons can be given an equal `size` instead of stretching across the whole
+width of the window. For custom styling use these primitives,
+do not copy combinations of `panel` and `bevel` into the application.
 
-## Жизненный цикл
+## Lifecycle
 
-`butschster.windows.sdk:app.run(definition, first, id, args, viewport)` скрывает
-различие двух способов запуска:
+`butschster.windows.sdk:app.run(definition, first, id, args, viewport)` hides the
+difference between the two ways of launching:
 
-- Ячейки: композитор создаёт `tty.viewport` и вызывает `main(args)` с terminal
-  grant. SDK запускает `tty`, читает размер и события, рисует через surface.
-- Пиксели: композитор вызывает поставщика
+- Cells: the compositor creates a `tty.viewport` and calls `main(args)` with a terminal
+  grant. The SDK starts `tty`, reads the size and events, draws through the surface.
+- Pixels: the compositor calls the provider
   `main(service, window_id, args, {width,height,cell_w,cell_h})`.
-  SDK слушает `window.input` и публикует дерево для общего отрисовщика.
+  The SDK listens to `window.input` and publishes the tree for the shared renderer.
 
-`resize` может менять `cell_w`/`cell_h` без изменения сетки `width`/`height`:
-например, после изменения шрифта терминала. Размер ячейки, отступы рамки и
-размер клиентской области обновляет композитор. Пользовательский пиксельный
-клиент принимает новые метрики события; ему не нужно масштабировать старый
-растр или хранить отдельную начальную копию размеров ячейки.
+`resize` can change `cell_w`/`cell_h` without changing the `width`/`height` grid:
+for example, after the terminal font changes. The cell size, the frame insets and the
+client area size are updated by the compositor. A custom pixel client takes the
+event's new metrics; it does not need to scale the old raster or keep a separate
+initial copy of the cell size.
 
-`init(args, context)` вызывается один раз. `view(model, context)` не читает
-файлы и не отправляет сообщения. `update(model, action, context)` обрабатывает
-действия, включая `resize`, `tick`, `close` (окно закрывают снаружи; отменить
-нельзя, можно доубрать) и `key` — клавишу, которую не взял ни один компонент
-(`key`, `key_type`, `alt`, `ctrl`, `shift`): так закрываются по Esc и
-обновляются по F5. Вернуть из `update` `false` — «ничего не изменилось, не
-перерисовывай». Для периодических данных задайте `definition.interval = "1s"`.
-`definition.title` — заголовок окна, строкой или функцией от модели, когда он
-не совпадает с названием пункта меню (у «Выполнить…» пункт с многоточием, окно
-— «Run»); пусто — заголовок из записи реестра.
-`dispose(model, context)` освобождает ресурсы при обычном закрытии. `context`
-содержит `args`, `width`, `height`, `native`, `window_id`, `close()`, а также
-`watch(ch)` и `unwatch(ch)`: свой канал приложения (ответ композитора из
-`desktop.replies()`, подписка, таймер запроса) приходит действием
-`{type = "channel", channel = ch, value = ..., ok = ...}`; закрытый канал
-отписывается сам. Так длительный запрос не блокирует окно: отправили —
-подписались — получили действием. Размеры здесь всегда **клиентские**, без
-заголовка и рамки.
+`init(args, context)` is called once. `view(model, context)` does not read
+files and does not send messages. `update(model, action, context)` handles
+actions, including `resize`, `tick`, `close` (the window is being closed from outside;
+it cannot be cancelled, you can finish cleaning up) and `key` — a key that no component
+took (`key`, `key_type`, `alt`, `ctrl`, `shift`): that is how windows close on Esc and
+refresh on F5. Returning `false` from `update` means "nothing changed, do not
+redraw". For periodic data set `definition.interval = "1s"`.
+`definition.title` is the window title, as a string or a function of the model, when it
+does not match the menu item's name (for "Run…" the item has an ellipsis, the window
+is "Run"); empty means the title from the registry entry.
+`dispose(model, context)` releases resources on a normal close. `context`
+contains `args`, `width`, `height`, `native`, `window_id`, `close()`, and also
+`watch(ch)` and `unwatch(ch)`: the application's own channel (a compositor reply from
+`desktop.replies()`, a subscription, a request timer) arrives as the action
+`{type = "channel", channel = ch, value = ..., ok = ...}`; a closed channel
+unsubscribes itself. So a long request does not block the window: send —
+subscribe — receive it as an action. Sizes here are always **client** sizes, without
+the title bar and the frame.
 
-Ошибка в `init`, `view` или `update` не рвёт окно: она становится видимым
-состоянием — текст ошибки и кнопка «Закрыть», — а `dispose` и закрытие
-транспорта выполняются всё равно. Отказ композитора на публикацию кадра или на
-закрытие тоже не смерть окна. Изменяемое состояние цикла живёт в таблице, а не
-в локальных: в go-lua после ошибки под `pcall` замыкание и владелец перестают
-делить локальную переменную (см. CLAUDE.md стенда).
+An error in `init`, `view` or `update` does not tear the window down: it becomes visible
+state — the error text and a "Close" button — and `dispose` and closing the
+transport are performed anyway. A compositor refusal to publish a frame or to
+close is not the death of the window either. The loop's mutable state lives in a table,
+not in locals: in go-lua, after an error under `pcall`, a closure and its owner stop
+sharing a local variable (see the test stand's CLAUDE.md).
 
-Композитор владеет перемещением, размером, фокусом окна, минимизацией,
-максимизацией и порядком наложения. Приложение не рисует внешнюю рамку,
-не входит в alternate screen и не пишет escape-последовательности в stdout.
-Оба вида окна получают `close`; после общего срока композитор прекращает
-не завершившийся процесс. Поэтому `dispose` не гарантируется при аварии или
-принудительной остановке. Длительные запросы следует выполнять вне обработчика
-ввода: синхронный `update` на время запроса останавливает это окно.
+The compositor owns moving, sizing, window focus, minimizing,
+maximizing and stacking order. The application does not draw the outer frame,
+does not enter the alternate screen and does not write escape sequences to stdout.
+Both kinds of window receive `close`; after a common deadline the compositor terminates
+a process that has not finished. So `dispose` is not guaranteed on a crash or a
+forced stop. Long requests should be done outside the input handler: a synchronous
+`update` stops this window for the duration of the request.
 
-## Геометрия, ввод и прокрутка нижнего уровня
+## Low-level geometry, input and scrolling
 
-Библиотеки основы: `butschster.tui_desktop.desktop:geometry`, `:input`, `:scroll`.
+The base's libraries: `butschster.tui_desktop.desktop:geometry`, `:input`, `:scroll`.
 
-`geometry.rect(x,y,w,h)` — прямоугольник в ячейках, координаты с 1; правая и
-нижняя границы исключаются. `contains(rect,x,y)` проверяет попадание;
-`inset(rect,padding)` уменьшает область, не создавая отрицательных размеров.
-Пиксельные детали кнопок остаются внутри этих же прямоугольников. Нельзя отдельно
-вычислять координаты рисунка и клика. Декларативный `ui.plan` один для обоих
-отрисовщиков и ввода. Собственное окно также должно иметь одну чистую `layout`.
+`geometry.rect(x,y,w,h)` is a rectangle in cells, 1-based coordinates; the right and
+bottom bounds are exclusive. `contains(rect,x,y)` checks a hit;
+`inset(rect,padding)` shrinks the area without creating negative sizes.
+The pixel details of buttons stay inside these same rectangles. Do not compute the
+coordinates of the drawing and of the click separately. The declarative `ui.plan` is one
+for both renderers and input. A custom window must also have one pure `layout`.
 
-`input.normalize(event)` приводит Page Down (`pgdn/page_down/pagedown`) к
-`pgdown`, Page Up к `pgup`, Escape к `esc`, сохраняя модификаторы и `action`.
-`input.key(event)` игнорирует отпускание клавиши. `input.pressed(event)` означает
-только левую кнопку и `action: press`. Нормализация не превращает отпускание
-клавиши в нажатие: потребитель обязан проверять `action`.
+`input.normalize(event)` maps Page Down (`pgdn/page_down/pagedown`) to
+`pgdown`, Page Up to `pgup`, Escape to `esc`, keeping the modifiers and `action`.
+`input.key(event)` ignores key release. `input.pressed(event)` means
+only the left button and `action: press`. Normalization does not turn a key release
+into a press: the consumer must check `action`.
 
-Координаты мыши уже переведены композитором в клиентскую область. Колесо приходит
-окну под курсором. После нажатия в клиентской области движение и отпускание идут
-тому же окну, даже если курсор вышел за его пределы: это захват для перетаскивания
-ползунка. После отпускания захват снимается. На внешнюю рамку и панель задач
-приложение не подписывается.
+Mouse coordinates are already translated by the compositor into the client area. The
+wheel goes to the window under the cursor. After a press in the client area, motion and
+release go to the same window, even if the cursor has left its bounds: this is the
+capture for dragging a scrollbar thumb. After release the capture is dropped. The
+application does not subscribe to the outer frame and the taskbar.
 
-`scroll` работает в **логических строках**: строка списка, ряд значков или пиксель
-изображения — единица выбирается один раз для данного представления.
-Сдвиг — число скрытых строк с 0; выбранный элемент — индекс с 1 или предметный ID.
+`scroll` works in **logical rows**: a list row, a row of icons or a pixel of
+an image — the unit is chosen once for a given view.
+The offset is the number of hidden rows, from 0; the selected element is a 1-based index or an item ID.
 
 ```lua
 offset = scroll.clamp(offset, total, page)
@@ -327,71 +328,71 @@ offset = scroll.drag(pointer_row, grab_inside_thumb, bar)
 offset, capture, handled = scroll.pointer(offset, total, page, rect, capture, event)
 ```
 
-После изменения размера, фильтра, состава данных, вкладки и масштаба нужно
-снова ограничить сдвиг. Пустой список имеет сдвиг 0. Колесо вне панели её не
-прокручивает. Полоса и обработчик используют одну геометрию ползунка;
-стрелки двигают на единицу, трек — на страницу, перетаскивание — по длине трека.
-Для дерева с историческим `first` с 1 переход явный: `offset = first - 1`.
+After a change of size, filter, data set, tab or zoom the offset must be
+clamped again. An empty list has offset 0. The wheel outside a pane does not
+scroll it. The scrollbar and the handler use one thumb geometry;
+the arrows move by one unit, the track by a page, dragging by the length of the track.
+For a tree with the historical 1-based `first` the conversion is explicit: `offset = first - 1`.
 
-## Собственные окна и отрисовщики
+## Custom windows and renderers
 
-Собственное окно выбирают для PTY, редактора, дерева или графиков, которых нет
-в наборе компонентов. Оно использует те же библиотеки ввода, геометрии и границ
-прокрутки. Своего протокола сообщений создавать не нужно:
+A custom window is chosen for a PTY, an editor, a tree or graphs that are not
+in the component set. It uses the same input, geometry and scroll-bounds
+libraries. There is no need to create your own message protocol:
 
-- `window_api.inputs()` возвращает канал только `window.input`.
-- `window_api.input_event(message)` распаковывает и нормализует событие.
-- `window_api.normalize_event(event)` делает то же для событий `tty`.
-- `window_api.publish_state(id, state)` публикует обычные данные.
-- `open{entry=..., args=...}` отправляет команду; `open_wait` возвращает окно
-  или причину отказа. `request` + `replies` подходит для собственного цикла,
-  который должен продолжать обрабатывать ввод во время открытия.
-- `dialog(spec)` открывает принадлежащий вызывающему окну диалог. Он закрывается
-  с родителем, но **не является модальным**. `tool` также поддерживает владельца.
-- `close(id)`, `focus(id)`, `list()` обращаются к композитору из контекста,
-  без жёстко заданного имени оболочки. Проверяйте ошибки, не называйте отправку
-  команды подтверждённым открытием окна.
+- `window_api.inputs()` returns a channel of `window.input` only.
+- `window_api.input_event(message)` unpacks and normalizes an event.
+- `window_api.normalize_event(event)` does the same for `tty` events.
+- `window_api.publish_state(id, state)` publishes ordinary data.
+- `open{entry=..., args=...}` sends a command; `open_wait` returns the window
+  or the reason for refusal. `request` + `replies` suits a custom loop
+  that must keep handling input while the window is opening.
+- `dialog(spec)` opens a dialog owned by the calling window. It closes
+  with the parent, but **is not modal**. `tool` also supports an owner.
+- `close(id)`, `focus(id)`, `list()` reach the compositor from the context,
+  without a hard-coded shell name. Check errors; do not call sending a
+  command a confirmed window opening.
 
-Свой пиксельный отрисовщик имеет сигнатуру
+A custom pixel renderer has the signature
 `placement(window, inner, cell, fonts, store) -> placement | placements | nil, reason`.
-`inner` содержит `{x,y,cols,rows}` в ячейках, `cell` — `{w,h}` в пикселях,
-шрифт интерфейса — `fonts.face`. Чтение ресурсов происходит в поставщике под
-его правами через `fs`, а отрисовщик получает данные/байты. Картинки и шрифты
-не открываются по системным путям из `gfx`.
+`inner` holds `{x,y,cols,rows}` in cells, `cell` holds `{w,h}` in pixels,
+the interface font is `fonts.face`. Resources are read in the provider under
+its permissions through `fs`, and the renderer receives data/bytes. Images and fonts
+are not opened by system paths from `gfx`.
 
-Размещение содержит `{id,raster,x,y,cols,rows}`. Растры живут между кадрами:
-`store.take(id, cols, rows, cell, key)` возвращает растр и `dirty`; рисовать в
-растр при `dirty == false` нельзя. Каждый кадр возвращает **полный** список
-размещений, включая неизменившиеся. Части внутри одного окна не перекрываются:
-фоновая панель под другими картинками уже вызывала исчезновение диспетчера задач
-после первого тика. Общий отрисовщик SDK использует один растр клиента, поэтому
-этой неоднозначности у него нет. При частых больших обновлениях собственный
-отрисовщик может разбить клиента на непересекающиеся полосы.
+A placement contains `{id,raster,x,y,cols,rows}`. Rasters live between frames:
+`store.take(id, cols, rows, cell, key)` returns a raster and `dirty`; drawing into
+the raster when `dirty == false` is not allowed. Every frame returns the **full** list of
+placements, including the unchanged ones. Parts within one window do not overlap:
+a background panel under other images has already made Task Manager disappear
+after the first tick. The SDK's shared renderer uses a single client raster, so
+it does not have this ambiguity. With frequent large updates a custom
+renderer can split the client into non-overlapping strips.
 
-Новая специализированная библиотека требует явного import и регистрации в
-`chrome_pixels.VIEWS`: `require` не загружает произвольный ID из метаданных.
-Это расширение темы, а не обычное добавление приложения. Новому декларативному
-приложению достаточно уже зарегистрированного `butschster.windows.sdk:render`.
+A new specialized library requires an explicit import and registration in
+`chrome_pixels.VIEWS`: `require` does not load an arbitrary ID from metadata.
+This is an extension of the theme, not an ordinary addition of an application. A new
+declarative application only needs the already registered `butschster.windows.sdk:render`.
 
-`pixel_render` + `pixel_state` — улучшение обычного окна в графическом режиме;
-на терминале без графики остаётся основной процесс в ячейках.
-`window_content: pixels` + `render/state` означает требование графики. В текстовом режиме основа может показать только `state.caption` такого окна;
-полноценного интерфейса это не даёт. Не объявляйте
-поддержку GNOME Terminal для приложения, у которого есть только пиксельный вид.
+`pixel_render` + `pixel_state` is an enhancement of an ordinary window in graphics mode;
+on a terminal without graphics the main process in cells remains.
+`window_content: pixels` + `render/state` means graphics are required. In text mode the base can show only such a window's `state.caption`;
+that does not give a full interface. Do not claim
+GNOME Terminal support for an application that has only a pixel view.
 
-## Проверка и добавление возможностей
+## Checks and adding capabilities
 
-Перед новым приложением прочитайте [навык](../skills/wippy-window-app/SKILL.md).
-Основные проверки: обнаружение по реестру; открытие в двух режимах; уменьшение
-клиента; прокрутка длинного и пустого списка; изменение данных; отпускание клавиши;
-перетаскивание полосы за край окна; закрытие и освобождение ресурсов.
+Before a new application, read the [skill](../skills/wippy-window-app/SKILL.md).
+The main checks: discovery through the registry; opening in both modes; shrinking the
+client; scrolling a long and an empty list; data changes; key release;
+dragging the scrollbar past the window edge; closing and releasing resources.
 
-`make lint` и `make test` запускаются локальной сборкой с `gfx` (см. Makefile).
-Исполняемый пример и тесты SDK находятся в `test/src/sdk_*`; тест выводит
-`test/shots/sdk-controls.png`. Снимок нужен в дополнение к проверке геометрии.
-Стенд целого приложения проверяется отдельно от модульного харнесса.
+`make lint` and `make test` run with the local build that has `gfx` (see the Makefile).
+The runnable example and the SDK tests are in `test/src/sdk_*`; the test writes
+`test/shots/sdk-controls.png`. The screenshot is needed in addition to the geometry check.
+The test stand of the whole application is checked separately from the module harness.
 
-Новый общий компонент сначала добавляется в SDK с одной раскладкой, обработкой
-ввода и двумя отрисовщиками; затем используется окнами. Добавляйте тест поведения
-и описание контракта в этот файл. [Аудит миграции](sdk-audit-2026-09-08.md)
-показывает, какие существующие окна используют специализированный уровень.
+A new shared component is first added to the SDK with one layout, input handling
+and two renderers; then windows use it. Add a behavior test
+and a description of the contract to this file. The [migration audit](sdk-audit-2026-09-08.md)
+shows which existing windows use the specialized level.

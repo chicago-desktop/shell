@@ -1,48 +1,51 @@
-# Установка и удаление программ
+# Add/Remove Programs
 
-Открывается из «Пуск → Настройка → Установка и удаление программ». Программа
-здесь — модуль wippy: список собирается из объявлений `ns.dependency` в реестре
-и кэша вендора (`hub.cache.list` даёт закреплённую локом версию и размер).
+Opens from "Start → Settings → Add/Remove Programs". A program here
+is a wippy module: the list is assembled from the `ns.dependency` declarations in
+the registry and the vendor cache (`hub.cache.list` gives the version pinned by the
+lock and the size).
 
-## Что окно делает и чего не делает
+## What the window does and does not do
 
-Снять и поставить модуль в работающем рантайме нечем: это делает `wippy update`
-по объявлениям в исходниках приложения, и вступает в силу после перезапуска.
-Поэтому окно правит **файл объявлений** — снимает или дописывает запись
-`ns.dependency` — и говорит об этом в строке состояния: «Дальше: wippy update,
-затем перезапуск». Реестр и Hub оно не трогает; модуль с Hub не тянет; проверку
-имени модуля и его требований оставляет `wippy update`, который откажет громко
-и по имени.
+There is no way to remove or install a module in a running runtime: `wippy update`
+does that from the declarations in the application's sources, and it takes effect
+after a restart. So the window edits the **declarations file** — removes or appends
+an `ns.dependency` entry — and says so in the status line: "Next: wippy update,
+then a restart". It does not touch the registry or the Hub; it does not pull the
+module from the Hub; checking the module name and its requirements is left to
+`wippy update`, which will refuse loudly and by name.
 
-- **Удалить** — только у модулей, объявленных приложением. Зависимость чужого
-  модуля («нужно модулю butschster.windows») и модуль, лежащий только в кэше,
-  снять нельзя, и окно называет причину.
-- **Установить…** — спрашивает `org/name` строчными и дописывает запись с
-  версией «любая» и без параметров. Имя записи — вторая половина имени модуля;
-  занятое имя уступает форме `org-name`: одинаковые имена записей рантайм
-  замещает молча, и ломаются чужие `ns.requirement`.
-- Файл правится **текстом**, не пересборкой YAML: комментарии человека остаются.
-  Снимается пункт, комментарии вплотную над ним и одна пустая строка; хвост до
-  следующего пункта — его комментарий — не трогается. Проверено тестом, что
-  «дописать, потом снять» возвращает файл байт в байт.
+- **Remove** — only for modules declared by the application. A dependency of
+  another module ("required by module butschster.windows") and a module that lies
+  only in the cache cannot be removed, and the window names the reason.
+- **Install…** — asks for `org/name` in lowercase and appends an entry with
+  version "any" and no parameters. The entry name is the second half of the module
+  name; a taken name gives way to the `org-name` form: the runtime silently replaces
+  entries with the same name, and other modules' `ns.requirement` break.
+- The file is edited **as text**, not by rebuilding the YAML: the human's comments
+  stay. What is removed is the item, the comments directly above it and one blank
+  line; the tail up to the next item — its comment — is not touched. A test
+  verifies that "append, then remove" returns the file byte for byte.
 
-## Что нужно от приложения
+## What the application must provide
 
-Папку объявлений называет окружение `BUTSCHSTER_WINDOWS_DEPS_FS` — идентификатор
-записи `fs.directory` над каталогом с `_index.yaml` зависимостей. На стенде
-kickside это `app.desktop:deps_source` над `src/app/deps`, задано в
-`.wippy.yaml` как override `app.env:defaults`. Без переменной окно работает в
-режиме «только просмотр» и говорит, чего не хватает.
+The declarations folder is named by the environment variable
+`BUTSCHSTER_WINDOWS_DEPS_FS` — the identifier of an `fs.directory` entry over the
+directory with the dependencies' `_index.yaml`. On the kickside test stand this is
+`app.desktop:deps_source` over `src/app/deps`, set in `.wippy.yaml` as an override
+of `app.env:defaults`. Without the variable the window works in "read-only" mode
+and says what is missing.
 
-Права окна (`butschster.windows.appwiz:window_scope`): реестр читать, кэш
-модулей читать (`hub.cache.list`), окружение и папку объявлений; ни порождать
-процессы, ни менять реестр. Окно собрано на SDK оболочки
-(`butschster.windows.sdk:app`): таблица с колонками, кнопки, строка ввода — общие компоненты,
-оба режима отрисовки.
+The window's permissions (`butschster.windows.appwiz:window_scope`): read the
+registry, read the module cache (`hub.cache.list`), the environment and the
+declarations folder; neither spawn processes nor change the registry. The window
+is built on the shell SDK
+(`butschster.windows.sdk:app`): a table with columns, buttons, an input line — shared components,
+both render modes.
 
-## Ловушка кэша
+## The cache trap
 
-`hub.cache.list` перечисляет всё, что лежит в вендоре, включая сайдкары
-`org/name-1.2.3.sha256`, — с именем файла в поле `module`. Первый снимок окна
-показывал 399 «модулей». Модуль — это `org/name` без точек и с непустой
-версией; остальное отбрасывается до слияния.
+`hub.cache.list` lists everything that lies in the vendor directory, including the
+sidecars `org/name-1.2.3.sha256` — with the file name in the `module` field. The
+window's first snapshot showed 399 "modules". A module is `org/name` without dots
+and with a non-empty version; the rest is dropped before merging.

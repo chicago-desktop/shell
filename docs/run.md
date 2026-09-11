@@ -1,48 +1,48 @@
-# Bash и «Выполнить…»
+# Bash and "Run…"
 
-«Пуск → Программы → Bash» открывает штатное терминальное окно основы
-`butschster.tui_desktop.desktop:window_pty`. Запись объявляет название,
-группу и значок через `meta`; отдельной копии PTY-процесса нет.
+"Start → Programs → Bash" opens the base's stock terminal window
+`butschster.tui_desktop.desktop:window_pty`. The entry declares the title,
+group and icon through `meta`; there is no separate copy of the PTY process.
 
-Bash запускается с `-i` и читает `~/.bashrc`. Приложение передаёт `HOME`
-и `PATH` исполнителю `butschster.tui_desktop:exec` через `default_env`:
-сам `exec.native` окружение ОС не наследует. Пример настройки — раздел
-«Окружение Bash» в README основы. Без этих переменных программы из
-`~/.local/bin` (например, `claude`, `codex`) дают `command not found`,
-даже когда установлены у пользователя. Проверка: `command -v claude codex`.
+Bash starts with `-i` and reads `~/.bashrc`. The application passes `HOME`
+and `PATH` to the executor `butschster.tui_desktop:exec` through `default_env`:
+`exec.native` itself does not inherit the OS environment. An example setup is in the
+"Bash environment" section of the base's README. Without these variables programs from
+`~/.local/bin` (for example, `claude`, `codex`) give `command not found`,
+even when they are installed for the user. Check: `command -v claude codex`.
 
-«Пуск → Выполнить…» открывает поле команды. Например: `top`, `top -d 2`,
-`claude` или `claude --resume`. Enter и «ОК» запускают команду в отдельном
-окне Bash, Escape и «Отмена» закрывают диалог. Tab переключает поле и кнопки;
-в поле работают стрелки, Home/End, Backspace/Delete и Ctrl+A.
+"Start → Run…" opens a command field. For example: `top`, `top -d 2`,
+`claude` or `claude --resume`. Enter and "OK" run the command in a separate
+Bash window, Escape and "Cancel" close the dialog. Tab moves between the field and the
+buttons; the field supports arrows, Home/End, Backspace/Delete and Ctrl+A.
 
-Команда выполняется через `/bin/bash -ic`: доступны аргументы, кавычки,
-переменные, конвейеры и интерактивная настройка Bash. После команды
-выполняется `exec /bin/bash -i`, поэтому остаются вывод, ошибка и приглашение
-оболочки. Явный `exit` или `exec` в самой команде сохраняет свой обычный смысл.
-Названная программа должна быть установлена и доступна Bash через PATH.
+The command runs through `/bin/bash -ic`: arguments, quotes,
+variables, pipelines and Bash's interactive setup are available. After the command
+`exec /bin/bash -i` runs, so the output, the error and the shell prompt
+remain. An explicit `exit` or `exec` in the command itself keeps its usual meaning.
+The named program must be installed and reachable by Bash through PATH.
 
-Диалог просит композитор открыть окно через `window_api.request` и закрывается
-после успешного ответа. Прав `exec.run` или `process.spawn` у него нет.
-Команда передаётся как один аргумент `-c`, с сохранением кавычек и обратных
-слешей: интерпретирует её Bash, а не парсер аргументов Wippy.
+The dialog asks the compositor to open the window through `window_api.request` and closes
+after a successful reply. It has no `exec.run` or `process.spawn` permissions.
+The command is passed as a single `-c` argument, with quotes and backslashes
+preserved: it is interpreted by Bash, not by Wippy's argument parser.
 
-Диалог собран на SDK оболочки (`butschster.windows.sdk:app`): значок 32 px,
-две строки подсказки одной многострочной меткой, поле `input`, кнопки «ОК»
-(по умолчанию), «Отмена» и «Обзор…» — последняя открывает «Мой компьютер»
-и ждёт ответ композитора тем же каналом, не закрывая диалог. Заголовок окна
-— «Run» (`definition.title`), многоточие остаётся у пункта меню. Размер
-50×10 ячеек — по эталону Windows 95. Своих
-раскладки, отрисовщика и редактора строки у него нет — это первое окно,
-переехавшее на SDK целиком. Ответ композитора на просьбу открыть окно
-приходит своим каналом (`context.watch`), поэтому диалог не замирает.
+The dialog is built on the shell SDK (`butschster.windows.sdk:app`): a 32 px icon,
+two hint lines as one multi-line label, an `input` field, the buttons "OK"
+(the default), "Cancel" and "Browse…" — the last one opens "My Computer"
+and waits for the compositor's reply over the same channel, without closing the dialog.
+The window title is "Run" (`definition.title`), the ellipsis stays on the menu item. The
+size of 50×10 cells follows the Windows 95 reference. It has no layout,
+renderer or line editor of its own — it is the first window
+moved to the SDK entirely. The compositor's reply to the request to open a window
+arrives on its own channel (`context.watch`), so the dialog does not freeze.
 
-Проверки: `test/src/run_test.lua` — спецификация запуска, раскладка на SDK
-и правило кнопки по умолчанию, реальное меню и запуск Bash под PTY,
-сохранение терминала после закрытия диалога, отмена по Esc в режиме ячеек.
-`paint-png 8x18` сохраняет пример `test/shots/run-bash.png`.
+Checks: `test/src/run_test.lua` — the launch spec, the SDK layout
+and the default-button rule, the real menu and launching Bash under a PTY,
+the terminal surviving after the dialog is closed, cancelling with Esc in cells mode.
+`paint-png 8x18` saves the example `test/shots/run-bash.png`.
 
-Окна Bash используют чёрный фон и светло-серый текст по умолчанию. Это
-относится и к программам, открытым через «Выполнить…». Сброс ANSI-цветов
-возвращает эти цвета окна; явно заданные приложением цвета сохраняются.
-Пустая область и внутренние края рамки также остаются чёрными.
+Bash windows use a black background and light-gray text by default. This
+also applies to programs opened through "Run…". An ANSI color reset
+returns these window colors; colors set explicitly by the application are kept.
+The empty area and the inner edges of the frame also stay black.

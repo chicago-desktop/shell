@@ -1,24 +1,24 @@
-# pixelprobe — пиксельный пробник
+# pixelprobe — the pixel probe
 
-Первый из двух уровней проверки пиксельной темы (FR-005 §8а). Гоняет
-НАСТОЯЩИЕ `src/shell/pixels.lua` и `src/shell/rasters.lua` вне рантайма,
-подменяя `gfx` подставкой на чистом Lua, и печатает три вещи:
+The first of two levels of checking the pixel theme ([FR-005](../../docs/rfcs/005-pixel-chrome.md) §8a). It runs
+the REAL `src/shell/pixels.lua` and `src/shell/rasters.lua` outside the runtime,
+substituting `gfx` with a pure-Lua stand-in, and prints three things:
 
-- **карту в ЯЧЕЙКАХ** — по одной букве на ячейку, преобладающий цвет; текст
-  заглавной буквой, чтобы залитый прямоугольник и надпись того же цвета не
-  выглядели одинаково;
-- **разметку попаданий рядом с картой**, в тех же единицах, в которых мышь
-  шлёт координаты;
-- **проверки**, которых на снимке не видно.
+- **a map in CELLS** — one letter per cell, the dominant color; text as a
+  capital letter, so that a filled rectangle and a caption of the same color
+  do not look the same;
+- **the hit layout next to the map**, in the same units in which the mouse
+  sends coordinates;
+- **checks** that cannot be seen on a snapshot.
 
 ```bash
 cd tools/pixelprobe
-go build ./...          # путь к go-lua в go.mod АБСОЛЮТНЫЙ, поправь под себя
-python3 build.py        # склеивает сцены с текущими файлами примитивов
+go build ./...          # the path to go-lua in go.mod is ABSOLUTE, adjust it for yourself
+python3 build.py        # glues the scenes together with the current primitive files
 ./pixelprobe combined.lua
 ```
 
-## Что он утверждает, а не только показывает
+## What it asserts, not only shows
 
 **Two hits may not share a cell.** This is not nitpicking, and it does not
 show on a snapshot at all. Three title buttons 16 px wide at an 18 px step
@@ -29,70 +29,74 @@ written in pixels. Hence `pixels.box`: the place and size of an interactive
 detail are named in cells before painting, the hit is the same cells from the
 layout, and only the drawing inside is free. Primitives return no hits.
 
-**Кадр без изменений не двигает ни одной версии** — главная мера FR-005 §4.
-Если растры пересоздаются каждый кадр, экран остаётся ПРАВИЛЬНЫМ, просто всё
-летит заново; у медленного нет стека вызовов.
+**A frame without changes moves no version at all** — the main measure of [FR-005](../../docs/rfcs/005-pixel-chrome.md) §4.
+If rasters are recreated every frame, the screen stays CORRECT, everything is
+simply sent again; slowness has no call stack.
 
-Сравнивается **тождество растра, а не только его версия**, и это выяснилось
-мутацией: хранилище, пересоздающее растр каждый кадр, отдаёт свежий буфер,
-рисующий код повторяет те же вызовы — и версия приходит ТА ЖЕ САМАЯ. Числа
-совпадают, а на экран летит всё. Различает их только тождество: поверхность
-способна понять, что картинка не менялась, лишь пока это тот же растр.
+What is compared is **the raster's identity, not only its version**, and this
+came out through mutation: a store that recreates the raster every frame hands
+out a fresh buffer, the drawing code repeats the same calls — and the version
+comes out THE VERY SAME. The numbers match, while everything is sent to the
+screen. Only identity tells them apart: the surface can tell that the picture
+has not changed only as long as it is the same raster.
 
-## Оговорка, без которой пробник становится ложным свидетелем
+## The caveat without which the probe becomes a false witness
 
-**Подставка не знает настоящих метрик шрифта.** `font:measure` считает ширину
-приближением, а не по глифам, поэтому пробник проверяет РАСКЛАДКУ ПРИ ЗАДАННЫХ
-ИЗМЕРЕНИЯХ, а не сами измерения. Надпись, которая на стенде не поместится в
-кнопку, здесь поместится.
+**The stand-in does not know the real font metrics.** `font:measure` computes
+the width by approximation, not from glyphs, so the probe checks THE LAYOUT
+GIVEN THE MEASUREMENTS, not the measurements themselves. A caption that will
+not fit into a button on the running system will fit here.
 
-Измерено, насколько велика ложь: «Мой компьютер» шрифтом 13 px — 94 px на
-живом `gfx` против 91 у подставки. Мало, но не ноль, и на длинной строке
-разойдётся сильнее.
+Measured how big the lie is: the "My Computer" caption (measured while it was
+still in Russian) in a 13 px font — 94 px on live `gfx` against 91 for the
+stand-in. Small, but not zero, and on a long line it will diverge more.
 
-Настоящие метрики умеет только второй уровень.
+Only the second level can do the real metrics.
 
-## Что он покрывает теперь
+## What it covers now
 
-Оба пробника сведены: `tty` подменён вместе с `gfx`, поэтому пробник гоняет
-не только примитивы, но и **весь пиксельный бэкенд проводника** —
-`render.layout` и `render_pixels.paint` без рантайма и без локальной сборки.
+`tty` is stubbed here together with `gfx`, so this probe runs not only the
+primitives but **the explorer's whole pixel backend** — `render.layout` and
+`render_pixels.paint` — without the runtime or a local build. The two probes
+are not merged: the cell theme keeps its own probe, `tools/themeprobe`, because
+it needs a text canvas, and the `tty` stub here deliberately has none.
 
-Стаб `tty` умеет РОВНО столько, сколько нужно, чтобы библиотеки загрузились:
-только `tty.style()`, потому что `widgets` и `icons` строят таблицы стилей на
-загрузке. **Холста в нём нет вовсе**, и это условие, а не экономия: стаб,
-который начнёт притворяться настоящим `tty`, разойдётся с ним, и проверки
-станут врать в другую сторону. Раскладка ничего не рисует, пиксельный бэкенд
-рисует в растр — рисовать в ячейки пробнику не нужно, и попытка падает вслух
-вместо того, чтобы тихо нарисоваться в никуда.
+The `tty` stub can do EXACTLY as much as is needed for the libraries to load:
+only `tty.style()`, because `widgets` and `icons` build style tables at load
+time. **It has no canvas at all**, and that is a condition, not an economy: a
+stub that starts pretending to be the real `tty` will diverge from it, and the
+checks will start lying in the other direction. The layout draws nothing, the
+pixel backend draws into a raster — the probe has no need to draw into cells,
+and an attempt fails loudly instead of quietly drawing into nowhere.
 
-Проверяется нарезка и ключи, то есть ровно то, чего на снимке не видно:
+What is checked is the slicing and the keys, that is, exactly what cannot be
+seen on a snapshot:
 
-- размещения не делят строк — иначе перерисовка одного задевает другое;
-- попадание значка лежит внутри своего размещения — иначе щелчок ведёт на
-  картинку, которой там нет;
-- тот же кадр ещё раз не двигает ничего;
-- смена выделения перерисовывает поле и статусную строку — и **перечислением,
-  а не числом**: «перерисовалось два» прошло бы и на паре «поле и меню», то
-  есть на настоящей ошибке.
+- placements do not share rows — otherwise redrawing one touches the other;
+- an icon's hit lies inside its own placement — otherwise a click leads to a
+  picture that is not there;
+- the same frame once more moves nothing;
+- a change of selection redraws the field and the status line — and **by
+  enumeration, not by count**: "two were redrawn" would also pass on the pair
+  "field and menu", that is, on a real error.
 
-## Второй уровень: настоящий PNG
+## The second level: a real PNG
 
 ```bash
 cd test && wippy run --host wippy.terminal:host paint-png 10x20
 ```
 
-Кладёт `test/shots/*.png` и `test/shots/report.txt`. Снимок открывают и
-смотрят глазами — это единственный способ увидеть глиф, грань и цвет. Рисует
-ТОТ ЖЕ код примитивов, что и первый уровень.
+It writes `test/shots/*.png` and `test/shots/report.txt`. The snapshot is
+opened and looked at with your own eyes — this is the only way to see a glyph,
+an edge and a color. It is drawn by THE SAME primitive code as the first level.
 
-Две вещи, которые стоит знать про эту команду:
+Two things worth knowing about this command:
 
-- **`print` из неё наружу не доходит.** Измерено: снимки записались, а ни
-  одной строки не появилось. Поэтому отчёт кладётся файлом — отчёт,
-  рассказанный только в лог, не рассказан никому.
-- **Размер ячейки она у терминала спросить не может**, потому что терминала у
-  неё нет: она пишет файлы, а не рисует на экране. Число называют аргументом,
-  и отчёт пишет, откуда оно взялось. Без аргумента берётся запасное значение,
-  и это сказано заглавными буквами: догадка «8×16» права достаточно часто,
-  чтобы выглядеть верной.
+- **`print` from it does not reach the outside.** Measured: the snapshots were
+  written, and not a single line appeared. That is why the report is written
+  to a file — a report told only to the log is told to no one.
+- **It cannot ask the terminal for the cell size**, because it has no
+  terminal: it writes files, it does not draw on a screen. The number is given
+  as an argument, and the report writes where it came from. Without an
+  argument a fallback value is taken, and this is said in capital letters: the
+  guess "8×16" is right often enough to look correct.

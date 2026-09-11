@@ -1,290 +1,291 @@
-# butschster/windows — оболочка терминального десктопа в стиле Windows 95
+# butschster/windows — a Windows 95-style shell for the terminal desktop
 
-Новые оконные приложения: [SDK](docs/sdk.md),
-[навык для агентов](skills/wippy-window-app/SKILL.md),
-[аудит существующих окон](docs/sdk-audit-2026-09-08.md).
-Декларативному приложению достаточно записи в реестре и дерева компонентов;
-подключать его отрисовщик к теме отдельно не нужно.
+New window applications: [SDK](docs/sdk.md),
+[skill for agents](skills/wippy-window-app/SKILL.md),
+[audit of existing windows](docs/sdk-audit-2026-09-08.md).
+A declarative application needs only a registry entry and a component tree;
+its renderer does not need to be wired into the theme separately.
 
-Бирюзовый рабочий стол, серые окна с объёмной рамкой и синим заголовком,
-панель задач с кнопкой «Пуск», списком открытых окон и часами, меню программ,
-которое наполняется реестром, и значки на столе, которые двигает пользователь.
+A teal desktop, gray windows with a bevelled frame and a blue title bar,
+a taskbar with a "Start" button, a list of open windows and a clock, a program menu
+that is filled from the registry, and desktop icons that the user moves around.
 
-Собственной механики окон здесь нет ни строки. Хостинг окон, программы под
-PTY, командный канал и мастерская остаются в
-[butschster/tui-desktop](https://github.com/butschster/tui-desktop); оболочка
-вызывает его композитор со своей темой. Копия композитора разошлась бы с
-оригиналом на первой же правке, и обнаружилось бы это через неделю на живом
-стенде.
+There is not a single line of window mechanics of its own here. Window hosting, programs under
+a PTY, the command channel and the workshop stay in
+[butschster/tui-desktop](https://github.com/butschster/tui-desktop); the shell
+calls its compositor with its own theme. A copy of the compositor would drift from
+the original on the very first edit, and that would be discovered a week later on the live
+test stand.
 
-## С чего начать
+## Where to start
 
-**Нужна локальная сборка рантайма.** `wippy` из PATH этот модуль НЕ ГРУЗИТ
-вовсе — ни в пикселях, ни в ячейках: записи темы объявляют модуль `gfx`, а его
-нет в релизе. Сообщение при этом ничего не объясняет (`node with ID … not
-found`), подробности — [ниже](#с-релизным-рантаймом-модуль-больше-не-грузится).
+**A local runtime build is required.** `wippy` from PATH does NOT LOAD this module
+at all — neither in pixels nor in cells: the theme entries declare the `gfx` module, and it
+is not in the release. The message explains nothing (`node with ID … not
+found`); details are [below](#with-the-release-runtime-the-module-no-longer-loads).
 
 ```bash
-WIPPY=~/repos/wippy/runtime/dist/wippy-linux-amd64   # сборка с gfx
+WIPPY=~/repos/wippy/runtime/dist/wippy-linux-amd64   # build with gfx
 
-# в ячейках — работает в любом терминале
+# in cells — works in any terminal
 $WIPPY run --host butschster.windows:terminal windows
 
-# пикселями — грань в один пиксель, настоящие значки и подписи
+# in pixels — one-pixel edges, real icons and captions
 BUTSCHSTER_WINDOWS_PIXELS=1 $WIPPY run --host butschster.windows:terminal windows
 ```
 
-Пиксельному режиму нужны две вещи, и без любой из них оболочка поднимается **в
-ячейках и говорит причину в логе**: терминал с sixel или kitty, ответивший на
-запрос размера ячейки, и каталог шрифтов TrueType (`app:system_fonts`,
-переопределяется `BUTSCHSTER_WINDOWS_FONTS`). Ищите в логе строку
-`пиксельный режим` — она пишется до всякой попытки.
+Pixel mode needs two things, and without either of them the shell comes up **in
+cells and states the reason in the log**: a terminal with sixel or kitty that answered
+the cell-size query, and a TrueType font directory (`app:system_fonts`,
+overridden by `BUTSCHSTER_WINDOWS_FONTS`). Look in the log for the line
+`pixel mode` — it is written before any attempt.
 
-**Проверить, не занимая стенда**, можно почти всё:
+**Almost everything can be checked without occupying the test stand**:
 
 ```bash
-make lint                                    # поздние local + линт сборкой с gfx
-make test                                    # 117 тестов
-cd test && $WIPPY run --host wippy.terminal:host paint-png 10x20   # PNG в test/shots
+make lint                                    # late locals + lint with the gfx build
+make test                                    # 117 tests
+cd test && $WIPPY run --host wippy.terminal:host paint-png 10x20   # PNG into test/shots
 ```
 
-Пробники собираются, и в репозитории их нет — ни двоичных файлов, ни
-`combined.lua`. **В `go.mod` у обоих путь к `go-lua` АБСОЛЮТНЫЙ**, поправьте
-под себя:
+The probes have to be built, and the repository contains none of them — neither binaries nor
+`combined.lua`. **In `go.mod` of both, the path to `go-lua` is ABSOLUTE**; adjust it
+for your machine:
 
 ```bash
 cd tools/themeprobe && go build ./... && python3 build.py && ./themeprobe combined.lua
 cd tools/pixelprobe && go build ./... && python3 build.py && ./pixelprobe combined.lua
 ```
 
-Первый печатает кадр в ячейках, второй — нарезку размещений, попадания и цену
-нажатия клавиши. `build.py` склеивает сцены с ТЕКУЩИМИ файлами темы, поэтому
-после каждой правки его надо перезапускать.
+The first prints a frame in cells, the second the slicing of placements, the hits and the cost
+of a keypress. `build.py` glues the scenes together with the CURRENT theme files, so
+it has to be rerun after every edit.
 
-Снимок `test/shots/desktop.png` — самый быстрый способ увидеть, что получится
-на экране: **пробники проверяют части, снимок — целое, и это разные проверки.**
-За одну ночь снимок нашёл три дефекта, которых не показал ни один пробник:
-значки без подписей, окна без кнопок заголовка и незалитое тело окна. Каждый
-кусок по отдельности был правильным.
+The screenshot `test/shots/desktop.png` is the fastest way to see what will end up
+on screen: **probes check the parts, the screenshot checks the whole, and these are different checks.**
+In one night the screenshot found three defects that no probe showed:
+icons without captions, windows without title buttons and an unfilled window body. Each
+piece on its own was correct.
 
-## `--host` теперь обязателен для ВСЕХ команд приложения
+## `--host` is now mandatory for ALL application commands
 
-Автодетект терминального хоста в CLI — просто подсчёт записей `terminal.host`
-во всём реестре (`cmd/wippy/cmd/run.go:findTerminalHost`). Оболочка приносит
-свой хост, потому что ей нужен `hide_logs`, и с этого момента автодетект
-отказывается выбирать. Это цена второй оболочки, а не дефект.
+Terminal host autodetection in the CLI is just a count of `terminal.host` entries
+in the whole registry (`cmd/wippy/cmd/run.go:findTerminalHost`). The shell brings
+its own host because it needs `hide_logs`, and from that moment autodetection
+refuses to choose. This is the price of a second shell, not a defect.
 
 ```bash
-$WIPPY run  --host butschster.windows:terminal       windows   # эта оболочка
-$WIPPY run  --host butschster.tui_desktop:terminal   desktop   # оболочка основы
+$WIPPY run  --host butschster.windows:terminal       windows   # this shell
+$WIPPY run  --host butschster.tui_desktop:terminal   desktop   # the base's shell
 $WIPPY run  --host wippy.terminal:host               register-webhook
 $WIPPY test --host wippy.terminal:host
 ```
 
-Забрать чужой хост вместо своего нельзя: штатный `wippy.terminal:host` идёт с
-`hide_logs: false` и несёт фоновые процессы приложения — переключив его,
-приложение потеряет лог. А без подавления логов строка рантайма разъезжает
-кадр насовсем: диффер поверхности считает себя единственным писателем в
-терминал, и неизменившиеся строки он не перерисовывает.
+Taking someone else's host instead of our own is not an option: the stock `wippy.terminal:host` comes with
+`hide_logs: false` and carries the application's background processes — switch it and
+the application loses its log. And without log suppression a runtime line breaks
+the frame for good: the surface differ believes it is the only writer to
+the terminal, and it does not redraw lines that have not changed.
 
-## Реестр объявляет, что можно запустить; оболочка хранит, что где лежит
+## The registry declares what can be launched; the shell stores what lies where
 
-Это разделение — сердце модуля, и всё остальное из него следует.
+This separation is the heart of the module, and everything else follows from it.
 
-Позиция значка, открытая папка, порядок на столе — то, что двигает
-пользователь. В декларации им не место: иначе перетаскивание значка правит
-исходники. И наоборот — список программ не хранится в состоянии, иначе
-установленный модуль не появится в меню, пока кто-то не нажмёт «обновить».
+An icon's position, an open folder, the order on the desktop — these are what the user
+moves. They have no place in the declaration: otherwise dragging an icon would edit
+the sources. And the other way round — the program list is not stored in state, otherwise
+an installed module would not appear in the menu until someone presses "refresh".
 
-### Как программа попадает в меню
+### How a program gets into the menu
 
-Записью процесса с `meta.type: tui_desktop.window` — тем же типом, что читает
-основа, чтобы одна запись работала в обеих оболочках. Правок в модулях
-регистрация не требует.
+Through a process entry with `meta.type: tui_desktop.window` — the same type the
+base reads, so that one entry works in both shells. Registration requires no edits in
+modules.
 
-Оболочка читает у записи:
+The shell reads from the entry:
 
-- `title` — имя в меню и на ярлыке; без него именем служит идентификатор.
-- `group` — путь папки меню: `Служебные` или `Служебные/Сеть`. Вложенность до
-  трёх уровней; глубже меню в терминале не читается, и лишние сегменты
-  отбрасываются, а не отбрасывают программу.
-- `order` — порядок внутри папки; без него по алфавиту, и безпорядковые идут
-  после тех, у кого порядок есть.
-- `icon` — один-два символа; без него `▢`.
-- `image` — имя растрового значка из [библиотеки](docs/icons.md). Сами значки —
-  артворк Microsoft: под MIT не подпадают и в опубликованный модуль не входят,
-  см. [лицензию значков](docs/icons.md#лицензия).
-- `width`, `height` — размер окна при открытии.
-- `args` — аргумент запуска по умолчанию.
-- `desktop: true` — просьба вынести ярлык на стол при первом появлении.
-- `resizable: false` — размер фиксирован: угол не тянется, кнопки «развернуть»
-  в заголовке нет, `desktop.resize` отвечает отказом. Для окон, чья раскладка
-  посчитана под один размер, — калькулятор, диалог свойств. Читает композитор
-  основы, тема по тому же полю выбирает кнопки.
+- `title` — the name in the menu and on the shortcut; without it the identifier serves as the name.
+- `group` — the menu folder path: `System Tools` or `System Tools/Network`. Nesting up to
+  three levels; a deeper menu is unreadable in a terminal, and the extra segments
+  are dropped, rather than the program being dropped.
+- `order` — the order within the folder; without it, alphabetical, and the unordered ones come
+  after those that have an order.
+- `icon` — one or two characters; without it `▢`.
+- `image` — the name of a raster icon from the [library](docs/icons.md). The icons themselves are
+  Microsoft artwork: they are not covered by MIT and are not included in the published module,
+  see the icons' [License](docs/icons.md#license).
+- `width`, `height` — the window size on opening.
+- `args` — the default launch argument.
+- `desktop: true` — a request to put a shortcut on the desktop when the program first appears.
+- `resizable: false` — the size is fixed: the corner cannot be dragged, there is no "maximize" button
+  in the title bar, `desktop.resize` answers with a refusal. For windows whose layout
+  is computed for one size — the calculator, a properties dialog. Read by the base's
+  compositor; the theme chooses the buttons by the same field.
 
-Папки меню задаются путём в `group`, а не отдельной записью: папка без
-программ бессмысленна, а объявленная отдельно — разъезжается со своим
-содержимым при удалении модуля.
+Menu folders are given by the path in `group`, not by a separate entry: a folder without
+programs is meaningless, and one declared separately drifts apart from its
+contents when a module is removed.
 
-### Окна на SDK: «Дата и время», калькулятор, реестр, диспетчер, «Выполнить…»
+### SDK windows: "Date/Time", calculator, registry, task manager, "Run…"
 
-Пять программ оболочки собраны на SDK окон (`butschster.windows.sdk:app`,
-[docs/sdk.md](docs/sdk.md)): приложение отдаёт дерево компонентов и меняет
-модель по действиям, а раскладку, попадания, прокрутку и оба отрисовщика
-даёт SDK. У них нет ни собственных красок, ни поставщика состояния, ни
-второй геометрии для мыши; в пиксельном режиме их рисует общий
-`butschster.windows.sdk:render`, в текстовом — те же компоненты ячейками.
-Собственные отрисовщики остались у проводника и просмотра картинок.
+Five shell programs are built on the window SDK (`butschster.windows.sdk:app`,
+[docs/sdk.md](docs/sdk.md)): the application gives a component tree and changes
+the model on actions, while the layout, hits, scrolling and both renderers
+are provided by the SDK. They have no paints of their own, no state provider, no
+second geometry for the mouse; in pixel mode they are drawn by the shared
+`butschster.windows.sdk:render`, in text mode by the same components in cells.
+Renderers of their own remain with the explorer and the image viewer.
 
-- Окно: Дата и время; Запись: `butschster.windows.datetime:window`; Что внутри: вкладки, календарь месяца с сегодняшним числом, стрелочные часы, цифровое время, часовой пояс; **только для чтения** — крутить нечего, «ОК» и «Отмена» закрывают, «Применить» выключена навсегда
-- Окно: Калькулятор; Запись: `butschster.windows.calc:window`; Что внутри: обычный вид Windows 95: табло, Back/CE/C, память MC/MR/MS/M+, цифры синим, операции красным; считает как настольный — операция применяется сразу, 2 + 3 × 4 = 20; клавиатура и мышь идут в одну кнопку. Окно на SDK оболочки: работает и в ячейках, и в пикселях
-- Окно: Реестр; Запись: `butschster.windows.regedit:window`; Что внутри: regedit: слева дерево пространств имён по точкам и записей внутри, справа `kind`, `meta.*` и `data.*` выбранной записи, внизу путь `Реестр\a\b\name`. Крестик, Enter и → раскрывают, ← закрывает или уходит к родителю, колёсико и полоса прокручивают; F5 перечитывает. **Только чтение** (FR-004 §3.4): в политике `regedit_state` есть `registry.find`, но нет `registry.apply`. Окно на SDK оболочки (компонент `tree`)
+- Window: Date/Time; Entry: `butschster.windows.datetime:window`; What's inside: tabs, a month calendar with today's date, an analog clock, digital time, the time zone; **read-only** — there is nothing to adjust, "OK" and "Cancel" close it, "Apply" is disabled for good
+- Window: Calculator; Entry: `butschster.windows.calc:window`; What's inside: the standard Windows 95 view: the display, Back/CE/C, memory MC/MR/MS/M+, digits in blue, operations in red; it calculates like a desk calculator — an operation is applied immediately, 2 + 3 × 4 = 20; keyboard and mouse go into the same button. A window on the shell SDK: works both in cells and in pixels
+- Window: Registry Editor; Entry: `butschster.windows.regedit:window`; What's inside: regedit: on the left a tree of namespaces split by dots and of the entries inside them, on the right `kind`, `meta.*` and `data.*` of the selected entry, at the bottom the path `Registry\a\b\name`. The [+] box, Enter and → expand, ← collapses or goes to the parent, the wheel and the scrollbar scroll; F5 rereads. **Read-only** (FR-004 §3.4): the `regedit_state` policy has `registry.find` but not `registry.apply`. A window on the shell SDK (the `tree` component)
+- Task Manager (Start → Settings → Task Manager) and Run… with its Bash windows are described in their own pages: [docs/taskman.md](docs/taskman.md) and [docs/run.md](docs/run.md).
 
-«Дата и время» с `resizable: false`, калькулятор тоже; реестр тянется. Часы панели задач открывают «Дату и время»: хост
-объявляет это записью `windows.taskbar_clock` (ниже).
+"Date/Time" has `resizable: false`, the calculator too; the registry editor can be resized. The taskbar clock opens "Date/Time": the host
+declares this with a `windows.taskbar_clock` entry (below).
 
-**Как тема находит `render`.** `require` умеет только объявленные `imports`,
-а не произвольный id из реестра, поэтому композитор позвать `render` не
-может — зовёт тема, и каждая такая библиотека импортирована в
-`chrome_pixels` статически и названа в таблице `VIEWS` по id своей записи.
-Контракт у всех один:
+**How the theme finds `render`.** `require` can only load declared `imports`,
+not an arbitrary id from the registry, so the compositor cannot call `render`
+— the theme calls it, and every such library is imported into
+`chrome_pixels` statically and named in the `VIEWS` table by the id of its entry.
+The contract is the same for all of them:
 
 ```lua
 lib.placement(window, inner, cell, fonts, store)
--- -> размещение {id, raster, x, y, cols, rows} | список таких | nil, причина
+-- -> placement {id, raster, x, y, cols, rows} | a list of such | nil, reason
 ```
 
-`inner` — прямоугольник внутри рамки в ячейках экрана, `cell` — размер
-ячейки, `fonts` — `{face, bold}` темы, `store` — хранилище растров темы:
-взятое из него по ключу-отпечатку состояния переживает кадр и выметается
-вместе с окном. Новый **специализированный** вид — это запись `render` в `imports` темы плюс строка
-в `VIEWS`; окно, назвавшее `render`, которого в `VIEWS` нет, получает не
-пустоту, а текст с причиной на лице окна. Пока вид ждёт первого состояния,
-тема показывает `content_state.caption`, если поставщик его дал.
+`inner` is the rectangle inside the frame in screen cells, `cell` is the cell
+size, `fonts` is the theme's `{face, bold}`, `store` is the theme's raster store:
+what is taken from it by a state-fingerprint key survives the frame and is swept away
+together with the window. A new **specialized** view is a `render` entry in the theme's `imports` plus a line
+in `VIEWS`; a window that names a `render` that is not in `VIEWS` gets not
+emptiness but a text with the reason on the face of the window. While the view waits for its first state,
+the theme shows `content_state.caption`, if the provider gave one.
 
-**Нарезка — по тому, что меняется.** У часов секунда переотправляет только
-растр с циферблатом и цифровым временем, календарь и кнопки лежат в своих;
-у калькулятора нажатие переотправляет табло и ряд нажатой кнопки. Мера — та
-же, что у темы: тот же кадр ещё раз не двигает ни одной версии
+**Slicing follows what changes.** For the clock, a second resends only
+the raster with the dial and the digital time; the calendar and the buttons lie in their own;
+for the calculator, a keypress resends the display and the row of the pressed button. The measure is
+the same as for the theme: the same frame once more moves not a single version
 (`views_test`).
 
-Снимки окон кладёт `paint-png` (`test/shots/datetime.png`,
+Window screenshots are written by `paint-png` (`test/shots/datetime.png`,
 `test/shots/calc.png`, `test/shots/regedit.png`, `test/shots/taskman-*.png`,
-`test/shots/run-bash.png`) — стрелки, сетку месяца и цвета подписей иначе не
-увидеть. Все пять окон на SDK работают и в ячейках: стрелочные часы там
-превращаются в цифровые, остальное рисуется теми же компонентами.
+`test/shots/run-bash.png`) — the clock hands, the month grid and the caption colors cannot be
+seen otherwise. All five SDK windows also work in cells: the analog clock there
+turns into a digital one, the rest is drawn by the same components.
 
-### Что где лежит в «Пуске»
+### What lies where in "Start"
 
-Корень меню — папка «Программы», папка «Настройка», «Выполнить…» и
-«Завершение работы». «Мой компьютер» в меню не показывается (`in_menu: false`
-у записи проводника, решение владельца 2026-09-09): он открывается со стола,
-а ярлык на скрытую программу работает. Над
-всем этим, если оболочка поднята со входом, — имя вошедшего пользователя со
-значком `user` и чертой под ним (с 2026-09-09): строка не выбирается, у неё
-нет попадания и номера, курсор её перешагивает. Имя поднимает `chrome.use_user`
-из результата входа; обе темы читают одну `chrome.session`. Без входа строки
-нет: стол под служебным актором, подписанный чьим-то именем, выглядел бы как
-чужой вход. Папку
-программе называет `meta.group`, разделитель под строкой — `meta.separator_after`,
-место в папке — `meta.order`; папка встаёт туда, где её самая ранняя
-программа (поэтому «Программы» выше «Настройки», а не по алфавиту). В
-«Настройке» живут «Реестр» и «Диспетчер задач» — то, что настраивает
-и показывает саму систему; всё остальное — в «Программах». Программа без
-`group` тоже ложится в «Программы» (`catalog.DEFAULT_GROUP`) — так туда
-попадают окна, собранные мастерской по HTTP, у которых объявить папку негде.
-На корень кладёт только явный `group: ""`; так объявлено «Выполнить…».
+The menu root is the "Programs" folder, the "Settings" folder, "Run…" and
+"Shut Down". "My Computer" is not shown in the menu (`in_menu: false`
+on the explorer entry, owner's decision 2026-09-09): it is opened from the desktop,
+and a shortcut to a hidden program works. Above
+all this, if the shell was brought up with logon, is the name of the logged-on user with
+the `user` icon and a rule under it (since 2026-09-09): the line cannot be selected, it has
+no hit and no number, the cursor steps over it. The name is set by `chrome.use_user`
+from the logon result; both themes read the same `chrome.session`. Without logon there is no
+such line: a desktop under a service actor, signed with someone's name, would look like
+someone else's logon. The folder
+of a program is named by `meta.group`, the separator under a line by `meta.separator_after`,
+the place in the folder by `meta.order`; a folder stands where its earliest
+program is (which is why "Programs" is above "Settings", and not alphabetically). In
+"Settings" live "Registry Editor" and "Task Manager" — what configures
+and shows the system itself; everything else is in "Programs". A program without
+`group` also goes into "Programs" (`catalog.DEFAULT_GROUP`) — that is how
+windows built by the workshop over HTTP, which have nowhere to declare a folder, get there.
+Only an explicit `group: ""` puts a program at the root; that is how "Run…" is declared.
 
-**Правило для новой программы: папка в «Программах» — это модуль wippy.**
-Программа здесь — по сути окно модуля, и по модулю её и ищут. Окна самой
-оболочки (Блокнот, Калькулятор…) лежат в «Программах» прямо; программа,
-которую нельзя открыть саму по себе (просмотр картинок — только файлом из
-проводника), в меню не показывается, `in_menu: false`;
-окно любого другого модуля объявляет `group: Программы/<Модуль>` — «Программы/
-Контент-машина», «Программы/Bridge». То, что настраивает или показывает саму
-систему (Реестр, Диспетчер задач), — в «Настройке». Окно из мастерской называет
-папку полем `group` в `POST /tui-desktop/apps`; без него оно ляжет в «Программы»
-без модуля, и это видно в меню сразу.
+**Rule for a new program: a folder in "Programs" is a wippy module.**
+A program here is essentially a module's window, and people look for it by module. The windows of the
+shell itself (Notepad, Calculator…) lie directly in "Programs"; a program
+that cannot be opened by itself (the image viewer — only through a file from
+the explorer) is not shown in the menu, `in_menu: false`;
+a window of any other module declares `group: Programs/<Module>` — "Programs/
+Content Machine", "Programs/Bridge". What configures or shows the
+system itself (Registry Editor, Task Manager) goes into "Settings". A workshop window names
+its folder with the `group` field in `POST /tui-desktop/apps`; without it, it goes into "Programs"
+without a module, and that is visible in the menu at once.
 
-**Наведение мышью ведёт по меню**: строка под указателем выделяется, папка
-под ним раскрывается, подменю глубже уходит — последние два с задержкой
-в 300 мс, как в Windows, чтобы путь по диагонали в подменю не закрывал его.
-Механика — в основе (`butschster/tui-desktop`, `hover_menu`), тема лишь
-рисует выбранную строку; в пикселях панель перерисовывается, потому что
-`selected` входит в ключ её растра.
+**Mouse hover drives the menu**: the line under the pointer is highlighted, the folder
+under it expands, a deeper submenu goes away — the last two with a delay
+of 300 ms, as in Windows, so that a diagonal path into a submenu does not close it.
+The mechanics are in the base (`butschster/tui-desktop`, `hover_menu`), the theme only
+draws the selected line; in pixels the panel is redrawn because
+`selected` is part of its raster key.
 
-### Установка и удаление программ
+### Add/Remove Programs
 
-«Пуск → Настройка → Установка и удаление программ» показывает модули wippy —
-объявления `ns.dependency` плюс кэш вендора с версией и размером — и правит
-файл объявлений приложения: снимает и дописывает записи. В силу это вступает
-после `wippy update` и перезапуска, о чём окно говорит само; реестр и Hub оно
-не трогает. Папку объявлений называет `BUTSCHSTER_WINDOWS_DEPS_FS`. Подробно —
-[docs/appwiz.md](docs/appwiz.md).
+Start → Settings → Add/Remove Programs shows the wippy modules — the
+`ns.dependency` declarations plus the vendor cache with version and size — and
+edits the application's declarations file: it removes and appends entries. The
+change takes effect after `wippy update` and a restart, which the window says
+itself; it does not touch the registry or the Hub. The declarations folder is
+named by `BUTSCHSTER_WINDOWS_DEPS_FS`. Details: [docs/appwiz.md](docs/appwiz.md).
 
-### Свойства: Система
+### System Properties
 
-Правая кнопка по значку стола открывает контекстное меню у указателя:
-«Открыть» (жирным — то же, что двойной щелчок) и «Свойства», если запись
-программы объявила `meta.properties` — идентификатор окна свойств. У
-«Моего компьютера» это `butschster.windows.sysprops:window`, «Свойства:
-Система», как System Properties в Windows 95: три вкладки на SDK.
+A right click on a desktop icon opens a context menu at the pointer:
+"Open" (in bold — the same as a double click) and "Properties", if the program's entry
+declared `meta.properties` — the identifier of the properties window. For
+"My Computer" this is `butschster.windows.sysprops:window`, "System
+Properties", like System Properties in Windows 95: three tabs on the SDK.
 
-- **Общие** — узел рантайма и роль, число модулей Lua, хост, PID и каталог,
-  процессоры и память у рантайма. Номера версии здесь нет нарочно: наружу в
-  Lua рантайм его не отдаёт, а выдуманный номер хуже отсутствующего.
-- **Устройства** — дерево: хосты процессов (`system.hosts`), файловые
-  системы, базы данных, HTTP и терминалы из реестра по ПРЕФИКСУ вида
-  (`fs.`, `db.`, `http.`, `terminal.`) и модули Lua (`system.modules`).
-  Пустая группа остаётся с пометкой «(нет)»: иначе «баз нет» было бы
-  неотличимо от «реестр не прочитан». Подпись под деревом — детали
-  выбранной строки.
-- **Быстродействие** — память и горутины индикаторами, таблица ресурсов;
-  обновляется раз в две секунды, пока открыта эта вкладка.
+- **General** — the runtime node and role, the number of Lua modules, the host, PID and directory,
+  the runtime's processors and memory. There is deliberately no version number here: the runtime
+  does not expose it to Lua, and an invented number is worse than a missing one.
+- **Device Manager** — a tree: process hosts (`system.hosts`), file
+  systems, databases, HTTP and terminals from the registry by kind PREFIX
+  (`fs.`, `db.`, `http.`, `terminal.`) and Lua modules (`system.modules`).
+  An empty group stays, marked "(none)": otherwise "no databases" would be
+  indistinguishable from "registry not read". The caption under the tree shows the details of
+  the selected line.
+- **Performance** — memory and goroutines as gauges, a resource table;
+  refreshed every two seconds while this tab is open.
 
-Окно только читает: `system.read` и `registry.find`, ни записи в реестр, ни
-порождения процессов. «ОК» и «Отмена» закрывают его одинаково.
+The window only reads: `system.read` and `registry.find`, no writes to the registry, no
+spawning of processes. "OK" and "Cancel" close it the same way.
 
-Меню рисует та же `chrome.menu_layout`, что и «Пуск», по `anchor` в
-метриках: одна панель у якоря, без банера, папок и значков, сдвинутая
-внутрь экрана у правого и нижнего края; в пикселях строка на пункт. Оба
-режима берут его из одного места — свой рисовальщик контекстного меню
-разошёлся бы с «Пуском» на первой правке.
+The menu is drawn by the same `chrome.menu_layout` as "Start", from `anchor` in
+the metrics: one panel at the anchor, without the banner, folders and icons, shifted
+inward at the right and bottom edges of the screen; in pixels one line per item. Both
+modes take it from one place — a context-menu painter of its own would have
+drifted from "Start" on the first edit.
 
-### Свойства: Экран
+### Display Properties
 
-Правая кнопка на пустом столе — «Свойства» (композитору названо
-`desktop_properties`), и то же окно в «Пуск → Настройка»: Display
-Properties Windows 95 в две вкладки.
+A right click on the empty desktop gives "Properties" (named to the compositor as
+`desktop_properties`), and the same window is in "Start → Settings": the Windows 95
+Display Properties in two tabs.
 
-- **Фон** — цвет стола: список стандартных цветов и монитор-предпросмотр
-  (компонент SDK `monitor`). «Применить» и «ОК» пишут выбор в настройки
-  оболочки (`butschster_windows_settings`, ключ `desktop_color`) и просят
-  композитор перечитать стол (`desktop.refresh`); тот перекрашивает стол и
-  значки в обоих режимах через `chrome.use_desktop` — одну точку на палитру,
-  стили ячеек, виджеты и значки. Растр значка несёт цвет стола в ключе,
-  поэтому перекрашивается вместе с ним. Узора и обоев нет нарочно: стол в
-  пиксельном режиме — ячейки, а растр во весь экран переотправлялся бы на
-  каждое изменение окна поверх него.
-- **Настройка** — разрешение (ячейки и пиксели по `screen` и `cell` из
-  `desktop.list`) и палитра, только чтение: размер задаёт терминал, TrueColor
-  принуждает рантайм.
+- **Background** — the desktop color: a list of standard colors and a monitor preview
+  (the SDK `monitor` component). "Apply" and "OK" write the choice into the shell's
+  settings (`butschster_windows_settings`, key `desktop_color`) and ask
+  the compositor to reread the desktop (`desktop.refresh`); it repaints the desktop and
+  the icons in both modes through `chrome.use_desktop` — one point for the palette,
+  cell styles, widgets and icons. An icon raster carries the desktop color in its key,
+  so it is repainted together with the desktop. There is deliberately no pattern or wallpaper: the desktop in
+  pixel mode is cells, and a full-screen raster would be resent on
+  every change of a window on top of it.
+- **Settings** — resolution (cells and pixels from `screen` and `cell` in
+  `desktop.list`) and palette, read-only: the size is set by the terminal, TrueColor
+  is forced by the runtime.
 
-Цвет из базы проверяется при чтении (`#rrggbb`): негодная строка не
-принимается и уходит в лог, стол остаётся прежним.
+The color from the database is validated on read (`#rrggbb`): an invalid string is not
+accepted and goes to the log, and the desktop stays as it was.
 
-### Завершение работы и часы панели
+### Shut Down and the taskbar clock
 
-Последний пункт «Пуска» — «Завершение работы» со значком `shutdown` (с
-2026-09-09 это `w95_46`, компьютер с монитором, как в меню Windows 95) и
-разделителем. Он остаётся доступен и при обрезке меню на низком экране.
-Щелчок или Enter закрывает окна оболочки, показывает чёрный экран с
-надписью «Теперь питание компьютера можно отключить.» — как Windows 95
-после выключения, — держит его пять секунд (`chrome.FAREWELL_HOLD`) и только
-потом гасит приложение. Ctrl+Q — аварийный выход, экрана прощания у него
-нет. Операционную систему терминала команда не выключает.
+The last item of "Start" is "Shut Down" with the `shutdown` icon (since
+2026-09-09 it is `w95_46`, a computer with a monitor, as in the Windows 95 menu) and
+a separator. It stays available even when the menu is cut on a short screen.
+A click or Enter closes the shell's windows, shows a black screen with
+the words "It's now safe to turn off your computer." — like Windows 95
+after shutdown — holds it for five seconds (`chrome.FAREWELL_HOLD`) and only
+then shuts down the application. Ctrl+Q is the emergency exit; it has no farewell
+screen. The command does not shut down the terminal's operating system.
 
-Окно для часов справа объявляет приложение. Пример:
+The window for the clock on the right is declared by the application. Example:
 
 ```yaml
 - name: taskbar_clock
@@ -295,702 +296,704 @@ Properties Windows 95 в две вкладки.
     entry: app:clock_window
 ```
 
-Объявление необязательно и должно быть единственным. Нажатие открывает
-указанное окно; повторное нажатие поднимает уже открытое и разворачивает
-свёрнутое. Идентификатор задаёт хост, тема его не выводит из подписи.
+The declaration is optional and must be unique. A click opens
+the named window; another click raises the already open one and restores
+a minimized one. The identifier is set by the host; the theme does not derive it from the caption.
 
-В «Моём компьютере» колёсико прокручивает сетку на один ряд. Работают также
-стрелки полосы прокрутки, Page Up и Page Down. Оболочка передаёт колёсико в
-область содержимого окна под указателем; открытое меню забирает ввод себе.
+In "My Computer" the wheel scrolls the grid by one row. The scrollbar
+arrows, Page Up and Page Down also work. The shell passes the wheel to
+the content area of the window under the pointer; an open menu takes the input for itself.
 
-### Ярлыки на столе
+### Desktop shortcuts
 
-Ярлык хранит **ссылку** на запись реестра, а не код программы: программа
-обновилась — ярлык ведёт на новую версию. Отсюда три правила, каждое из
-которых стоило бы дня расследования, будь оно нарушено.
+A shortcut stores a **reference** to a registry entry, not the program's code: the program
+is updated — the shortcut leads to the new version. Hence three rules, each of
+which would have cost a day of investigation had it been broken.
 
-**Ярлык на исчезнувшую запись остаётся и рисуется битым.** Пропавший значок
-читается как «я его случайно удалил», битый — как «программы больше нет». Это
-разные утверждения, и подменять одно другим нельзя.
+**A shortcut to a vanished entry stays and is drawn broken.** A missing icon
+reads as "I deleted it by accident", a broken one as "the program is gone". These
+are different statements, and substituting one for the other is not allowed.
 
-**Программа с `desktop: true` получает ярлык ровно один раз за всё время.**
-Отметка о том, что программу уже предлагали, живёт в отдельной таблице
-`butschster_windows_desktop_seeded` и не удаляется никогда — в том числе при
-удалении самого ярлыка. Без этого удаление значка не работало бы вовсе: он
-возвращался бы каждый старт, и человек решил бы, что удаление сломано.
+**A program with `desktop: true` gets a shortcut exactly once, ever.**
+The mark that the program has already been offered lives in a separate table
+`butschster_windows_desktop_seeded` and is never deleted — including when
+the shortcut itself is deleted. Without this, deleting an icon would not work at all: it
+would come back on every start, and a person would decide that deletion is broken.
 
-**Эту таблицу нельзя чистить.** Она не кэш. Очистка вернёт человеку все
-ярлыки, которые он когда-либо выбросил, и выглядеть это будет не как чужая
-уборка, а как сломанное удаление значков.
+**This table must not be cleaned.** It is not a cache. Cleaning it would give the person back all
+the shortcuts they ever threw away, and it would look not like someone else's
+cleanup but like broken icon deletion.
 
-**Удаление папки стола выносит её содержимое обратно на стол**, а не удаляет
-следом. Каскад унёс бы значки, которые пользователь в неё складывал, и
-восстановить их было бы нечем; ответ ручки называет число вынесенных.
+**Deleting a desktop folder moves its contents back onto the desktop**, rather than deleting them
+along with it. A cascade would carry away icons the user had put into it, and
+there would be nothing to restore them from; the handler's answer names the number moved out.
 
-### Что стоит на столе при первом запуске
+### What stands on the desktop at first start
 
-Пустой стол не объясняет, что с ним делать, поэтому оболочка ставит мебель:
-**«Мой компьютер»** — ярлык на обозреватель стенда. Папка «Программы» на
-столе стояла до 2026-09-09 и снята решением владельца: она дублировала
-«Пуск» и стояла пустой; у кого она уже есть, отметка предложенного остаётся,
-и обратно она не заводится.
+An empty desktop does not explain what to do with it, so the shell puts furniture there:
+**"My Computer"** — a shortcut to the explorer of the test stand. The "Programs" folder on
+the desktop stood there until 2026-09-09 and was removed by the owner's decision: it duplicated
+"Start" and stood empty; for those who already have it, the offered mark remains,
+and it is not created again.
 
-Заводится только то, за чем что-то стоит. «Корзины» и «Сетевого окружения»
-здесь нет намеренно: значок, который ничего не делает, выглядит как рабочая
-часть системы, и первое, что о нём спросят, — почему он не работает.
+Only what has something behind it is created. "Recycle Bin" and "Network Neighborhood"
+are deliberately absent here: an icon that does nothing looks like a working
+part of the system, and the first thing people will ask about it is why it does not work.
 
-Мебель считается предложенной по тому же правилу, что и ярлыки программ:
-выбросил — не вернётся. Ключи мебели начинаются с `!`, которого в
-идентификаторе записи реестра быть не может (там всегда `namespace:name`), —
-так ключ мебели заведомо не столкнётся с ключом программы в одной колонке.
+Furniture counts as offered by the same rule as program shortcuts:
+thrown away — does not come back. Furniture keys start with `!`, which cannot
+occur in a registry entry identifier (it is always `namespace:name`) —
+so a furniture key is guaranteed not to collide with a program key in the same column.
 
-Ярлык на программу, которой в каталоге нет, **пропускается, а не заводится
-битым**: сломанный значок при первом же запуске объяснить нечем. Пропущенный
-заведётся тогда, когда программа появится, — и ровно поэтому он не
-отмечается предложенным.
+A shortcut to a program that is not in the catalog **is skipped rather than created
+broken**: a broken icon on the very first start cannot be explained. A skipped one
+will be created when the program appears — and precisely for this reason it is not
+marked as offered.
 
-### Кто выбирает место
+### Who chooses the place
 
-Значок, чьё место **никто не называл**, хранится без координат — `x` и `y`
-пусты, и это утверждение, а не пропуск. Место такому значку выбирает
-композитор в момент кадра: только он знает ширину экрана. Оболочка на старте
-её ещё не знает, и выбранное ею место могло бы оказаться за краем — а значок
-за краем не обрезается, он **исчезает целиком и молча**, то есть ровно так,
-как FR запрещает вести себя битому ярлыку.
+An icon whose place **nobody has named** is stored without coordinates — `x` and `y`
+are empty, and that is a statement, not an omission. The place for such an icon is chosen by
+the compositor at frame time: only it knows the screen width. The shell at start
+does not know it yet, and a place it chose could turn out to be past the edge — and an icon
+past the edge is not clipped, it **disappears entirely and silently**, that is, exactly the way
+the FR forbids a broken shortcut to behave.
 
-Как только место названо — перетаскиванием, `POST` с `x`/`y` или `PATCH` —
-значок становится **поставленным**, и композитор его больше не перекладывает.
-Даже если экран сузился и значок ушёл за край: в настоящей Windows 95 ушедший
-за край значок сам не возвращается, и «подвинул и перезапустил — значок там
-же» перестало бы быть правдой, начни мы двигать то, что человек поставил.
+As soon as the place is named — by dragging, by a `POST` with `x`/`y` or by a `PATCH` —
+the icon becomes **placed**, and the compositor no longer rearranges it.
+Even if the screen got narrower and the icon went past the edge: in real Windows 95 an icon that went
+past the edge does not come back by itself, and "moved it and restarted — the icon is in the same
+place" would stop being true if we started moving what a person placed.
 
-Отдельного флага «поставлено человеком» в схеме нет намеренно. Флаг рядом с
-колонками, которые он описывает, — второй источник истины, и схема допускала
-бы его противоречие: «поставлено» при пустых координатах и «не поставлено» при
-координатах, выставленных руками. Разбирать это пришлось бы тому, кто найдёт
-значок не там.
+There is deliberately no separate "placed by a person" flag in the schema. A flag next to
+the columns it describes is a second source of truth, and the schema would allow
+it to contradict them: "placed" with empty coordinates and "not placed" with
+coordinates set by hand. Sorting that out would fall to whoever finds
+the icon in the wrong place.
 
-Ноль вместо пустоты — худший из возможных исходов: ноль это **место**, и
-значок стал бы поставленным в левый верхний угол. Поэтому нуля вместо `nil`
-нет ни на одном пути.
+Zero instead of empty is the worst possible outcome: zero is a **place**, and
+the icon would become placed in the top left corner. That is why there is no zero instead of `nil`
+on any path.
 
-Перетаскивание ведёт композитор, а место записывает оболочка —
-`options.move_desktop_item(id, x, y)`, тем же репозиторием, что и ручка
-`PATCH`. Второй способ записать место разошёлся бы с первым на первой правке.
-Координаты приходят уже приведёнными к сетке: выравнивает композитор, у
-которого есть размер экрана.
+Dragging is driven by the compositor, while the place is written by the shell —
+`options.move_desktop_item(id, x, y)`, through the same repository as the
+`PATCH` handler. A second way to write the place would drift from the first on the first edit.
+Coordinates arrive already snapped to the grid: the snapping is done by the compositor, which
+has the screen size.
 
-Неудавшаяся запись **не роняет кадр**: значок остаётся там, где был, а
-причина возвращается композитору. Стол, исчезнувший из-за отказа базы, хуже
-значка, который не сдвинулся.
+A failed write **does not bring down the frame**: the icon stays where it was, and
+the reason is returned to the compositor. A desktop that vanished because of a database failure is worse than
+an icon that did not move.
 
-**Выделение значка оболочка не хранит.** Его держит композитор: сохранённое
-выделение пережило бы перезапуск, чего человек не ждёт.
+**The shell does not store icon selection.** The compositor holds it: a saved
+selection would survive a restart, which a person does not expect.
 
-## Что здесь уже ломалось молча
+## What has already broken silently here
 
-Шесть находок одной ночи, и ни одна не дала отказа. Общее у них не только
-тишина: **каждая половина была права по отдельности, и потому обе стороны
-выглядели проверенными.** Читать до того, как трогать код, — дешевле, чем
-находить заново.
+Six findings of one night, and not one of them produced a failure. What they share is not only
+silence: **each half was right on its own, and so both sides
+looked tested.** Reading this before touching the code is cheaper than
+finding it all again.
 
-### Путь папок разбирает КАТАЛОГ, и только он
+### The folder path is parsed by the CATALOG, and only by it
 
-`meta.group` — строка вида `Служебные/Сеть`; в список сегментов её превращает
-`butschster.windows.programs:catalog`, там же и обрезка по глубине
-(`catalog.MAX_DEPTH`). Тема получает путь **уже разобранным** и про косую
-черту не знает ничего.
+`meta.group` is a string like `System Tools/Network`; it is turned into a list of segments by
+`butschster.windows.programs:catalog`, and the depth cut is there too
+(`catalog.MAX_DEPTH`). The theme receives the path **already parsed** and knows nothing
+about the slash.
 
-Так было не всегда, и цена известна. Тема разбирала путь ВТОРОЙ раз, ожидая
-строку, — а каталог давно клал туда таблицу. Проверка `type(item.group) ==
-"string"` не срабатывала ни разу: путь выходил пустым, папка не заводилась,
-программа ложилась на верхний уровень. **Ни отказа, ни следа: программа видна,
-просто не там, где просили.**
+It was not always so, and the price is known. The theme parsed the path a SECOND time, expecting
+a string — while the catalog had long been putting a table there. The check `type(item.group) ==
+"string"` never fired once: the path came out empty, the folder was not created,
+the program went to the top level. **No failure, no trace: the program is visible,
+just not where it was asked to be.**
 
-Тот же класс, что `id` вместо `action` в попадании и что две таблицы стилей:
-два представления одного и того же, и расхождение молчит.
+The same class as `id` instead of `action` in a hit and as the two style tables:
+two representations of the same thing, and the discrepancy is silent.
 
-Обрезка по глубине жила там же дважды — своей константой в теме. Теперь число
-одно: ограничивает тот, кто путь разбирает, а каскад останавливает ширина
-экрана, и это ограничение настоящее.
+The depth cut lived there twice as well — as a constant of its own in the theme. Now there is
+one number: whoever parses the path limits it, and the cascade is stopped by the width of the
+screen, and that limit is a real one.
 
-**Весь путь «группа → папка → раскрытие» был зелёным и ни разу не
-пройденным**: в харнессе не было ни одной записи с `meta.group`. Теперь есть —
-`app:grouped_probe`, заведённая ради одной строки в объявлении.
+**The whole path "group → folder → expansion" was green and never once
+traversed**: the harness had not a single entry with `meta.group`. Now there is one —
+`app:grouped_probe`, created for the sake of one line in the declaration.
 
-### Попадание, которого композитор не умеет читать, — это отсутствующее попадание
+### A hit the compositor cannot read is a missing hit
 
-Композитор ОДИН на оба режима, и форму попаданий диктует он, а не тема. Щелчок
-по попаданию не той формы просто ничего не делает — ни отказа, ни следа.
+There is ONE compositor for both modes, and it, not the theme, dictates the shape of hits. A click
+on a hit of the wrong shape simply does nothing — no failure, no trace.
 
-Так в первый живой запуск пиксельного режима пропали два щелчка сразу:
+That is how, on the first live run of pixel mode, two clicks disappeared at once:
 
-- **«Пуск» отдавал `id = "menu"` вместо `action = "menu"`.** Композитор
-  проверяет `spot.id` ПЕРВЫМ: увидев его, он ищет окно с таким именем, не
-  находит и молча ничего не делает, а ветка про меню недостижима;
-- **значки стола отдавали ОДНО попадание на три строки** с полем `bottom_row`,
-  которого композитор не знает вовсе: он сверяет `event.y == spot.row`. Значок
-  нажимался бы по картинке и не нажимался по подписи.
+- **"Start" gave `id = "menu"` instead of `action = "menu"`.** The compositor
+  checks `spot.id` FIRST: seeing it, it looks for a window with that name, does not
+  find one and silently does nothing, and the menu branch is unreachable;
+- **desktop icons gave ONE hit for three lines** with a `bottom_row` field,
+  which the compositor does not know at all: it checks `event.y == spot.row`. An icon
+  would respond to a click on the picture and not on the caption.
 
-Обе прошли бы проверку «попаданий не меньше двух». Поэтому пробник их не
-СЧИТАЕТ, а **сравнивает с тем, что отдаёт режим символов на том же
-состоянии** — по числу и по набору полей. Разошлись — краснеет с обеими
-формами в сообщении.
+Both would have passed a check of "no fewer than two hits". That is why the probe does not
+COUNT them but **compares them with what character mode returns for the same
+state** — by number and by the set of fields. If they differ, it goes red with both
+shapes in the message.
 
-### Функция, которую не зовут, зелёная в любом наборе
+### A function nobody calls is green in any suite
 
-`chrome_pixels.fill` была написана и не вызывалась ничем: композитор в
-пиксельном режиме её пропускал. В первый же живой запуск она упала на
-`widgets.styles.desktop`, которого не существовало — стиль стола лежал во
-второй, почти такой же таблице у темы.
+`chrome_pixels.fill` was written and called by nothing: the compositor in
+pixel mode skipped it. On the very first live run it fell over on
+`widgets.styles.desktop`, which did not exist — the desktop style lived in a
+second, almost identical table in the theme.
 
-Две вещи отсюда, и обе стоили живого запуска.
+Two things follow from this, and both cost a live run.
 
-**Две таблицы одного и того же расходятся ровно на тех ключах, которые редко
-нужны обеим.** Стили сведены в одну: `widgets.styles`, и тема берёт её же.
+**Two tables of the same thing diverge exactly on the keys that are rarely
+needed by both.** The styles are merged into one, `widgets.styles`, and the theme takes that same one.
 
-**Функция без вызывающего не проверяется ничем.** Тест теперь зовёт ОБЕ
-заливки — их не должно быть возможно сломать по отдельности.
+**A function without a caller is checked by nothing.** The test now calls BOTH
+fills — it should not be possible to break them separately.
 
-Того же семейства и третья находка того вечера: три сцены пробника назывались
-«значки рабочего стола» и рисовали пустоту, потому что `scene()` не передавала
-`chrome.fill` состояние. Пробник, врущий умолчанием, хуже отсутствующего — на
-него ссылаются.
+Of the same family is the third finding of that evening: three probe scenes were named
+"desktop icons" and drew emptiness, because `scene()` did not pass
+state to `chrome.fill`. A probe that lies by default is worse than a missing one — people
+refer to it.
 
-### Линтовать надо ТОЙ сборкой, у которой есть `gfx`
+### Lint with THE build that has `gfx`
 
-`wippy lint` из PATH на пиксельном коде отвечает «No issues found» — не
-потому, что он чист, а потому, что типов `gfx` у релизного рантайма нет вовсе,
-и вызовы `raster:text`, `raster:blit`, `gfx.font` для него безымянные.
+`wippy lint` from PATH answers "No issues found" on pixel code — not
+because the code is clean, but because the release runtime has no `gfx` types at all,
+and the calls `raster:text`, `raster:blit`, `gfx.font` are nameless to it.
 
-Локальная сборка на том же коде нашла ошибку типа в аргументе `raster:text`.
-То есть **весь пиксельный код, пролинтованный релизной сборкой, не
-пролинтован**.
+The local build found a type error in a `raster:text` argument in the same code.
+That is, **all pixel code linted with the release build has not been
+linted**.
 
-`make lint` берёт сборку из переменной `WIPPY` и потому проверяет по-настоящему;
-`wippy lint` руками — нет. Это того же рода, что и остальные ночные находки:
-инструмент отвечает «всё хорошо», потому что не умеет посмотреть.
+`make lint` takes the build from the `WIPPY` variable and so checks for real;
+`wippy lint` by hand does not. This is of the same kind as the other night findings:
+a tool answers "all good" because it cannot look.
 
-**Заглушать проверку целым растром нельзя.** Шрифт приезжает в тему полем
-обычной таблицы и типа `gfx.Font` не имеет; объявить `any` у растра — значит
-выключить заодно проверку КООРДИНАТ, а именно координатная ошибка (`y = 0`
-при единичных координатах) уже стоила одного круга. Тип называется и
-приводится точечно: `local bold = given :: gfx.Font`.
+**Do not silence the check for a whole raster.** The font arrives in the theme as a field
+of an ordinary table and does not have the `gfx.Font` type; declaring `any` on the raster means
+switching off COORDINATE checking along with it, and a coordinate error (`y = 0`
+with one-based coordinates) has already cost one round. The type is named and
+cast at one spot: `local bold = given :: gfx.Font`.
 
-### Поздние `local` проверяются, а не запоминаются
+### Late `local`s are checked, not remembered
 
-Локальная переменная видна только НИЖЕ своего объявления; выше она читается
-как глобальная, то есть как `nil`, и отказа при этом не происходит. Функция не
-вызывается, надпись не рисуется, право не проверяется — и ни одной ошибки.
+A local variable is visible only BELOW its declaration; above it, it reads
+as a global, that is, as `nil`, and no failure happens. A function is not
+called, a caption is not drawn, a permission is not checked — and not a single error.
 
-За одну ночь этот класс укусил пять раз, и все пять нашлись живым запуском или
-снимком, ни один — тестом. Поэтому теперь он проверяется статически:
+In one night this class bit five times, and all five were found by a live run or
+a screenshot, none by a test. That is why it is now checked statically:
 
 ```bash
 python3 tools/late-locals.py src
 ```
 
-Стоит в `make lint` перед `wippy lint`, потому что дешевле и потому что
-`wippy lint` этого не ловит вовсе.
+It runs in `make lint` before `wippy lint`, because it is cheaper and because
+`wippy lint` does not catch this at all.
 
-### Объявленный модуль без выданного права молчит, а не отказывает
+### A declared module without a granted permission stays silent instead of refusing
 
-Стоило двух пустых запусков, поэтому здесь, а не в комментарии.
+It cost two empty runs, which is why it is here and not in a comment.
 
-У оболочки был `modules: [env]`, а действия `env.get` в политике не было. И
-`env.get_all` отдавал **пустую таблицу**: он кладёт в неё только разрешённые
-ключи и на отказ не жалуется вовсе. То есть просьба человека включить
-пиксельный режим выглядела как «человек не просил».
+The shell had `modules: [env]`, but the policy had no `env.get` action. And
+`env.get_all` returned an **empty table**: it puts only permitted
+keys into it and does not complain about a refusal at all. That is, a person's request to switch on
+pixel mode looked like "the person did not ask".
 
-Соседняя ловушка того же вечера: **`env.get` видит только файловое
-хранилище.** На переменную из окружения процесса он отвечает «environment
-variable not found», то есть `ПЕРЕМЕННАЯ=1 wippy run …` не работает.
+A neighboring trap of the same evening: **`env.get` sees only the file
+store.** For a variable from the process environment it answers "environment
+variable not found", that is, `VARIABLE=1 wippy run …` does not work.
 
-Различить три исхода можно только по ВИДУ ошибки, а не по её тексту: у отказа
-по правам `kind` равен `PermissionDenied`, и это константа, а текст меняется.
-Отказ по правам обязан называться отказом по правам — это единственная из
-причин, которую человек не может исправить, задав переменную.
+The three outcomes can be told apart only by the KIND of error, not by its text: for a
+permission refusal `kind` equals `PermissionDenied`, and that is a constant, while the text changes.
+A permission refusal must be called a permission refusal — it is the only one of the
+reasons that a person cannot fix by setting a variable.
 
-Проверяется правилом, а не списком: `wiring_test` берёт у каждой записи
-процесса её `modules`, у её политик — их действия, и требует права на каждый
-модуль, который правами закрыт. Список пришлось бы дополнять при каждой новой
-записи, и его забыли бы ровно на той, где это важно.
+It is checked by a rule, not by a list: `wiring_test` takes from every process
+entry its `modules`, from its policies their actions, and requires a permission for every
+module that is gated by permissions. A list would have to be extended with every new
+entry, and it would be forgotten exactly on the one where it matters.
 
-## Пиксельный режим: кто его включает
+## Pixel mode: who switches it on
 
-Механика принимает решение, но спросить терминал не может: запись композитора
-не объявляет `gfx`. Поэтому вопрос задаёт оболочка и передаёт в `library.run`
-три вещи — `pixels`, `cell_size` (ФУНКЦИЕЙ, а не значением: размер меняется,
-когда человек меняет шрифт терминала) и пиксельную тему.
+The mechanics make the decision, but they cannot ask the terminal: the compositor entry
+does not declare `gfx`. So the question is asked by the shell, which passes to `library.run`
+three things — `pixels`, `cell_size` (as a FUNCTION, not a value: the size changes
+when a person changes the terminal font) and the pixel theme.
 
-Растры рисуются в масштабе 1:1: `cols × cell_w` на `rows × cell_h`, значки
-остаются 16×16/32×32 px. Коэффициента 95% в оболочке нет. При `resize`
-рантайм обновляет размер ячейки из размеров PTY в пикселях; оболочка обновляет
-геометрию темы и клиентов, а хранилище пересоздаёт растры нужного размера.
-Нужна сборка рантайма с обновлением геометрии PTY. Если терминал или SSH
-не передаёт пиксели через PTY, остаётся ответ начального запроса: после
-изменения шрифта терминала в таком окружении требуется перезапуск оболочки.
+Rasters are drawn at 1:1 scale: `cols × cell_w` by `rows × cell_h`, icons
+stay 16×16/32×32 px. There is no 95% factor in the shell. On `resize`
+the runtime updates the cell size from the PTY's pixel dimensions; the shell updates
+the geometry of the theme and the clients, and the store recreates rasters of the needed size.
+A runtime build with PTY geometry updates is required. If the terminal or SSH
+does not pass pixels through the PTY, the answer to the initial query remains: after
+changing the terminal font in such an environment the shell has to be restarted.
 
-**Включается явно, переменной `BUTSCHSTER_WINDOWS_PIXELS=1`**, а не по наличию
-графики: терминал, умеющий sixel, — не повод перерисовывать интерфейс иначе,
-чем человек просил.
+**It is switched on explicitly, by the variable `BUTSCHSTER_WINDOWS_PIXELS=1`**, not by the presence of
+graphics: a terminal that can do sixel is no reason to draw the interface differently
+from what a person asked for.
 
-Каждый отказ по дороге оставляет оболочку в ячейках и **называет причину** в
-логе: нет графики, терминал не сказал размер ячейки, не нашёлся шрифт.
-Пиксельный режим, не включившийся молча, выглядит как «почему-то по-старому»,
-и человек идёт искать поломку там, где её нет.
+Every refusal along the way leaves the shell in cells and **names the reason** in
+the log: no graphics, the terminal did not report the cell size, no font was found.
+Pixel mode that silently failed to turn on looks like "somehow the old way",
+and a person goes looking for a breakage where there is none.
 
-Шрифт приезжает **байтами** через `fs` (каталог — `BUTSCHSTER_WINDOWS_FONTS`,
-по умолчанию `app:system_fonts`), а не путём внутри `gfx`: чтение файла
-управляется правами процесса, и модуль, открывающий пути сам, был бы дорогой
-мимо них. Полужирный — отдельный файл, а не опция.
+The font arrives **as bytes** through `fs` (the directory is `BUTSCHSTER_WINDOWS_FONTS`,
+by default `app:system_fonts`), not by a path inside `gfx`: reading a file is
+governed by the process's permissions, and a module that opens paths by itself would be a road
+around them. Bold is a separate file, not an option.
 
-Обычный и полужирный шрифты — Liberation Sans 13 px со сглаживанием:
-`gfx.font(bytes, {size = 13, smooth = true})`. Пороговая чёрно-белая отрисовка
-этого мелкого TrueType-шрифта теряла тонкие штрихи. Настройка хранится в
-шрифте и действует для всех подписей оболочки и клиентов; рамки и значки
-остаются без сглаживания. Нужна локальная сборка рантайма с опцией
-`smooth` у `gfx.font`; отдельный вызов `raster:text` может переопределить её.
-Команда `paint-png` также сохраняет `font-comparison.png`: одинаковые подписи
-без сглаживания и с ним для визуальной проверки мелких штрихов.
+The regular and bold fonts are Liberation Sans 13 px with anti-aliasing:
+`gfx.font(bytes, {size = 13, smooth = true})`. Threshold black-and-white rendering
+of this small TrueType font lost thin strokes. The setting is stored in
+the font and applies to all captions of the shell and the clients; frames and icons
+stay without anti-aliasing. A local runtime build with the
+`smooth` option of `gfx.font` is required; an individual `raster:text` call can override it.
+The `paint-png` command also saves `font-comparison.png`: identical captions
+without anti-aliasing and with it, for visually checking the small strokes.
 
-В меню «Пуск» и его подменю названия папок и программ набраны обычным
-начертанием. Полужирными остаются заголовки окон, кнопка «Пуск» и боковая
-надпись меню. Фон меню — `#c0c0c0`, выделение — `#000080`.
+In the "Start" menu and its submenus the names of folders and programs are set in the regular
+weight. Window titles, the "Start" button and the side
+caption of the menu remain bold. The menu background is `#c0c0c0`, the selection `#000080`.
 
-### Пиксельная геометрия и фон окон
+### Pixel geometry and window background
 
-Геометрия заголовка — по Windows 95: синяя полоса 18 px, над ней две
-строки рамки (лицо и свет), рамка окна по бокам и снизу — 4 px в порядке
-оригинала (снаружи лицо и чёрный, внутри свет и тень). Резерв округляется
-вверх до целых строк терминала, и полоса живёт в ОДНОЙ строке, пока строка
-не ниже 16 px: при ячейке в 20 px это ровно 18 px оригинала, при 16 px полоса
-ужимается до 14 px (кнопки 12×10, значка окна нет — 16 px лёг бы на рамку).
-Строка меню окна ложится прямо под полосу. Две строки заголовок берёт только
-при ячейке ниже 16 px. Прежде полоса в 20 px с рамкой брала две строки при
-ячейке в 20 и оставляла под заголовком мёртвую серую ленту в 18 px.
+The title geometry follows Windows 95: an 18 px blue bar, above it two
+rows of frame (face and light), the window frame on the sides and bottom — 4 px in the order of
+the original (outside face and black, inside light and shadow). The reservation is rounded
+up to whole terminal rows, and the bar lives in ONE row as long as the row
+is not shorter than 16 px: with a 20 px cell this is exactly the original's 18 px, with 16 px the bar
+shrinks to 14 px (buttons 12×10, no window icon — 16 px would lie on the frame).
+The window's menu bar lies right under the bar. The title takes two rows only
+with a cell shorter than 16 px. Previously a 20 px bar with the frame took two rows with
+a 20 px cell and left a dead gray 18 px strip under the title.
 
-Кнопки заголовка — 16×14 px общим `pixels.button`, в двух пикселях от краёв
-полосы; знаки — растры оригинала (`pixels.caption_mark`): полоска 6×2,
-рамка 9×9, крест 8×7, на мелкой ячейке те же на четыре пикселя меньше.
-«Свернуть» и «развернуть» стоят вплотную, «закрыть» —
-отдельно, в двух синих пикселях от рамки. Каждая кнопка получает свои целые
-ячейки ввода и рисуется только внутри них, поэтому при ячейке в 10 px
-«закрыть» на два пикселя уже (14) и просвет перед ней четыре пикселя вместо
-двух; при ячейке в 8 px всё сходится пиксель в пиксель.
-Их пиксельный прямоугольник и покрываемые им ячейки определяются вместе
-в `title_buttons`: все покрываемые строки нажимаются, попаданий в клиент нет.
-Клиент, перетаскивание и ресайз используют `window_insets`, поэтому
-увеличение заголовка не перекрывает содержимое окна. Наборы кнопок различаются
-для обычного окна, диалога и инструментального окна.
+Title buttons are 16×14 px via the shared `pixels.button`, two pixels from the edges of
+the bar; the marks are rasters from the original (`pixels.caption_mark`): a 6×2 bar,
+a 9×9 box, an 8×7 cross; on a small cell the same, four pixels smaller.
+"Minimize" and "maximize" stand flush, "close"
+stands apart, two blue pixels from the frame. Each button gets its own whole
+input cells and is drawn only inside them, so with a 10 px cell
+"close" is two pixels narrower (14) and the gap before it is four pixels instead of
+two; with an 8 px cell everything matches pixel for pixel.
+Their pixel rectangle and the cells it covers are determined together
+in `title_buttons`: all covered rows are clickable, and there are no hits into the client.
+The client, dragging and resizing use `window_insets`, so
+enlarging the title does not overlap the window content. The button sets differ
+for a normal window, a dialog and a tool window.
 
-Панель инструментов проводника — кнопки 23×22 px по центру своих ячеек
-(`tool_span`, три ячейки при 10 px), как на панели окна папки оригинала.
-Вкладки SDK — ярлыки со скошенным углом и без нижней грани, активный на два
-пикселя выше и слит со страницей; заголовки меню SDK по центру своих ячеек
-с подсветкой на шесть пикселей шире текста; рамка группы — гравированная
+The explorer toolbar has 23×22 px buttons centered in their cells
+(`tool_span`, three cells at 10 px), as on the folder window toolbar of the original.
+SDK tabs are labels with a bevelled corner and no bottom edge, the active one two
+pixels higher and merged with the page; SDK menu headings are centered in their cells
+with a highlight six pixels wider than the text; the group frame is etched
 (`pixels.etched`).
 
-Адресное поле проводника имеет высоту 24 px, включая вдавленную рамку,
-и центрируется в минимальном числе строк терминала. Значок 16 px и текст
-помещаются внутри рамки; вся высота этих строк нажимается, выпадающий список
-и поле файлов начинаются ниже неё. В режиме ячеек адрес остаётся однострочным.
+The explorer address field is 24 px high including the sunken frame,
+and is centered in the minimum number of terminal rows. The 16 px icon and the text
+fit inside the frame; the whole height of these rows is clickable, the drop-down list
+and the file field start below it. In cell mode the address stays single-line.
 
-**Заливка остаётся ячейками.** Композитор зовёт `chrome.fill` для стола,
-затем для каждого видимого окна в порядке наложения — необязательный
-`chrome.window_background(canvas, window)` и его содержимое. Обычное окно
-получает белую клиентскую область, диалог — серую. Фон верхнего окна закрывает
-текст нижнего даже до первого кадра приложения.
+**The fill stays in cells.** The compositor calls `chrome.fill` for the desktop,
+then for each visible window in stacking order — the optional
+`chrome.window_background(canvas, window)` and its contents. A normal window
+gets a white client area, a dialog a gray one. The background of the upper window covers
+the text of the lower one even before the application's first frame.
 
-Пиксельные размещения значков и рамок обрезаются по прямоугольникам окон выше
-них. Обрезанные фрагменты кешируются вместе с исходными растрами: неизменный
-кадр не перерисовывает картинки. Меню и панель задач рисуются поверх окон.
+Pixel placements of icons and frames are clipped by the rectangles of the windows above
+them. The clipped fragments are cached together with the source rasters: an unchanged
+frame does not redraw the pictures. The menu and the taskbar are drawn on top of windows.
 
-Значки берутся из пакета оригинальных PNG 32×32 и 16×16 px; пиксельная сетка вычисляется
-из размера ячейки и места для двух строк подписи. Меню «Пуск» использует
-ширину текста из шрифта. Панель задач резервирует не менее 28 px,
-корневые пункты меню — не менее 32 px, подменю — не менее 24 px; размеры округляются вверх до целых
-ячеек. Кнопки имеют внутренние отступы, а подписи отодвинуты от значков.
-У кнопок панели задач по 3 px сверху и снизу, между соседними кнопками — 2 px.
-Корневые пункты «Пуска» используют значки 32 px, подменю — 16 px.
-У высоких элементов `row` и `bottom_row` задают всю область щелчка,
-сохраняя один шаг клавиатуры на пункт. В режиме символов остаётся
-прежняя сетка.
+Icons are taken from a pack of original 32×32 and 16×16 px PNGs; the pixel grid is computed
+from the cell size and the room for two caption lines. The "Start" menu uses
+the text width from the font. The taskbar reserves at least 28 px,
+root menu items at least 32 px, submenus at least 24 px; sizes are rounded up to whole
+cells. Buttons have inner padding, and captions are moved away from icons.
+Taskbar buttons have 3 px above and below, and 2 px between neighboring buttons.
+Root items of "Start" use 32 px icons, submenus 16 px.
+For tall items `row` and `bottom_row` define the whole click area,
+while keeping one keyboard step per item. In character mode the
+old grid remains.
 
-«Мой компьютер» объявляет `meta.pixel_render` и `meta.pixel_state`. Если тема
-подтверждает поддержку через `chrome.renders(id)`, композитор запускает
-поставщика состояния и отдаёт отрисовку теме. Проводник использует тот же
-контроллер и `render.layout` для обоих режимов. В пиксельном режиме
-`render.pixel_metrics` задаёт сетку не менее 88×72 px, значки 32 px,
-панель инструментов не менее 26 px и полосу прокрутки не менее 16 px;
-размеры округляются до ячеек. Подписи рисует шрифт темы размером 13 px.
-Ввод, включая колесо, стрелки и изменение размера, использует ту же раскладку.
-Тема хранит четыре растра на окно: меню, инструменты, поле и статус.
-Без поддержки этого рисовальщика остаётся окно в ячейках.
-`paint-png 8x18` сохраняет `shots/explorer-native.png` с этой геометрией.
+"My Computer" declares `meta.pixel_render` and `meta.pixel_state`. If the theme
+confirms support through `chrome.renders(id)`, the compositor starts
+the state provider and hands drawing to the theme. The explorer uses the same
+controller and `render.layout` for both modes. In pixel mode
+`render.pixel_metrics` sets a grid of at least 88×72 px, 32 px icons,
+a toolbar of at least 26 px and a scrollbar of at least 16 px;
+sizes are rounded to cells. Captions are drawn by the theme font at 13 px.
+Input, including the wheel, arrows and resizing, uses the same layout.
+The theme keeps four rasters per window: menu, tools, field and status.
+Without support for this renderer the window stays in cells.
+`paint-png 8x18` saves `shots/explorer-native.png` with this geometry.
 
-### Набор символов в пиксели НЕ переезжает
+### The character set does NOT move into pixels
 
-`▢`, `▤`, `▸` и прочая псевдографика — это символы, и в пиксельном режиме их
-рисует шрифт. В Liberation Sans геометрических фигур нет, а **отсутствующая
-руна advance-ится пробелом**: на её месте выходит пустота, и никакого отказа
-при этом нет.
+`▢`, `▤`, `▸` and the rest of the pseudo-graphics are characters, and in pixel mode they are
+drawn by the font. Liberation Sans has no geometric shapes, and **a missing
+rune advances like a space**: emptiness comes out in its place, and there is no failure
+at all.
 
-Поймано снимком: первое меню «Пуск» в пикселях получилось с пустой колонкой
-там, где в ячейках стоят значки, и без стрелок подменю. Ни один тест этого не
-заметил — строка рисовалась, ширина сходилась.
+Caught by a screenshot: the first "Start" menu in pixels came out with an empty column
+where the icons stand in cells, and without submenu arrows. Not one test
+noticed it — the line was drawn, the width matched.
 
-Поэтому в пиксельном пути значки рисуются из PNG, стрелки — примитивами, а
-раскладка отдаёт бэкендам два разных поля: `text` со значком-символом для
-ячеек и `label` без него для пикселей. Одно поле на оба режима означало бы,
-что один из них рисует пустоту.
+That is why on the pixel path icons are drawn from PNG, arrows with primitives, and
+the layout gives the backends two different fields: `text` with the icon character for
+cells and `label` without it for pixels. One field for both modes would mean
+that one of them draws emptiness.
 
-## Где точная копия упирается в терминал
+## Where an exact copy runs into the terminal
 
-Список, а не разрозненные оговорки: такие места находятся заново, если их не
-перечислить в одном месте. Каждое — размен, а не недоделка.
+A list, not scattered caveats: such places get found anew unless they are
+enumerated in one place. Each one is a trade-off, not unfinished work.
 
-- Что в Windows 95: Кнопка диалога 75×23 px; Что здесь: 80×20 px; Почему: 23 px не ложится в сетку 10×20, а место и размер интерактивной детали — целые ячейки (FR-005 §4а). Кнопка, у которой попадание не целое число ячеек, ловит щелчки соседки — а это дефект, которого на снимке не видно
-- Что в Windows 95: Значки — растры 32×32 и 16×16; Что здесь: оригинальные PNG без масштабирования; Почему: 32 значка; источник, использование и условия поставки — в [docs/icons.md](docs/icons.md)
-- Что в Windows 95: Курсор-стрелка, тени, звуки; Что здесь: нет; Почему: терминал их не отдаёт ничем
-- Что в Windows 95: Заливка любой формы; Что здесь: заливка ячейками, пиксели только там, где граница внутри ячейки; Почему: растр во всю площадь стоит 43 мс на кадр, и цена идёт от числа пикселей, а не от сложности (FR-005 §3а)
-- Что в Windows 95: Вертикальная надпись «Windows 95»; Что здесь: надпись «Wippy 2026» (это стенд wippy, а не Windows): в пикселях — повёрнутая строка; в ячейках — по букве на строку, и на короткой панели видна только часть слова; Почему: в ячейках буква занимает клетку, и длина надписи упирается в число пунктов меню. Раньше она при этом пропадала МОЛЧА; теперь обрезается видимо
+- In Windows 95: Dialog button 75×23 px; Here: 80×20 px; Why: 23 px does not fit the 10×20 grid, and the place and size of an interactive detail are whole cells ([FR-005](docs/rfcs/005-pixel-chrome.md) §4a). A button whose hit is not a whole number of cells catches its neighbor's clicks — and that is a defect you cannot see in a screenshot
+- In Windows 95: Icons — 32×32 and 16×16 rasters; Here: original PNGs without scaling; Why: 32 icons; source, usage and distribution terms — in [docs/icons.md](docs/icons.md)
+- In Windows 95: Arrow cursor, shadows, sounds; Here: none; Why: the terminal offers no way to deliver them
+- In Windows 95: Fill of any shape; Here: fill in cells, pixels only where a boundary lies inside a cell; Why: a full-area raster costs 43 ms per frame, and the cost comes from the number of pixels, not from complexity ([FR-005](docs/rfcs/005-pixel-chrome.md) §3a)
+- In Windows 95: The vertical caption "Windows 95"; Here: the caption "Wippy 2026" (this is a wippy system, not Windows): in pixels a rotated string; in cells one letter per row, and on a short panel only part of the word is visible; Why: in cells a letter takes up a cell, and the length of the caption runs into the number of menu items. Previously it disappeared SILENTLY in that case; now it is visibly cut
 
-Правило размеров интерактивных деталей: **украшение свободно,
-интерактив квантован.** Грань может быть в один пиксель, но мышь шлёт
-координаты в ячейках, других SGR 1006 не знает.
+The rule for sizes of interactive details: **decoration is free,
+interaction is quantized.** An edge can be one pixel, but the mouse sends
+coordinates in cells; SGR 1006 knows no others.
 
-## С релизным рантаймом модуль больше не грузится
+## With the release runtime the module no longer loads
 
-Записи `butschster.windows.shell:pixels` и `…:rasters` объявляют модуль `gfx`,
-а его **нет в релизном рантайме**. `wippy` из PATH (0.3.40a) не грузит модуль
-ВОВСЕ — не «без пикселей», а целиком, вместе с оболочкой в ячейках:
+The entries `butschster.windows.shell:pixels` and `…:rasters` declare the `gfx` module,
+and it is **not in the release runtime**. `wippy` from PATH (0.3.40a) does not load the module
+AT ALL — not "without pixels", but entirely, together with the shell in cells:
 
 ```
 unresolved dependencies after retry: butschster.windows.shell:pixels …
 node with ID {butschster.windows.shell pixels …} not found
 ```
 
-По этому сообщению причину не угадать, поэтому она записана здесь. Нужна
-локальная сборка рантайма — `~/repos/wippy/runtime/dist/wippy-linux-amd64`;
-в `Makefile` она подставлена переменной `WIPPY`, и переопределяется одной
-строкой: `make test WIPPY=wippy`.
+The cause cannot be guessed from this message, so it is written down here. A
+local runtime build is required — `~/repos/wippy/runtime/dist/wippy-linux-amd64`;
+in the `Makefile` it is substituted through the `WIPPY` variable, and is overridden with one
+line: `make test WIPPY=wippy`.
 
-**Это не мелочь и не навсегда.** Пока `gfx` не вышел в релиз, модуль нельзя
-опубликовать в Hub и нельзя поднять на машине без локальной сборки. Условие
-снятия одно: `gfx` в релизном рантайме.
+**This is neither a trifle nor forever.** Until `gfx` is released, the module cannot be
+published to the Hub and cannot be brought up on a machine without a local build. There is one
+condition for lifting this: `gfx` in the release runtime.
 
-Отдельно стоит помнить, что это НЕ то же самое, что запасной путь в ячейках
-(FR-005 §8б). Тот про терминал без графики: оболочка обязана работать в
-обычном xterm. Этот — про рантайм без модуля, и здесь оболочка не работает
-вовсе.
+It is worth remembering separately that this is NOT the same as the fallback path in cells
+([FR-005](docs/rfcs/005-pixel-chrome.md) §8b). That one is about a terminal without graphics: the shell must work in
+a plain xterm. This one is about a runtime without the module, and here the shell does not work
+at all.
 
-## Мышь — основной способ, стрелки — второй, цифр нет
+## The mouse is the main way, arrows the second, no digits
 
-В настоящем Windows 95 цифровых сокращений не было, и здесь их тоже нет:
-человек, открывающий программы мышью, читает колонку цифр перед пунктами меню
-как вопрос «а зачем они».
+Real Windows 95 had no digit shortcuts, and there are none here either:
+a person who opens programs with the mouse reads a column of digits before menu items
+as the question "what are these for".
 
-Стоит помнить, ОТКУДА они там взялись, потому что ошибка воспроизводимая:
-пробник не умел слать события мыши, и других способов открыть окно в проверке
-не было. **Ограничение инструмента протекло в интерфейс.** Инструмент
-починен (`tools/tui-probe.py` шлёт настоящую мышь в SGR 1006), цифры убраны.
-Правило на будущее: если что-то нельзя проверить мышью — чинится пробник, а
-не заводится видимая кнопка ради проверки.
+It is worth remembering WHERE they came from, because the mistake repeats
+itself: the probe could not send mouse events, and a check had no other way to
+open a window. **A limitation of the tool leaked into the interface.** The tool
+is fixed — the base's
+[`tools/tui-probe.py`](https://github.com/butschster/tui-desktop/blob/main/tools/tui-probe.py)
+sends real SGR 1006 mouse events — and the digits are gone. The rule for the
+future: when something cannot be checked with the mouse, the probe gets fixed;
+no visible button is added for the sake of a check.
 
-Клавиатура остаётся вторым способом и работает так же, как в Windows 95: в
-меню `↑`/`↓` двигают выделение, `→` раскрывает подменю, `←` закрывает его,
-`Enter` открывает, `Esc` закрывает меню; в окне со значками стрелки двигают
-выделение по сетке, `Enter` открывает.
+The keyboard remains the second way and works the same as in Windows 95: in
+the menu `↑`/`↓` move the selection, `→` opens a submenu, `←` closes it,
+`Enter` opens, `Esc` closes the menu; in a window with icons the arrows move
+the selection across the grid, `Enter` opens.
 
-**Выделенную строку меню тема не помнит — её называет композитор.** Тема
-рисует кадр и не хранит ничего между кадрами; `chrome.menu` принимает номер
-выделенной строки в самой глубокой раскрытой панели и **помечает
-нарисованную строку полем `cursor` в разметке попаданий**. Композитор не
-считает заново, что выбрано, — он читает то, что нарисовано. Второй счёт
-разъехался бы с первым, и `Enter` открывал бы не ту строку, которая
-подсвечена.
+**The theme does not remember the selected menu line — the compositor names it.** The theme
+draws a frame and keeps nothing between frames; `chrome.menu` takes the number of the
+selected line in the deepest open panel and **marks the
+drawn line with a `cursor` field in the hit markup**. The compositor does not
+recompute what is selected — it reads what was drawn. A second count
+would drift from the first, and `Enter` would open a line other than the one
+that is highlighted.
 
-У каждого попадания меню есть `level` и `slot` — уровень панели и номер
-выбираемой строки в ней. Считаются только выбираемые: подсказки и обрезка
-«…ещё N» тоже занимают строки, а вставать на них курсору незачем.
+Every menu hit has `level` and `slot` — the panel level and the number of the
+selectable line in it. Only selectable lines count: hints and the "…N more"
+cut-off also occupy lines, but there is no reason for the cursor to stop on them.
 
-## Что рисует тема, а что окно
+## What the theme draws and what the window draws
 
-Граница проходит по прямоугольнику окна, и она жёсткая:
+The boundary runs along the window rectangle, and it is strict:
 
-**Тема** — внешняя рамка окна, полоса заголовка, кнопки заголовка, панель
-задач, меню «Пуск», значки рабочего стола. Всё это про экран целиком.
+**Theme** — the outer window frame, the title bar, the title buttons, the
+taskbar, the "Start" menu, the desktop icons. All of this is about the screen as a whole.
 
-**Окно** — всё внутри клиентской области: строка меню, панель инструментов,
-содержимое, статусная строка. Композитор отдаёт окну весь прямоугольник
-внутри рамки, и что там нарисовано — дело окна.
+**Window** — everything inside the client area: menu bar, toolbar,
+contents, status bar. The compositor gives the window the whole rectangle
+inside the frame, and what is drawn there is the window's business.
 
-Строки и счётчик объектов определяет контроллер окна. В режиме ячеек он
-рисует их в viewport; в пиксельном посылает состояние композитору через
-`window_api.publish_state`. Тема вызывает библиотеку рисования окна,
-а механика композитора не разбирает содержимое состояния.
+The lines and the object counter are determined by the window controller. In cell mode it
+draws them into the viewport; in pixel mode it sends the state to the compositor through
+`window_api.publish_state`. The theme calls the window's drawing library,
+and the compositor mechanics do not parse the contents of the state.
 
-Чтобы у стола и у окна не оказалось двух несовпадающих кнопок, примитивы —
-набор символов, палитра, кнопка, вдавленное поле, объёмная грань — лежат в
-общей библиотеке, которую импортируют оба. Тема оставляет себе только то, что
-знает про экран целиком.
+So that the desktop and the window do not end up with two mismatched buttons, the primitives —
+character set, palette, button, sunken field, bevelled edge — lie in a
+shared library that both import. The theme keeps for itself only what
+knows about the screen as a whole.
 
-## Как окно разговаривает с композитором
+## How a window talks to the compositor
 
-Двумя вещами, и обе — из библиотеки основы
-`butschster.tui_desktop.desktop:window_api`. Своего протокола у окна нет.
+With two things, and both come from the base's library
+`butschster.tui_desktop.desktop:window_api`. The window has no protocol of its own.
 
-**Имя композитора приезжает в контексте процесса**, и читает его библиотека.
-Своя константа работала бы только под этой оболочкой: под любой другой окно
-обращалось бы к несуществующему процессу, а `open` ответа не ждёт — то есть
-промах выглядел бы неотличимо от настоящего открытия.
+**The compositor's name arrives in the process context**, and the library reads it.
+A constant of its own would work only under this shell: under any other the window
+would address a non-existent process, and `open` does not wait for an answer — that is,
+a miss would look indistinguishable from a real opening.
 
-**Ответ приходит своим каналом, а не через inbox.** Цикл, читающий inbox ради
-ответа, забирает оттуда **всё подряд** и выбрасывает то, что не его ответ; в
-окне через тот же inbox могут прийти команды, и съеденная команда неотличима
-от неполученной — окно просто не отреагирует, а искать будут в композиторе,
-где всё исправно.
+**The answer comes through its own channel, not through the inbox.** A loop that reads the inbox for the sake of
+an answer takes **everything** from there and throws away whatever is not its answer; in
+a window, commands can arrive through the same inbox, and an eaten command is indistinguishable
+from one never received — the window simply does not react, and people will look in the compositor,
+where everything works.
 
-Способов два, и **смешивать их в одном окне нельзя**: подписка забирает
-`desktop.reply` себе, и в inbox его больше не будет.
+There are two ways, and **mixing them in one window is not allowed**: a subscription takes
+`desktop.reply` for itself, and it will no longer be in the inbox.
 
-- Что: `desktop.request(topic, body)` + `desktop.replies()`; Когда: окну, которое рисует себя: канал ложится в его собственный `select` рядом с событиями
-- Что: `desktop.ask(topic, body)`; Когда: там, где кадр может постоять: на время ожидания окно не рисуется
+- What: `desktop.request(topic, body)` + `desktop.replies()`; When: for a window that draws itself: the channel goes into its own `select` next to events
+- What: `desktop.ask(topic, body)`; When: where the frame can stand still: while waiting, the window is not drawn
 
-«Мой компьютер» пользуется первым. Ввод при ожидании не теряется в любом
-случае — клавиши, мышь, изменение размера и закрытие едут окну **через
-viewport**, а не сообщениями, — но кадр во втором случае стоит.
+"My Computer" uses the first. Input is not lost while waiting in either
+case — keys, mouse, resizing and closing travel to the window **through
+the viewport**, not as messages — but in the second case the frame stands still.
 
-Ответ приезжает **обёрнутым**: `payload` — userdata, внутри бывает ещё и
-массив из одного элемента. Поле, прочитанное напрямую, окажется `nil` без
-ошибки, то есть «композитор ответил пустотой».
+The answer arrives **wrapped**: `payload` is userdata, and inside there is sometimes also
+an array of one element. A field read directly will be `nil` without
+an error, that is, "the compositor answered with emptiness".
 
-`src/api/control.lua` оставлен как был: это HTTP-ручка, её inbox больше
-никому не нужен, и наивная форма ожидания там безвредна. Переносить этот код
-в окно нельзя.
+`src/api/control.lua` is left as it was: it is an HTTP handler, nobody needs its inbox
+any more, and the naive form of waiting is harmless there. Moving this code
+into a window is not allowed.
 
-## Оболочку можно поднять прямо в тесте
+## The shell can be brought up right inside a test
 
-Считалось, что механику без настоящего терминала не проверить. Неверно:
-**экран оболочки не обязан быть терминалом.** `tty.viewport` создаётся прямо в
-тестовой функции, `view:grant()` отдаёт его порождаемому процессу — тем же
-механизмом, которым композитор раздаёт экраны своим окнам, — и внутри едет
-настоящая запись `butschster.windows:shell`, а не её копия для теста.
+It was believed that the mechanics could not be checked without a real terminal. Wrong:
+**the shell's screen does not have to be a terminal.** `tty.viewport` is created right in
+the test function, `view:grant()` gives it to the spawned process — by the same
+mechanism the compositor hands screens to its windows — and inside runs
+the real `butschster.windows:shell` entry, not a copy of it for the test.
 
-Цена этого заблуждения уже заплачена: команда `desktop.refresh`, которую ручки
-раскладки шлют **после каждой правки**, не выполнялась в основе никогда. Она
-попадала в ветку «нет такого окна», потому что окна не называет, и молча
-ничего не делала. Снаружи это выглядит как «значок появляется только после
-перезапуска» — то есть как дефект раскладки, а не как несработавшая команда.
+The price of this misconception has already been paid: the `desktop.refresh` command, which the layout
+handlers send **after every edit**, was never executed in the base. It
+landed in the "no such window" branch because it names no window, and silently
+did nothing. From outside this looks like "an icon appears only after a
+restart" — that is, like a layout defect, not like a command that did not fire.
 
-Поэтому `shell_test` проверяет не форму реестра, а всю цепочку: строка
-записана — оболочка толкнута — оболочка перечитала и вернула новое число
-строк. Проверка проверена мутацией: с командой, которой нет, она краснеет.
+That is why `shell_test` checks not the shape of the registry but the whole chain: a row
+written — the shell nudged — the shell reread and returned the new number of
+rows. The check has been checked by mutation: with a command that does not exist, it goes red.
 
-Ждать надо **имени в реестре процессов**, а не времени: имя появляется, когда
-оболочка готова принимать команды, а сон наугад даёт то ложное падение, то
-тест, который «иногда проходит».
+Wait for **the name in the process registry**, not for time: the name appears when
+the shell is ready to accept commands, while a random sleep gives now a false failure, now a
+test that "sometimes passes".
 
-## Ручки
+## Handlers
 
-Все — за аутентифицированным роутером приложения (`app:api` по умолчанию),
-поэтому полный путь на стенде выглядит как `/api/v1/windows/...`.
+All of them are behind the application's authenticated router (`app:api` by default),
+so the full path on the test stand looks like `/api/v1/windows/...`.
 
-- `GET /windows/programs` — каталог из реестра: программы, папки меню,
-  порядок.
-- `GET /windows/desktop` — ярлыки и папки стола; ярлык на исчезнувшую запись
-  помечен `broken`.
-- `POST /windows/desktop` — завести ярлык или папку: `kind`, `entry`, `title`,
+- `GET /windows/programs` — the catalog from the registry: programs, menu folders,
+  order.
+- `GET /windows/desktop` — desktop shortcuts and folders; a shortcut to a vanished entry
+  is marked `broken`.
+- `POST /windows/desktop` — create a shortcut or folder: `kind`, `entry`, `title`,
   `x`, `y`, `parent_id`.
-- `PATCH /windows/desktop/{id}` — переместить или переименовать. `entry` и
-  `kind` не меняются: подменить запись под тем же значком значит запустить не
-  то, что видно. `parent_id: null` выносит значок из папки на стол.
-- `DELETE /windows/desktop/{id}` — убрать ярлык или папку.
-- `GET /windows/status` — жива ли оболочка, её окна и отчёт восстановления
-  окон мастерской.
+- `PATCH /windows/desktop/{id}` — move or rename. `entry` and
+  `kind` do not change: substituting the entry under the same icon means launching something other than
+  what is seen. `parent_id: null` moves an icon out of a folder onto the desktop.
+- `DELETE /windows/desktop/{id}` — remove a shortcut or folder.
+- `GET /windows/status` — whether the shell is alive, its windows and the restore report
+  for workshop windows.
 
-**Ручки на создание программы нет и не будет.** Программы появляются
-установкой модуля или сборкой окна через мастерскую основы
-(`POST /tui-desktop/apps`). Своя ручка создания означала бы второй источник
-истины рядом с реестром, и разошлись бы они на первом удалении модуля.
+**There is no handler for creating a program and there will not be one.** Programs appear
+by installing a module or by building a window through the base's workshop
+(`POST /tui-desktop/apps`). A creation handler of our own would mean a second source
+of truth next to the registry, and they would drift apart on the first module removal.
 
-Три вещи, которые ответы говорят прямо, потому что молчание здесь читается
-неправильно:
+Three things the answers say outright, because silence here is read
+wrongly:
 
-- **`existed` у удаления.** «Удалил несуществующее» и «удалил» — разные
-  ответы, иначе опечатка в идентификаторе выглядит успехом.
-- **`shell` у каждой изменяющей ручки.** Композитор перечитывает раскладку по
-  команде, а не каждый кадр, поэтому ручка его толкает. Не толкнула —
-  `refreshed: false` с причиной; строка при этом записана, и выдавать её за
-  неудачу нельзя. Погашенная оболочка — не ошибка: раскладку можно править и
-  при выключенном десктопе.
-- **`catalog_error`.** Нечитаемый каталог не прячет стол: значки отдаются, но
-  без признака битости — обвинить исправную программу на основании
-  непрочитанного каталога хуже, чем промолчать.
+- **`existed` on deletion.** "Deleted something non-existent" and "deleted" are different
+  answers, otherwise a typo in an identifier looks like success.
+- **`shell` on every mutating handler.** The compositor rereads the layout on
+  command, not every frame, so the handler nudges it. If it did not nudge —
+  `refreshed: false` with a reason; the row is written anyway, and presenting it as
+  a failure is not allowed. A stopped shell is not an error: the layout can be edited even
+  with the desktop switched off.
+- **`catalog_error`.** An unreadable catalog does not hide the desktop: icons are returned, but
+  without the broken mark — blaming a working program on the basis of an
+  unread catalog is worse than staying silent.
 
-## Отказ обязан называть причину
+## A refusal must name its reason
 
-Правило, которое здесь нарушить проще всего, а последствия — дороже всего:
-**пустой список и «не смогли прочитать» — разные утверждения.** Человек,
-получивший первое вместо второго, идёт искать ошибку в своё приложение, где её
-нет.
+The rule that is easiest to break here, with the most expensive consequences:
+**an empty list and "could not read" are different statements.** A person
+who got the first instead of the second goes to look for the error in their own application, where
+there is none.
 
-Поэтому `catalog.list()` возвращает разные ЗНАЧЕНИЯ, а не разное содержимое:
-пустой каталог — таблица и `nil`-причина, нечитаемый реестр — `nil` и строка.
-Меню обязано показать причину текстом.
+That is why `catalog.list()` returns different VALUES, not different contents:
+an empty catalog is a table and a `nil` reason, an unreadable registry is `nil` and a string.
+The menu must show the reason as text.
 
-Там же — отчёт восстановления окон мастерской. Лог терминального хоста
-заглушён намеренно, поэтому отказ, рассказанный только в лог, не рассказан
-никому: `GET /windows/status` — единственное место, где человек его увидит.
+The same goes for the restore report of workshop windows. The terminal host's log
+is silenced deliberately, so a refusal told only in the log is told to
+no one: `GET /windows/status` is the only place where a person will see it.
 
-## Разработка
+## Development
 
-`make` уже знает про локальную сборку: цель берёт её из переменной `WIPPY`,
-поэтому `make lint` проверяет по-настоящему, а `wippy lint` руками — нет.
+`make` already knows about the local build: the target takes it from the `WIPPY` variable,
+so `make lint` checks for real, while `wippy lint` by hand does not.
 
 ```bash
-make setup     # wippy update здесь и в test/
-make lint      # поздние local + линт сборкой с gfx
+make setup     # wippy update here and in test/
+make lint      # late locals + lint with the gfx build
 make test      # SQLite
 make postgres-up && make test-pg && make postgres-down
 make verify    # setup + check + lint + test
 ```
 
-Полный `make verify` требует локальной сборки рантайма с `gfx` и основы в
-`../kickside-module`, поэтому в CI не идёт: GitHub Actions
-(`.github/workflows/verify.yml`) проверяет только `make check` и поздние `local`.
+A full `make verify` requires a local runtime build with `gfx` and the base in
+`../kickside-module`, so it does not run in CI: GitHub Actions
+(`.github/workflows/verify.yml`) checks only `make check` and late `local`s.
 
-Тесты живут в `test/` и поднимают модуль отдельным приложением. Оболочку
-оттуда можно запустить руками:
+Tests live in `test/` and bring the module up as a separate application. The shell
+can be launched from there by hand:
 
 ```bash
 cd test && $WIPPY run --host butschster.windows:terminal windows
 ```
 
-### Основа берётся из рабочей копии
+### The base is taken from a working copy
 
-`butschster/tui-desktop` ещё не опубликован в Hub, поэтому он подключён
-заменой в `.wippy.yaml` — в корне модуля и в `test/`. **Условие снятия:** как
-только основа опубликована, обе замены убрать; иначе модуль собирается только
-на машине, где рядом лежит нужный каталог.
+`butschster/tui-desktop` is not yet published to the Hub, so it is connected
+by a replacement in `.wippy.yaml` — at the module root and in `test/`. **Condition for removal:** as
+soon as the base is published, remove both replacements; otherwise the module builds only
+on a machine where the needed directory lies next to it.
 
-### Ловушка go-lua, стоившая здесь дня
+### The go-lua trap that cost a day here
 
-В go-lua v1.5.18 (закреплён в wippy 0.3.35a) хвостовой вызов yield-функции из
-базового фрейма корутины **не выполняется вообще** — молча, за 0 мс, без
-ошибки. Снаружи это неотличимо от «функция честно вернула пустоту».
+In go-lua v1.5.18 (pinned in wippy 0.3.35a) a tail call of a yield function from
+the base frame of a coroutine **is not executed at all** — silently, in 0 ms, with no
+error. From outside it is indistinguishable from "the function honestly returned emptiness".
 
 ```lua
--- ловушка: вызов НЕ произойдёт
+-- trap: the call will NOT happen
 return library.run(options)
 
--- как надо
+-- the right way
 local ok, err = library.run(options)
 return ok, err
 ```
 
-Той же формы все Go-yield-ы: `process.send`, `channel.select`, приём из
-канала, `sql.get`. Правило до починки VM: функция не заканчивается голым
-`return <yield-вызов>(...)`.
+All Go yields have the same form: `process.send`, `channel.select`, receiving from
+a channel, `sql.get`. The rule until the VM is fixed: a function does not end with a bare
+`return <yield-call>(...)`.
 
-## «Мой компьютер»: диски — это записи реестра
+## "My Computer": drives are registry entries
 
-Окно `butschster.windows.explorer:window` — обычная программа реестра
-(`meta.type: tui_desktop.window`), и оболочка находит его тем же
-`registry.find`, что и всё остальное. Мебель первого запуска ведёт на него.
+The window `butschster.windows.explorer:window` is an ordinary registry program
+(`meta.type: tui_desktop.window`), and the shell finds it with the same
+`registry.find` as everything else. The first-start furniture leads to it.
 
-**Дисков оболочка не заводит — она их показывает.** Диск здесь — это запись
-`fs.directory` или `fs.embed`, а их привозит почти каждый установленный
-модуль: на стенде их шестьдесят восемь. Отсюда оба правила разом.
+**The shell does not create drives — it shows them.** A drive here is an
+`fs.directory` or `fs.embed` entry, and almost every installed module
+brings some: on the test stand there are sixty-eight of them. Hence both rules at once.
 
-- Диск, объявленный установленным модулем, появляется **сам**, без правки в
-  оболочке. Своя таблица дисков означала бы, что он не появится, пока кто-то
-  не впишет его руками.
-- Диска, которого в реестре нет, **не будет**. Нарисованный `C:` — предмет,
-  которого не существует, и первым вопросом было бы, почему он не
-  открывается.
-- Содержимое читается модулем `fs` под правами самого окна. Диск,
-  объявленный, но недоступный, отвечает **причиной**, а не пустотой.
+- A drive declared by an installed module appears **by itself**, without an edit in
+  the shell. A drive table of our own would mean it does not appear until someone
+  writes it in by hand.
+- A drive that is not in the registry **will not be there**. A drawn `C:` is an object
+  that does not exist, and the first question would be why it does not
+  open.
+- Contents are read by the `fs` module under the window's own permissions. A drive
+  that is declared but inaccessible answers with a **reason**, not with emptiness.
 
-В корне «Моего компьютера» только файловые системы. Программы, записи
-реестра других видов и служебные папки туда не попадают. Поиск использует
-верхнеуровневое поле `.kind`; `kind` без точки не фильтрует вид записи.
+The root of "My Computer" holds only file systems. Programs, registry
+entries of other kinds and service folders do not get there. The search uses
+the top-level `.kind` field; `kind` without the dot does not filter by entry kind.
 
-### Подпись, счётчик и полоса — три места, где легко соврать
+### Caption, counter and scrollbar — three places where it is easy to lie
 
-- **Подпись — имя записи**, а не полный идентификатор: в двенадцать ячеек
-  `wippy.facade:public_files` не помещается и обрезается ровно там, где
-  начинается различие. Имя, встретившееся дважды (`ui_static_fs` привозят
-  несколько модулей), удлиняется пространством имён — и **пробелом**, а не
-  двоеточием: подпись переносится по пробелам, и `keeper ui_static_fs`
-  ложится двумя строками. Полный идентификатор при этом не теряется: он в
-  статусной строке, когда значок выделен.
-- **Счётчик считает то, что показано.** Верхний уровень стола — только то,
-  что лежит НА столе: покажи он и содержимое папок, каждый вложенный значок
-  был бы виден дважды.
-- **Ряд, который не поместился, не прячется.** Шаг сетки четыре строки,
-  рисунок три, и ряды считаются по рисунку: иначе целый ряд пропадает, а
-  вместе с ним появляется прокрутка, которой без него не было бы. Всё, что не
-  влезло, достаётся полосе прокрутки — со стрелками, по которым можно
-  щёлкнуть. Полоса рисуется только когда есть что прокручивать: при
-  полностью видимом содержимом она — обещание, что где-то есть ещё.
+- **The caption is the entry name**, not the full identifier: in twelve cells
+  `wippy.facade:public_files` does not fit and is cut exactly where
+  the difference begins. A name that occurs twice (`ui_static_fs` is brought by
+  several modules) is extended with the namespace — and with a **space**, not
+  a colon: the caption wraps on spaces, and `keeper ui_static_fs`
+  falls onto two lines. The full identifier is not lost: it is in
+  the status bar when the icon is selected.
+- **The counter counts what is shown.** The top level of the desktop is only what
+  lies ON the desktop: if it also showed the contents of folders, every nested icon
+  would be visible twice.
+- **A row that did not fit is not hidden.** The grid step is four lines,
+  the picture is three, and rows are counted by the picture: otherwise a whole row disappears, and
+  along with it a scrollbar appears that would not be there without it. Everything that did not
+  fit goes to the scrollbar — with arrows that can be
+  clicked. The scrollbar is drawn only when there is something to scroll: with
+  fully visible contents it would be a promise that there is more somewhere.
 
-### Одна раскладка, два бэкенда
+### One layout, two backends
 
-`butschster.windows.explorer:render` разделён на три части, и разделение не
-косметическое.
+`butschster.windows.explorer:render` is split into three parts, and the split is not
+cosmetic.
 
-- Часть: `render.layout`; Что делает: ЧТО и ГДЕ: строки, поле, сетка, прямоугольники значков, попадания. Ни одной краски
-- Часть: `render.cells`; Что делает: рисует символами в холст `tty`
-- Часть: `render_pixels.paint`; Что делает: рисует пикселями в растры
+- Part: `render.layout`; What it does: WHAT and WHERE: lines, field, grid, icon rectangles, hits. Not a single paint
+- Part: `render.cells`; What it does: draws with characters into a `tty` canvas
+- Part: `render_pixels.paint`; What it does: draws with pixels into rasters
 
-Оболочка обязана работать в обычном xterm, где графики нет вовсе (FR-005
-§8б), и умереть там молча она не имеет права. Цена второго бэкенда уплачена
-ровно тем, что раскладка у них общая.
+The shell must work in a plain xterm, where there are no graphics at all ([FR-005](docs/rfcs/005-pixel-chrome.md)
+§8b), and it has no right to die there silently. The price of the second backend is paid
+precisely by their layout being shared.
 
-**Попадания считает раскладка, а не отрисовка.** Раньше их возвращал тот, кто
-рисовал, и это было верно, пока рисующий был один. С двумя рисующими «одна
-таблица» означает уже не «функция, которая рисует», а раскладку: два бэкенда,
-считающие попадания каждый по-своему, разъедутся молча, и щелчок попадёт на
-соседа в одном из двух режимов. Прямоугольник значка при этом всё равно
-берётся из общей сетки: в режиме ячеек через `icons.box`, в пиксельном —
-через `render.pixel_metrics`. Тест сравнивает план с рисунком и вводом.
+**Hits are computed by the layout, not by the drawing.** Previously they were returned by whoever
+drew, and that was right while there was one drawer. With two drawers, "one
+table" no longer means "the function that draws" but the layout: two backends
+each computing hits in their own way would drift apart silently, and a click would land on
+a neighbor in one of the two modes. The icon rectangle is still
+taken from the shared grid: in cell mode through `icons.box`, in pixel mode
+through `render.pixel_metrics`. A test compares the plan with the drawing and with input.
 
-**Пиксельный бэкенд — отдельная запись, а не ветка внутри `render`.** Запись,
-объявившая `gfx`, на рантайме без него не грузится целиком. Правило: `gfx`
-объявляет только тот, кто без него не существует.
+**The pixel backend is a separate entry, not a branch inside `render`.** An entry
+that declared `gfx` does not load at all on a runtime without it. The rule: `gfx`
+is declared only by whoever does not exist without it.
 
-**Растры берутся из хранилища и не создаются заново.** Растр, пересозданный
-каждый кадр, — это не медленный экран, а НЕВЕРНЫЙ: поверхность сравнивает
-буфер по его номеру, и картинка, которая поменялась, но лежит в новом буфере,
-не уезжает вовсе. На экране остаются вчерашние часы, и ни одного признака
-поломки.
+**Rasters are taken from the store and not created anew.** A raster recreated
+every frame is not a slow screen but a WRONG one: the surface compares
+a buffer by its number, and a picture that changed but lies in a new buffer
+does not get sent at all. Yesterday's clock stays on screen, and not a single sign
+of breakage.
 
-Кадр нарезан по СТРОКАМ (FR-005 §3): меню, панель инструментов, поле,
-статусная строка — четыре размещения. Одно на всё окно значило бы, что
-выделение значка перерисовывает и меню, и статусную строку.
+The frame is sliced by ROWS ([FR-005](docs/rfcs/005-pixel-chrome.md) §3): menu, toolbar, field,
+status bar — four placements. One for the whole window would mean that
+selecting an icon redraws both the menu and the status bar.
 
-### Вид окна живёт вне процесса окна
+### The window's view lives outside the window's process
 
-Содержимое рисует `butschster.windows.explorer:render` — библиотека, которой
-нужен только `tty`. Так кадр смотрится пробником `tools/themeprobe` без
-рантайма и без стенда, а полноэкранную программу иначе не проверить вовсе:
-она пишет не строки, а поток с абсолютным позиционированием.
+The contents are drawn by `butschster.windows.explorer:render` — a library that
+needs only `tty`. That way the frame can be viewed with the `tools/themeprobe` probe without
+the runtime and without the test stand, and a full-screen program cannot be checked otherwise at all:
+it writes not lines but a stream with absolute positioning.
 
-Попадания возвращает `render.hits` по общему плану. В режиме ячеек рисует
-`render.cells`, в пиксельном — `render_pixels.paint`. Контроллер окна читает
-источники и обрабатывает ввод; композитор передаёт состояние теме, не зная
-про меню, диски и файлы внутри окна.
+Hits are returned by `render.hits` from the shared plan. In cell mode drawing is done by
+`render.cells`, in pixel mode by `render_pixels.paint`. The window controller reads
+the sources and handles input; the compositor passes the state to the theme without knowing
+about the menu, drives and files inside the window.
 
-### Права окна: читать и просить, но не порождать
+### Window permissions: read and ask, but not spawn
 
-Политика `butschster.windows.security:explorer_window` даёт `registry.find`,
-`db.get`, `fs.get`, `process.send` и `process.registry`. **`spawn` и `exec`
-там нет** — окно с правом порождать процессы рано или поздно запустит не то,
-чем ему открыли файл. Открыть соседнее окно оно может только просьбой к
-композитору, и композитор решает сам.
+The policy `butschster.windows.security:explorer_window` grants `registry.find`,
+`db.get`, `fs.get`, `process.send` and `process.registry`. **`spawn` and `exec`
+are not there** — a window with the right to spawn processes will sooner or later launch something other than
+what a file was opened with. It can open a neighboring window only by asking
+the compositor, and the compositor decides by itself.
 
-Команда композитора называется `desktop.focus`; «raise» — это намерение
-модели, а не имя топика. Послать топик, которого у композитора нет, значит не
-получить ни окна, ни отказа.
+The compositor command is called `desktop.focus`; "raise" is the model's
+intent, not a topic name. Sending a topic the compositor does not have means
+getting neither a window nor a refusal.

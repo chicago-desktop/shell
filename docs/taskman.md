@@ -1,29 +1,29 @@
-# Диспетчер задач
+# Task Manager
 
-Открывается из «Пуск → Настройка → Диспетчер задач». Окно собрано на SDK
-оболочки: вкладки, таблицы, рамки с заголовками, датчики, графики, статусная
-строка и кнопка — общие компоненты, одинаково в ячейках и в пикселях.
-Собственных раскладки и отрисовщиков у окна больше нет.
+Opens from "Start → Settings → Task Manager". The window is built on the
+shell SDK: tabs, tables, frames with titles, gauges, graphs, the status
+bar and the button are shared components, the same in cells and in pixels.
+The window no longer has its own layout or renderers.
 
-Четыре вкладки: открытые приложения, процессы Wippy, быстродействие и узел.
-Данные обновляются раз в секунду (`definition.interval`). «Обновить», F5 и R
-снимают новый замер сразу. Вкладки переключаются мышью, стрелками ←/→ на
-фокусе полосы или клавишами 1–4. В таблицах работают колесо, полоса
-прокрутки, стрелки, Page Up / Page Down, Home / End. Выделение держится за
-идентификатор задачи, когда новый замер меняет порядок строк.
+Four tabs: open applications, Wippy processes, performance and the node.
+Data refreshes once a second (`definition.interval`). "Refresh", F5 and R
+take a new sample immediately. Tabs switch with the mouse, with the ←/→ arrows
+while the tab strip has focus, or with keys 1–4. Tables support the wheel, the
+scrollbar, arrows, Page Up / Page Down, Home / End. The selection holds on to
+the task identifier when a new sample changes the order of rows.
 
-Графики показывают число горутин и занятую кучу; шкала подстраивается под
-историю (`sdk:charts.round_ceiling`). Процент загрузки CPU не показывается:
-модуль `system` его не отдаёт. Права окна позволяют читать состояние рантайма
-и список окон. Завершение процессов не добавлено.
+The graphs show the goroutine count and the heap in use; the scale adapts to the
+history (`sdk:charts.round_ceiling`). CPU load percentage is not shown:
+the `system` module does not provide it. The window's permissions allow reading
+the runtime state and the window list. Ending processes has not been added.
 
-`src/taskman/window.lua` — приложение SDK (`init/view/update`), `model.lua` —
-история, форматы и устойчивая сортировка процессов; график и потолок шкалы
-живут в `butschster.windows.sdk:charts`, потому что нужны любому окну с
-историей числа.
+`src/taskman/window.lua` is the SDK application (`init/view/update`), `model.lua` is
+the history, the formats and stable sorting of processes; the graph and the scale
+ceiling live in `butschster.windows.sdk:charts`, because any window with a
+history of a number needs them.
 
-`test/src/taskman_test.lua` проверяет раскладку на SDK без пересечений при
-трёх размерах и четырёх вкладках, сохранение выделения по идентификатору и
-живое окно внутри настоящего композитора: вкладки, выбор строки, «Обновить»,
-замеры. Команда `paint-png` создаёт четыре снимка `taskman-*.png` с
-демонстрационными данными.
+`test/src/taskman_test.lua` checks the SDK layout for overlaps at
+three sizes and four tabs, keeping the selection by identifier, and the
+live window inside a real compositor: tabs, row selection, "Refresh",
+samples. The `paint-png` command creates four screenshots `taskman-*.png` with
+demo data.
