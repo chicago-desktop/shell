@@ -1386,6 +1386,110 @@ local function define_tests()
     -- The client by rows: a placement per row, an unchanged row keeps its
     -- raster and version, so the surface does not re-send it. The costs go to
     -- shots/sdk-rows-cost.txt.
+    test.describe("Window SDK: a menu's drop-down", function()
+        local function face(): any
+            local files = assert(fs.get("app:system_fonts"))
+            return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
+        end
+        -- Integers on both sides: go-lua's `//` and math.max give floats, and
+        -- "18" and "18.0" must not differ in a comparison of positions.
+        local function int(value: any): string
+            return tostring(math.tointeger(math.floor(tonumber(value) or 0)))
+        end
+        -- Minesweeper's shape: a bar, and the counter row right under it.
+        local function tree(): any
+            return {kind = "column", children = {
+                {kind = "menu", id = "bar", size = 1, entries = {
+                    {title = "Game", accel = 1, items = {
+                        {id = "new", text = "New", accel = 1},
+                        {separator = true},
+                        {id = "exit", text = "Exit", accel = 2},
+                    }},
+                }},
+                {kind = "label", text = "000"},
+            }}
+        end
+        local function opened(): any
+            local interaction = ui.interaction()
+            interaction.menus = {bar = {index = 1, cursor = 0}}
+            return interaction
+        end
+
+        test.it("touches the bar in pixels at 8x16 and 10x20: no frame row, the first item row is New", function()
+            local font = face()
+            for _, cell in ipairs({{w = 8, h = 16}, {w = 10, h = 20}}) do
+                local label = cell.w .. "x" .. cell.h .. ": "
+                local interaction = opened()
+                local plan = ui.plan(tree(), 30, 10, interaction, {cell = cell})
+                local bar = plan.by_id.bar
+                local popup = bar.popup
+                test.not_nil(popup, label .. "the menu is open")
+                test.eq(popup.rect.y, bar.rect.y + bar.rect.h, label .. "the list starts in the row under the bar")
+                test.eq(popup.rect.h, #popup.rows, label .. "the list is its items alone, no frame rows")
+                local box = render.menu_box(popup, cell)
+                test.eq(int(box.y), int((bar.rect.y + bar.rect.h - 1) * cell.h + 1),
+                    label .. "the panel's top pixel row is the one under the bar")
+                test.eq(int(box.first), int(box.y), label .. "the first item lies in the panel's first row")
+
+                -- The painter draws exactly that panel, and underlines the N.
+                local rects: any = {}
+                local raster: any = {fill = function() end, set = function() end, blit = function() end,
+                    text = function() return 0 end,
+                    rect = function(_, x, y, w, h)
+                        rects[#rects + 1] = int(x) .. "," .. int(y) .. "," .. int(w) .. "," .. int(h)
+                    end}
+                local store: any = {take = function() return raster, true end}
+                assert(render.placement({id = "mines", state_revision = 1, content_state = {sdk = 1, revision = 1,
+                    interaction = opened(), ui = tree()}}, {x = 1, y = 1, cols = 30, rows = 10}, cell, {face = font}, store))
+                local drawn = " " .. table.concat(rects, " ") .. " "
+                local panel = int(box.x) .. "," .. int(box.y) .. "," .. int(box.w) .. "," .. int(box.h)
+                test.not_nil(drawn:find(" " .. panel .. " ", 1, true), label .. "the panel is painted at " .. panel)
+                local underline = int(box.x + 2 * cell.w) .. "," .. int(box.first + (cell.h - 15) // 2 + 13) .. ","
+                    .. int(math.max(1, (font:measure("N")))) .. ",1"
+                test.not_nil(drawn:find(" " .. underline .. " ", 1, true),
+                    label .. "the accelerator of New is underlined at " .. underline)
+
+                local chosen = ui.event(plan, interaction, {type = "mouse", action = "press", button = "left",
+                    x = popup.rect.x + 1, y = popup.rect.y})
+                test.eq(chosen and chosen.id, "new", label .. "a click on the first item row is New")
+            end
+        end)
+
+        test.it("keeps the frame rows in cells: the box's top row, then New", function()
+            local interaction = opened()
+            local plan = ui.plan(tree(), 30, 10, interaction)
+            local popup = plan.by_id.bar.popup
+            test.eq(popup.rect.y, 2)
+            test.eq(popup.rect.h, #popup.rows + 2, "a frame row above and below the items")
+            local rows: any = cells.rows(plan, interaction, 30, 10)
+            local line = tostring(rows[3]):gsub("\27%[[%d;:]*m", "")
+            test.not_nil(line:find("New", 1, true), "New is drawn under the frame row: " .. line)
+            local chosen = ui.event(plan, interaction, {type = "mouse", action = "press", button = "left",
+                x = popup.rect.x + 1, y = popup.rect.y + 1})
+            test.eq(chosen and chosen.id, "new", "a click on New's row is New")
+        end)
+
+        test.it("the explorer's menu list touches its bar in pixels and keeps its frame row in cells", function()
+            local explorer_pixels: any = require("explorer_pixels")
+            local font = face()
+            test.eq(explorer_render.layout({menu_open = 3}, 46, 14).menu_popup.hits[1].row,
+                explorer_render.MENU_ROW + 2, "cells: the frame row, then the items")
+            for _, cell in ipairs({{w = 8, h = 16}, {w = 10, h = 20}}) do
+                local label = cell.w .. "x" .. cell.h .. ": "
+                local plan = explorer_render.layout({menu_open = 3}, 46, 14, explorer_render.pixel_metrics(cell.w, cell.h))
+                local hits = plan.menu_popup.hits
+                test.eq(hits[1].row, explorer_render.MENU_ROW + 1, label .. "the first item is the row under the bar")
+                local found: any = nil
+                for _, placement in ipairs(explorer_pixels.paint(rasters.store(), plan, cell, {face = font, bold = font}, "ex")) do
+                    if placement.id == "ex:menu_popup" then found = placement end
+                end
+                test.not_nil(found, label .. "the list is painted")
+                test.eq(found.y, explorer_render.MENU_ROW + 1, label .. "the list's raster starts under the bar")
+                test.eq(found.rows, #hits, label .. "no frame row in the raster")
+            end
+        end)
+    end)
+
     test.describe("Window SDK: client rows", function()
         local function face(): any
             local files = assert(fs.get("app:system_fonts"))

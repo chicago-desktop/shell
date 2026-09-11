@@ -123,7 +123,15 @@ function ui.spans(labels: any, width: any, pad: any, cell: any?): any
 end
 -- A menu's drop-down list: rows under the title, a separator is a row of its own.
 -- The width follows the longest caption; everything is in cells, coordinates are 1-based.
-function ui.popup(item: any, index: any): any
+--
+-- `lead` is how many frame rows stand before the first item — the one rule the
+-- hit test and both renderers read. Cells draw a box, so the list has a frame
+-- row above and below its items (`lead` 1). A pixel plan (`pixel_rows`) has
+-- none: the frame is pixels inside the item rows, and the first item lies in
+-- the row straight under the bar, as the Windows 95 drop-down touches the bar.
+-- A separator stays a whole row: the mouse knows only rows, and a thinner one
+-- would move every item below it off the row its hit is counted by.
+function ui.popup(item: any, index: any, pixel_rows: any?): any
     local node: any = item.node
     local entry: any = (node.entries or {})[whole(index)]
     local span: any = nil
@@ -141,7 +149,9 @@ function ui.popup(item: any, index: any): any
         if cells_of(text) + 4 > widest then widest = cells_of(text) + 4 end
     end
     local rect = item.rect
-    return {rect = geometry.rect(rect.x + span.x, rect.y + 1, widest + 2, #rows + 2), rows = rows, index = whole(index)}
+    local lead = pixel_rows and 0 or 1
+    return {rect = geometry.rect(rect.x + span.x, rect.y + 1, widest + 2, #rows + lead * 2), rows = rows,
+        index = whole(index), lead = lead}
 end
 -- The index of a select's value among its options, 0 when none matches.
 local function option_index(node: any): integer
@@ -395,7 +405,7 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         item.spans = ui.spans(node.entries, rect.w, 1)
         local open: any = interaction.menus[id]
         if open and open.index then
-            item.popup = ui.popup(item, open.index)
+            item.popup = ui.popup(item, open.index, plan.cell ~= nil)
             if item.popup then plan.overlays[#plan.overlays + 1] = item else interaction.menus[id] = nil end
         end
     end
@@ -700,7 +710,7 @@ local function menu_event(item: any, state: any, event: any): any
     if event.type == "mouse" then
         if not input.pressed(event) then return nil end
         if open and item.popup and geometry.contains(item.popup.rect, event.x, event.y) then
-            local row: any = item.popup.rows[event.y - item.popup.rect.y]
+            local row: any = item.popup.rows[event.y - item.popup.rect.y + 1 - item.popup.lead]
             state.menus[id] = nil
             if row and not row.separator and not row.disabled and row.id then
                 return {type = "activate", id = row.id, menu = id}

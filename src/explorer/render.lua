@@ -189,10 +189,16 @@ function render.layout(view: any, width: any, height: any, metrics: any?): any
         for _, item in ipairs(items) do room = math.max(room, widgets.cells(item.title) + 4) end
         room = math.min(room, w)
         local from = math.max(1, math.min(open_menu.from, w - room + 1))
-        -- The list's top frame is the row under the menu, the items below it.
-        local rows = widgets.dropdown_hits(from, render.MENU_ROW + 1, room, #items)
+        -- In cells the list's top frame is the row under the menu and the
+        -- items are below it. In pixels (`metrics`) the frame is pixels inside
+        -- the item rows, and the first item lies straight under the bar, as the
+        -- Windows 95 drop-down touches it. `lead` is that one rule for the hits
+        -- and both backends.
+        local lead = type(metrics) == "table" and 0 or 1
+        local rows = widgets.dropdown_hits(from, render.MENU_ROW + lead, room, #items)
         for index, row in ipairs(rows) do row.id = items[index].id end
-        plan.menu_popup = {index = open_menu.index, items = items, hits = rows, from = from, width = room}
+        plan.menu_popup = {index = open_menu.index, items = items, hits = rows, from = from, width = room,
+            lead = lead}
     end
 
     plan.address.hits = widgets.address_hits(1, plan.address.row, w)

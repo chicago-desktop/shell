@@ -61,8 +61,8 @@ end
 
 -- A dropdown list over the window: the rows are the plan's hits, one row per
 -- item. `lead` is how many rows of frame above the first item lie in the
--- raster: for a menu the top frame is its own row under the titles, for the
--- address there is none. `raised` is a menu: the face and a raised edge;
+-- raster: the plan's `menu_popup.lead` for a menu (0 in pixels — its frame is
+-- inside the item rows, and the list touches the bar), none for the address. `raised` is a menu: the face and a raised edge;
 -- otherwise a white sunken field.
 local function paint_list(store: any, id: string, hits: any, titles: any, chosen: integer,
         lead: integer, raised: boolean, face: any, cell: any)
@@ -288,7 +288,7 @@ function backend.paint(store: any, plan: any, cell: any, fonts: any, prefix)
     if popup and #popup.hits > 0 then
         local titles: any = {}
         for index, item in ipairs(popup.items) do titles[index] = tostring((item :: any).title or "") end
-        paint_list(store, name .. ":menu_popup", popup.hits, titles, 0, 1, true, face, cell)
+        paint_list(store, name .. ":menu_popup", popup.hits, titles, 0, whole(popup.lead or 1), true, face, cell)
     end
 
     return store.frame(cell)

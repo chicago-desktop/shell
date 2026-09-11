@@ -60,6 +60,20 @@ end
 function render.ceiling_caption(ceiling: number, unit: any): string
     return string.format("%.0f", ceiling + 0.0) .. tostring(unit or "")
 end
+-- menu_box(popup, cell) -> {x, y, w, h, first} — a menu's open list in pixels:
+-- the panel's box and `first`, the top of the first item row. A pixel plan
+-- (`lead` 0, ui.popup) has no frame rows: the panel is the item rows, its top
+-- pixel row the one under the bar — the Windows 95 drop-down touches the bar.
+-- A cells plan (`lead` 1) keeps its frame rows, and the panel is drawn tight
+-- around the items, 4 px into them: a whole frame row is a couple dozen
+-- pixels of emptiness no Windows 95 menu had.
+function render.menu_box(popup: any, cell: any): any
+    local lead = whole(popup.lead or 0)
+    local px, py = (popup.rect.x - 1) * cell.w + 1, (popup.rect.y - 1) * cell.h + 1
+    local first = py + lead * cell.h
+    local pad = lead > 0 and 4 or 0
+    return {x = px, y = first - pad, w = popup.rect.w * cell.w, h = #popup.rows * cell.h + pad * 2, first = first}
+end
 -- paint(raster, plan, interaction, cell, fonts) — the whole client into `raster`.
 local function paint(raster: any, plan: any, interaction: any, cell: any, fonts: any)
     do
@@ -760,28 +774,37 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
         for _, item in ipairs(menus) do
             local popup: any = item.popup
             local open: any = interaction.menus[item.node.id]
-            local px, py = (popup.rect.x - 1) * cell.w + 1, (popup.rect.y - 1) * cell.h + 1
-            local pw = popup.rect.w * cell.w
-            -- The panel's margins are IN PIXELS, not in cells. The menu rectangle
-            -- stays the same (hits are counted by it, and the mouse knows
-            -- only cells), but the frame is drawn tight around the items: a whole
-            -- cell above and below is a couple dozen pixels of emptiness
-            -- that a Windows 95 drop-down menu never had.
-            local pad = 4
-            local top = py + cell.h - pad
-            local body = #popup.rows * cell.h + pad * 2
-            pixels.panel(raster, whole(px), whole(top), whole(pw), whole(body))
+            -- The rows are whole cells (hits are counted by them); the Windows 95
+            -- frame — a 2 px raised edge and 1 px of face, the highlight 3 px
+            -- in — lies inside them.
+            local box = render.menu_box(popup, cell)
+            raster:rect(whole(box.x), whole(box.y), whole(box.w), whole(box.h), color.face)
+            pixels.edge(raster, box.x, box.y, box.w, box.h, true)
             for position, row in ipairs(popup.rows) do
                 local line: any = row
-                local ry = py + position * cell.h
+                local ry = box.first + (position - 1) * cell.h
                 if line.separator then
-                    raster:rect(whole(px + 4), whole(ry + cell.h // 2 - 1), whole(pw - 8), 1, color.shadow)
-                    raster:rect(whole(px + 4), whole(ry + cell.h // 2), whole(pw - 8), 1, color.light)
+                    raster:rect(whole(box.x + 4), whole(ry + cell.h // 2 - 1), whole(box.w - 8), 1, color.shadow)
+                    raster:rect(whole(box.x + 4), whole(ry + cell.h // 2), whole(box.w - 8), 1, color.light)
                 elseif font then
                     local chosen = position == whole(open and open.cursor or 0)
-                    if chosen then raster:rect(whole(px + 3), whole(ry), whole(pw - 6), whole(cell.h), color.select_bg) end
+                    if chosen then
+                        -- On the first and the last row the highlight gives way
+                        -- to the frame.
+                        local top = whole(math.max(whole(ry), whole(box.y) + 3))
+                        local bottom = whole(math.min(whole(ry + cell.h), whole(box.y + box.h) - 3))
+                        raster:rect(whole(box.x + 3), whole(top), whole(box.w - 6), whole(bottom - top), color.select_bg)
+                    end
                     local tint = chosen and color.select_fg or (line.disabled and color.shadow or color.face_text)
-                    raster:text(whole(px + 2 * cell.w), whole(ry + (cell.h - 15) // 2), line.text, {font = font, color = tint})
+                    local tx, ty = box.x + 2 * cell.w, ry + (cell.h - 15) // 2
+                    raster:text(whole(tx), whole(ty), line.text, {font = font, color = tint})
+                    -- The accelerator is an underlined letter, as on the bar.
+                    local runes: any = text_lib.runes(line.text)
+                    if line.accel > 0 and runes[line.accel] then
+                        local before = whole(font:measure(table.concat(runes, "", 1, line.accel - 1)))
+                        raster:rect(whole(tx + before), whole(ty + 13),
+                            math.max(1, whole(font:measure(runes[line.accel]))), 1, tint)
+                    end
                 end
             end
         end

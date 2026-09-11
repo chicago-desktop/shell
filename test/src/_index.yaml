@@ -709,6 +709,7 @@ entries:
       app: butschster.windows.sdk:app
       widgets: butschster.windows.shell:widgets
       explorer_render: butschster.windows.explorer:render
+      explorer_pixels: butschster.windows.explorer:render_pixels
 
   - name: workshop_sdk_test
     kind: function.lua
