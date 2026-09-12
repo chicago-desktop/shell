@@ -182,6 +182,20 @@ end
 -- Every hit has `level` and `slot` — the panel level and the row number in it.
 -- By them the compositor clamps the cursor without knowing how the panels are
 -- built.
+-- profile_item(user) -> the catalog item behind the user row, or nil
+--
+-- `user` is the session's `{id, name, entry}`. With an `entry` (the window the
+-- application named as the profile) the shell appends this item to the menu
+-- catalog, and the layout puts it behind the user row instead of placing it
+-- as a program: a click and Enter go through the compositor's ordinary
+-- `items[hit.index]` path, which opens `entry` with `args`. No entry, no item:
+-- the row stays a caption.
+function menu_layout.profile_item(user: any): any
+    if type(user) ~= "table" or type(user.name) ~= "string" or user.name == "" then return nil end
+    if type(user.entry) ~= "string" or user.entry == "" then return nil end
+    return {entry = user.entry, title = user.name, image = "user", group = {}, profile = true,
+        args = {user_id = user.id}}
+end
 -- menu_layout(width, height, items, failure, open, cursor) -> layout
 --
 -- WHAT and WHERE, without a single paint. Taken out of painting for the same
@@ -295,8 +309,15 @@ function menu_layout.layout(width: any, height: any, items, failure, open, curso
         return out
     end
 
+    -- The profile item (`menu_layout.profile_item`) is not a program row:
+    -- it stands behind the user row at the top of the root, so it is not
+    -- placed in the tree, only remembered by its index in the catalog.
     local root = new_node()
-    for index, item in ipairs(catalog) do place(root, index, item) end
+    local profile_index: any = nil
+    for index, item in ipairs(catalog) do
+        if type(item) == "table" and item.profile == true then profile_index = index
+        else place(root, index, item) end
+    end
 
     -- The open levels. A path that no longer resolves (the folder was
     -- removed together with its module) is cut off silently: three panels
@@ -324,14 +345,19 @@ function menu_layout.layout(width: any, height: any, items, failure, open, curso
         local lines: any = panel_lines(node)
 
         -- The logged-on user is the first row of the root, with an icon and
-        -- a separator under it. The row is NOT selectable: it has neither a
-        -- hit nor a `slot` number, the cursor steps over it, and Enter on
-        -- "the first row" still opens the first program. Hints and clipping
-        -- on a short screen are counted by the same `#lines`, so it takes up
-        -- room honestly; on clipping it stays — the tail is cut.
+        -- a separator under it. Without a profile item in the catalog the
+        -- row is NOT selectable: it has neither a hit nor a `slot` number,
+        -- the cursor steps over it, and Enter on "the first row" still opens
+        -- the first program. With one (the shell was told which window is
+        -- the profile) it is a row like a program's: it carries the item's
+        -- catalog index, takes slot 1 and a hit, and the compositor opens it
+        -- the way it opens any program — `items[hit.index]`. Hints and
+        -- clipping on a short screen are counted by the same `#lines`, so it
+        -- takes up room honestly; on clipping it stays — the tail is cut.
         local user: any = sizing.user
         if level == 1 and type(user) == "table" and type(user.name) == "string" and user.name ~= "" then
-            table.insert(lines, 1, {kind = "user", text = user.name, image = "user"})
+            table.insert(lines, 1, {kind = "user", text = user.name, image = "user",
+                index = profile_index, item = profile_index and catalog[profile_index] or nil})
             if lines[2] then lines[2].separator_before = true end
         end
 
@@ -394,7 +420,8 @@ function menu_layout.layout(width: any, height: any, items, failure, open, curso
         for index, line in ipairs(lines) do
             local row = top + (index - 1) * span + (compact and 0 or 1)
             local text, tail = line_text(line)
-            local selectable = line.kind == "item" or line.kind == "group"
+            local opens = line.kind == "item" or (line.kind == "user" and line.index ~= nil)
+            local selectable = opens or line.kind == "group"
             if selectable then slot = slot + 1 end
             local under_cursor = selectable and level == deepest and at > 0 and slot == at
             local expanded = line.kind == "group" and names[level] ~= nil
@@ -440,7 +467,7 @@ function menu_layout.layout(width: any, height: any, items, failure, open, curso
             -- context menu).
             local hit_from = compact and left + banner_w or left + 1 + banner_w
             local hit_to = compact and left + box_w - 1 or left + box_w - 2
-            if line.kind == "item" then
+            if opens then
                 out.hits[#out.hits + 1] = {
                     row = row, bottom_row = span > 1 and row + span - 1 or nil, from = hit_from,
                     to = hit_to, index = line.index,

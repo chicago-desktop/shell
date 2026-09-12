@@ -185,8 +185,15 @@ The menu root is the "Programs" folder, the "Settings" folder, "Run…" and
 on the explorer entry, owner's decision 2026-09-09): it is opened from the desktop,
 and a shortcut to a hidden program works. Above
 all this, if the shell was brought up with logon, is the name of the logged-on user with
-the `user` icon and a rule under it (since 2026-09-09): the line cannot be selected, it has
-no hit and no number, the cursor steps over it. The name is set by `chrome.use_user`
+the `user` icon and a rule under it (since 2026-09-09). By default the line cannot be
+selected: it has no hit and no number, the cursor steps over it. When the application
+names a profile window in `BUTSCHSTER_WINDOWS_PROFILE_ENTRY` (read without a default;
+the shell's `shell_env` policy grants it by name), the line opens it: the shell appends a
+profile item to the menu catalog (`chrome.profile_item` — the entry, the user's name as
+the title, `image = "user"`, `args = {user_id}`), the layout puts it behind the line instead
+of listing it as a program, and the line takes slot 1 and a hit — the cursor lands on it
+when Start opens, a click and Enter open it through the compositor's ordinary
+`items[hit.index]` path, so the base needs no change. The name is set by `chrome.use_user`
 from the logon result; both themes read the same `chrome.session`. Without logon there is no
 such line: a desktop under a service actor, signed with someone's name, would look like
 someone else's logon. The folder

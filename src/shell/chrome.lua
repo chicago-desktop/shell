@@ -223,13 +223,23 @@ chrome.MENU_BANNER = "Wippy 2026"
 -- someone else's logon.
 chrome.session = {user = nil}
 
--- use_user(user) — user = {id, name}, or nil to clear it.
+-- use_user(user) — user = {id, name, entry?}, or nil to clear it. `entry` is
+-- the profile window the application named (BUTSCHSTER_WINDOWS_PROFILE_ENTRY):
+-- with it the user row at the top of Start opens that window; without it the
+-- row is a caption.
 function chrome.use_user(user: any)
     if type(user) == "table" and type(user.name) == "string" and user.name ~= "" then
-        chrome.session.user = {id = user.id, name = user.name}
+        local entry = type(user.entry) == "string" and user.entry ~= "" and user.entry or nil
+        chrome.session.user = {id = user.id, name = user.name, entry = entry}
     else
         chrome.session.user = nil
     end
+end
+
+-- profile_item(user) — the catalog item behind the user row, for the shell's
+-- menu catalog; the rule is the layout's (`menu_layout.profile_item`).
+function chrome.profile_item(user: any): any
+    return menu_layout.profile_item(user)
 end
 
 local START_LABEL = " " .. glyphs.icons.start .. " Start "

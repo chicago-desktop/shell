@@ -543,6 +543,80 @@ local function define_tests()
             test.eq(context.panels[1].lines[1].label, "Open")
         end)
 
+        test.it("with a profile entry the user row is the first hit, opening the profile item", function()
+            local user = {id = "u1", name = "butschster", entry = "app.profile:window"}
+            local items = {
+                {entry = "app:mycomp", title = "My Computer", group = {}, order = 5, separator_after = true},
+                {entry = "app:calc", title = "Calculator", group = {"Programs"}, order = 20},
+                {entry = "app:run", title = "Run…", group = {}, order = 900},
+            }
+            -- The shell's menu catalog appends it; the layout puts it behind the row.
+            items[#items + 1] = chrome.profile_item(user)
+            local shown = chrome.menu_layout(90, 24, items, nil, {}, 1, {user = user})
+            local lines = shown.panels[1].lines
+            test.eq(lines[1].kind, "user", "still the user row: bold, with the user icon")
+            test.is_true(lines[1].bold == true)
+            test.eq(lines[1].image, "user")
+            test.eq(lines[1].entry, "app.profile:window")
+            local first = shown.hits[1]
+            test.eq(first.row, lines[1].row, "the root's first hit is the user row")
+            test.eq(first.slot, 1)
+            test.is_true(first.cursor == true and lines[1].selected == true, "cursor 1 highlights it, like a program")
+            -- What the compositor does on a click or Enter: items[hit.index].
+            local opened = items[first.index]
+            test.eq(opened.entry, "app.profile:window")
+            test.eq(opened.args.user_id, "u1")
+            test.eq(opened.title, "butschster")
+            test.eq(opened.image, "user")
+            test.eq(shown.hits[2].row, lines[2].row, "My Computer is the second row now")
+            -- The profile is not listed a second time as a program.
+            local profiles = 0
+            for _, line in ipairs(lines) do
+                if line.entry == "app.profile:window" then profiles = profiles + 1 end
+            end
+            test.eq(profiles, 1)
+            -- Without an entry there is no item and no hit on the row.
+            test.is_nil(chrome.profile_item({id = "u1", name = "butschster"}))
+            test.is_nil(chrome.profile_item({id = "u1", name = "butschster", entry = ""}))
+            test.is_nil(chrome.profile_item({entry = "app.profile:window"}), "no user, no profile")
+            local plain = chrome.menu_layout(90, 24, {items[1], items[2], items[3]}, nil, {}, 1,
+                {user = {id = "u1", name = "butschster"}})
+            for _, hit in ipairs(plain.hits) do
+                test.is_true(hit.row ~= plain.panels[1].lines[1].row, "no entry: no hit on the user row")
+            end
+        end)
+
+        test.it("a click on the user row finds its hit at 8x16 and 10x20", function()
+            local user = {id = "u1", name = "butschster", entry = "app.profile:window"}
+            local items = {{entry = "app:run", title = "Run…", group = {}, order = 900}, chrome.profile_item(user)}
+            for _, cell in ipairs({{w = 8, h = 16}, {w = 10, h = 20}}) do
+                -- The pixel theme's sizing: two taskbar rows, 32 px root rows.
+                local shown = chrome.menu_layout(100, 30, items, nil, {}, 0, {
+                    compact = true, bottom = 2, user = user, context_rows = 1,
+                    root_rows = math.max(1, (32 + cell.h - 1) // cell.h),
+                    item_rows = math.max(1, (24 + cell.h - 1) // cell.h),
+                })
+                local row: any = shown.panels[1].lines[1]
+                test.eq(row.kind, "user")
+                -- The compositor's lookup for a press: the row band and the columns.
+                local function at(x: integer, y: integer): any
+                    for _, spot in ipairs(shown.hits) do
+                        if y >= spot.row and y <= (spot.bottom_row or spot.row) and x >= spot.from and x <= spot.to then
+                            return spot
+                        end
+                    end
+                    return nil
+                end
+                local panel = shown.panels[1]
+                local label = tostring(cell.w) .. "x" .. tostring(cell.h)
+                for _, y in ipairs({row.row, row.row + row.rows - 1}) do
+                    local spot: any = at(panel.x + panel.banner + 1, y)
+                    test.not_nil(spot, label .. ": a click on the user row at row " .. tostring(y))
+                    test.eq(items[spot.index].entry, "app.profile:window", label)
+                end
+            end
+        end)
+
         test.it("chrome.use_user raises the name into the shared session and clears it", function()
             local items = {{entry = "app:run", title = "Run…", group = {}, order = 900}}
             chrome.use_user({id = "u1", name = "butschster"})
@@ -551,6 +625,11 @@ local function define_tests()
             -- Both themes pass exactly this table into the layout.
             local shown = chrome.menu_layout(90, 24, items, nil, {}, 1, {user = chrome.session.user})
             test.eq(shown.panels[1].lines[1].kind, "user")
+            test.is_nil(chrome.session.user.entry, "no profile entry was given")
+            chrome.use_user({id = "u1", name = "butschster", entry = "app.profile:window"})
+            test.eq(chrome.session.user.entry, "app.profile:window")
+            chrome.use_user({id = "u1", name = "butschster", entry = ""})
+            test.is_nil(chrome.session.user.entry, "an empty entry is no entry")
             chrome.use_user(nil)
             test.is_nil(chrome.session.user)
             chrome.use_user({name = 42})

@@ -129,7 +129,14 @@ local function main()
             })
         end
 
-        return catalog.menu_items(found.programs), nil
+        -- The logged-on user's profile rides in the catalog, behind the user
+        -- row: the compositor opens a menu row as `items[hit.index]`, so the
+        -- row must BE an item for a click and Enter to open it — no seam in
+        -- the base is needed.
+        local items = catalog.menu_items(found.programs)
+        local profile = chrome.profile_item(chrome.session.user)
+        if profile then items[#items + 1] = profile end
+        return items, nil
     end
 
     -- What appears on the desktop by itself. First-run furniture is created
@@ -335,6 +342,13 @@ local function main()
     -- that is how it always was, and a stand without a users module keeps
     -- working. A permission denial is not "not configured": it is named in
     -- the log.
+    -- The profile window: a click on the logged-on user's row at the top of
+    -- Start opens it with `args.user_id`. `read`, not `read_or`: there is no
+    -- default profile, and unset leaves the row a caption, as before. A
+    -- permission denial is not "unset", and it is named in the log.
+    local profile_entry, profile_source, profile_denied = environment.read("BUTSCHSTER_WINDOWS_PROFILE_ENTRY")
+    if profile_denied then log:warn("profile row not enabled", {reason = tostring(profile_source)}) end
+
     local logon: any = nil
     local logon_config, logon_error = logon_provider.configured()
     if logon_error then
@@ -349,7 +363,8 @@ local function main()
             -- one table.
             if type(identity) == "table" then
                 local context: any = type(identity.context) == "table" and identity.context or {}
-                chrome.use_user({id = context.user_id, name = context.user_name})
+                chrome.use_user({id = context.user_id, name = context.user_name,
+                    entry = profile_entry ~= nil and tostring(profile_entry) or nil})
             end
             return identity, why
         end

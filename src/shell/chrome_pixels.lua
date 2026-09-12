@@ -911,7 +911,7 @@ local function menu_memo_key(view: any, menu: any, cell: any, rows: any): string
     -- The cast is on `chrome`: its `session.user` starts as nil, and the
     -- linter keeps that type through an `any` local.
     local user: any = (chrome :: any).session.user
-    parts[#parts + 1] = type(user) == "table" and tostring(user.name) or ""
+    parts[#parts + 1] = type(user) == "table" and (tostring(user.name) .. "\30" .. tostring(user.entry)) or ""
     local anchor: any = menu.anchor
     parts[#parts + 1] = type(anchor) == "table" and (tostring(anchor.x) .. "," .. tostring(anchor.y)) or "-"
     for _, name in ipairs(type(menu.open) == "table" and menu.open or {}) do
