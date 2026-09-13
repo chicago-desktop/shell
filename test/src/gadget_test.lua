@@ -158,6 +158,7 @@ local function define_tests()
             test.eq(plan.items[2].node.value, 312)
             test.eq(plan.items[2].node.ceiling, 500)
             test.eq(plan.items[2].node.caption, "", "the gauge draws no text of its own: the value stands beside it")
+            test.eq(plan.items[2].node.orient, "horizontal", "a meter's gauge is a progress bar, not the LED meter")
             test.eq(plan.items[3].node.text, "312 MB")
         end)
 

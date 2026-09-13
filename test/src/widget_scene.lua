@@ -1,6 +1,6 @@
 -- The desktop widgets scene (FR-006 §10): three widgets in the right column —
 -- the weather, the heap and the goroutines, built with the kit — and a window
--- over part of the middle one. One scene for the test that checks it and for
+-- over part of the last one's history, so the heap's progress bar shows whole. One scene for the test that checks it and for
 -- `paint-png`, which refreshes test/shots/widgets.png: two copies would show
 -- two different things.
 local gfx = require("gfx")
@@ -43,7 +43,7 @@ function scene.state(options: any?): any
         width = scene.WIDTH, height = scene.HEIGHT, top = 1, bottom = scene.BOTTOM, clock = "12:00",
         items = {{id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window",
             title = "My Computer", x = 2, y = 1}},
-        windows = {{id = "w1", title = "Notepad", x = 62, y = 11, w = 36, h = 8, window_type = "app"}},
+        windows = {{id = "w1", title = "Notepad", x = 62, y = 22, w = 36, h = 8, window_type = "app"}},
         focused_id = "w1",
         widgets = {
             widget("g1", {entry = "app.weather:widget", title = "Weather", opens = "app.weather:window", w = 20, h = 7},

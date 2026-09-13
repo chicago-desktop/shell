@@ -368,6 +368,21 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                         raster:text(whole(gx + 4), whole(gy + 2), cap, {font = font, color = "#00ff00"})
                     end
                 end
+            elseif node.kind == "gauge" and node.orient == "horizontal" then
+                -- The Windows 95 progress bar: up to 18 px centred in its rows,
+                -- a one-pixel sunken edge on the face, and navy blocks 8 px
+                -- wide 2 px apart — the filled share of the blocks that fit
+                -- (`ui.gauge_filled`, the cells' rule too). No caption.
+                local bh = whole(math.min(18, h))
+                local by = whole(y + (h - bh) // 2)
+                raster:rect(whole(x), by, whole(w), bh, color.face)
+                pixels.bevel(raster, whole(x), by, whole(w), bh, false)
+                local ix, iy, iw, ih = whole(x + 2), by + 2, whole(w - 4), bh - 4
+                if iw >= 8 and ih >= 1 then
+                    for block = 1, ui.gauge_filled(node, (iw + 2) // 10) do
+                        raster:rect(ix + (block - 1) * 10, iy, 8, ih, color.select_bg)
+                    end
+                end
             elseif node.kind == "gauge" then
                 pixels.field(raster, whole(x), whole(y), whole(w), whole(h))
                 local gx, gy, gw, gh = x + 2, y + 2, w - 4, h - 4

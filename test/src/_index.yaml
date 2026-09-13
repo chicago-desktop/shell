@@ -802,6 +802,25 @@ entries:
       ui: butschster.windows.sdk:ui
       charts: butschster.windows.sdk:charts
 
+  - name: gauge_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: The gauge's orientation — vertical stays Task Manager's LED meter, horizontal is a Windows 95 progress bar in pixels and in cells, filled by one rule.
+      group: Windows SDK
+      suite: butschster_windows
+    source: file://gauge_test.lua
+    method: run
+    modules: [tty, gfx]
+    imports:
+      test: wippy.test:test
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
+      render: butschster.windows.sdk:render
+      rasters: butschster.windows.shell:rasters
+      palette: butschster.windows.shell:palette
+      glyphs: butschster.windows.shell:glyphs
+
   - name: desktop_widgets_test
     kind: function.lua
     meta:

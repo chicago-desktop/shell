@@ -217,12 +217,17 @@ local function define_tests()
                     .. " layer " .. tostring(row.layer), "90," .. (1 + n) .. " 20x1 layer 0")
             end
             test.is_true(first_icon > last_widget, "the icons are painted after the widgets")
-            test.not_nil(by_id["widget:g2:row:1"], "the memory widget's top row is clear of the window")
-            for n = 2, 8 do
-                test.is_nil(by_id["widget:g2:row:" .. n], "row " .. n .. " is under the window and goes as a crop")
+            -- The window covers rows 22..29: the goroutines' rows 4..9 (its
+            -- history), and nothing of the memory widget above.
+            for n = 1, 3 do
+                test.not_nil(by_id["widget:g3:row:" .. n], "the goroutines' row " .. n .. " is clear of the window")
+            end
+            for n = 1, 8 do test.not_nil(by_id["widget:g2:row:" .. n], "the memory widget is whole: row " .. n) end
+            for n = 4, 9 do
+                test.is_nil(by_id["widget:g3:row:" .. n], "row " .. n .. " is under the window and goes as a crop")
                 local crop: any = nil
                 for id in pairs(by_id) do
-                    if tostring(id):find("widget:g2:row:" .. n .. ":crop:", 1, true) == 1 then crop = id end
+                    if tostring(id):find("widget:g3:row:" .. n .. ":crop:", 1, true) == 1 then crop = id end
                 end
                 test.not_nil(crop, "the visible part of row " .. n)
             end

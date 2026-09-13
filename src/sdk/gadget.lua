@@ -67,16 +67,19 @@ function gadget.stat(spec: any): any
     return {kind = "row", size = gadget.ROWS.stat, gap = 1, children = children}
 end
 
--- meter{caption, value, ceiling, unit?} — the caption, a gauge toward
--- `ceiling` and the value on one line, two rows. Each text takes its length
--- plus a cell: in pixels a cell is wider than the font's average letter.
+-- meter{caption, value, ceiling, unit?} — the caption, a horizontal gauge
+-- (a Windows 95 progress bar) toward `ceiling` and the value on one line, two
+-- rows: the vertical LED meter shows two steps in two rows, which reads as
+-- nothing. Each text takes its length plus a cell: in pixels a cell is wider
+-- than the font's average letter.
 function gadget.meter(spec: any): any
     local s: any = type(spec) == "table" and spec or {}
     local caption = tostring(s.caption or "")
     local shown = gadget.amount(s.value, s.unit)
     local children: any = {}
     if caption ~= "" then children[#children + 1] = {kind = "label", size = runes(caption) + 1, text = caption} end
-    children[#children + 1] = {kind = "gauge", value = tonumber(s.value) or 0, ceiling = tonumber(s.ceiling) or 0, caption = ""}
+    children[#children + 1] = {kind = "gauge", orient = "horizontal", value = tonumber(s.value) or 0,
+        ceiling = tonumber(s.ceiling) or 0, caption = ""}
     children[#children + 1] = {kind = "label", size = runes(shown) + 1, text = shown}
     return {kind = "row", size = gadget.ROWS.meter, gap = 1, children = children}
 end

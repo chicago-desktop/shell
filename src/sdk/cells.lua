@@ -58,6 +58,8 @@ end
 -- An input's placeholder: grey on the field's own white, not the face's grey —
 -- a face-colored row inside a field reads as a disabled field.
 local placeholder_style = tty.style():foreground(palette.active.shadow):background(palette.active.field)
+-- A horizontal gauge's blocks: the Windows 95 progress navy over the face.
+local progress_style = tty.style():foreground(palette.active.select_bg):background(palette.active.face)
 function cells.rows(plan: any, interaction: any, width: any, height: any): any
     local canvas = tty.canvas(whole(math.max(1, width)), whole(math.max(1, height)))
     canvas:clear(widgets.styles.face:render(" "))
@@ -130,6 +132,17 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             end
             local cap = string.format("%s%s", tostring(top), tostring(node.unit or ""))
             canvas:put(whole(r.x), whole(r.y), line:render(cap), whole(math.min(r.w, widgets.cells(cap))))
+        elseif node.kind == "gauge" and node.orient == "horizontal" then
+            -- A progress bar: a sunken field on the middle row, `█` in the
+            -- filled share (`ui.gauge_filled`, the pixels' rule too), blank
+            -- face after it; the other rows are face.
+            for row = 0, r.h - 1 do put(r.x, r.y + row, "", r.w, styles.face) end
+            if r.w >= 3 then
+                local inner = whole(r.w - 2)
+                local filled = ui.gauge_filled(node, inner)
+                canvas:put(whole(r.x), whole(r.y + r.h // 2), widgets.bezel(progress_style:render(string.rep("█", filled))
+                    .. styles.face:render(string.rep(" ", inner - filled)), true), whole(r.w))
+            end
         elseif node.kind == "gauge" then
             local line = tty.style():foreground("#00ff00"):background("#000000")
             local grid = tty.style():foreground("#004400"):background("#000000")

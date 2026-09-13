@@ -150,6 +150,17 @@ local function new_font(size)
     return self
 end
 
+-- A real raster is userdata, and code tells it from its own tables by
+-- `type`: `images` keeps pack records (tables) and decoded icons (rasters) in
+-- one cache and reads a table as a pack record. So the stand-in answers
+-- `type` as the real one does — otherwise the probe dies on the first icon
+-- drawn twice, for a reason the running shell does not have.
+local raw_type = type
+type = function(value)
+    if raw_type(value) == "table" and rawget(value, "__raster") then return "userdata" end
+    return raw_type(value)
+end
+
 local gfx = {}
 gfx.supported = function() return "sixel", nil end
 gfx.cell_size = function() return CELL.w, CELL.h end
@@ -198,7 +209,16 @@ local fs = {get = function()
     return {readfile = function(_, path) return path:match("^(%d+)/") end}
 end}
 local logger = {named = function() return {warn = function() end} end}
-local modules = {gfx = gfx, tty = tty, fs = fs, logger = logger}
+-- `images` finds other modules' picture packs in the registry and rechecks
+-- them by the clock. No scene here names a pack picture: the registry refuses
+-- with a reason, so a pack asked for shows as missing rather than found, and
+-- the clock stands still.
+local registry = {
+    find = function() return nil, "the probe does not go to the registry" end,
+    get = function() return nil, "the probe does not go to the registry" end,
+}
+local time = {now = function() return {unix = function() return 0 end} end}
+local modules = {gfx = gfx, tty = tty, fs = fs, logger = logger, registry = registry, time = time}
 local saved_require = require
 require = function(name)
     if modules[name] then return modules[name] end
@@ -210,6 +230,7 @@ end
 modules.geometry = dofile(BASE .. "core/geometry.lua")
 modules.text = dofile(BASE .. "core/text.lua")
 modules.scroll = dofile(BASE .. "core/scroll.lua")
+modules.input = dofile(BASE .. "core/input.lua")
 modules.sdk_render, modules.regedit_render = {}, {}
 modules.palette = dofile(BASE .. "shell/palette.lua")
 modules.glyphs = dofile(BASE .. "shell/glyphs.lua")
@@ -221,6 +242,13 @@ modules.rasters = dofile(BASE .. "shell/rasters.lua")
 -- `chrome` is pulled in here not for drawing into cells but for ONE table of
 -- title-button sets: a second list would drift from the first.
 modules.menu_layout = dofile(BASE .. "shell/menu_layout.lua")
+-- `chrome` draws desktop widgets through `gadgets`, which lays them out with
+-- the SDK's `ui` and draws cells with its `cells`: pure Lua, loaded as it is.
+modules.editor = dofile(BASE .. "sdk/editor.lua")
+modules.ui = dofile(BASE .. "sdk/ui.lua")
+modules.charts = dofile(BASE .. "sdk/charts.lua")
+modules.cells = dofile(BASE .. "sdk/cells.lua")
+modules.gadgets = dofile(BASE .. "shell/gadgets.lua")
 modules.chrome = dofile(BASE .. "shell/chrome.lua")
 modules.render = dofile(BASE .. "explorer/render.lua")
 modules.render_pixels = dofile(BASE .. "explorer/render_pixels.lua")

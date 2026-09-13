@@ -272,7 +272,14 @@ current data; `update` changes the model on a component's action.
   inside, one cell from the edge; takes no input.
 - `graph`: `values`, `unit`, `ceiling?` — the history of a number, green on black;
   the ceiling is round (`sdk:charts`), the latest measurement on the right.
-- `gauge`: `value`, `ceiling`, `caption` — a bar gauge toward the ceiling, with a caption.
+- `gauge`: `value`, `ceiling`, `caption`, `orient` — a gauge toward the ceiling.
+  The default (`orient = "vertical"`) is Task Manager's LED meter with the caption
+  under it. `orient = "horizontal"` is a Windows 95 progress bar and draws no
+  caption: in pixels a sunken field up to 18 px tall with navy blocks 8 px wide
+  2 px apart, in cells `█` over the face in a sunken field on the middle row. Both
+  fill `ui.gauge_filled(node, units)` of their units — value over ceiling,
+  clamped to 0..1, to the nearest block or cell. Any other `orient` is refused by
+  `ui.problem`.
 - `field`: `text`, `align` — a sunken read-only field (a display).
 - `table.header = false` — a table without the header row ("name — value" pairs).
 - `button.ink` is the caption color in pixels; `button.pressed` — pressed by force
@@ -585,7 +592,8 @@ Plain, passive trees for the usual shapes; none needs an `id`:
   in two, the caption dimmed under it; `image` (a catalog or pack picture)
   32 px on the left, `icon` its character in cells.
 - `gadget.meter{caption, value, ceiling, unit?}` — two rows: the caption, a
-  `gauge` toward the ceiling and the value on one line.
+  horizontal `gauge` (a progress bar) toward the ceiling and the value on one
+  line.
 - `gadget.history{caption?, values, ceiling?, unit?}` — the rows a stack
   leaves, four or more: the caption over a `graph`; the ceiling is
   `charts.ceiling_of(values)` when omitted.

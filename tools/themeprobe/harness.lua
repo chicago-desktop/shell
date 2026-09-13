@@ -213,11 +213,19 @@ modules.json = {
 modules.geometry = dofile(BASE .. "core/geometry.lua")
 modules.text = dofile(BASE .. "core/text.lua")
 modules.scroll = dofile(BASE .. "core/scroll.lua")
+modules.input = dofile(BASE .. "core/input.lua")
 modules.palette = dofile(BASE .. "shell/palette.lua")
 modules.glyphs = dofile(BASE .. "shell/glyphs.lua")
 modules.widgets = dofile(BASE .. "shell/widgets.lua")
 modules.icons = dofile(BASE .. "shell/icons.lua")
 modules.menu_layout = dofile(BASE .. "shell/menu_layout.lua")
+-- `chrome` draws desktop widgets through `gadgets`, which lays them out with
+-- the SDK's `ui` and draws cells with its `cells`: pure Lua, loaded as it is.
+modules.editor = dofile(BASE .. "sdk/editor.lua")
+modules.ui = dofile(BASE .. "sdk/ui.lua")
+modules.charts = dofile(BASE .. "sdk/charts.lua")
+modules.cells = dofile(BASE .. "sdk/cells.lua")
+modules.gadgets = dofile(BASE .. "shell/gadgets.lua")
 local chrome = dofile(BASE .. "shell/chrome.lua")
 modules.catalog = dofile(BASE .. "programs/catalog.lua")
 local catalog = modules.catalog

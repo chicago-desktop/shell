@@ -337,6 +337,9 @@ local function shape_problem(node: any): any
     if kind == "select" and node.options ~= nil and type(node.options) ~= "table" then
         return "SDK select options must be a list"
     end
+    if kind == "gauge" and node.orient ~= nil and node.orient ~= "horizontal" and node.orient ~= "vertical" then
+        return "SDK gauge orient must be \"horizontal\" or \"vertical\": " .. tostring(node.orient)
+    end
     return nil
 end
 local function id_problem(node: any, taken: any): any
@@ -635,6 +638,18 @@ function ui.slider_position(node: any, width: any): integer
     if high <= low then return 0 end
     local value = whole(math.max(low, math.min(high, whole(node.value or low))))
     return whole((value - low) * math.max(0, whole(width) - 1) // (high - low))
+end
+-- gauge_filled(node, units) -> how many of `units` a gauge fills
+--
+-- `value` toward `ceiling`, clamped to 0..1, rounded to the nearest unit —
+-- the cells of a bar, the blocks of a progress bar. One rule for both
+-- renderers of a horizontal gauge; a ceiling of zero or less counts as one,
+-- as the vertical gauge has always read it.
+function ui.gauge_filled(node: any, units: any): integer
+    local top = tonumber(node.ceiling) or 0
+    if top <= 0 then top = 1 end
+    local fraction = math.max(0, math.min(1, (tonumber(node.value) or 0) / top))
+    return whole(math.floor(fraction * math.max(0, whole(units)) + 0.5))
 end
 -- spectrum_color(t) -> "#rrggbb"
 --
