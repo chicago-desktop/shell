@@ -744,13 +744,14 @@ entries:
       type: test
       group: Windows SDK
       suite: butschster_windows
-      comment: Logon screen — password mask, Enter order, refusal and retry, cancel, the frame in cells and in pixels.
+      comment: Logon screen — password mask, Enter order, refusal and retry, cancel, the frame in cells and in pixels; the logged-on user's name read again through the application's function.
     source: file://logon_test.lua
     method: run
     modules: [channel, tty, fs, gfx]
     imports:
       test: wippy.test:test
       screen: butschster.windows.logon:screen
+      provider: butschster.windows.logon:provider
       chrome_pixels: butschster.windows.shell:chrome_pixels
       ui: butschster.windows.sdk:ui
       cells: butschster.windows.sdk:cells

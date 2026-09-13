@@ -921,9 +921,18 @@ local function row_keys(plan: any, interaction: any, rows: integer, base: string
         local parts: any = {base}
         for index, item in ipairs(plan.items) do
             local r: any = item.rect
+            local frame: any = item.frame
             if row >= r.y and row <= r.y + r.h - 1 then
                 parts[#parts + 1] = common[index]
                 if LINES[item.node.kind] then parts[#parts + 1] = line_sig(item, row) end
+            elseif frame and row >= frame.y and row <= frame.y + frame.h - 1 then
+                -- Tabs draw their page frame below their rect, which is the
+                -- strip alone. The frame's top row holds the gap under the
+                -- active tab and that tab's last pixel row, so it carries the
+                -- whole item: keyed by the frame only, it kept the gap under
+                -- the tab that was active before and the new one stood on the
+                -- frame line. The other frame rows draw only its edges.
+                parts[#parts + 1] = row == frame.y and common[index] or ("frame:" .. sig(frame))
             end
         end
         for _, item in ipairs(plan.overlays or {}) do

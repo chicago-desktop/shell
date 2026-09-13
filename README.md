@@ -194,7 +194,12 @@ the title, `image = "user"`, `args = {user_id}`), the layout puts it behind the 
 of listing it as a program, and the line takes slot 1 and a hit — the cursor lands on it
 when Start opens, a click and Enter open it through the compositor's ordinary
 `items[hit.index]` path, so the base needs no change. The name is set by `chrome.use_user`
-from the logon result; both themes read the same `chrome.session`. Without logon there is no
+from the logon result; both themes read the same `chrome.session`. When the application
+names a function in `BUTSCHSTER_WINDOWS_USER_FUNC` (read without a default; `{user_id}` →
+`{success, name}`, called through `funcs`), the name is read again on every
+`desktop.refresh` — the profile window sends one after a rename — and `chrome.rename_user`
+keeps the id and the entry and replaces the name, so the row repaints. Unset keeps the
+name from logon; a refusal or a failure keeps the old name and is logged. Without logon there is no
 such line: a desktop under a service actor, signed with someone's name, would look like
 someone else's logon. The folder
 of a program is named by `meta.group`, the separator under a line by `meta.separator_after`,

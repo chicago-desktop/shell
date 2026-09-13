@@ -1839,6 +1839,69 @@ local function define_tests()
             test.not_nil(ui.problem({kind = "table", columns = {}, rows = {}}), "a table that is not static still needs an id")
         end)
     end)
+
+    -- Tabs in pixels, the Windows 95 way: the active tab 2 px taller and 2 px
+    -- higher, its bottom open into the page; the frame's top line runs under
+    -- the inactive tabs only. The page frame's top row belongs to the tabs
+    -- too: it holds the gap under the active tab, so it is repainted when the
+    -- active tab changes.
+    test.describe("Window SDK: tabs in pixels", function()
+        local FACE, LIGHT = "#c0c0c0", "#ffffff"
+        local function tabs(active: integer): any
+            return {kind = "column", children = {{kind = "tabs", id = "pages", labels = {"General", "Profile"},
+                active = active, pad = 1, children = {{kind = "label", text = "Page"}}}}}
+        end
+        -- The color the painter left at a pixel: the last rectangle over it.
+        local function painted(rects: any, px: integer, py: integer): any
+            local found: any = nil
+            for _, r in ipairs(rects) do
+                if px >= r.x and px < r.x + r.w and py >= r.y and py < r.y + r.h then found = r.c end
+            end
+            return found
+        end
+        test.it("draws the active tab higher and open into the page, the frame line under the inactive one", function()
+            for _, cell in ipairs({{w = 8, h = 16}, {w = 10, h = 20}}) do
+                local label = cell.w .. "x" .. cell.h .. ": "
+                local rects: any = {}
+                local raster: any = {fill = function() end, set = function() end, blit = function() end,
+                    text = function() return 0 end,
+                    rect = function(_, x, y, w, h, c) rects[#rects + 1] = {x = x, y = y, w = w, h = h, c = tostring(c)} end}
+                local store: any = {take = function() return raster, true end}
+                assert(render.placement({id = "tabs-shape", state_revision = 1, content_state = {sdk = 1, revision = 1,
+                    ui = tabs(2)}}, {x = 1, y = 1, cols = 30, rows = 8}, cell, {}, store))
+                local item: any = ui.plan(tabs(2), 30, 8, ui.interaction(), {cell = cell}).by_id.pages
+                local inactive, active = item.spans[1], item.spans[2]
+                local mid_in = 1 + inactive.x * cell.w + (inactive.w * cell.w) // 2
+                local mid_on = 1 + active.x * cell.w + (active.w * cell.w) // 2
+                local frame_y = 1 + cell.h
+                test.eq(painted(rects, mid_on, 1), LIGHT, label .. "the active tab's top edge is on the strip's first pixel row")
+                test.is_nil(painted(rects, mid_in, 2), label .. "nothing above the inactive tab")
+                test.eq(painted(rects, mid_in, 3), LIGHT, label .. "the inactive tab's top edge is 2 px lower")
+                test.eq(painted(rects, mid_on, frame_y), FACE, label .. "no line at the active tab's bottom")
+                test.eq(painted(rects, mid_in, frame_y), LIGHT, label .. "the frame's top line runs under the inactive tab")
+                test.eq(painted(rects, mid_in, frame_y - 1), FACE, label .. "the inactive tab has no bottom edge of its own")
+            end
+        end)
+        test.it("repaints the page frame's top row when the active tab changes", function()
+            -- One font set for both frames: a row key names the set by identity
+            -- on purpose (`use_fonts` makes a new set, and every row repaints).
+            local fonts: any = {}
+            local function keys(active: integer): any
+                local out: any = {}
+                local raster: any = {blit = function() end}
+                local store: any = {take = function(id, _, _, _, key) out[id] = key; return raster, false end}
+                assert(render.rows({id = "tabs-rows", state_revision = active, content_state = {sdk = 1, revision = active,
+                    ui = tabs(active)}}, {x = 1, y = 1, cols = 30, rows = 8}, {w = 8, h = 16}, fonts, store))
+                return out
+            end
+            local before, after = keys(1), keys(2)
+            local function row(n: integer): string return "win:tabs-rows:sdk:row:" .. n end
+            test.is_true(before[row(1)] ~= after[row(1)], "the strip")
+            test.is_true(before[row(2)] ~= after[row(2)], "the frame's top row: the gap under the active tab moves with it")
+            test.eq(before[row(6)], after[row(6)], "a page row the tabs do not change keeps its raster")
+            render.forget("tabs-rows")
+        end)
+    end)
 end
 local run_cases = test.run_cases(define_tests)
 return {run = function(options) return run_cases(options) end}

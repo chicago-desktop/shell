@@ -78,7 +78,7 @@ entries:
   #
   # Who reads what, under the shell's actor:
   #   windows.lua                        BUTSCHSTER_WINDOWS_PIXELS, BUTSCHSTER_WINDOWS_FONTS,
-  #                                      BUTSCHSTER_WINDOWS_PROFILE_ENTRY
+  #                                      BUTSCHSTER_WINDOWS_PROFILE_ENTRY, BUTSCHSTER_WINDOWS_USER_FUNC
   #   logon/provider.lua                 BUTSCHSTER_WINDOWS_LOGON_FUNC, BUTSCHSTER_WINDOWS_TOKEN_STORE
   #   the base's persist/repo.lua, loaded
   #   by its compositor library          BUTSCHSTER_TUI_DESKTOP_DB_ID
@@ -92,7 +92,7 @@ entries:
   - name: shell_env
     kind: security.policy
     meta:
-      comment: The environment variables the shell reads, by name — pixel mode, the font folder, the logon function and token store, the profile window, and the base's database.
+      comment: The environment variables the shell reads, by name — pixel mode, the font folder, the logon function and token store, the profile window, the user name function, and the base's database.
     policy:
       actions:
         - env.get
@@ -102,6 +102,7 @@ entries:
         - BUTSCHSTER_WINDOWS_LOGON_FUNC
         - BUTSCHSTER_WINDOWS_TOKEN_STORE
         - BUTSCHSTER_WINDOWS_PROFILE_ENTRY
+        - BUTSCHSTER_WINDOWS_USER_FUNC
         - BUTSCHSTER_TUI_DESKTOP_DB_ID
       effect: allow
 

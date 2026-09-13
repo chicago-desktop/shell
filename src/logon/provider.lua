@@ -22,11 +22,16 @@
 local environment = require("environment")
 local funcs = require("funcs")
 local security = require("security")
+local errors = require("errors")
 
 local provider = {}
 
 provider.FUNC_ENV = "BUTSCHSTER_WINDOWS_LOGON_FUNC"
 provider.STORE_ENV = "BUTSCHSTER_WINDOWS_TOKEN_STORE"
+-- The application's function that answers the logged-on user's current
+-- display name, {user_id} → {name}. Read without a default: unset keeps the
+-- name as it was at logon.
+provider.USER_FUNC_ENV = "BUTSCHSTER_WINDOWS_USER_FUNC"
 
 -- Reading the environment is shared (`butschster.windows.config:environment`);
 -- here there are only the words of refusal for the logon screen.
@@ -86,6 +91,38 @@ function provider.authenticate(config: any, login: any, password: any): (any, an
             user_name = tostring(answer.display_name or answer.user_id or actor:id()),
         },
     }, nil
+end
+
+-- display_name(func, user_id, call?) -> name | nil, reason, permission denial
+--
+-- The name the application gives the logged-on user NOW: the profile window
+-- can rename the account while the shell runs, and Start must not keep the
+-- name from logon. `call` stands in for `funcs.new():call` in tests. The kind
+-- of the error is read with `errors.is`, not under `pcall`: this runs in the
+-- compositor's frame, and an error caught under pcall in go-lua tears the
+-- upvalues of the frames below it.
+function provider.display_name(func: any, user_id: any, call: any?): (string?, string?, boolean)
+    if type(user_id) ~= "string" or user_id == "" then return nil, "no user id", false end
+    local invoke: any = call or function(name: any, args: any): (any, any)
+        local answer, err = funcs.new():call(tostring(name), args)
+        return answer, err
+    end
+    local answer, err = invoke(tostring(func), {user_id = user_id})
+    if err ~= nil and errors.is(err, errors.PERMISSION_DENIED) then
+        return nil, "no permission to call " .. tostring(func) .. ": " .. tostring(err), true
+    end
+    if type(answer) ~= "table" then
+        return nil, "the user name function did not answer: " .. tostring(err), false
+    end
+    -- {success = true, user_id, name} or {success = false, error}: the name
+    -- is read only from a success.
+    if answer.success ~= true then
+        return nil, "the user name function refused: " .. tostring(answer.error or "no reason given"), false
+    end
+    if type(answer.name) ~= "string" or answer.name == "" then
+        return nil, "the user name function returned no name", false
+    end
+    return answer.name, nil, false
 end
 
 return provider

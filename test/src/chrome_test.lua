@@ -638,6 +638,32 @@ local function define_tests()
             test.is_nil(chrome.session.user)
         end)
 
+        test.it("chrome.rename_user keeps the id and the profile entry, and the row and the menu key follow the name", function()
+            local items = {{entry = "app:run", title = "Run…", group = {}, order = 900}}
+            chrome.use_user({id = "u1", name = "butschster", entry = "app.profile:window"})
+            local view: any = {width = 90, height = 24}
+            local menu: any = {items = items, cursor = 1}
+            local cell: any = {w = 10, h = 20}
+            local key_before = chrome_pixels.menu_memo_key(view, menu, cell, 1)
+            test.is_true(chrome.rename_user("Pavel B."))
+            test.eq(chrome.session.user.name, "Pavel B.")
+            test.eq(chrome.session.user.id, "u1", "the identity stays the one from logon")
+            test.eq(chrome.session.user.entry, "app.profile:window")
+            local shown = chrome.menu_layout(90, 24, items, nil, {}, 1, {user = chrome.session.user})
+            -- The row's text carries the user glyph before the name; the name is what moved.
+            local row_text = tostring(shown.panels[1].lines[1].text)
+            test.eq(row_text:sub(-#"Pavel B."), "Pavel B.", "the user row shows the new name: " .. row_text)
+            test.is_nil(row_text:find("butschster", 1, true), "and no longer the old one")
+            test.is_true(chrome_pixels.menu_memo_key(view, menu, cell, 1) ~= key_before,
+                "the pixel menu's memo key moves, so the row repaints")
+            test.is_false(chrome.rename_user("Pavel B."), "the same name is no change")
+            test.is_false(chrome.rename_user(""), "an empty name keeps the old one")
+            test.eq(chrome.session.user.name, "Pavel B.")
+            chrome.use_user(nil)
+            test.is_false(chrome.rename_user("Somebody"), "nobody logged on, nobody to rename")
+            test.is_nil(chrome.session.user)
+        end)
+
         test.it("in pixels the measure gets the level and the kind, and the hits cover the whole panel", function()
             local items = {
                 {entry = "app:calc", title = "Calculator", group = {"Programs"}, order = 20},

@@ -216,10 +216,32 @@ local function main()
         chrome.use_wallpaper(entry.file, (mode == "tile" or mode == "center") and mode or entry.mode)
     end
 
+    -- The logged-on user's name, the same way: the profile window can rename
+    -- the account, and Start must not keep showing the name from logon. The
+    -- application names a function ({user_id} → {name}) in
+    -- BUTSCHSTER_WINDOWS_USER_FUNC; `read`, not `read_or`: there is no
+    -- default, and unset keeps the name as it was at logon. A refusal or a
+    -- failure keeps the old name and says why in the log.
+    local user_func, user_func_source, user_func_denied = environment.read(logon_provider.USER_FUNC_ENV)
+    if user_func_denied then log:warn("user name refresh not enabled", {reason = tostring(user_func_source)}) end
+    local function apply_user_name()
+        local user: any = chrome.session.user
+        if user_func == nil or type(user) ~= "table" then return end
+        local name, why, denied = logon_provider.display_name(user_func, user.id)
+        if name then
+            chrome.rename_user(name)
+        elseif denied then
+            log:warn("user name not refreshed: permission denied", {func = tostring(user_func), reason = tostring(why)})
+        else
+            log:warn("user name not refreshed", {func = tostring(user_func), reason = tostring(why)})
+        end
+    end
+
     local function desktop_items()
         apply_desktop_color()
         apply_desktop_pattern()
         apply_desktop_wallpaper()
+        apply_user_name()
         -- The catalog is read BEFORE the layout: furniture is created from
         -- it, and reading the layout earlier would mean handing over a frame
         -- without the icons just created — they would appear only on the next

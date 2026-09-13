@@ -13,6 +13,8 @@ local screen_lib = require("screen")
 local chrome_pixels = require("chrome_pixels")
 local ui = require("ui")
 local cells = require("cells")
+local provider = require("provider")
+local errors = require("errors")
 
 local function runes(word: any): any
     local out = {}
@@ -161,6 +163,49 @@ local function define_tests()
             test.is_true(ids["win:logon:sdk:row:1"] == true, "no SDK client (a placement per client row)")
             test.is_nil(ids["bars"], "taskbar drawn on the logon screen")
             assert(assert(fs.get("app:shots")):writefile("logon.png", assert(shot:encode("png"))))
+        end)
+    end)
+
+    -- The logged-on user's name, read again on `desktop.refresh` through the
+    -- application's function (BUTSCHSTER_WINDOWS_USER_FUNC). The call is a
+    -- stand-in that records what it was asked.
+    test.describe("The logged-on user's name, read again", function()
+        test.it("takes the name only from a success, and tells a permission denial apart", function()
+            local asked: any = {}
+            local function answering(answer: any, err: any): any
+                return function(name: any, args: any): (any, any)
+                    asked[#asked + 1] = tostring(name) .. ":" .. tostring(args.user_id)
+                    return answer, err
+                end
+            end
+            test.eq(provider.USER_FUNC_ENV, "BUTSCHSTER_WINDOWS_USER_FUNC")
+            local name, why, denied = provider.display_name("app.desktop:user_name", "u1",
+                answering({success = true, user_id = "u1", name = "Pavel B."}, nil))
+            test.eq(name, "Pavel B.")
+            test.is_nil(why)
+            test.eq(denied, false)
+            test.eq(asked[1], "app.desktop:user_name:u1", "the function is asked about the logged-on user")
+
+            name, why, denied = provider.display_name("app.desktop:user_name", "u1",
+                answering({success = false, error = "user not found"}, nil))
+            test.is_nil(name, "a refusal keeps the old name")
+            test.eq(why, "the user name function refused: user not found")
+            test.eq(denied, false)
+
+            name, why, denied = provider.display_name("app.desktop:user_name", "u1",
+                answering(nil, errors.new({message = "funcs.call is not allowed", kind = errors.PERMISSION_DENIED})))
+            test.is_nil(name)
+            test.eq(denied, true, "a permission denial is named as one")
+            test.is_true(tostring(why):find("no permission to call app.desktop:user_name", 1, true) ~= nil, tostring(why))
+
+            name, why = provider.display_name("app.desktop:user_name", "u1", answering(nil, "timeout"))
+            test.is_nil(name)
+            test.eq(why, "the user name function did not answer: timeout")
+            test.is_nil(provider.display_name("app.desktop:user_name", "u1", answering({success = true, name = ""}, nil)),
+                "an empty name is no name")
+            test.is_nil(provider.display_name("app.desktop:user_name", nil, answering({success = true, name = "x"}, nil)),
+                "nobody logged on, nothing to ask")
+            test.eq(#asked, 5, "the last call is not made without a user")
         end)
     end)
 end

@@ -928,6 +928,9 @@ local function menu_memo_key(view: any, menu: any, cell: any, rows: any): string
     end
     return table.concat(parts, "\31")
 end
+-- For the tests: a field `menu_layout` reads and the key does not name keeps a
+-- stale menu on screen, and only the key itself shows which fields it names.
+chrome_pixels.menu_memo_key = menu_memo_key
 
 local function menu_key(box: any)
     local parts = {tostring(box.x), tostring(box.y), tostring(box.w), tostring(box.h),

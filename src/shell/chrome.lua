@@ -236,6 +236,20 @@ function chrome.use_user(user: any)
     end
 end
 
+-- rename_user(name) -> whether the name changed
+--
+-- The account was renamed while the shell runs (the profile window writes the
+-- full name, the application answers it through BUTSCHSTER_WINDOWS_USER_FUNC
+-- on `desktop.refresh`). The identity stays what it was at logon: the id and
+-- the profile entry are kept, only the name moves — and with it the pixel
+-- menu's memo key, so the row repaints. Nobody logged on, nobody to rename.
+function chrome.rename_user(name: any): boolean
+    local user: any = chrome.session.user
+    if type(user) ~= "table" or type(name) ~= "string" or name == "" or name == user.name then return false end
+    chrome.use_user({id = user.id, name = name, entry = user.entry})
+    return true
+end
+
 -- profile_item(user) — the catalog item behind the user row, for the shell's
 -- menu catalog; the rule is the layout's (`menu_layout.profile_item`).
 function chrome.profile_item(user: any): any
