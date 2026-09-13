@@ -1349,8 +1349,10 @@ end
 -- module that opens paths itself would be a road around them.
 -- `display` is the large bold for the farewell screen; without it the caption
 -- is set in the ordinary bold and looks like a caption, not a screen.
-function chrome_pixels.use_fonts(face, bold, display)
-    chrome_pixels.fonts = {face = face, bold = bold or face, display = display or bold or face}
+-- `mono` is the fixed-pitch face of the multi-line editor (FR-007 §4); nil
+-- when the font set has none, and the editor draws with `face`.
+function chrome_pixels.use_fonts(face, bold, display, mono)
+    chrome_pixels.fonts = {face = face, bold = bold or face, display = display or bold or face, mono = mono}
 end
 
 return chrome_pixels

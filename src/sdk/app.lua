@@ -29,6 +29,7 @@ local desktop = require("desktop")
 local ui = require("ui")
 local cells = require("cells")
 local widgets = require("widgets")
+local editor = require("editor")
 local app = {}
 
 -- The tree shown in place of a crashed application. Without it the window
@@ -70,7 +71,25 @@ function app.context(fields: any?): any
         cell = given.native == true and (tonumber(given.cell_w) or 0) > 0 and (tonumber(given.cell_h) or 0) > 0
             and {w = given.cell_w, h = given.cell_h} or nil,
         watched = {}, timers = {}}
+    -- The interaction the loop plans and handles events with: the SDK's own
+    -- state, one table for the window's life.
+    context.interaction = given.interaction or ui.interaction()
     function context.close() context.closing = true end
+    -- editor(id) -> the document of the multi-line `editor` with that id,
+    -- for `sdk:editor`'s functions (`editor.set`, `editor.text`, `find`,
+    -- `undo`, the clipboard's `selection` and `replace_selection`). Asked
+    -- before the plan made it, it is made empty here, and the node's `text`
+    -- is then not read: the document is the state's, the node's text only
+    -- its first value.
+    function context.editor(id: any): any
+        local editors: any = context.interaction.editors
+        local found: any = editors[id]
+        if not editor.document(found) then
+            found = editor.new("")
+            editors[id] = found
+        end
+        return found
+    end
     -- The application's own channel: the compositor's answer on `desktop.replies()`,
     -- a subscription. A channel that fired arrives as the action
     -- `{type = "channel", channel = ch, value = ..., ok = ...}`.
@@ -142,10 +161,13 @@ local function escape(action: any): boolean
 end
 
 -- The SDK's own movement: the view already moved when these arrive (`end`
--- after the wheel reached the bottom, `scroll` of a text view), so the frame is
--- drawn whatever `update` answers. A window that returns false for actions it
--- does not know would otherwise freeze its list at the last row but one.
-local REDRAWS: {[string]: boolean} = {["end"] = true, scroll = true}
+-- after the wheel reached the bottom, `scroll` of a text view, `caret` of an
+-- editor's caret or selection), so the frame is drawn whatever `update`
+-- answers. A window that returns false for actions it does not know would
+-- otherwise freeze its list at the last row but one. An action marked
+-- `drawn` — an editor's `change`, whose text the SDK already edited — is
+-- drawn the same way.
+local REDRAWS: {[string]: boolean} = {["end"] = true, scroll = true, caret = true}
 
 -- dispatch(definition, model, context, action) -> whether to redraw
 --
@@ -167,7 +189,7 @@ function app.dispatch(definition: any, model: any, context: any, action: any): b
     end
     local verdict = guarded(context, "update", definition.update, model, action, context)
     if closes and verdict == false then context.closing = true end
-    return verdict ~= false or REDRAWS[tostring(action.type)] == true
+    return verdict ~= false or REDRAWS[tostring(action.type)] == true or action.drawn == true
 end
 
 -- main(definition) -> the `main` a window entry names. A window ends with
@@ -197,7 +219,7 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
         window_id = window_id, cell_w = native and viewport.cell_w or nil, cell_h = native and viewport.cell_h or nil})
 
     local model: any = definition.init and guarded(context, "init", definition.init, args, context) or {}
-    local interaction = ui.interaction()
+    local interaction = context.interaction
 
     local function draw()
         -- The fallback tree was already on screen, so there is nothing to repeat.
@@ -259,6 +281,9 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
             local event: any = guarded(context, "input", function()
                 return native and desktop.input_event(picked.value) or desktop.normalize_event(picked.value)
             end) or {}
+            -- A mouse event carries when it came, in milliseconds: an
+            -- editor tells a double click from two clicks by it.
+            if event.type == "mouse" and event.time == nil then event.time = time.now():unix_nano() // 1000000 end
             if event.type == "close" then
                 app.dispatch(definition, model, context, {type = "close"})
                 break

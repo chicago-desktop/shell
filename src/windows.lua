@@ -51,6 +51,9 @@ end
 local FONTS = environment.read_or("BUTSCHSTER_WINDOWS_FONTS", "app:system_fonts")
 local FONT_FACE = "LiberationSans-Regular.ttf"
 local FONT_BOLD = "LiberationSans-Bold.ttf"
+-- The fixed-pitch face of the multi-line editor (FR-007 §4), from the same
+-- font entry: Notepad draws its text in it.
+local FONT_MONO = "LiberationMono-Regular.ttf"
 local FONT_SIZE = 13
 
 -- Pixel mode is switched on EXPLICITLY, not by the presence of graphics
@@ -96,11 +99,24 @@ local function load_fonts(log, cell_h: any)
         return nil, FONT_BOLD .. " not read: " .. tostring(berr)
     end
 
+    -- A set without the fixed-pitch file is not a reason to stay in cells:
+    -- `mono` stays nil, the editor draws with the interface face, and the
+    -- log says so here, once — a Notepad in the wrong font is better than no
+    -- Notepad.
+    local mono: any = nil
+    local mono_data, merr = store:readfile(FONT_MONO)
+    if merr or not mono_data then
+        log:warn("no fixed-pitch font: the editor draws with the interface face",
+            {file = FONT_MONO, error = tostring(merr)})
+    end
+
     -- Thresholding small TrueType glyphs erases thin strokes. Set smoothing
     -- once on each face so the shell and every client share readable text.
+    if mono_data then mono = gfx.font(mono_data, {size = FONT_SIZE, smooth = true}) end
     return {face = gfx.font(face_data, {size = FONT_SIZE, smooth = true}),
             bold = gfx.font(bold_data, {size = FONT_SIZE, smooth = true}),
-            display = gfx.font(bold_data, {size = display_size(cell_h), smooth = true})}, nil
+            display = gfx.font(bold_data, {size = display_size(cell_h), smooth = true}),
+            mono = mono}, nil
 end
 
 local function main()
@@ -351,7 +367,7 @@ local function main()
                 pixel_note = "pixels off: no font (" .. tostring(ferr) .. ")"
                 log:warn("pixel mode not enabled: no font", {error = tostring(ferr)})
             else
-                chrome_pixels.use_fonts(fonts.face, fonts.bold, fonts.display)
+                chrome_pixels.use_fonts(fonts.face, fonts.bold, fonts.display, fonts.mono)
                 chrome_pixels.use_cell_size(width, height)
                 theme = chrome_pixels
                 cell_size = function()

@@ -945,3 +945,55 @@ entries:
       palette: butschster.windows.shell:palette
       glyphs: butschster.windows.shell:glyphs
 
+  - name: editor_model_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: The multi-line editor's document model, pure — lines, caret and selection, the keys, one-level undo, find up and down with and without case, and the display rows of word wrap.
+    source: file://editor_model_test.lua
+    method: run
+    imports:
+      test: wippy.test:test
+      editor: butschster.windows.sdk:editor
+
+  - name: editor_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: The multi-line editor component — the bars in the plan, the keys and the pointer through ui.event, the band and the caret in pixels in the fixed-pitch columns, the exact rows in cells, the document through context.editor, and test/shots/editor.png.
+    source: file://editor_test.lua
+    method: run
+    modules: [tty, gfx, fs]
+    imports:
+      test: wippy.test:test
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
+      render: butschster.windows.sdk:render
+      rasters: butschster.windows.shell:rasters
+      palette: butschster.windows.shell:palette
+      editor: butschster.windows.sdk:editor
+      app: butschster.windows.sdk:app
+      chrome_pixels: butschster.windows.shell:chrome_pixels
+
+  - name: context_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: The context menu — a right press on a list, a table and icons is context with the entry and the cell, and a menu with popup floats there, chosen, dismissed, flipped and drawn as a menu's list.
+    source: file://context_test.lua
+    method: run
+    modules: [tty, gfx, fs]
+    imports:
+      test: wippy.test:test
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
+      render: butschster.windows.sdk:render
+      rasters: butschster.windows.shell:rasters
+      palette: butschster.windows.shell:palette
+      glyphs: butschster.windows.shell:glyphs

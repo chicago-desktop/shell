@@ -257,3 +257,17 @@ return ok, err
 All Go yields have the same form: `process.send`, `channel.select`, receiving from
 a channel, `sql.get`. The rule until the VM is fixed: a function does not end with a bare
 `return <yield-call>(...)`.
+
+## `table.concat(t, sep, j + 1, j)` is `t[j]` here, not ""
+
+```lua
+table.concat({"a", "b"}, "", 3, 2)   -- "b" in this runtime; "" in Lua
+```
+
+An empty range at the end of a table gives its last element back. With `j = 0`
+there is no `t[0]`, so the common `table.concat(t, "", 1, 0)` does return "" and
+hides the trap. It surfaced in the editor's model: the tail after a caret at a
+line's end is exactly such a range, and typing "abc" gave "abca". No error, a
+letter too many. Join a range of runes through a helper that returns "" when
+`from > to` (`slice` in `butschster.windows.sdk:editor`); the tripwire that
+fails once the VM is fixed is in `test/src/editor_model_test.lua`.

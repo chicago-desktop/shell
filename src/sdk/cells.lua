@@ -247,8 +247,11 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 canvas:put(whole(frame.x), whole(frame.y + frame.h - 1), widgets.edge_bottom(frame.w, false), whole(frame.w))
             end
         elseif node.kind == "menu" then
-            local open: any = interaction.menus and interaction.menus[node.id] or nil
-            strip(item, r, nil, open and open.index or nil)
+            -- A context menu has no bar: it is its list alone, an overlay.
+            if type(node.popup) ~= "table" then
+                local open: any = interaction.menus and interaction.menus[node.id] or nil
+                strip(item, r, nil, open and open.index or nil)
+            end
         elseif node.kind == "table" then
             -- The header is raised column buttons, as in "Explorer"; rows are
             -- cells in the columns of one layout, right-aligned for numbers.
@@ -335,6 +338,62 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 else icon_cells.cell(canvas, cell.x, cell.y, cell.item, look) end
             end
             scrollbar(r.x + r.w - 1, r.y, r.h, item.offset, item.page, item.rows_total)
+        elseif node.kind == "editor" then
+            -- The multi-line editor: the plan's rows, a column a cell, a tab
+            -- as its spaces; the selection inverted, and without one the
+            -- caret's cell, as the input field's; the bars as a list's.
+            local columns, page = whole(item.columns), whole(item.page)
+            for row_index = 1, page do
+                local line: any = (item.visible or {})[row_index]
+                local caret: any = (line ~= nil and focused and not item.selecting) and line.caret or nil
+                local parts, used = {}, 0
+                for _, entry in ipairs(line ~= nil and line.glyphs or {}) do
+                    local glyph: any = entry
+                    local from = whole(math.max(0, whole(glyph.x)))
+                    local wide = whole(math.min(whole(glyph.x) + whole(glyph.w), columns)) - from
+                    if wide > 0 then
+                        local style = glyph.selected and styles.select or styles.field
+                        local shown = glyph.char == "\t" and " " or tostring(glyph.char)
+                        if caret ~= nil and caret >= from and caret < from + wide then
+                            local before = whole(caret) - from
+                            parts[#parts + 1] = style:render(string.rep(" ", before)) .. styles.select:render(shown)
+                                .. style:render(string.rep(" ", wide - before - 1))
+                        else
+                            parts[#parts + 1] = style:render(glyph.char == "\t" and string.rep(" ", wide) or shown)
+                        end
+                        used = used + wide
+                    end
+                end
+                if caret ~= nil and caret >= used and caret < columns then
+                    parts[#parts + 1] = styles.field:render(string.rep(" ", whole(caret) - used)) .. styles.select:render(" ")
+                        .. styles.field:render(string.rep(" ", columns - whole(caret) - 1))
+                else
+                    parts[#parts + 1] = styles.field:render(string.rep(" ", math.max(0, columns - used)))
+                end
+                canvas:put(whole(r.x), whole(r.y + row_index - 1), table.concat(parts), columns)
+            end
+            scrollbar(r.x + r.w - 1, r.y, page, item.offset, page, #item.rows)
+            if item.hbar then
+                -- The horizontal bar under the text: ◀, the track with its
+                -- thumb from `item.hbar` (the hit test's), ▶; nothing to
+                -- scroll, nothing drawn, as the vertical bar does.
+                local length = whole(r.w) - 1
+                local bar: any = item.hbar
+                local marks: any = {}
+                if whole(item.span) > columns and length >= 3 then
+                    for index = 0, length - 1 do
+                        local mark = glyphs.scrollbar.track
+                        if index == 0 then mark = glyphs.scrollbar.left
+                        elseif index == length - 1 then mark = glyphs.scrollbar.right
+                        elseif index >= whole(bar.start) and index < whole(bar.start) + whole(bar.size) then mark = glyphs.scrollbar.thumb end
+                        marks[#marks + 1] = mark
+                    end
+                else
+                    marks[1] = string.rep(" ", length)
+                end
+                canvas:put(whole(r.x), whole(r.y + page), styles.face:render(table.concat(marks)), length)
+                canvas:put(whole(r.x + r.w - 1), whole(r.y + page), styles.face:render(" "), 1)
+            end
         elseif node.kind == "text" then
             -- A read-only text: the plan's lines (`item.lines`, already
             -- wrapped by this width), one cell in, from the plan's offset.

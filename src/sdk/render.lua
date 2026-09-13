@@ -626,6 +626,42 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 end
                 pixels.scrollbar(raster, x + w - bar_w, y, bar_w, h, item.bar, cell.h, math.min(bar_w, cell.h))
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
+            elseif node.kind == "editor" then
+                -- The multi-line editor: white under a sunken edge, the plan's
+                -- rows in the fixed-pitch face, a rune in each 8-px column
+                -- (`ui.MONO_PX`) from 4 px in, the selection a navy band per
+                -- row, the caret a 1-px bar as the field's; the bars last, over
+                -- whatever runs past the text.
+                local mono: any = fonts and (fonts.mono or fonts.face)
+                local text_h = whole(item.page) * cell.h
+                local tx0 = x + ui.EDITOR_INSET
+                raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
+                for row_index, shown in ipairs(item.visible or {}) do
+                    local line: any = shown
+                    local ry = y + (row_index - 1) * cell.h
+                    for _, glyph in ipairs(line.glyphs) do
+                        local from = whole(math.max(0, whole(glyph.x)))
+                        local gx = tx0 + from * ui.MONO_PX
+                        if glyph.selected then
+                            raster:rect(whole(gx), whole(ry + (cell.h - 16) // 2), whole((whole(glyph.x) + whole(glyph.w) - from) * ui.MONO_PX),
+                                16, color.select_bg)
+                        end
+                        if mono and glyph.char ~= "\t" then
+                            raster:text(whole(gx), whole(ry + (cell.h - 15) // 2), glyph.char,
+                                {font = mono, color = glyph.selected and color.select_fg or color.field_text})
+                        end
+                    end
+                    local caret: any = line.caret
+                    if focused and not item.selecting and caret ~= nil and caret >= 0 and caret <= whole(item.columns) then
+                        raster:rect(whole(tx0 + caret * ui.MONO_PX - 1), whole(ry + (cell.h - 15) // 2), 1, 15, color.field_text)
+                    end
+                end
+                pixels.scrollbar(raster, x + w - bar_w, y, bar_w, text_h, item.bar, cell.h, math.min(bar_w, cell.h))
+                if item.hbar then
+                    pixels.hscrollbar(raster, x, y + text_h, w - bar_w, cell.h, item.hbar, cell.w, cell.w)
+                    raster:rect(whole(x + w - bar_w), whole(y + text_h), whole(bar_w), whole(cell.h), color.face)
+                end
+                pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "text" then
                 -- The plan's lines, the same ones cells draw: the font never
                 -- re-wraps them, it only cuts what it does not fit.
@@ -951,14 +987,18 @@ local function item_sig(item: any, plan: any, interaction: any): string
     return table.concat({
         -- A list-like node's entries and its `selected` are per row (`line_sig`):
         -- in the shared part they would repaint every row on a selection move.
-        sig(node, lines and {items = true, rows = true, selected = true} or nil), sig(item.rect),
+        -- An editor's text is per row (`item.visible`); its node's `text` is
+        -- only the first value and its document is drawn from the plan.
+        sig(node, lines and {items = true, rows = true, selected = true} or (node.kind == "editor" and {text = true} or nil)),
+        sig(item.rect),
         tostring(item.offset), tostring(item.header), lines and "" or tostring(item.selected_index),
         sig(item.bar), sig(item.px), tostring(item.current), tostring(item.bar_cols),
         sig(item.spans), sig(item.frame), sig(item.popup), sig(item.cells),
+        sig(item.hbar), tostring(item.left), tostring(item.selecting),
         id ~= nil and interaction.focus == id and "F" or "",
         id ~= nil and armed ~= nil and armed.id == id and (armed.inside and "A" or "a") or "",
         id ~= nil and capture ~= nil and capture.id == id and "C" or "",
-        id ~= nil and sig(editors[id]) or "", id ~= nil and sig(menus[id]) or "",
+        (id ~= nil and node.kind ~= "editor") and sig(editors[id]) or "", id ~= nil and sig(menus[id]) or "",
         node.kind == "button" and tostring(plan.focus_on_button) or "",
     }, ";")
 end
@@ -983,6 +1023,8 @@ local function row_keys(plan: any, interaction: any, rows: integer, base: string
             if row >= r.y and row <= r.y + r.h - 1 then
                 parts[#parts + 1] = common[index]
                 if LINES[item.node.kind] then parts[#parts + 1] = line_sig(item, row) end
+                -- An editor's text row: its runes, their selection, the caret on it.
+                if item.node.kind == "editor" then parts[#parts + 1] = sig((item.visible or {})[row - r.y + 1]) end
             elseif frame and row >= frame.y and row <= frame.y + frame.h - 1 then
                 -- Tabs draw their page frame below their rect, which is the
                 -- strip alone. The frame's top row holds the gap under the

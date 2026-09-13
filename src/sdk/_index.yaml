@@ -77,10 +77,11 @@ entries:
       ui: butschster.windows.sdk:ui
       cells: butschster.windows.sdk:cells
       widgets: butschster.windows.shell:widgets
+      editor: butschster.windows.sdk:editor
 
   - name: editor
     kind: library.lua
-    meta: {comment: UTF-8 input editing for SDK controls.}
+    meta: {comment: "UTF-8 input editing for SDK controls: the single-line field and the multi-line editor's document (keys, selection, one-level undo, find, word wrap). See docs/sdk.md."}
     source: file://editor.lua
     imports:
       geometry: butschster.tui_desktop.desktop:geometry

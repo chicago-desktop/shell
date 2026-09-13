@@ -815,6 +815,28 @@ function pixels.scrollbar(raster, x: any, y: any, w: any, h: any, bar: any, row_
     end
 end
 
+-- Horizontal scroll bar: the vertical one on its side — ◀ and ▶ buttons at
+-- the ends, the face track, the thumb from the same `scroll.bar` geometry,
+-- counted in columns of `col_w` px. `arrow_w` is the buttons' width: one
+-- cell, as the hit test counts an arrow.
+function pixels.hscrollbar(raster, x: any, y: any, w: any, h: any, bar: any, col_w: any, arrow_w: any)
+    local left, top, width, height = whole(x), whole(y), whole(w), whole(h)
+    if width < 4 or height < 3 then return end
+    local arrow = math.min(math.max(4, whole(arrow_w)), width // 2)
+    raster:rect(left, top, width, height, color.face)
+    pixels.panel(raster, left, top, arrow, height)
+    pixels.panel(raster, left + width - arrow, top, arrow, height)
+    local middle = top + height // 2
+    for step = 0, 3 do
+        raster:rect(left + (arrow - 4) // 2 + step, middle - step, 1, step * 2 + 1, color.face_text)
+        raster:rect(left + width - (arrow - 4) // 2 - step - 1, middle - step, 1, step * 2 + 1, color.face_text)
+    end
+    local thumb: any = type(bar) == "table" and bar or {}
+    if whole(thumb.limit) > 0 and whole(thumb.size) > 0 then
+        pixels.panel(raster, left + whole(thumb.start) * whole(col_w), top, whole(thumb.size) * whole(col_w), height)
+    end
+end
+
 -- Status bar: sunken fields, the last one stretches; a field has its own
 -- width in pixels (`width`) or one taken from its text.
 function pixels.statusbar(raster, x: any, y: any, w: any, h: any, fields: any, font: any)

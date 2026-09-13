@@ -165,7 +165,7 @@ current data; `update` changes the model on a component's action.
   character; the model and `change.value` keep the real text);
   `change.value` returns the new text, `activate.value`
   is the Enter confirmation. Supports UTF-8, arrows, Home/End, Backspace/Delete,
-  Ctrl+A and paste. This is single-line input, not a text editor.
+  Ctrl+A and paste. This is single-line input; the multi-line one is `editor`.
   An optional `placeholder` is grey text shown while the value is empty and the
   field is not focused (cells: grey on the field's white; pixels: the shadow
   color). It is only drawn: never edited, never sent — `change.value` is what was
@@ -197,6 +197,10 @@ current data; `update` changes the model on a component's action.
 - `list`: `id`, `items`, `selected`, an optional `wheel_step` (3).
   An item is a string or `{id = ..., text = ...}`. `select` carries `index` (1-based)
   and `value`; Enter gives `activate`. Store the selection in the model in `update`.
+  A right press is `{type = "context", id, index, value, x, y}`: the entry under
+  the pointer (`index` 0 and no `value` on the empty field) and the cell, where
+  the window opens its `ui.context_menu`; it takes the focus, and the scroll bar
+  and a table's header have none. Tables and icon grids say it the same way.
   `selected` is a 1-based row number **or an item ID** (`{id = …}` on the element):
   that way the selection holds on to the item when new data shifts the rows.
   The scrollbar is part of the list's rectangle, flush right: one column in
@@ -244,6 +248,42 @@ current data; `update` changes the model on a component's action.
   move is `{type = "scroll", id, offset, total}`, drawn whatever `update` answers.
   Without an `id` it is inert, like a `static` table, and stays at the top.
   `wrap = false` keeps each line whole and the renderer cuts it.
+- `editor`: `id`, `text`, `wrap` (off by default), `tab` (8), `font = "mono"`,
+  `read_only`, `wheel_step` (3) — the multi-line edit control of Windows 95
+  Notepad ([FR-007 §3](rfcs/007-notepad.md)). `text` is only the first value:
+  the document lives in `interaction.editors[id]` (by its `lines`, apart from
+  a field's `{cursor, selected}`), and the window reaches it with
+  `context.editor(id)` and the `butschster.windows.sdk:editor` functions —
+  `text`, `set`, `selection`, `selected`, `replace_selection`, `insert`,
+  `delete_selection`, `select_all`, `undo` (one level: the second Undo redoes;
+  typing in a row is one step), `find(state, needle, {match_case, direction =
+  "down" | "up"})` (from the selection's end down, its start up; the match is
+  selected and brought into view; no wrapping around), `mark`, `dirty`. The
+  document stays while the tree does not show the editor — a sheet over it.
+  Keys while it is focused: runes, Enter, Tab (a tab, shown to the next
+  multiple of `tab`; in a `read_only` one Tab moves the focus), Backspace,
+  Delete, the arrows, Home/End (the display row), Page Up/Down, Ctrl+Home/End
+  (the document), Ctrl+←/→ (a word), Shift with any movement extends the
+  selection, Ctrl+A selects all, a paste inserts. Ctrl+Z/X/C/V, Esc and the
+  rest reach the window as `key`: the clipboard is the application's. The
+  pointer: a press puts the caret, a drag selects, a double click — two presses
+  in one cell within 500 ms; `app.run` stamps mouse events with `time` — takes
+  a word, Shift+press extends, the wheel scrolls three rows, the bars behave as a
+  list's. `wrap = true` breaks lines for display at the width after the last
+  space (hard inside a longer word; `editor.layout`), and ↑/↓ walk display rows
+  keeping the column; the model keeps the real lines. Without wrap the bottom
+  row is the horizontal bar; the vertical bar is always there. An edit is
+  `{type = "change", id, drawn = true}` and a move `{type = "caret", id}`: both
+  are drawn whatever `update` answers. In pixels the text is the shell's
+  fixed-pitch face (`fonts.mono`, Liberation Mono 13), a rune in each 8-px
+  column (`ui.MONO_PX`, the face's "M" — a test holds the two together) from
+  4 px inside a sunken white field; the selection is a navy band per row and
+  the caret a 1-px bar. The column is the plan's number, not a measure at draw
+  time: the window's process plans its keys and clicks too, and it has no font.
+  A press finds the column under its cell's middle (`ui.editor_column`). Without
+  `fonts.mono` the interface face draws the text; the shell says so once in its
+  log at start. In cells a column is a cell. A `font` other than `"mono"` is
+  refused by `ui.problem`.
 - `tree`: `id`, `rows`, `selected`, `wheel_step`. A row is a visible row of the
   flattened tree: `{id, label, depth, has_children, expanded, trail,
   kind = "folder" | "entry", image?}`; `trail` says, per ancestor level, whether that
@@ -339,6 +379,15 @@ current data; `update` changes the model on a component's action.
   with the leaf's `id` — the keys walk it as they walk the Start menu's folders.
   Submenus are one level deep; a deeper one is refused by `ui.problem`. The
   pointer's plain motion reaches a window only where the compositor forwards it.
+  A context menu is a `menu` with `popup = {x, y}` and `items` (the same rows,
+  submenus included) and no bar — `ui.context_menu{id, x, y, items}` builds it
+  from a `context` action's cell. It floats: wherever the window puts it in its
+  tree it takes no room there, and its list is open, top-left at the cell,
+  while the tree carries it — flipped to end at the cell when it would run past
+  the right or the bottom edge. A choice is `activate` with the leaf's `id` and
+  `menu`; Esc, F10 or a press outside (which goes no further) is
+  `{type = "dismiss", id}`. On either the window drops the node. It is
+  `dismiss`, not `close`: `close` is the window's own.
 
 The `id` of an interactive component is mandatory, unique within the window and stable
 between frames. The SDK keeps focus, the input position and the list offset by this ID.

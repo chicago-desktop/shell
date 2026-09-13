@@ -10,7 +10,7 @@ local containers = {row = true, column = true, split = true}
 local leaves = {label = true, button = true, input = true, list = true, table = true, checkbox = true,
     statusbar = true, tabs = true, menu = true, image = true, field = true,
     group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true, monitor = true,
-    icons = true, select = true, slider = true, spectrum = true, radio = true, text = true}
+    icons = true, select = true, slider = true, spectrum = true, radio = true, text = true, editor = true}
 -- Only the ones that take no input can live without an `id`.
 local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
     calendar = true, clock = true, monitor = true, spectrum = true}
@@ -140,6 +140,26 @@ function ui.cell_text(value: any): string
     if type(value) == "table" then return tostring(value.text or "") end
     return tostring(value or "")
 end
+-- The multi-line editor's columns in pixels: 8 px, Fixedsys' width and
+-- Liberation Mono 13's "M" (a test pins the two together). A number of the
+-- plan, not a measure at draw time, because the window's own process plans
+-- too — its keys walk display rows and its clicks find columns — and it has
+-- no font to measure; a measured width would wrap the drawn rows at one width
+-- and the caret's at another. Column 0 stands `EDITOR_INSET` px inside the
+-- field's left edge. In cells a column is a cell.
+ui.MONO_PX = 8
+ui.EDITOR_INSET = 4
+-- Two presses in one cell this close are a double click.
+local DOUBLE_MS = 500
+-- editor_column(item, x) -> the display column (from the view's left) under
+-- the pointer's cell `x`: in pixels the column under the cell's middle.
+function ui.editor_column(item: any, x: any): integer
+    local offset = whole(x) - whole(item.rect.x)
+    local cell: any = item.cell
+    if cell == nil then return whole(math.max(0, offset)) end
+    local width = whole(cell.w)
+    return whole(math.max(0, (offset * width + width // 2 - ui.EDITOR_INSET) // ui.MONO_PX))
+end
 -- wrap_text(value, width, wrap) -> the lines of a `text` view
 --
 -- The lines the plan keeps for a read-only text and both renderers draw: the
@@ -257,9 +277,15 @@ end
 -- submenu_items(node, index, position) -> the items of the submenu the row at
 -- `position` of menu `index` opens, or nil: no such row, a disabled one, or
 -- one without items. The keys read it from the node, the plan lays it out.
-local function submenu_items(node: any, index: any, position: any): any
+-- list_items(node, index) -> the rows of menu `index`; a context menu
+-- (`popup`) has one list, its own `items`.
+local function list_items(node: any, index: any): any
+    if type(node.popup) == "table" then return node.items end
     local entry: any = (node.entries or {})[whole(index)]
-    local option: any = entry and (entry.items or {})[whole(position)] or nil
+    return entry and entry.items or nil
+end
+local function submenu_items(node: any, index: any, position: any): any
+    local option: any = (list_items(node, index) or {})[whole(position)]
     if type(option) ~= "table" or option.separator or option.disabled then return nil end
     if type(option.items) ~= "table" or #option.items == 0 then return nil end
     return option.items
@@ -282,6 +308,27 @@ function ui.submenu(item: any, popup: any, position: any, width: any, height: an
     local y = whole(popup.rect.y) + whole(position) - 1
     if y + h - 1 > whole(height) then y = math.max(1, whole(height) - h + 1) end
     return {rect = geometry.rect(x, y, w, h), rows = rows, lead = lead, parent = whole(position)}
+end
+-- context_popup(node, width, height, pixel_rows) -> a context menu's list:
+-- its top-left at the cell of `popup = {x, y}`, flipped to end at that cell
+-- when it would run past the client's right or bottom edge; the rows and the
+-- `lead` of a bar menu's list.
+function ui.context_popup(node: any, width: any, height: any, pixel_rows: any?): any
+    local rows, widest = menu_rows(node.items)
+    if #rows == 0 then return nil end
+    local lead = pixel_rows and 0 or 1
+    local w, h = widest + 2, #rows + lead * 2
+    local x, y = whole(node.popup.x), whole(node.popup.y)
+    if x + w - 1 > whole(width) then x = whole(math.max(1, x - w + 1)) end
+    if y + h - 1 > whole(height) then y = whole(math.max(1, y - h + 1)) end
+    return {rect = geometry.rect(x, y, w, h), rows = rows, index = 1, lead = lead}
+end
+-- context_menu(spec) -> a context menu node: `id` ("context" by default), `x`
+-- and `y` (the cell a `context` action carries) and `items`, the rows of a
+-- menu's list. The window puts it anywhere in its tree while it is open.
+function ui.context_menu(spec: any): any
+    local given: any = type(spec) == "table" and spec or {}
+    return {kind = "menu", id = given.id or "context", popup = {x = given.x, y = given.y}, items = given.items or {}}
 end
 -- The index of a select's value among its options, 0 when none matches.
 local function option_index(node: any): integer
@@ -433,6 +480,11 @@ local function shape_problem(node: any): any
     if kind == "gauge" and node.orient ~= nil and node.orient ~= "horizontal" and node.orient ~= "vertical" then
         return "SDK gauge orient must be \"horizontal\" or \"vertical\": " .. tostring(node.orient)
     end
+    -- The editor is fixed-pitch only: its columns are the plan's, and a
+    -- proportional face would put the caret between the letters it drew.
+    if kind == "editor" and node.font ~= nil and node.font ~= "mono" then
+        return "SDK editor font must be \"mono\" (the fixed-pitch face): " .. tostring(node.font)
+    end
     if kind == "menu" then
         -- A row is checked or a bullet, never both: two marks in one margin
         -- would draw one over the other. Submenus are one level deep, as the
@@ -461,6 +513,13 @@ local function shape_problem(node: any): any
             local why = type(entry) == "table" and rows_problem(entry.items, 1) or nil
             if why then return why end
         end
+        if node.popup ~= nil then
+            if type(node.popup) ~= "table" or tonumber(node.popup.x) == nil or tonumber(node.popup.y) == nil then
+                return "SDK context menu popup must be {x, y}"
+            end
+            local why = rows_problem(node.items, 1)
+            if why then return why end
+        end
     end
     return nil
 end
@@ -477,7 +536,13 @@ local function add(node: any, rect: any, plan: any, interaction: any)
     if rect.w < 1 or rect.h < 1 then return end
     if containers[kind] then
         rect = padded(rect, node, plan)
-        local children = node.children or {}
+        -- A context menu (`menu` with `popup`) floats: it takes no room in its
+        -- container and is laid over the whole client after the others.
+        local children: any, floating: any = {}, {}
+        for _, child in ipairs(node.children or {}) do
+            if type(child) == "table" and child.kind == "menu" and child.popup ~= nil then floating[#floating + 1] = child
+            else children[#children + 1] = child end
+        end
         local horizontal = kind == "row" or kind == "split"
         local length = whole(horizontal and rect.w or rect.h)
         local gap = whole(math.max(0, node.gap or 0))
@@ -519,6 +584,7 @@ local function add(node: any, rect: any, plan: any, interaction: any)
             position = position + size + gap
         end
         if horizontal and node.align == "right" and plan.cell ~= nil then pack(children, rect, node, plan) end
+        for _, child in ipairs(floating) do add(child, geometry.rect(1, 1, plan.width, plan.height), plan, interaction) end
         return
     end
     local id = node.id
@@ -561,7 +627,25 @@ local function add(node: any, rect: any, plan: any, interaction: any)
     end
     local item: any = {node = node, rect = rect, offset = 0, page = rect.h, bar = nil, header = 0,
         bar_cols = plan.scroll_cols or 1}
-    if kind == "menu" then
+    if kind == "menu" and type(node.popup) == "table" then
+        -- A context menu: no bar, its one list open at the pointer's cell for
+        -- as long as the tree carries the node; its rect is the list's, so it
+        -- covers and takes nothing else.
+        local open: any = interaction.menus[id]
+        if open == nil then
+            open = {index = 1, cursor = 0}
+            interaction.menus[id] = open
+        end
+        item.spans = {}
+        item.popup = ui.context_popup(node, plan.width, plan.height, plan.cell ~= nil)
+        if item.popup then
+            item.rect = item.popup.rect
+            if open.sub ~= nil then item.popup.sub = ui.submenu(item, item.popup, open.sub, plan.width, plan.height) end
+            plan.overlays[#plan.overlays + 1] = item
+        else
+            item.rect = geometry.rect(1, 1, 0, 0)
+        end
+    elseif kind == "menu" then
         -- A menu bar: a strip of titles; the open list goes on top of everything,
         -- so it lands in `plan.overlays` and is drawn last.
         item.spans = ui.spans(node.entries, rect.w, 1)
@@ -663,6 +747,63 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         item.offset = scroll.clamp(id ~= nil and interaction.offsets[id] or 0, total, item.page)
         if id ~= nil then interaction.offsets[id] = item.offset end
         item.bar = scroll.bar(item.offset, total, item.page, rect.h)
+    end
+    if kind == "editor" then
+        -- The multi-line editor (FR-007 §3). The document is the state's: made
+        -- from the node's `text` the first time, never read from it again.
+        local document: any = interaction.editors[id]
+        if not editor.document(document) then
+            document = editor.new(node.text)
+            interaction.editors[id] = document
+        end
+        local wrap = node.wrap == true
+        local tab = whole(math.max(1, whole(node.tab or editor.TAB)))
+        -- Without wrap the last row is the horizontal bar; the vertical bar
+        -- takes its columns always.
+        local page = whole(math.max(1, whole(rect.h) - (wrap and 0 or 1)))
+        local text_cells = whole(math.max(1, whole(rect.w) - whole(item.bar_cols)))
+        local columns = text_cells
+        if plan.cell ~= nil then
+            columns = whole(math.max(1, (text_cells * whole(plan.cell.w) - ui.EDITOR_INSET - 2) // ui.MONO_PX))
+        end
+        local rows = editor.layout(document.lines, columns, wrap, tab)
+        if document.reveal then
+            editor.reveal(document, rows, tab, page, (not wrap) and columns or nil)
+            document.reveal = false
+        end
+        local widest = 0
+        if not wrap then
+            for _, row in ipairs(rows) do
+                widest = whole(math.max(widest, editor.columns(editor.runes(document.lines[row.line]), 0, row.stop, tab)))
+            end
+        end
+        -- One column past the widest line: the caret stands after its end.
+        local span = widest + 1
+        document.top = scroll.clamp(document.top, #rows, page)
+        document.left = wrap and 0 or scroll.clamp(document.left, span, columns)
+        item.document, item.rows, item.tab, item.wrap, item.cell = document, rows, tab, wrap, plan.cell
+        item.page, item.columns, item.offset, item.left, item.span = page, columns, document.top, document.left, span
+        item.bar = scroll.bar(document.top, #rows, page, page)
+        item.hbar = (not wrap) and scroll.bar(document.left, span, columns, text_cells) or nil
+        item.selecting = editor.selected(document)
+        -- What each text row draws — its runes from the view's left, each
+        -- selected or not, and the caret's column on its row — once, for
+        -- both renderers and the rows' keys.
+        local caret_row, caret_x = editor.locate(document, rows, tab)
+        item.visible = {}
+        for row_index = 1, page do
+            local row: any = rows[document.top + row_index]
+            if row == nil then break end
+            local shown: any = {}
+            for _, glyph in ipairs(editor.glyphs(document, row, tab)) do
+                local x = whole(glyph.x) - document.left
+                if x + whole(glyph.w) > 0 and x < columns then
+                    shown[#shown + 1] = {char = glyph.char, x = x, w = glyph.w, selected = glyph.selected}
+                end
+            end
+            item.visible[row_index] = {glyphs = shown,
+                caret = document.top + row_index == caret_row and caret_x - document.left or nil}
+        end
     end
     plan.items[#plan.items + 1] = item
     if id then plan.by_id[id] = item end
@@ -858,7 +999,13 @@ function ui.plan(tree: any, width: any, height: any, interaction: any, options: 
         local map: any = interaction[field]
         if type(map) == "table" then
             local stale = {}
-            for key in pairs(map) do if plan.by_id[key] == nil then stale[#stale + 1] = key end end
+            -- A document outlives its editor's absence from the tree: a sheet
+            -- over Notepad must not lose the text under it.
+            for key, value in pairs(map) do
+                if plan.by_id[key] == nil and not (field == "editors" and editor.document(value)) then
+                    stale[#stale + 1] = key
+                end
+            end
             for _, key in ipairs(stale) do map[key] = nil end
         end
     end
@@ -997,9 +1144,18 @@ local function menu_event(item: any, state: any, event: any): any
     local inner: any = open.sub ~= nil and submenu_items(node, open.index, open.sub) or nil
     local inner_rows: any = inner ~= nil and menu_rows(inner) or nil
     local inside = inner_rows ~= nil and whole(open.sub_cursor) > 0
-    if key == "f10" then state.menus[id] = nil
+    -- A context menu that closes says so, `dismiss`: the window drops its node
+    -- (not `close`, which is the window's own).
+    local floating = type(node.popup) == "table"
+    if key == "f10" then
+        state.menus[id] = nil
+        if floating then return {type = "dismiss", id = id} end
     elseif key == "esc" then
-        if open.sub ~= nil then open.sub, open.sub_cursor = nil, nil else state.menus[id] = nil end
+        if open.sub ~= nil then open.sub, open.sub_cursor = nil, nil
+        else
+            state.menus[id] = nil
+            if floating then return {type = "dismiss", id = id} end
+        end
     elseif key == "left" and open.sub ~= nil then
         open.sub, open.sub_cursor = nil, nil
     elseif key == "right" and not inside and popup and enter(open.cursor) then
@@ -1313,6 +1469,127 @@ local function icons_event(item: any, state: any, event: any): any
     end
     return nil
 end
+-- context_at(item, state, event) -> the `context` of a right press on a
+-- list, a table or an icon grid: the entry under the pointer (`index` 0 and no
+-- `value` on the empty field) and the cell, where the window opens its menu
+-- (`ui.context_menu`). The scroll bar and a table's header have none. The
+-- press takes the focus, as a left one does.
+local function context_at(item: any, state: any, event: any): any
+    local node, rect = item.node, item.rect
+    if event.x >= rect.x + rect.w - whole(item.bar_cols or 1) then return nil end
+    local index = 0
+    if node.kind == "icons" then
+        for _, cell in ipairs(item.cells or {}) do
+            local box: any = cell.box
+            if event.x >= box.from and event.x <= box.to and event.y >= box.top and event.y <= box.bottom then
+                index = whole(cell.index)
+            end
+        end
+    else
+        local row = whole(event.y) - whole(rect.y) - whole(item.header)
+        if row < 0 then return nil end
+        local at = whole(state.offsets[node.id] or item.offset) + row + 1
+        if at <= #entries(node) then index = at end
+    end
+    state.focus = node.id
+    return {type = "context", id = node.id, index = index, value = index > 0 and entries(node)[index] or nil,
+        x = whole(event.x), y = whole(event.y)}
+end
+-- The editor's pointer and keys. The document is read from the state, the
+-- rows and the bars from the plan.
+--
+-- editor_place(item, document, event) -> the document place under the
+-- pointer: its display row (clamped to the document) and column.
+local function editor_place(item: any, document: any, event: any): any
+    local row = whole(document.top) + whole(event.y) - whole(item.rect.y) + 1
+    row = whole(math.max(1, math.min(#item.rows, row)))
+    return editor.at(document, item.rows, item.tab, row, ui.editor_column(item, event.x) + whole(document.left))
+end
+local function scrolled(item: any, document: any): any
+    return {type = "scroll", id = item.node.id, offset = whole(document.top), total = #item.rows}
+end
+local function slid(item: any, document: any): any
+    return {type = "scroll", id = item.node.id, offset = whole(document.left), total = whole(item.span)}
+end
+-- A key or a paste for the focused editor: an edit is `change` (marked
+-- `drawn`: the text is edited already), a move is `caret`; what the model
+-- does not take — Ctrl+Z/X/C/V, Esc — goes on to the window as a key.
+local function editor_key(item: any, state: any, event: any): any
+    local node = item.node
+    local document: any = state.editors[node.id]
+    if not editor.document(document) then return nil end
+    local outcome = editor.key(document, event, {columns = item.columns, wrap = item.wrap, tab = item.tab,
+        page = item.page, read_only = node.read_only == true})
+    if outcome == "change" then return {type = "change", id = node.id, drawn = true} end
+    if outcome == "caret" then return {type = "caret", id = node.id} end
+    return nil
+end
+-- The pointer: the wheel scrolls three rows; a press on the vertical bar, or
+-- on the horizontal one (the same rule turned on its side), scrolls or grabs
+-- the thumb; a press in the text puts the caret and starts a drag, with Shift
+-- it extends, and a second press in the same cell within `DOUBLE_MS` takes
+-- the word (`event.time`, stamped by `app.run`).
+local function editor_event(item: any, state: any, event: any): any
+    local node, rect = item.node, item.rect
+    local document: any = state.editors[node.id]
+    if not editor.document(document) then return nil end
+    if event.action == "wheel" then
+        document.top = scroll.wheel(document.top, event.button, #item.rows, item.page, node.wheel_step or 3)
+        return scrolled(item, document)
+    end
+    if event.action ~= "press" or event.button ~= "left" then return nil end
+    local bar_left = rect.x + rect.w - whole(item.bar_cols or 1)
+    local text_bottom = rect.y + whole(item.page) - 1
+    if event.x >= bar_left and event.y <= text_bottom then
+        if item.bar.limit <= 0 then return nil end
+        local shifted, capture = scroll.pointer(document.top, #item.rows, item.page,
+            {x = bar_left, y = rect.y, w = rect.x + rect.w - bar_left, h = item.page}, nil, event)
+        document.top = shifted
+        state.capture = capture and {id = node.id, grab = capture.grab, axis = "rows"} or nil
+        return scrolled(item, document)
+    end
+    if event.y > text_bottom then
+        if item.hbar == nil or event.x >= bar_left or item.hbar.limit <= 0 then return nil end
+        local turned = {type = "mouse", action = "press", button = "left", x = event.y, y = event.x}
+        local shifted, capture = scroll.pointer(document.left, item.span, item.columns,
+            {x = text_bottom + 1, y = rect.x, w = 1, h = bar_left - rect.x}, nil, turned)
+        document.left = shifted
+        state.capture = capture and {id = node.id, grab = capture.grab, axis = "columns"} or nil
+        return slid(item, document)
+    end
+    local place = editor_place(item, document, event)
+    local click: any = document.click
+    local double = not event.shift and click ~= nil and click.x == event.x and click.y == event.y
+        and event.time ~= nil and click.time ~= nil and event.time - click.time <= DOUBLE_MS
+    if double then
+        editor.word(document, place)
+        document.click = nil
+    else
+        editor.press(document, place, event.shift == true)
+        document.click = {x = event.x, y = event.y, time = event.time}
+        state.capture = {id = node.id, axis = "text"}
+    end
+    return {type = "caret", id = node.id}
+end
+-- A drag the editor captured: a thumb of either bar, or the selection
+-- running from the press to the pointer (past the text the view follows the
+-- caret).
+local function editor_drag(item: any, state: any, event: any): any
+    local document: any = state.editors[item.node.id]
+    local capture: any = state.capture
+    if not editor.document(document) then return nil end
+    if capture.axis == "rows" then
+        document.top = scroll.drag(event.y - item.rect.y, capture.grab, item.bar)
+        return scrolled(item, document)
+    end
+    if capture.axis == "columns" then
+        document.left = scroll.drag(event.x - item.rect.x, capture.grab, item.hbar)
+        return slid(item, document)
+    end
+    if event.action ~= "motion" then return nil end
+    editor.press(document, editor_place(item, document, event), true)
+    return {type = "caret", id = item.node.id}
+end
 local function activate(node: any): any
     if node.kind == "checkbox" then return {type = "change", id = node.id, value = not node.checked} end
     -- A radio button is chosen, never unchosen by itself: the application
@@ -1360,6 +1637,11 @@ function ui.event(plan: any, state: any, original: any): any
     end
     if state.capture and (event.action == "motion" or event.action == "release") then
         local item = plan.by_id[state.capture.id]
+        if item and item.node.kind == "editor" then
+            local dragged = editor_drag(item, state, event)
+            if event.action == "release" then state.capture = nil end
+            return dragged
+        end
         if item then state.offsets[state.capture.id] = scroll.drag(event.y - item.rect.y - whole(item.header), state.capture.grab, item.bar) end
         if event.action == "release" or not item then state.capture = nil end
         return nil
@@ -1384,7 +1666,9 @@ function ui.event(plan: any, state: any, original: any): any
                     -- The pointer passing elsewhere leaves the menu open; a
                     -- press elsewhere closes it and goes no further.
                     if target ~= item then
-                        if not motion then state.menus[item.node.id] = nil end
+                        if motion then return nil end
+                        state.menus[item.node.id] = nil
+                        if type(item.node.popup) == "table" then return {type = "dismiss", id = item.node.id} end
                         return nil
                     end
                 end
@@ -1424,6 +1708,10 @@ function ui.event(plan: any, state: any, original: any): any
         if item.node.kind == "button" and item.node.id and event.action == "press" and event.button == "right" then
             return {type = "context", id = item.node.id}
         end
+        if (item.node.kind == "list" or item.node.kind == "table" or item.node.kind == "icons") and item.node.id
+            and event.action == "press" and event.button == "right" then
+            return context_at(item, state, event)
+        end
         -- Only what can hold the focus takes it. Otherwise a passive view with an `id`
         -- (a label, a field, a frame, a graph, a status bar…) took the
         -- focus while not being in the `focusable` ring — and Tab no longer found
@@ -1432,6 +1720,7 @@ function ui.event(plan: any, state: any, original: any): any
         if input.pressed(event) and item.node.id and not passive[item.node.kind] then state.focus = item.node.id end
         if item.node.kind == "list" or item.node.kind == "table" or item.node.kind == "tree" then return list_event(item, state, event) end
         if item.node.kind == "text" then return text_event(item, state, event) end
+        if item.node.kind == "editor" then return editor_event(item, state, event) end
         if item.node.kind == "icons" then return icons_event(item, state, event) end
         if item.node.kind == "select" then return select_event(item, state, event) end
         if item.node.kind == "slider" then return slider_event(item, state, event) end
@@ -1441,6 +1730,13 @@ function ui.event(plan: any, state: any, original: any): any
         return nil
     end
     local key = input.key(event)
+    -- A focused editor takes its keys before the Tab ring — Tab types a tab
+    -- there, unless the document is read-only — and a paste is its text.
+    local writing: any = plan.by_id[state.focus]
+    if writing and writing.node.kind == "editor" and (event.type == "key" or event.type == "paste")
+        and not (key == "tab" and writing.node.read_only == true) then
+        return editor_key(writing, state, event)
+    end
     if key == "tab" then
         for index, id in ipairs(plan.focusable) do
             if id == state.focus then
