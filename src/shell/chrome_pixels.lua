@@ -40,8 +40,6 @@ local pixels = require("pixels")
 local images = require("images")
 local rasters = require("rasters")
 local widgets = require("widgets")
-local explorer_layout = require("explorer_layout")
-local explorer_pixels = require("explorer_pixels")
 local gadgets = require("gadgets")
 
 -- View windows: the content is drawn not by a process but by a pure `render`
@@ -62,7 +60,6 @@ local chrome_pixels = {}
 -- them: the `paint` contract carries no state. So this is module state, one
 -- per process — and there is only one process here, the shell.
 local store = rasters.store()
-local clients: any = {}
 
 -- A flag for the compositor: by it, it decides that the theme can do pixels.
 chrome_pixels.pixel = true
@@ -91,24 +88,8 @@ local unit: any = UNSET
 -- `fonts` is the theme's {face, bold}, `store` is the theme's raster store
 -- (whoever took a raster from it, that one's placement survives the frame
 -- without a store of its own).
--- Explorer shares layout with its controller and keeps four cached slices.
-local function explorer_placement(window: any, inner: any, cell: any, fonts: any)
-    local client = clients[window.id] or rasters.store()
-    clients[window.id] = client
-    local state: any = window.content_state or {title = "My Computer", objects = {}}
-    local plan = explorer_layout.layout(state, inner.cols, inner.rows,
-        explorer_layout.pixel_metrics(cell.w, cell.h))
-    local placed = explorer_pixels.paint(client, plan, cell, fonts, "client:" .. window.id)
-    for _, placement in ipairs(placed) do
-        placement.x = placement.x + inner.x - 1
-        placement.y = placement.y + inner.y - 1
-    end
-    return placed
-end
-
 local VIEWS: any = {
     ["butschster.windows.sdk:render"] = sdk_render,
-    ["butschster.windows.explorer:render_pixels"] = {placement = explorer_placement},
     ["butschster.windows.viewers:picture_render"] = picture_render,
 }
 function chrome_pixels.forget(id)
@@ -1249,19 +1230,15 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     -- under the pointer, and the icon is the one on top.
     for _, hit in ipairs(gadgets.hits(spots)) do hits.desktop[#hits.desktop + 1] = hit end
 
-    local live_clients: any = {}
     for index, entry in ipairs(view.windows or {}) do
         local window: any = entry
-        if clients[window.id] then live_clients[window.id] = clients[window.id] end
         if not window.minimized then
             local first = #out + 1
             paint_window(cell, window, view.focused_id == window.id, fonts, out)
-            if clients[window.id] then live_clients[window.id] = clients[window.id] end
             for at = first, #out do out[at].layer = index end
         end
     end
 
-    clients = live_clients
     -- A bare desktop has no taskbar: this is how the logon screen is drawn,
     -- where there is no Start yet, because there is no user yet either.
     if not view.bare then paint_bars(cell, view, fonts, out, hits) end

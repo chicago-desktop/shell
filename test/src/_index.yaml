@@ -96,22 +96,23 @@ entries:
       model: butschster.windows.explorer:model
       repo: butschster.windows.persist:repo
       sources: butschster.windows.explorer:sources
-      render: butschster.windows.explorer:render
     method: run
 
-  - name: render_test
+  - name: explorer_window_test
     kind: function.lua
     meta:
       type: test
-      comment: The icon grid inside a window and the layout as the single table for both backends — rows are counted from the drawing, not from the step; the rectangle predicted by the plan matches the drawn one; the offset is clamped rather than showing emptiness past the last row.
+      comment: The folder window on the SDK (FR-008) — every menu item through update, open or focus, Backspace in both browse modes, the toggles, the context menus, the Options sheet, the four views laid out at 48×16 and 72×22 in both modes, and the window alive in a viewport.
       group: Windows Shell
       suite: butschster_windows
-    source: file://render_test.lua
-    modules: [tty]
+    source: file://explorer_window_test.lua
+    modules: [tty, process, channel, time]
     imports:
       test: wippy.test:test
-      icons: butschster.windows.shell:icons
-      render: butschster.windows.explorer:render
+      ui: butschster.windows.sdk:ui
+      app: butschster.windows.sdk:app
+      model: butschster.windows.explorer:model
+      explorer_window: butschster.windows.explorer:window
     method: run
 
   - name: chrome_test
@@ -249,9 +250,8 @@ entries:
       chrome_pixels: butschster.windows.shell:chrome_pixels
       pixels: butschster.windows.shell:pixels
       rasters: butschster.windows.shell:rasters
-      render: butschster.windows.explorer:render
-      render_pixels: butschster.windows.explorer:render_pixels
       ui: butschster.windows.sdk:ui
+      explorer_window: butschster.windows.explorer:window
       run_window: butschster.windows.run:window
       datetime_window: butschster.windows.datetime:window
       calc_window: butschster.windows.calc:window
@@ -413,31 +413,6 @@ entries:
     data:
       entry: app:grouped_probe
 
-  - name: explorer_pixels_test
-    kind: function.lua
-    meta:
-      type: test
-      comment: A live explorer on the pixel compositor, and the cell mode that is kept.
-      group: Windows Shell
-      suite: butschster_windows
-    source: file://explorer_pixels_test.lua
-    method: run
-    modules: [process, channel, tty, time]
-    imports:
-      test: wippy.test:test
-
-  - name: explorer_composer
-    kind: process.lua
-    meta:
-      comment: The real pixel theme and compositor on the test viewport.
-    source: file://explorer_composer.lua
-    method: main
-    modules: [process, fs, gfx]
-    imports:
-      library: butschster.tui_desktop.desktop:library
-      chrome: butschster.windows.shell:chrome_pixels
-      cell_chrome: butschster.windows.shell:chrome
-      render: butschster.windows.explorer:render
   - name: viewers_test
     kind: function.lua
     meta:
@@ -709,8 +684,6 @@ entries:
       catalog: butschster.windows.programs:catalog
       app: butschster.windows.sdk:app
       widgets: butschster.windows.shell:widgets
-      explorer_render: butschster.windows.explorer:render
-      explorer_pixels: butschster.windows.explorer:render_pixels
 
   - name: workshop_sdk_test
     kind: function.lua

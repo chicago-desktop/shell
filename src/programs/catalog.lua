@@ -131,6 +131,11 @@ local function to_program(record: any)
         -- (Notepad is a notepad, its files are a text document). Read by
         -- associations.
         file_image = type(meta.file_image) == "string" and meta.file_image ~= "" and meta.file_image or nil,
+        -- The name of the program's documents for the explorer's Type column
+        -- ("Text Document"). Read by associations.
+        file_type = type(meta.file_type) == "string" and meta.file_type ~= "" and meta.file_type or nil,
+        -- What the entry says about itself: the Control Panel's Comment column.
+        comment = type(meta.comment) == "string" and meta.comment ~= "" and meta.comment or nil,
         width = tonumber(meta.width),
         height = tonumber(meta.height),
         args = type(meta.args) == "string" and meta.args or nil,

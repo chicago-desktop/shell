@@ -102,6 +102,8 @@ entries:
       height: 20
       # What it opens. The explorer assembles the type registry from this field.
       opens: [txt, md, log, csv, json, yaml, yml, lua, ini, conf, toml, xml, html, css, js, ts, go, py, sh]
+      # The Type column of its files in the explorer's Details view.
+      file_type: Text Document
       comment: Notepad — view a text file from a registry drive, read-only; lines do not wrap, scrolling with the arrows and the wheel.
     source: file://notepad.lua
     method: main
@@ -143,6 +145,7 @@ entries:
       render: butschster.windows.viewers:picture_render
       state: butschster.windows.viewers:picture_state
       opens: [png, gif, jpg, jpeg]
+      file_type: Image File
       comment: Image viewer — PNG, GIF, JPEG from a registry drive; fits into the window or shows at a zoom with panning. Pixel mode only.
     source: file://idle_window.lua
     method: main

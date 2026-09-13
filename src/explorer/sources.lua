@@ -116,22 +116,6 @@ local function read_drive(id: any, sub: any)
     return rows, nil, cut
 end
 
--- comments() -> {[entry] = meta.comment}: the Control Panel's Comment column.
--- The catalog keeps no comment, so the entries are read once more by the same
--- filter the catalog uses. Unreadable → an empty map: the column is prose, and
--- the objects are still listed with their ids for detail.
-function sources.comments(): any
-    local found, err = registry.find({["meta.type"] = catalog.WINDOW_TYPE})
-    local out = {}
-    if err or type(found) ~= "table" then return out end
-    for _, entry in ipairs(found) do
-        local record: any = entry
-        local meta: any = type(record.meta) == "table" and record.meta or {}
-        if type(meta.comment) == "string" and meta.comment ~= "" then out[record.id] = meta.comment end
-    end
-    return out
-end
-
 -- browse() -> mode, reason
 --
 -- How folders open (FR-008 §3): `separate` (the default) or `single`, from
@@ -192,7 +176,7 @@ function sources.list(path, context: any)
         if err or not found then return nil, err or "catalog not read" end
         -- The programs the Start menu shows: a program hidden from the menu
         -- is hidden here too, as in the Programs view.
-        return {objects = model.control(catalog.listed(found.programs), sources.comments()),
+        return {objects = model.control(catalog.listed(found.programs)),
                 title = model.CONTROL_TITLE}, nil
     end
 

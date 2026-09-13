@@ -57,48 +57,6 @@ entries:
       model: butschster.windows.explorer:model
       repo: butschster.windows.persist:repo
 
-  # butschster.windows.explorer:render
-  #
-  # The look of the window contents is separate from the window process —
-  # along the same boundary that separates the theme from the compositor:
-  # only strings and arithmetic here. That is why a frame can be viewed with
-  # the `tools/themeprobe` probe without starting either the window or the
-  # runtime, and a full-screen program cannot be checked any other way.
-  - name: render
-    kind: library.lua
-    meta:
-      comment: The contents of "My Computer" — menu bar, toolbar, icon field and status bar; the hits are returned by the same function that draws.
-    source: file://render.lua
-    modules:
-      - tty
-    imports:
-      scroll: butschster.tui_desktop.desktop:scroll
-      icons: butschster.windows.shell:icons
-      widgets: butschster.windows.shell:widgets
-
-  # butschster.windows.explorer:render_pixels
-  #
-  # The second backend of the same view. A separate entry, not a branch
-  # inside `render`, because `render` must load where the `gfx` module does
-  # not exist at all: the shell has to work in a plain xterm, and the cell
-  # path has no right to die together with graphics. An entry that declared
-  # `gfx` does not load on such a runtime — not "without pixels", but
-  # entirely.
-  #
-  # Rule: `gfx` is declared only by whoever does not exist without it.
-  - name: render_pixels
-    kind: library.lua
-    meta:
-      comment: Pixel painting for "My Computer" — takes the layout and hits ready-made from render, rasters from the store; the frame is sliced by rows so that selecting an icon does not repaint the menu.
-    source: file://render_pixels.lua
-    modules:
-      - gfx
-    imports:
-      geometry: butschster.tui_desktop.desktop:geometry
-      scroll: butschster.tui_desktop.desktop:scroll
-      palette: butschster.windows.shell:palette
-      pixels: butschster.windows.shell:pixels
-
   # butschster.windows.explorer:window
   #
   # The window itself. An ordinary registry program — the shell finds it with
@@ -115,16 +73,17 @@ entries:
       type: tui_desktop.window
       title: My Computer
       image: my_computer
-      pixel_render: butschster.windows.explorer:render_pixels
-      pixel_state: butschster.windows.explorer:state
+      # An SDK application (FR-008): the shared renderer draws the tree the
+      # window publishes, and this same entry is its state provider.
+      pixel_render: butschster.windows.sdk:render
+      pixel_state: butschster.windows.explorer:window
       icon: "▣"
-      # The number of icons that fit in a row is the width minus two cells,
-      # divided by the grid step of twelve. Sixty-four is five columns, that
-      # is, a row of drives rather than a column.
-      # The Windows 95 toolbar is thirteen buttons and four separators, 69
-      # cells; in 64 "List", "Details" and "Refresh" did not fit.
-      width: 72
-      height: 22
+      # Windows 95's My Computer was about 260×220 px on a 640×480 screen;
+      # 48×16 cells is the same share of a 1000-px desktop. Every folder opens
+      # in a window of its own, cascaded, so they stay small.
+      width: 48
+      height: 16
+      resizable: true
       # NOT shown in "Start" — owner's decision 2026-09-09: "My Computer" is
       # opened from the desktop, as in Windows, and a shortcut to a hidden
       # program works (`in_menu` is about the menu, not about launching).
@@ -135,7 +94,7 @@ entries:
       group: ""
       # "Properties" in the icon's context menu is "System Properties".
       properties: butschster.windows.sysprops:window
-      comment: The "My Computer" window — the filesystems from the registry and their contents; a shared controller for the cell mode and the pixel view.
+      comment: A folder window as in Windows 95 — My Computer, a drive, a folder or the Control Panel in four views, a window per folder; an SDK application.
     source: file://window.lua
     method: main
     modules:
@@ -150,42 +109,12 @@ entries:
     security:
       policies: [butschster.windows.security:explorer_window]
     imports:
-      scrolling: butschster.tui_desktop.desktop:scroll
-      geometry: butschster.tui_desktop.desktop:geometry
+      app: butschster.windows.sdk:app
+      ui: butschster.windows.sdk:ui
       # Requests to the compositor go through the base library, not our own
       # protocol. It reads the compositor's name from the process context; a
       # constant of our own would work only under our shell and would
       # silently miss under any other.
       desktop: butschster.tui_desktop.desktop:window_api
       model: butschster.windows.explorer:model
-      render: butschster.windows.explorer:render
-      sources: butschster.windows.explorer:sources
-
-  - name: state
-    kind: process.lua
-    meta:
-      comment: State of the pixel explorer; the same controller and permissions as the cell window.
-    source: file://window.lua
-    method: main
-    modules:
-      - channel
-      - fs
-      - json
-      - registry
-      - sql
-      - time
-      - tty
-      - uuid
-    security:
-      policies: [butschster.windows.security:explorer_window]
-    imports:
-      scrolling: butschster.tui_desktop.desktop:scroll
-      geometry: butschster.tui_desktop.desktop:geometry
-      # Requests to the compositor go through the base library, not our own
-      # protocol. It reads the compositor's name from the process context; a
-      # constant of our own would work only under our shell and would
-      # silently miss under any other.
-      desktop: butschster.tui_desktop.desktop:window_api
-      model: butschster.windows.explorer:model
-      render: butschster.windows.explorer:render
       sources: butschster.windows.explorer:sources

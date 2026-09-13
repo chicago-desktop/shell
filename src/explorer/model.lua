@@ -268,11 +268,15 @@ end
 -- cells for it rather than a zero.
 --
 -- file_type(programs, name) -> the Type column of a file: the handling
--- program's title with `Document`, as Windows showed a registered type;
--- `<EXT> File` for an unknown one; `File` without an extension.
+-- program's document name (`meta.file_type`, "Text Document"), else its title
+-- with `Document`; `<EXT> File` for an unknown type; `File` without an
+-- extension.
 function model.file_type(programs: any, name: any): string
     local program: any = associations.find(programs, name)
-    if program then return tostring(program.title) .. " Document" end
+    if program then
+        if type(program.file_type) == "string" and program.file_type ~= "" then return program.file_type end
+        return tostring(program.title) .. " Document"
+    end
     local ext = files.ext(name)
     if ext ~= "" then return ext:upper() .. " File" end
     return "File"
@@ -389,17 +393,17 @@ function model.programs(programs: any)
     return out
 end
 
--- control(programs, comments) -> the Control Panel's objects: the programs of
--- the catalog's `Settings` group, each opening its own window, sorted by
--- title. `comments` maps an entry to its `meta.comment` (the Details Comment
+-- control(programs) -> the Control Panel's objects: the programs of the
+-- catalog's `Settings` group, each opening its own window, sorted by title.
+-- The catalog carries each entry's `meta.comment` (the Details Comment
 -- column); an entry without one shows its id instead.
-function model.control(programs: any, comments: any)
+function model.control(programs: any)
     local out: any = {}
     for _, item in ipairs(type(programs) == "table" and programs or {}) do
         local program: any = item
         local group: any = program.group
         if type(group) == "table" and group[1] == model.SETTINGS_GROUP then
-            local comment: any = type(comments) == "table" and comments[program.entry] or nil
+            local comment: any = type(program.comment) == "string" and program.comment ~= "" and program.comment or nil
             out[#out + 1] = object({
                 id = program.entry,
                 kind = "program",
@@ -635,9 +639,10 @@ function model.details(item: any): any
     }
 end
 
--- sort(objects, key) -> a new list: folders always before files, then by the
--- key — `name` (the default), `type`, `size`, `date` — then by name; stable
--- for rows the rule does not tell apart.
+-- sort(objects, key) -> a new list: drives first, then folders, then files —
+-- My Computer listed its drives before the Control Panel — then by the key —
+-- `name` (the default), `type`, `size`, `date` — then by name; stable for rows
+-- the rule does not tell apart.
 function model.sort(objects: any, key: any): any
     local rows: any = {}
     for index, item in ipairs(type(objects) == "table" and objects or {}) do
@@ -646,10 +651,15 @@ function model.sort(objects: any, key: any): any
     local by = key
     if by ~= "type" and by ~= "size" and by ~= "date" then by = "name" end
     local function name_of(item: any): string return tostring(item.title or item.id or ""):lower() end
+    local function rank(item: any): integer
+        if item.kind == "drive" then return 0 end
+        if is_folder(item) then return 1 end
+        return 2
+    end
     table.sort(rows, function(left: any, right: any)
         local a, b = left.item, right.item
-        local fa, fb = is_folder(a), is_folder(b)
-        if fa ~= fb then return fa end
+        local ra, rb = rank(a), rank(b)
+        if ra ~= rb then return ra < rb end
         if by == "type" then
             local ta, tb = type_of(a):lower(), type_of(b):lower()
             if ta ~= tb then return ta < tb end

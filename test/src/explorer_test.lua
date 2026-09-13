@@ -208,14 +208,15 @@ local function define_tests()
     -- selection and the browse mode.
     test.describe("folder windows (FR-008)", function()
         local PROGRAMS = {
-            {entry = "app:display", title = "Display", group = {"Settings"}, image = "display_properties", width = 46, height = 24},
+            {entry = "app:display", title = "Display", group = {"Settings"}, image = "display_properties", width = 46, height = 24,
+                comment = "Desktop colour and screen."},
             {entry = "app:calc", title = "Calculator", group = {"Programs"}, image = "calculator"},
             {entry = "app:add", title = "Add/Remove Programs", group = {"Settings"}, image = "appwizard", width = 50, height = 20},
             {entry = "app:root_one", title = "Run", group = {}},
         }
 
         test.it("the Control Panel holds the Settings programs, sorted by title, each opening its window", function()
-            local objects = model.control(PROGRAMS, {["app:display"] = "Desktop colour and screen."})
+            local objects = model.control(PROGRAMS)
             test.eq(#objects, 2, "only the Settings group")
             test.eq(objects[1].title, "Add/Remove Programs")
             test.eq(objects[2].title, "Display")
@@ -314,6 +315,13 @@ local function define_tests()
             test.is_true(notes.modified ~= "")
             test.eq(make.type, "File", "no extension, no letters")
             test.eq(make.modified, "", "an unknown date is empty, not the epoch")
+            local programs = {
+                {entry = "app:np", title = "Notepad", opens = {"txt"}, file_type = "Text Document"},
+                {entry = "app:view", title = "Viewer", opens = {"png"}},
+            }
+            test.eq(model.file_type(programs, "a.TXT"), "Text Document", "the program names its documents")
+            test.eq(model.file_type(programs, "b.png"), "Viewer Document", "else its title with Document")
+            test.eq(model.file_type(programs, "c.zip"), "ZIP File")
             test.eq(model.details(model.drives({{id = "app:fs", kind = "fs.directory"}})[1]).type, "Local Disk")
             test.eq(model.details(model.drives({{id = "app:em", kind = "fs.embed"}})[1]).type, "Read-only Disk")
         end)
@@ -339,6 +347,14 @@ local function define_tests()
             test.eq(order("size"), "apps,Zed,twin,twin2,a.png,c.md,b.txt")
             test.eq(order("date"), "Zed,apps,twin,twin2,c.md,a.png,b.txt")
             test.eq(order("colour"), order(nil), "an unknown key is by name")
+            local mine = {}
+            for _, item in ipairs(model.sort({
+                {id = "control", kind = "folder", title = "Control Panel"},
+                {id = "z", kind = "drive", title = "zeta"},
+                {id = "f", kind = "file", title = "a.txt"},
+                {id = "a", kind = "drive", title = "alpha"},
+            }, "name")) do mine[#mine + 1] = (item :: any).id end
+            test.eq(table.concat(mine, ","), "a,z,control,f", "My Computer: the drives before the Control Panel")
             test.eq(objects[1].id, "b.txt", "the input is not reordered")
             test.eq(#model.SORT_KEYS, 4)
         end)

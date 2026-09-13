@@ -12,11 +12,6 @@ local test = require("test")
 local model = require("model")
 local repo = require("repo")
 local sources = require("sources")
-local render = require("render")
-local tty = require("tty")
-local process = require("process")
-local channel = require("channel")
-local time = require("time")
 
 local PROBE = "app:probe_fs"
 
@@ -35,58 +30,6 @@ local function by_title(objects, title)
 end
 
 local function define_tests()
-    test.describe("Explorer input", function()
-        test.it("scrolls a real viewport with wheel and scrollbar arrows", function()
-            local shown, err = sources.list(model.ROOT, {})
-            test.is_nil(err)
-            local width, height = 22, 9
-            local shape = render.shape(width, height, #shown.objects, 0)
-            test.is_true(shape.scrolling, "fixture must require scrolling")
-            test.is_true(shape.rows > 0)
-            local view = assert(tty.viewport({width = width, height = height}))
-            local pid, why = process.with_options({terminal = assert(view:grant())})
-                :spawn_monitored("butschster.windows.explorer:window", "app:processes")
-            test.is_nil(why)
-            test.not_nil(pid)
-            local state: any = {path = model.ROOT, title = shown.title, objects = shown.objects,
-                selected = 0, offset = 0}
-            local function wait_frame(offset)
-                state.offset = offset
-                local canvas = tty.canvas(width, height)
-                local hits = render.window(canvas, state, width, height)
-                local expected = table.concat(canvas:rows(), "\n")
-                local actual = ""
-                local deadline = time.now():unix_nano() + 5000000000
-                while time.now():unix_nano() < deadline do
-                    local snap: any = view:snapshot(-1)
-                    actual = snap and table.concat(snap.rows or {}, "\n") or ""
-                    if actual == expected then return hits end
-                    channel.select({time.after("20ms"):case_receive()})
-                end
-                test.eq(actual, expected, "viewport did not reach scroll row " .. offset)
-                return hits
-            end
-            local area = render.layout(state, width, height).inner
-            wait_frame(0)
-            view:send({type = "mouse", action = "wheel", button = "wheel_down", x = area.x, y = area.y})
-            wait_frame(1)
-            view:send({type = "mouse", action = "wheel", button = "wheel_up", x = area.x, y = area.y})
-            wait_frame(0)
-            -- The scrollbar arrows are the edges of `plan.scroll`: the window
-            -- gives the same geometry to `scroll.pointer`, the bar has no hits
-            -- of its own any more.
-            local bar: any = render.layout(state, width, height).scroll
-            test.not_nil(bar, "the fixture shows a scrollbar")
-            for _, arrow in ipairs({{y = bar.y + bar.h - 1, offset = 1}, {y = bar.y, offset = 0}}) do
-                view:send({type = "mouse", action = "press", button = "left", x = bar.x, y = arrow.y})
-                view:send({type = "mouse", action = "release", button = "left", x = bar.x, y = arrow.y})
-                wait_frame(arrow.offset)
-            end
-            view:send({type = "close"})
-            view:close()
-            process.terminate(tostring(pid))
-        end)
-    end)
     test.describe("butschster.windows explorer sources", function()
         test.it("takes drives from the registry, not from its own table", function()
             -- A drive declared by an installed module must appear by itself.
@@ -162,8 +105,7 @@ local function define_tests()
                 "modified is Unix seconds: " .. tostring(self_file.modified))
             local cells = model.details(self_file)
             test.is_true(cells.size:match("^[%d,]+KB$") ~= nil, cells.size)
-            test.is_true(cells.type:find(" Document", 1, true) ~= nil,
-                "a file Notepad opens is a document of it: " .. cells.type)
+            test.eq(cells.type, "Text Document", "Notepad names its documents (meta.file_type)")
             test.is_true(cells.modified ~= "")
         end)
 

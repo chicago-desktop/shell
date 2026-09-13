@@ -22,7 +22,7 @@ local STORAGE_POLICY_ID = "butschster.windows.security:shell_storage"
 local ACCESS_POLICY_ID = "butschster.windows.security:shell_endpoint_access"
 local EXPLORER_ID = "butschster.windows.explorer:window"
 local EXPLORER_POLICY_ID = "butschster.windows.security:explorer_window"
-local RENDER_ID = "butschster.windows.explorer:render"
+local SDK_RENDER_ID = "butschster.windows.sdk:render"
 
 local ENDPOINTS = {
     {id = "butschster.windows.api:list_programs", method = "GET", path = "/windows/programs"},
@@ -129,33 +129,29 @@ local function define_tests()
                 "the window does not talk to processes directly")
         end)
 
-        test.it("draws with the theme's shared primitives, not a copy of its own", function()
+        test.it("is an SDK application: the shared components and renderer, not a copy of its own", function()
             -- A button of its own, slightly different, would mean that inside a
             -- Windows 95 window lives a different Windows. They would diverge in
             -- look, not in a failure — that is, it would be noticed a week later.
+            -- FR-008 moved the folder window onto the SDK: the tree is drawn by
+            -- the one renderer every SDK window uses.
             local imports = data_of(get(EXPLORER_ID)).imports or {}
-            test.eq(qualify(imports.render, "butschster.windows.explorer"), RENDER_ID)
+            test.eq(qualify(imports.app, "butschster.windows.explorer"), "butschster.windows.sdk:app")
             test.eq(qualify(imports.sources, "butschster.windows.explorer"),
                 "butschster.windows.explorer:sources")
-
-            local drawing = data_of(get(RENDER_ID)).imports or {}
-            test.eq(qualify(drawing.widgets, "butschster.windows.explorer"),
-                "butschster.windows.shell:widgets")
-            test.eq(qualify(drawing.icons, "butschster.windows.explorer"),
-                "butschster.windows.shell:icons")
+            test.is_nil(imports.render, "no renderer of its own")
+            local meta = meta_of(get(EXPLORER_ID))
+            test.eq(meta.pixel_render, SDK_RENDER_ID)
+            test.eq(meta.pixel_state, EXPLORER_ID, "the window is its own state provider")
         end)
 
-        test.it("keeps the window's view outside the window's process", function()
-            -- A full-screen program cannot be checked by an exit code, and a
-            -- frame assembled inside the process cannot be looked at by anything
-            -- but the running system. Hence the rule: the content is drawn by a
-            -- library that needs only tty — the probe runs it without a runtime.
-            local data = data_of(get(RENDER_ID))
-            test.eq(data.kind or get(RENDER_ID).kind, "library.lua")
-            for _, forbidden in ipairs({"process", "sql", "registry", "fs"}) do
-                test.is_false(has(data.modules or {}, forbidden),
-                    "the view has no business with the module " .. forbidden)
-            end
+        test.it("keeps no custom renderer entries behind", function()
+            -- A renderer that nothing uses still loads, still imports the
+            -- theme's internals, and is the first thing someone edits by
+            -- mistake. registry.get answers (nil, "entry not found").
+            test.is_nil(registry.get("butschster.windows.explorer:render"))
+            test.is_nil(registry.get("butschster.windows.explorer:render_pixels"))
+            test.is_nil(registry.get("butschster.windows.explorer:state"))
         end)
 
         test.it("does not let the window spawn processes or run programs", function()

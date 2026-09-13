@@ -134,8 +134,6 @@ entries:
       images: butschster.windows.shell:images
       rasters: butschster.windows.shell:rasters
       widgets: butschster.windows.shell:widgets
-      explorer_layout: butschster.windows.explorer:render
-      explorer_pixels: butschster.windows.explorer:render_pixels
       # View windows. The compositor cannot load a library by an id from the
       # window's entry — require knows only imports — so every render is
       # imported here statically and named in the theme's VIEWS.

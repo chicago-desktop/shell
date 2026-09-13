@@ -28,8 +28,7 @@ local chrome = require("chrome")
 local chrome_pixels = require("chrome_pixels")
 local ui = require("ui")
 local run_window = require("run_window")
-local render = require("render")
-local render_pixels = require("render_pixels")
+local explorer_window = require("explorer_window")
 local datetime_window = require("datetime_window")
 local sysprops_window = require("sysprops_window")
 local display_window = require("display_window")
@@ -304,69 +303,6 @@ local function main(spec)
         font:size(), font:height(), font:ascent(), sample, tw, th))
 
 
-    -- "My Computer" with the PIXEL backend. The layout is computed by the
-    -- same `render.layout` as the cell path — that is what the separation is
-    -- for: if they drifted apart, a click would land on a neighbor in one of
-    -- the two modes.
-    local function explorer_shots(store)
-        local view: any = {
-            title = "My Computer",
-            selected = 2,
-            offset = 0,
-            objects = {
-                {id = "app:app_fs", kind = "drive", title = "app_fs",
-                 detail = "app:app_fs · fs.directory"},
-                {id = "wippy.facade:public_files", kind = "drive", title = "public_files",
-                 detail = "wippy.facade:public_files · fs.directory"},
-                {id = "keeper:ui_static_fs", kind = "drive", title = "keeper ui_static_fs",
-                 detail = "keeper:ui_static_fs · fs.embed"},
-                {id = "programs", kind = "folder", title = "Programs",
-                 detail = "12 object(s)"},
-                {id = "desktop", kind = "folder", title = "Desktop",
-                 detail = "3 object(s)"},
-                {id = "windows", kind = "folder", title = "Open Windows",
-                 detail = "2 object(s)"},
-            },
-        }
-
-        local plan = render.layout(view, 46, 14)
-        local placements = render_pixels.paint(store, plan, cell,
-            {face = font, bold = bold}, "explorer")
-
-        say(string.format("explorer: %d placements, %d icon hits",
-            #placements, #plan.cells))
-
-        for _, item in ipairs(placements) do
-            local bytes = item.raster:encode("png")
-            local file = "explorer-" .. string.gsub(item.id, "[^%w]", "-") .. ".png"
-            if bytes then
-                store_shots:writefile(file, bytes)
-                say(string.format("  %-22s cell %2d,%-2d  %2d×%-2d cells  → %s",
-                    item.id, item.x, item.y, item.cols, item.rows, file))
-            end
-        end
-
-        -- The same frame once more: not a single placement has the right to
-        -- be sent again. This is exactly the FR-005 §4 measure, applied to a
-        -- real view, not to a training scene.
-        local before: any = {}
-        for _, item in ipairs(placements) do
-            before[item.id] = {raster = item.raster, version = item.raster:version()}
-        end
-        local again = render_pixels.paint(store, plan, cell,
-            {face = font, bold = bold}, "explorer")
-        local moved = {}
-        for _, item in ipairs(again) do
-            local was: any = before[item.id]
-            if not was then moved[#moved+1] = item.id .. " (appeared)"
-            elseif was.raster ~= item.raster then moved[#moved+1] = item.id .. " (RECREATED)"
-            elseif was.version ~= item.raster:version() then moved[#moved+1] = item.id end
-        end
-        say("explorer, the same frame once more: moved " .. #moved
-            .. (#moved == 0 and "" or " — " .. table.concat(moved, ", ")))
-        return #moved == 0
-    end
-
     -- ─── the whole screen in one screenshot ──────────────────────────────
     --
     -- The compositor places the placements separately, but a person looks at
@@ -512,38 +448,6 @@ local function main(spec)
         say("catalog → menu and desktop: menu-icons.png")
     end
 
-    -- Same native window path that the compositor now uses for Explorer.
-    local function explorer_native_shot()
-        chrome_pixels.use_fonts(font, bold)
-        chrome_pixels.use_cell_size(cell.w, cell.h)
-        local records = {}
-        for _, name in ipairs({"app.desktop:system_fonts", "app:app_fs", "app:codex_store", "app:data_dir",
-            "app:system_fonts", "app:tmp", "app:uploads", "app:uploads_store", "butschster.blog:ui_fs",
-            "butschster.bridge:ui_fs", "butschster.windows:assets", "kickside:ui_fs"}) do
-            records[#records + 1] = {id = name, kind = "fs.directory"}
-        end
-        local objects = model.drives(records)
-        for index = #objects + 1, 65 do objects[index] = {id = "fs" .. index, kind = "drive", title = "File system " .. index} end
-        local state: any = {width = 110, height = 34, top = 1,
-            bottom = 34 - chrome_pixels.layout(110, 34).bottom,
-            items = {{id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window",
-                title = "My Computer", x = 10, y = 2},
-                {id = "programs", kind = "folder", title = "Programs", x = 20, y = 10}},
-            windows = {{id = "explorer", entry = "butschster.windows.explorer:window", image = "my_computer",
-                title = "My Computer", window_type = "app", content = "pixels",
-                render = "butschster.windows.explorer:render_pixels", x = 34, y = 8, w = 64, h = 20,
-                content_state = {title = "My Computer", objects = objects, selected = 0, offset = 0}}},
-            focused_id = "explorer", clock = "12:00"}
-        local painted = chrome_pixels.paint(state, cell.w, cell.h)
-        local canvas = gfx.raster(state.width * cell.w, state.height * cell.h)
-        canvas:fill(color_desktop)
-        for _, placement in ipairs(painted.placements) do
-            canvas:blit(placement.raster, (placement.x - 1) * cell.w + 1, (placement.y - 1) * cell.h + 1)
-        end
-        store_shots:writefile("explorer-native.png", assert(canvas:encode("png")))
-        say("pixel explorer window: explorer-native.png")
-    end
-
     -- Fixture metadata mirrors the declarations; the dialog uses its live renderer.
     local function run_shot()
         -- The signed-in user — as the first row of "Start", as on the live
@@ -686,7 +590,6 @@ local function main(spec)
         say("FAILURE: rasters do not outlive the frame — the screen will be correct, but everything will be flying")
     end
 
-    explorer_native_shot()
     menu_icons_shot()
     screen_shot("desktop.png", nil)
     screen_shot("menu-empty.png", "empty")
@@ -709,11 +612,6 @@ local function main(spec)
         atlas:text(x, y + 44, name, {font = font, color = "#000000"})
     end
     store_shots:writefile("stock-icons.png", assert(atlas:encode("png")))
-
-    local explorer_ok = explorer_shots(rasters.store())
-    if not explorer_ok then
-        say("FAILURE: the explorer recreates rasters — the screen will stay OLD, not slow")
-    end
 
     -- View windows whole: the pieces are gathered into one raster at the same
     -- coordinates at which the surface will place them. Look with your eyes:
@@ -769,6 +667,48 @@ local function main(spec)
             view_shot("sysprops-" .. tab, sdk_render, {id = "shot", state_revision = tab, content_state = {sdk = 1, revision = tab,
                 interaction = ui.interaction(), ui = sysprops_window.definition.view(state, {width = 58, height = 22})}}, 58, 22)
         end
+    end
+    -- Folder windows (FR-008 §8): My Computer in Large Icons without the
+    -- toolbar, a drive folder in Details with the toolbar on, and the object
+    -- context menu. The window's own `view` on a state built here: no reader,
+    -- no compositor — what the SDK renderer makes of the tree.
+    do
+        local explorer = explorer_window.definition
+        local drives = {}
+        for _, name in ipairs({"app:app_fs", "app:data_dir", "app:system_fonts", "butschster.windows:assets",
+            "keeper:ui_static_fs", "vlad.doom:ui_static_fs"}) do
+            drives[#drives + 1] = {id = name, kind = name:find("ui_static", 1, true) and "fs.embed" or "fs.directory"}
+        end
+        local function folder(path: any, objects: any, extra: any): any
+            local state: any = {path = path, objects = model.sort(objects, "name"), selection = {},
+                drives = model.drives(drives), view = "large", sort = "name", toolbar = false, statusbar = true,
+                browse = "separate"}
+            for key, value in pairs(extra or {}) do state[key] = value end
+            return state
+        end
+        local function shot(name: string, state: any, cols: integer, rows: integer)
+            view_shot(name, sdk_render, {id = name, state_revision = 1, content_state = {sdk = 1, revision = 1,
+                interaction = ui.interaction(), ui = explorer.view(state, {width = cols, height = rows})}}, cols, rows)
+        end
+        shot("mycomputer", folder("", model.root(drives)), 46, 14)
+        local programs = {{entry = "butschster.windows.viewers:notepad", title = "Notepad", image = "notepad",
+            file_image = "text_document", file_type = "Text Document", opens = {"txt", "md", "lua", "yaml"}}}
+        local stamp = 1789300200
+        local files = model.files({
+            {name = "explorer", type = "directory", modified = stamp},
+            {name = "sdk", type = "directory", modified = stamp - 3600},
+            {name = "README.md", type = "file", size = 18342, modified = stamp - 86400},
+            {name = "_index.yaml", type = "file", size = 2210, modified = stamp - 7200},
+            {name = "window.lua", type = "file", size = 136192, modified = stamp - 600},
+            {name = "icon.png", type = "file", size = 1051, modified = stamp - 172800},
+        }, "drive/app:app_fs/src", "app:app_fs", "src", programs)
+        local details = folder("drive/app:app_fs/src", files, {view = "details", toolbar = true})
+        details.selection = {["window.lua"] = true}
+        shot("folder-details", details, 70, 20)
+        local context = folder("drive/app:app_fs/src", files, {view = "large"})
+        context.selection = {["README.md"] = true}
+        context.popup = {x = 20, y = 7, target = "object"}
+        shot("folder-context", context, 46, 14)
     end
     do
         -- Network Neighborhood: a mesh of two nodes, the leader is the
@@ -873,7 +813,7 @@ local function main(spec)
     local wrote, rerr = store_shots:writefile(REPORT, report)
     if not wrote then print("report was not written: " .. tostring(rerr)) end
 
-    return steady and explorer_ok, nil
+    return steady, nil
 end
 
 return {main = main}

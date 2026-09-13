@@ -82,12 +82,16 @@ function associations.table(programs: any): (any, any)
                 -- and on the desktop keeps `image`.
                 local image = field(item, "file_image")
                 if type(image) ~= "string" or image == "" then image = field(item, "image") end
+                -- The name of the program's documents, as Windows' Type column
+                -- showed it ("Text Document"): `meta.file_type`, one per program.
+                local file_type = field(item, "file_type")
                 list[#list + 1] = {
                     entry = id,
                     title = tostring(field(item, "title") or id),
                     width = tonumber(field(item, "width")),
                     height = tonumber(field(item, "height")),
                     image = type(image) == "string" and image ~= "" and image or nil,
+                    file_type = type(file_type) == "string" and file_type ~= "" and file_type or nil,
                 }
                 claims[ext] = list
             end

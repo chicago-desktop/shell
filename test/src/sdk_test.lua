@@ -41,7 +41,6 @@ end
 local shell_icons = require("shell_icons")
 local app = require("app")
 local widgets = require("widgets")
-local explorer_render = require("explorer_render")
 
 local function define_tests()
     test.describe("Window SDK icon grid", function()
@@ -999,12 +998,11 @@ local function define_tests()
             return {type = "mouse", action = "press", button = "left", x = x, y = y}
         end
 
-        test.it("takes 16 px of whole cells in list, table, tree and icons, the same as the explorer", function()
+        test.it("takes 16 px of whole cells in list, table, tree and icons", function()
             local font = face()
             for _, cw in ipairs({8, 10, 20}) do
                 local cols = EXPECTED[cw]
                 test.eq(widgets.scroll_cols(cw), cols, "the rule at a " .. cw .. " px cell")
-                test.eq(explorer_render.pixel_metrics(cw, 20).scroll_cols, cols, "the explorer's bar at " .. cw .. " px")
                 local plan = ui.plan(scene(), 36, 21, ui.interaction(), {scroll_cols = widgets.scroll_cols(cw)})
                 local out = drawn({w = cw, h = 20}, font)
                 for _, id in ipairs({"list", "table", "tree", "icons"}) do
@@ -1467,26 +1465,6 @@ local function define_tests()
             local chosen = ui.event(plan, interaction, {type = "mouse", action = "press", button = "left",
                 x = popup.rect.x + 1, y = popup.rect.y + 1})
             test.eq(chosen and chosen.id, "new", "a click on New's row is New")
-        end)
-
-        test.it("the explorer's menu list touches its bar in pixels and keeps its frame row in cells", function()
-            local explorer_pixels: any = require("explorer_pixels")
-            local font = face()
-            test.eq(explorer_render.layout({menu_open = 3}, 46, 14).menu_popup.hits[1].row,
-                explorer_render.MENU_ROW + 2, "cells: the frame row, then the items")
-            for _, cell in ipairs({{w = 8, h = 16}, {w = 10, h = 20}}) do
-                local label = cell.w .. "x" .. cell.h .. ": "
-                local plan = explorer_render.layout({menu_open = 3}, 46, 14, explorer_render.pixel_metrics(cell.w, cell.h))
-                local hits = plan.menu_popup.hits
-                test.eq(hits[1].row, explorer_render.MENU_ROW + 1, label .. "the first item is the row under the bar")
-                local found: any = nil
-                for _, placement in ipairs(explorer_pixels.paint(rasters.store(), plan, cell, {face = font, bold = font}, "ex")) do
-                    if placement.id == "ex:menu_popup" then found = placement end
-                end
-                test.not_nil(found, label .. "the list is painted")
-                test.eq(found.y, explorer_render.MENU_ROW + 1, label .. "the list's raster starts under the bar")
-                test.eq(found.rows, #hits, label .. "no frame row in the raster")
-            end
         end)
     end)
 
