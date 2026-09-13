@@ -148,18 +148,29 @@ local function define_tests()
             test.eq(bare.children[1].kind, "column")
         end)
 
-        test.it("lays a meter out as the caption, the gauge and the value on one line", function()
-            local plan = ui.plan(gadget.meter{caption = "Heap", value = 312, ceiling = 500, unit = " MB"}, 18, 2, ui.interaction())
-            local order = {}
-            for _, item in ipairs(plan.items) do
-                order[#order + 1] = tostring(item.node.kind) .. "@" .. tostring(item.rect.x) .. "+" .. tostring(item.rect.w)
+        test.it("lays a meter out as the caption and the value over a bar across the whole width", function()
+            local meter = gadget.meter{caption = "Heap", value = 312, ceiling = 500, unit = " MB"}
+            for _, cell in ipairs({false, {w = 10, h = 20}, {w = 8, h = 16}}) do
+                local plan = ui.plan(meter, 18, 2, ui.interaction(), cell and {cell = cell} or nil)
+                local order = {}
+                for _, item in ipairs(plan.items) do
+                    order[#order + 1] = tostring(item.node.kind) .. "@" .. tostring(item.rect.x) .. "," .. tostring(item.rect.y)
+                        .. "+" .. tostring(item.rect.w) .. "x" .. tostring(item.rect.h)
+                end
+                test.eq(table.concat(order, " "), "label@1,1+11x1 label@12,1+7x1 gauge@1,2+18x1",
+                    cell and ("at " .. cell.w .. "x" .. cell.h) or "in cells")
             end
-            test.eq(table.concat(order, " "), "label@1+5 gauge@7+4 label@12+7")
-            test.eq(plan.items[2].node.value, 312)
-            test.eq(plan.items[2].node.ceiling, 500)
-            test.eq(plan.items[2].node.caption, "", "the gauge draws no text of its own: the value stands beside it")
-            test.eq(plan.items[2].node.orient, "horizontal", "a meter's gauge is a progress bar, not the LED meter")
-            test.eq(plan.items[3].node.text, "312 MB")
+            local plan = ui.plan(meter, 18, 2, ui.interaction())
+            test.eq(plan.items[1].node.text, "Heap")
+            test.eq(plan.items[2].node.text, "312 MB")
+            local gauge: any = plan.items[3].node
+            test.eq(gauge.value, 312)
+            test.eq(gauge.ceiling, 500)
+            test.eq(gauge.caption, "", "the gauge draws no text of its own: the value stands above it")
+            test.eq(gauge.orient, "horizontal", "a meter's gauge is a progress bar, not the LED meter")
+            -- Without a caption the value still stands at the right end.
+            local bare = ui.plan(gadget.meter{value = 7, ceiling = 10}, 18, 2, ui.interaction())
+            test.eq(tostring(bare.items[2].rect.x) .. "+" .. tostring(bare.items[2].rect.w), "17+2")
         end)
 
         test.it("lays the weather and the monitor out inside a widget's panel without overlaps, at 20×6 and 20×8", function()
@@ -178,7 +189,7 @@ local function define_tests()
                         end
                         test.is_nil(overlap(plan), where)
                         local seen = kinds(plan)
-                        local expected = name == "weather" and "image,label,label,label" or "label,gauge,label,label,graph"
+                        local expected = name == "weather" and "image,label,label,label" or "label,label,gauge,label,graph"
                         test.is_true(seen:find(expected, 1, true) == 1, where .. ": " .. seen)
                     end
                 end

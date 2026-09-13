@@ -591,9 +591,9 @@ Plain, passive trees for the usual shapes; none needs an `id`:
 - `gadget.stat{caption, value, unit?, image?, icon?}` — three rows: the value
   in two, the caption dimmed under it; `image` (a catalog or pack picture)
   32 px on the left, `icon` its character in cells.
-- `gadget.meter{caption, value, ceiling, unit?}` — two rows: the caption, a
-  horizontal `gauge` (a progress bar) toward the ceiling and the value on one
-  line.
+- `gadget.meter{caption, value, ceiling, unit?}` — two rows: the caption at the
+  left and the value at the right, over a horizontal `gauge` (a progress bar)
+  toward the ceiling across the whole width.
 - `gadget.history{caption?, values, ceiling?, unit?}` — the rows a stack
   leaves, four or more: the caption over a `graph`; the ceiling is
   `charts.ceiling_of(values)` when omitted.

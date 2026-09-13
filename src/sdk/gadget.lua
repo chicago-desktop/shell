@@ -67,21 +67,24 @@ function gadget.stat(spec: any): any
     return {kind = "row", size = gadget.ROWS.stat, gap = 1, children = children}
 end
 
--- meter{caption, value, ceiling, unit?} — the caption, a horizontal gauge
--- (a Windows 95 progress bar) toward `ceiling` and the value on one line, two
--- rows: the vertical LED meter shows two steps in two rows, which reads as
--- nothing. Each text takes its length plus a cell: in pixels a cell is wider
--- than the font's average letter.
+-- meter{caption, value, ceiling, unit?} — two rows: the caption at the left
+-- and the value at the right, over a horizontal gauge (a Windows 95 progress
+-- bar) toward `ceiling` across the whole width. Beside the texts the bar kept
+-- a third of a 20-cell widget, three blocks, which reads as nothing; under
+-- them it has the whole row. The value takes its length plus a cell at the
+-- row's end — in pixels a cell is wider than the font's average letter — and
+-- the caption the rest.
 function gadget.meter(spec: any): any
     local s: any = type(spec) == "table" and spec or {}
-    local caption = tostring(s.caption or "")
     local shown = gadget.amount(s.value, s.unit)
-    local children: any = {}
-    if caption ~= "" then children[#children + 1] = {kind = "label", size = runes(caption) + 1, text = caption} end
-    children[#children + 1] = {kind = "gauge", orient = "horizontal", value = tonumber(s.value) or 0,
-        ceiling = tonumber(s.ceiling) or 0, caption = ""}
-    children[#children + 1] = {kind = "label", size = runes(shown) + 1, text = shown}
-    return {kind = "row", size = gadget.ROWS.meter, gap = 1, children = children}
+    return {kind = "column", size = gadget.ROWS.meter, children = {
+        {kind = "row", size = 1, children = {
+            {kind = "label", text = tostring(s.caption or "")},
+            {kind = "label", size = runes(shown) + 1, text = shown},
+        }},
+        {kind = "gauge", orient = "horizontal", size = 1, value = tonumber(s.value) or 0,
+            ceiling = tonumber(s.ceiling) or 0, caption = ""},
+    }}
 end
 
 -- history{caption?, values, ceiling?, unit?} — the caption over a graph of
