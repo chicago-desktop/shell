@@ -318,6 +318,11 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
                 -- A close the window may refuse: Notepad answers false to ask
                 -- "save changes?" first, and the compositor leaves it open.
                 if not app.refuses_close(definition, model, context) then break end
+                -- Say so: a window that refused is answering (a sheet is up), not
+                -- stuck. The compositor drops the pending request without its
+                -- "did not close" notice; a later × asks again. A cells window
+                -- has no id here — the compositor knows it by this process.
+                desktop.close(window_id, {refused = true})
                 redraw = true
             else
                 if event.type == "resize" then

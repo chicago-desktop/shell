@@ -931,6 +931,7 @@ entries:
     imports:
       test: wippy.test:test
       app: butschster.windows.sdk:app
+      desktop: butschster.tui_desktop.desktop:window_api
 
   - name: table_kind_test
     kind: function.lua

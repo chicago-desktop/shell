@@ -460,7 +460,9 @@ actions, including `resize`, `tick`, `close` (the window is asked to close — t
 bar ×, Close, another window's `desktop.close`; answering `false` refuses it and the
 window stays open, as Notepad does to ask "save changes?" and then closes with
 `context.close()`; anything else closes, and dispose runs; `app.refuses_close` is the
-rule) and `key` — a key that no component
+rule — and a refusal is told to the compositor, `desktop.close{refused = true}` from the
+window's own process, so it drops the pending request without its "did not close"
+notice and a later × asks again) and `key` — a key that no component
 took (`key`, `key_type`, `alt`, `ctrl`, `shift`): that is how windows close on Esc and
 refresh on F5. Returning `false` from `update` means "nothing changed, do not
 redraw" — except for `end` and `scroll`, which report a move the SDK has already

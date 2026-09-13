@@ -5,6 +5,22 @@
 local test = require("test")
 local app = require("app")
 local process = require("process")
+local desktop = require("desktop")
+
+-- What the runner told the compositor: `desktop.close` is swapped for a
+-- recorder while `app.run` runs (the test and `app` share the same
+-- `window_api` table), and put back after.
+local function recording(run: any): any
+    local calls: any = {}
+    local original = desktop.close
+    desktop.close = function(id: any, opts: any): (any, any)
+        calls[#calls + 1] = {id = id, refused = type(opts) == "table" and opts.refused == true}
+        return true, nil
+    end
+    run()
+    desktop.close = original
+    return calls
+end
 
 local function definition_with(update: any): any
     return {update = update}
@@ -71,11 +87,19 @@ local function define_tests()
                 end,
                 dispose = function() seen.disposed = true end,
             }
-            app.run(definition, nil, "sdk-close-refused", nil, {width = 20, height = 4, cell_w = 8, cell_h = 18})
+            local calls = recording(function()
+                app.run(definition, nil, "sdk-close-refused", nil, {width = 20, height = 4, cell_w = 8, cell_h = 18})
+            end)
             test.eq(seen.closes, 2, "the refused close did not end the loop")
             test.eq(seen.keys, 1, "an event after the refusal reached the window")
             test.is_true(seen.views >= 2, "the refused close redraws: " .. seen.views)
             test.is_true(seen.disposed, "the accepted close disposes")
+            -- The refusal is told, so the compositor does not call the window
+            -- stuck; the accepted close ends with the plain one after dispose.
+            test.eq(#calls, 2, "a refusal, then the close")
+            test.eq(calls[1].id, "sdk-close-refused")
+            test.is_true(calls[1].refused, "the refusal says refused")
+            test.is_false(calls[2].refused, "the real close does not")
         end)
 
         test.it("a window that calls context.close() while answering a close ends at once", function()
@@ -99,10 +123,14 @@ local function define_tests()
                 end,
                 dispose = function() seen.disposed = true end,
             }
-            app.run(definition, nil, "sdk-close-self", nil, {width = 20, height = 4, cell_w = 8, cell_h = 18})
+            local calls = recording(function()
+                app.run(definition, nil, "sdk-close-self", nil, {width = 20, height = 4, cell_w = 8, cell_h = 18})
+            end)
             test.eq(seen.closes, 1)
             test.eq(seen.keys, 0, "nothing after the close reaches it")
             test.is_true(seen.disposed)
+            test.eq(#calls, 1, "no refusal is told, only the close")
+            test.is_false(calls[1].refused)
         end)
     end)
 end
