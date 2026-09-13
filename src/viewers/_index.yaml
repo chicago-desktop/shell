@@ -84,6 +84,24 @@ entries:
       resources: "*"
       effect: allow
 
+  # Notepad reads and writes a file on a drive, lists the drives for its file
+  # dialog (`sources.drives` reads the registry) and publishes its state to
+  # the compositor. No database, no processes of its own.
+  - name: notepad_scope
+    kind: security.policy
+    meta:
+      comment: Notepad's permissions — read and write a file on a registry drive, list the drives for the Open and Save As dialog, and send its state to the compositor.
+    policy:
+      actions:
+        - process.context
+        - process.registry
+        - process.send
+        - registry.get
+        - registry.find
+        - fs.get
+      resources: "*"
+      effect: allow
+
   # ─── Notepad ─────────────────────────────────────────────────────────
   # butschster.windows.viewers:notepad
   - name: notepad
@@ -100,27 +118,46 @@ entries:
       order: 40
       width: 64
       height: 20
+      resizable: true
+      # An SDK application (FR-007 §6): the shared renderer draws the tree
+      # this same entry publishes as its state provider.
+      pixel_render: butschster.windows.sdk:render
+      pixel_state: butschster.windows.viewers:notepad
       # What it opens. The explorer assembles the type registry from this field.
       opens: [txt, md, log, csv, json, yaml, yml, lua, ini, conf, toml, xml, html, css, js, ts, go, py, sh]
       # The Type column of its files in the explorer's Details view.
       file_type: Text Document
-      comment: Notepad — view a text file from a registry drive, read-only; lines do not wrap, scrolling with the arrows and the wheel.
+      comment: Notepad as in Windows 95 — a text file up to 64 KB from a registry drive, edited and saved; File, Edit, Search and Help, Open and Save As, Find, Word Wrap; an SDK application.
     source: file://notepad.lua
     method: main
     modules:
       - channel
       - fs
       - json
+      - registry
+      - time
       - tty
     security:
-      policies: [butschster.windows.viewers:viewer_scope]
+      policies: [butschster.windows.viewers:notepad_scope]
     imports:
-      text: butschster.tui_desktop.desktop:text
-      geometry: butschster.tui_desktop.desktop:geometry
-      input: butschster.tui_desktop.desktop:input
-      scroll: butschster.tui_desktop.desktop:scroll
+      app: butschster.windows.sdk:app
+      notepad_model: butschster.windows.viewers:notepad_model
+      filedialog: butschster.windows.sdk:filedialog
+      sources: butschster.windows.explorer:sources
+      explorer_model: butschster.windows.explorer:model
+
+  # The Notepad window's model, pure: menus, sheets, the clipboard, the
+  # "save changes?" gate, and the 64 KB read over a given `fs.get`.
+  - name: notepad_model
+    kind: library.lua
+    meta:
+      comment: Notepad's model (FR-007 §1, §6), pure — the window reads and writes through functions it is given.
+    source: file://notepad_model.lua
+    imports:
+      ui: butschster.windows.sdk:ui
+      editor: butschster.windows.sdk:editor
+      filedialog: butschster.windows.sdk:filedialog
       files: butschster.windows.viewers:files
-      widgets: butschster.windows.shell:widgets
 
   # ─── Image viewer ────────────────────────────────────────────────────
   # butschster.windows.viewers:picture

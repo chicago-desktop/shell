@@ -990,3 +990,24 @@ entries:
       palette: butschster.windows.shell:palette
       glyphs: butschster.windows.shell:glyphs
 
+  - name: notepad_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows Shell
+      suite: butschster_windows
+      comment: Notepad as in Windows 95 — every menu item through update with a stand-in of the window's drives, the save-changes gate with each answer, Find and F3, the 64 KB refusal over a stand-in fs handle, the title after Save As, and test/shots/notepad.png.
+    source: file://notepad_test.lua
+    method: run
+    modules: [tty, gfx, fs]
+    imports:
+      test: wippy.test:test
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
+      render: butschster.windows.sdk:render
+      rasters: butschster.windows.shell:rasters
+      editor: butschster.windows.sdk:editor
+      app: butschster.windows.sdk:app
+      notepad: butschster.windows.viewers:notepad_model
+      filedialog: butschster.windows.sdk:filedialog
+      files: butschster.windows.viewers:files
