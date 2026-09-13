@@ -35,6 +35,9 @@ local function stand_in(stored: any): any
         sys.writes[#sys.writes + 1] = tostring(drive) .. tostring(path)
         return true, nil
     end
+    function sys.exists(drive: any, path: any): boolean
+        return sys.stored[tostring(drive) .. tostring(path)] ~= nil
+    end
     function sys.drives(): (any, any)
         return {{id = DRIVE, title = "(Docs)"}}, nil
     end
@@ -202,6 +205,9 @@ local function define_tests()
             local _, why, failed = notepad.read_file(get, "app:gone", "/a.txt")
             test.eq(failed, "failed")
             test.is_true(tostring(why):find("app:gone", 1, true) ~= nil, "the reason names the drive")
+            test.is_true(notepad.exists_file(get, DRIVE, "/a.txt"))
+            test.is_false(notepad.exists_file(get, DRIVE, "/none.txt"))
+            test.is_false(notepad.exists_file(get, "app:gone", "/a.txt"), "a drive that does not open has no file")
             test.is_true(notepad.write_file(get, DRIVE, "/w.txt", "text"))
             test.eq(stored["/w.txt"], "text")
             test.is_nil(notepad.write_file(get, "app:gone", "/w.txt", "text"))
@@ -285,6 +291,23 @@ local function define_tests()
             act(state, context, change(IDS.name, "raw"))
             act(state, context, press(IDS.accept))
             test.eq(sys.writes[#sys.writes], DRIVE .. "/raw", "All Files keeps the name as typed")
+            -- Over a file that is there: the question, No back to the dialog, Yes writes.
+            local written = #sys.writes
+            act(state, context, menu("save_as"))
+            act(state, context, change(IDS.name, "plan"))
+            act(state, context, press(IDS.accept))
+            test.eq(state.sheet and state.sheet.kind, "replace")
+            test.eq(state.sheet.lines[1], "plan.txt already exists.")
+            test.eq(state.sheet.lines[2], "Do you want to replace it?")
+            test.eq(notepad.title(state), "Save As")
+            test.eq(#sys.writes, written, "nothing written before the answer")
+            act(state, context, press("replace_no"))
+            test.eq(state.sheet and state.sheet.kind .. ":" .. state.sheet.mode, "dialog:save", "No goes back to the dialog")
+            act(state, context, press(IDS.accept))
+            act(state, context, press("replace_yes"))
+            test.eq(sys.writes[#sys.writes], DRIVE .. "/plan.txt", "Yes replaces it")
+            test.eq(#sys.writes, written + 1)
+            test.eq(notepad.title(state), "plan.txt - Notepad")
             state.file = {drive = "app:readonly", path = "/x.txt", name = "x.txt"}
             act(state, context, menu("save"))
             test.eq(state.sheet and state.sheet.lines[1], "the drive is read-only", "a failed write says why")

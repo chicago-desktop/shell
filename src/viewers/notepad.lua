@@ -31,6 +31,10 @@ function sys.write(drive: any, path: any, text: any): (any, any)
     return ok, why
 end
 
+function sys.exists(drive: any, path: any): boolean
+    return notepad.exists_file(fs.get, drive, path)
+end
+
 function sys.drives(): (any, any)
     local records, err = sources.drives()
     if not records then return nil, err end

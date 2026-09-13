@@ -10,6 +10,7 @@
 -- `sys` table of five functions and a test passes a stand-in:
 --   read(drive, path)        -> text | nil, reason, kind ("missing" | "large" | "failed")
 --   write(drive, path, text) -> true | nil, reason
+--   exists(drive, path)      -> whether a file is there (Save As asks before replacing it)
 --   drives()                 -> the explorer's drive objects | nil, reason
 --   list(place)              -> objects | nil, notice   (a place is {drive, path})
 --   now()                    -> the time and date to insert, "9:45 PM 9/13/2026"
@@ -61,6 +62,14 @@ function notepad.read_file(get: any, drive: any, path: any): (any, any, any)
     end
     if #data > notepad.LIMIT then return nil, notepad.TOO_LARGE, "large" end
     return data, nil, nil
+end
+
+-- exists_file(get, drive, path) -> whether a file is at `path`, by the same
+-- `stat` the size is read by; a drive that does not open has none.
+function notepad.exists_file(get: any, drive: any, path: any): boolean
+    local handle: any, err = get(tostring(drive))
+    if err or not handle then return false end
+    return type(handle:stat(tostring(path))) == "table"
 end
 
 -- write_file(get, drive, path, text) -> true | nil, reason
@@ -260,9 +269,27 @@ local function sheet_update(state: any, context: any, action: any): boolean
             -- Windows saved it.
             local place: any = {drive = result.accept.drive, path = result.accept.path}
             if files.ext(place.path) == "" and tostring(sheet.dialog.type or "txt") == "txt" then place.path = place.path .. ".txt" end
+            -- A file already there is replaced only when the person says so,
+            -- as Windows 95 asked; No is the default, the question deletes.
+            if state.sys.exists(place.drive, filedialog.clean(place.path)) then
+                state.sheet = {kind = "replace", title = "Save As", image = "notepad", icon = "▤",
+                    place = place, back = sheet.dialog,
+                    lines = {files.name_of(place.path) .. " already exists.", "Do you want to replace it?"},
+                    buttons = {{id = "replace_yes", text = "Yes"}, {id = "replace_no", text = "No", default = true}}}
+                return true
+            end
             return save_to(state, context, place)
         end
         return true
+    end
+    if sheet.kind == "replace" then
+        if pressed == "replace_yes" then return save_to(state, context, sheet.place)
+        elseif pressed == "replace_no" or escape then
+            -- No goes back to the dialog to pick another name.
+            state.sheet = {kind = "dialog", mode = "save", dialog = sheet.back}
+            return true
+        end
+        return false
     end
     if sheet.kind == "find" then
         if escape or pressed == "find_cancel" then
