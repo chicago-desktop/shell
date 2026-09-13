@@ -267,6 +267,7 @@ entries:
       catalog: butschster.windows.programs:catalog
       desktop_view: butschster.windows.programs:desktop_view
       model: butschster.windows.explorer:model
+      widget_scene: app:widget_scene
 
   # The probe's permissions are named, not taken from the harness's general
   # permissive policy: `fs.get` is access to a file system by its registry
@@ -784,3 +785,87 @@ entries:
       app: butschster.windows.sdk:app
       ui: butschster.windows.sdk:ui
     method: run
+
+  - name: gadget_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: The desktop widget kit — every builder is a plain passive tree ui.problem accepts at the rows the kit promises, and the weather and monitor widgets lay out inside a widget's panel without overlaps in cells and at two pixel cells.
+      group: Windows SDK
+      suite: butschster_windows
+    source: file://gadget_test.lua
+    method: run
+    imports:
+      test: wippy.test:test
+      gadget: butschster.windows.sdk:gadget
+      gadgets: butschster.windows.shell:gadgets
+      ui: butschster.windows.sdk:ui
+      charts: butschster.windows.sdk:charts
+
+  - name: desktop_widgets_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Desktop widgets in the shell — the right-edge column and its second column, one hit table for both themes, the panel in cells, a placement per row in pixels cut by windows, a changed number re-sending only its rows, the catalog's widget entries and the SDK runner driving a widget.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://desktop_widgets_test.lua
+    method: run
+    modules: [tty, gfx, fs, process, channel, time, registry]
+    imports:
+      test: wippy.test:test
+      text: butschster.tui_desktop.desktop:text
+      glyphs: butschster.windows.shell:glyphs
+      palette: butschster.windows.shell:palette
+      ui: butschster.windows.sdk:ui
+      gadget: butschster.windows.sdk:gadget
+      gadgets: butschster.windows.shell:gadgets
+      chrome: butschster.windows.shell:chrome
+      chrome_pixels: butschster.windows.shell:chrome_pixels
+      sdk_render: butschster.windows.sdk:render
+      catalog: butschster.windows.programs:catalog
+      app: butschster.windows.sdk:app
+      desktop: butschster.tui_desktop.desktop:window_api
+      fixture: app:widget_fixture
+      scene: app:widget_scene
+
+  # A desktop widget (FR-006) — a real `windows.widget` entry for the catalog
+  # to read from the registry, on the SDK runner. Nothing in the harness
+  # spawns it.
+  - name: widget_probe
+    kind: process.lua
+    meta:
+      type: windows.widget
+      title: Probe widget
+      width: 22
+      height: 7
+      order: 30
+      opens: app:grouped_probe
+      comment: A widget entry — the catalog reads it from the real registry, not only from made-up records.
+    source: file://widget_probe.lua
+    method: main
+    modules: [time]
+    imports:
+      app: butschster.windows.sdk:app
+      gadget: butschster.windows.sdk:gadget
+    security:
+      policies: [butschster.windows.security:view_state]
+
+  - name: widget_fixture
+    kind: library.lua
+    meta:
+      comment: The probe widget's definition, for the runner test.
+    source: file://widget_probe.lua
+    modules: [time]
+    imports:
+      app: butschster.windows.sdk:app
+      gadget: butschster.windows.sdk:gadget
+
+  - name: widget_scene
+    kind: library.lua
+    meta:
+      comment: The desktop widgets scene shared by the widgets test and paint-png.
+    source: file://widget_scene.lua
+    modules: [gfx]
+    imports:
+      gadget: butschster.windows.sdk:gadget

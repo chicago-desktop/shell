@@ -38,6 +38,7 @@ local taskman_window = require("taskman_window")
 local sdk_render = require("sdk_render")
 local reg_model = require("reg_model")
 local regedit = require("regedit_window")
+local widget_scene = require("widget_scene")
 
 -- Cell size. This command has NO terminal — it writes files, it does not
 -- draw on a screen — so `gfx.cell_size()` honestly stays silent here, and
@@ -579,6 +580,17 @@ local function main(spec)
         store_shots:writefile("run-bash.png", assert(canvas:encode("png")))
     end
     run_shot()
+
+    -- Desktop widgets (FR-006 §10): three in the right column and a window
+    -- over part of the middle one — the scene desktop_widgets_test checks.
+    do
+        chrome_pixels.use_fonts(font, bold)
+        chrome_pixels.use_cell_size(cell.w, cell.h)
+        local state = widget_scene.state()
+        local painted = chrome_pixels.paint(state, cell.w, cell.h)
+        store_shots:writefile("widgets.png", assert(widget_scene.compose(painted, state, cell):encode("png")))
+        say("desktop widgets: " .. #painted.placements .. " placements → widgets.png")
+    end
 
     -- Sample data goes through the same Task Manager renderer as live windows.
     do

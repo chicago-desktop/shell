@@ -261,6 +261,22 @@ local function main()
         return view.join(items or {}, found), nil
     end
 
+    -- Desktop widgets (FR-006): the registry's `windows.widget` entries,
+    -- read when the compositor asks — at desktop start and on
+    -- `desktop.refresh` — so a widget added to the registry appears without
+    -- a restart. The base spawns and stops them and does not read the
+    -- registry itself. A registry failure is the second value and the list
+    -- stays empty: "no widgets" and "could not look" are different
+    -- statements, and the log names the second.
+    local function widget_catalog()
+        local found, err = catalog.widgets()
+        if err or not found then
+            log:warn("widgets not read", {error = tostring(err)})
+            return {}, err or "widgets not read"
+        end
+        return found, nil
+    end
+
     -- Dragging an icon with the mouse is driven by the compositor, and the
     -- position is recorded by the shell — by the same path as the PATCH
     -- handler, that is, through one repository. A second way to record the
@@ -407,6 +423,9 @@ local function main()
         -- without icons; the shell still comes up and works.
         catalog = menu_catalog,
         desktop_items = desktop_items,
+        -- The widgets the compositor spawns as state providers, read like
+        -- the desktop items (FR-006 §3).
+        widgets = widget_catalog,
         move_desktop_item = move_desktop_item,
         -- "Properties" on a right-click on the empty desktop is "Display
         -- Properties".

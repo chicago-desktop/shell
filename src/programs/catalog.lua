@@ -283,6 +283,56 @@ function catalog.taskbar_clock(): (any, any)
     return data.entry, nil
 end
 
+-- Desktop widgets (FR-006 §3): registry entries with `meta.type =
+-- "windows.widget"`, each a state provider the compositor spawns under the
+-- logged-on user. The shell reads them and hands the list to the base
+-- (`options.widgets`), as it hands over the desktop items: the base does not
+-- read the registry itself.
+catalog.WIDGET_TYPE = "windows.widget"
+-- The defaults of an entry that names no size or order. The limits
+-- (10..40 × 2..16) are the base's to check and to name: a size clamped here
+-- would be a tree laid out for another widget.
+catalog.WIDGET_DEFAULTS = {w = 20, h = 5, order = 100}
+
+-- widget_list(records) -> {{entry, title, w, h, order, opens}, …} in the
+-- order of `meta.order`, then the entry id. Pure, like `build`: checked
+-- without a registry.
+function catalog.widget_list(records: any): any
+    local out: any = {}
+    for _, entry in ipairs(type(records) == "table" and records or {}) do
+        local record: any = entry
+        if type(record.id) == "string" and record.id ~= "" then
+            local meta: any = type(record.meta) == "table" and record.meta or {}
+            out[#out + 1] = {
+                entry = record.id,
+                title = type(meta.title) == "string" and meta.title ~= "" and meta.title or nil,
+                -- A declared size goes as declared, and only a missing one is
+                -- the default: "wide" must reach the base's check and be
+                -- refused by name, not turn into 20 here.
+                w = meta.width == nil and catalog.WIDGET_DEFAULTS.w or meta.width,
+                h = meta.height == nil and catalog.WIDGET_DEFAULTS.h or meta.height,
+                order = tonumber(meta.order) or catalog.WIDGET_DEFAULTS.order,
+                opens = type(meta.opens) == "string" and meta.opens ~= "" and meta.opens or nil,
+            }
+        end
+    end
+    table.sort(out, function(a: any, b: any): boolean
+        if a.order ~= b.order then return a.order < b.order end
+        return a.entry < b.entry
+    end)
+    return out
+end
+
+-- widgets() -> (list, nil) | (nil, reason). As with `list`, the first value
+-- tells the outcomes apart: no widgets is an empty table, an unreadable
+-- registry is nil.
+function catalog.widgets(): (any, any)
+    local found, err = registry.find({["meta.type"] = catalog.WIDGET_TYPE})
+    if err then return nil, "widgets not read: " .. tostring(err) end
+    if type(found) ~= "table" then return nil, "widgets not read: the registry answered with something other than a list" end
+    return catalog.widget_list(found), nil
+end
+
 -- list() -> (catalog, nil) | (nil, reason)
 --
 -- The two outcomes are distinguishable by the FIRST value: an empty catalog

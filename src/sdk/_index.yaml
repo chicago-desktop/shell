@@ -20,6 +20,14 @@ entries:
     imports:
       geometry: butschster.tui_desktop.desktop:geometry
 
+  - name: gadget
+    kind: library.lua
+    meta: {comment: "Window SDK gadget kit. Plain trees for desktop widgets (stat, meter, history, lines, stack). See docs/sdk.md."}
+    source: file://gadget.lua
+    imports:
+      charts: butschster.windows.sdk:charts
+      text: butschster.tui_desktop.desktop:text
+
   - name: cells
     kind: library.lua
     meta: {comment: "Window SDK cells. See docs/sdk.md."}

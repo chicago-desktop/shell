@@ -35,6 +35,7 @@ local icons = require("icons")
 local palette = require("palette")
 local widgets = require("widgets")
 local menu_layout = require("menu_layout")
+local gadgets = require("gadgets")
 
 -- The color set. Exact RGB by default; `palette.basic` is the same palette as
 -- indexes 0–15 for a terminal without truecolor, a one-line swap.
@@ -428,10 +429,17 @@ function chrome.fill(canvas, width: any, height: any, state)
     local bottom = whole(desk.bottom)
     if bottom < 1 or bottom > h then bottom = h end
 
+    -- Desktop widgets first: the icons are drawn after them and so stand on
+    -- top of one dropped there (FR-006 §6). Their hits go after the icons'
+    -- for the same reason — the compositor takes the first record under the
+    -- pointer. The layout is `gadgets.layout`, the pixel theme's as well.
+    local spots = gadgets.layout(desk.widgets, w, top, bottom)
+    for _, spot in ipairs(spots) do gadgets.draw(canvas, spot) end
+
     -- "The layout was not read" and "the desktop is empty" are different
     -- statements. An empty desktop is silent; a failure names the reason,
     -- otherwise the person will go looking for missing shortcuts they never
-    -- lost.
+    -- lost. The widgets do not come from the layout and stay.
     if desk.failure then
         local box_w = math.min(48, w - 4)
         if box_w >= 12 then
@@ -442,6 +450,7 @@ function chrome.fill(canvas, width: any, height: any, state)
             end
             panel(canvas, 3, top + 1, box_w, body, false)
         end
+        for _, hit in ipairs(gadgets.hits(spots)) do hits[#hits + 1] = hit end
         return hits
     end
 
@@ -469,6 +478,7 @@ function chrome.fill(canvas, width: any, height: any, state)
         end
     end
 
+    for _, hit in ipairs(gadgets.hits(spots)) do hits[#hits + 1] = hit end
     return hits
 end
 

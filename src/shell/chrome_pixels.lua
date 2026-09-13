@@ -42,6 +42,7 @@ local rasters = require("rasters")
 local widgets = require("widgets")
 local explorer_layout = require("explorer_layout")
 local explorer_pixels = require("explorer_pixels")
+local gadgets = require("gadgets")
 
 -- View windows: the content is drawn not by a process but by a pure `render`
 -- library named in the window's entry (FR-005 §4b). The compositor cannot
@@ -559,6 +560,73 @@ local function paint_failure(cell: any, view: any): any
     -- The desktop layer: a window that covered the plate crops it, like an
     -- icon.
     return {id = id, raster = raster, x = 3, y = row, cols = cols, rows = rows, layer = 0}
+end
+
+-- ─── desktop widgets ─────────────────────────────────────────────────────
+--
+-- A widget is a panel at the right edge of the desktop (FR-006); where it
+-- stands and what is pressed are `gadgets`', one table for both themes.
+-- Every widget row is ONE placement, `widget:<id>:row:<n>`, holding its
+-- slice of the frame and of the body painted together: a frame placement
+-- under the body would overlap it, and overlapping parts already made Task
+-- Manager vanish once. The rows come from the SDK renderer's row keys
+-- (`sdk_render.tree_rows`), so one changed number re-sends the rows it
+-- stands in, not the widget and not the desktop.
+
+-- Ids of the widgets drawn in the last frame: one that is gone has its row
+-- keys forgotten. A table field, not a local: see the pcall trap.
+local widget_seen: any = {ids = {}}
+
+-- The frame over the ring of padding around the body: the raised 2-px edge
+-- of a Windows 95 panel, and with a title a group's etched frame inside the
+-- ring with the caption on its top line, the way the SDK draws a `group`.
+local function paint_widget_frame(raster: any, cell: any, fonts: any, title: string)
+    local rw, rh = raster:size()
+    local width, height = whole(rw), whole(rh)
+    pixels.edge(raster, 1, 1, width, height, true)
+    if title == "" then return end
+    local cw, ch = whole(cell.w), whole(cell.h)
+    local left, top = 1 + cw // 2, 1 + ch // 2
+    pixels.etched(raster, left, top, width - cw, height - ch)
+    local face: any = type(fonts) == "table" and fonts.face or nil
+    if not face then return end
+    local shown = pixels.ellipsize(face, title, width - cw - 18)
+    if shown == "" then return end
+    local tw = whole(face:measure(shown))
+    -- The caption 9 px in from the frame's corner on two pixels of face
+    -- either side, as a group's; the face stops under the panel's edge.
+    raster:rect(left + 7, 3, tw + 4, ch - 2, color.face)
+    raster:text(left + 9, math.max(3, 1 + (ch - 15) // 2), shown, {font = face, color = color.face_text})
+end
+
+-- paint_widgets(cell, view, fonts, out) -> the laid out widgets; their rows
+-- go into `out` on the desktop layer.
+local function paint_widgets(cell: any, view: any, fonts: any, out: any): any
+    local top = math.max(1, whole(view.top))
+    local bottom = whole(view.bottom)
+    if bottom < 1 then bottom = whole(view.height) - taskbar_rows() end
+    local spots = gadgets.layout(view.widgets, view.width, top, bottom)
+    local drawn: any = {}
+    for _, entry in ipairs(spots) do
+        local spot: any = entry
+        local widget: any = spot.widget
+        local state: any = type(widget.content_state) == "table" and widget.content_state or {}
+        local title = gadgets.title(widget)
+        local rows = sdk_render.tree_rows({id = "widget:" .. spot.id, tree = gadgets.framed(widget),
+            x = spot.x, y = spot.y, cols = spot.w, rows = spot.h, cell = cell, fonts = fonts, store = store,
+            revision = widget.state_revision or state.revision, key = gadgets.key(widget),
+            decorate = function(raster: any) paint_widget_frame(raster, cell, fonts, title) end})
+        for _, row in ipairs(rows or {}) do
+            row.layer = 0
+            out[#out + 1] = row
+        end
+        drawn[spot.id] = true
+    end
+    for id in pairs(widget_seen.ids) do
+        if not drawn[id] then sdk_render.forget("widget:" .. tostring(id)) end
+    end
+    widget_seen.ids = drawn
+    return spots
 end
 
 -- ─── window frame ────────────────────────────────────────────────────────
@@ -1131,6 +1199,12 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
         for _, strip in ipairs(desktop_strips(cell, view)) do out[#out + 1] = strip end
     end
 
+    -- Desktop widgets over the desktop and under the icons: the list order is
+    -- the painting order, and an icon dropped on a widget stays on top of it
+    -- (FR-006 §6). No widgets on the bare logon desktop.
+    local spots: any = {}
+    if not view.bare then spots = paint_widgets(cell, view, fonts, out) end
+
     -- Desktop icons are under the windows, so they go first: the list order is
     -- the painting order.
     --
@@ -1170,6 +1244,10 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
             end
         end
     end
+
+    -- Widget hits after the icons': the compositor takes the first record
+    -- under the pointer, and the icon is the one on top.
+    for _, hit in ipairs(gadgets.hits(spots)) do hits.desktop[#hits.desktop + 1] = hit end
 
     local live_clients: any = {}
     for index, entry in ipairs(view.windows or {}) do

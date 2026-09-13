@@ -945,46 +945,109 @@ local function row_keys(plan: any, interaction: any, rows: integer, base: string
     end
     return keys
 end
--- rows(window, inner, cell, fonts, store) -> a placement per client row
-function render.rows(window: any, inner: any, cell: any, fonts: any, store: any): (any, any)
-    local state, why = checked(window)
-    if not state then return nil, why end
+-- cut(spec) -> a placement per row, `<prefix><n>`, keyed by the rows' content.
+--
+-- The one mechanism behind a window's client (`rows`) and a tree drawn in
+-- any rectangle (`tree_rows`, a desktop widget). The keys are built once per
+-- revision; without a revision they are built every frame, and a row whose
+-- content did not change is still not repainted. The pixels of the dirty rows
+-- come from one full rasterisation. `spec.lay()` lays the tree out,
+-- `spec.base` names what every row depends on beyond the plan, and
+-- `spec.decorate(raster)` paints over the full raster after the tree — a
+-- frame around it, in the same rows, never a placement of its own.
+local function cut(spec: any): any
+    local cell: any, store: any, fonts: any = spec.cell, spec.store, spec.fonts
     local cw, ch = math.max(1, whole(cell.w)), math.max(1, whole(cell.h))
-    local count = whole(inner.rows)
+    local cols, count = whole(spec.cols), whole(spec.rows)
     -- The font set by identity: `use_fonts` makes a new set when the fonts
     -- change, and the rows are repainted with them.
-    local base = tostring(inner.cols) .. "x" .. tostring(count) .. "@" .. cw .. "x" .. ch .. "|" .. tostring(fonts)
-    local revision = tostring(window.state_revision or state.revision)
-    local seen: any = memo[tostring(window.id)]
+    local base = tostring(cols) .. "x" .. tostring(count) .. "@" .. cw .. "x" .. ch .. "|" .. tostring(fonts)
+        .. tostring(spec.base or "")
+    local revision: any = spec.revision
+    local seen: any = revision ~= nil and memo[spec.memo] or nil
     local plan: any, interaction: any = nil, nil
     local keys: any
     if seen and seen.revision == revision and seen.base == base then
         keys = seen.keys
     else
-        plan, interaction = laid_out(state, inner, cell)
+        plan, interaction = spec.lay()
         keys = row_keys(plan, interaction, count, base)
-        memo[tostring(window.id)] = {revision = revision, base = base, keys = keys}
+        memo[spec.memo] = revision ~= nil and {revision = revision, base = base, keys = keys} or nil
     end
-    local prefix = "win:" .. tostring(window.id) .. ":sdk:row:"
     local full: any = nil
     local out = {}
     for row = 1, count do
-        local id = prefix .. row
-        local raster, dirty = store.take(id, inner.cols, 1, cell, keys[row])
+        local id = spec.prefix .. row
+        local raster, dirty = store.take(id, cols, 1, cell, keys[row])
         if dirty then
             if full == nil then
-                if plan == nil then plan, interaction = laid_out(state, inner, cell) end
-                full = gfx.raster(whole(inner.cols) * cw, count * ch)
+                if plan == nil then plan, interaction = spec.lay() end
+                full = gfx.raster(cols * cw, count * ch)
                 paint(full, plan, interaction, cell, fonts)
+                if spec.decorate ~= nil then spec.decorate(full) end
             end
             raster:blit(full, 1, 1 - (row - 1) * ch)
         end
-        out[#out + 1] = {id = id, raster = raster, x = inner.x, y = inner.y + row - 1, cols = inner.cols, rows = 1}
+        out[#out + 1] = {id = id, raster = raster, x = spec.x, y = spec.y + row - 1, cols = cols, rows = 1}
     end
-    return out, nil
+    return out
 end
--- forget(id) — a closed window's row keys.
+-- rows(window, inner, cell, fonts, store) -> a placement per client row
+function render.rows(window: any, inner: any, cell: any, fonts: any, store: any): (any, any)
+    local state, why = checked(window)
+    if not state then return nil, why end
+    local placed = cut({memo = tostring(window.id), prefix = "win:" .. tostring(window.id) .. ":sdk:row:",
+        x = inner.x, y = inner.y, cols = inner.cols, rows = inner.rows, cell = cell, fonts = fonts, store = store,
+        revision = tostring(window.state_revision or state.revision), base = "",
+        lay = function(): (any, any)
+            local plan, interaction = laid_out(state, inner, cell)
+            return plan, interaction
+        end})
+    return placed, nil
+end
+-- tree_rows(spec) -> a placement per row of a tree that takes no input, or
+-- nil and why
+--
+-- A tree that is not a window's client — a desktop widget (FR-006 §7): the
+-- row keys and the one rasterisation of `rows`, over any rectangle, with the
+-- caller's frame painted into the same rows.
+--   id        the placements are `<id>:row:<n>`; `forget(id)` drops the keys
+--   tree      the component tree, laid out over the whole rectangle
+--   x, y, cols, rows   the rectangle on the screen, in cells
+--   cell, fonts, store as for `rows`
+--   revision  optional: the keys are kept while it stands; without it the
+--             tree is laid out every frame and still only changed rows repaint
+--   key       what `decorate` draws, part of every row's key
+--   decorate  optional function(raster) painting over the laid out tree
+-- Nothing in the tree is drawn focused: it never gets an event.
+function render.tree_rows(spec: any): (any, any)
+    local tree: any = spec.tree
+    if type(tree) ~= "table" then return nil, "SDK: not a component tree" end
+    local problem = ui.problem(tree)
+    if problem then return nil, "SDK: " .. tostring(problem) end
+    local cell: any = spec.cell
+    local cols, count = whole(spec.cols), whole(spec.rows)
+    local function lay(): (any, any)
+        local interaction = ui.interaction()
+        local plan = ui.plan(tree, cols, count, interaction, {scroll_cols = widgets.scroll_cols(cell.w), cell = cell})
+        interaction.focus = nil
+        plan.focus_on_button = false
+        return plan, interaction
+    end
+    local id = tostring(spec.id)
+    local placed = cut({memo = id, prefix = id .. ":row:", x = spec.x, y = spec.y, cols = cols, rows = count,
+        cell = cell, fonts = spec.fonts, store = spec.store,
+        revision = spec.revision ~= nil and tostring(spec.revision) or nil,
+        base = "|" .. tostring(spec.key or ""), lay = lay, decorate = spec.decorate})
+    return placed, nil
+end
+-- forget(id) — the row keys of a closed window or of a widget that is gone.
 function render.forget(id: any)
     memo[tostring(id)] = nil
+end
+-- remembered(id) — whether row keys are kept for `id`; for the tests of
+-- whoever must call `forget`.
+function render.remembered(id: any): boolean
+    return memo[tostring(id)] ~= nil
 end
 return render

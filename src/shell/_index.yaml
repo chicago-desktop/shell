@@ -141,6 +141,8 @@ entries:
       # imported here statically and named in the theme's VIEWS.
       picture_render: butschster.windows.viewers:picture_render
       sdk_render: butschster.windows.sdk:render
+      # Desktop widgets — the layout and the hits both themes share.
+      gadgets: butschster.windows.shell:gadgets
 
   # butschster.windows.shell:chrome
   #
@@ -158,6 +160,23 @@ entries:
       glyphs: butschster.windows.shell:glyphs
       icons: butschster.windows.shell:icons
       palette: butschster.windows.shell:palette
+      widgets: butschster.windows.shell:widgets
+      gadgets: butschster.windows.shell:gadgets
+
+  # butschster.windows.shell:gadgets
+  #
+  # Desktop widgets (FR-006) — where they stand and what is pressed, one
+  # table for both themes, like the icons' desktop_spot. Imports the SDK's
+  # layout and cell renderer, never the pixel one, so the cell theme keeps
+  # loading on a runtime without gfx.
+  - name: gadgets
+    kind: library.lua
+    meta:
+      comment: Desktop widgets for both themes — the column at the right edge, the hit of a widget row, the tree a widget's body shows and the widget drawn in cells.
+    source: file://gadgets.lua
+    imports:
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
       widgets: butschster.windows.shell:widgets
 
   # butschster.windows.shell:icon_files

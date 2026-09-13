@@ -505,6 +505,124 @@ on a terminal without graphics the main process in cells remains.
 that does not give a full interface. Do not claim
 GNOME Terminal support for an application that has only a pixel view.
 
+## Desktop widgets
+
+A widget is a view window without the window
+([FR-006](rfcs/006-desktop-widgets.md)): a registry entry with
+`meta.type: windows.widget` whose process the compositor spawns under the
+logged-on user, and whose published tree the theme draws in a raised panel at
+the right edge of the desktop, under every window. It has no focus, no
+keyboard, no title buttons and no frame of its own to drag.
+
+### The entry
+
+```yaml
+- name: memory
+  kind: process.lua
+  meta:
+    type: windows.widget                        # what makes it a widget
+    title: Memory                               # drawn in the panel's top edge; optional
+    width: 20                                   # cells; default 20, limits 10..40
+    height: 8                                   # cells; default 5, limits 2..16
+    order: 20                                   # place in the column, lower first; default 100
+    opens: butschster.windows.taskman:window    # optional: a click opens or raises it
+  source: file://memory.lua
+  method: main
+  modules: [system, time]
+  imports:
+    app: butschster.windows.sdk:app
+    gadget: butschster.windows.sdk:gadget
+  security:
+    policies: [app.monitor:widget_scope]
+```
+
+The shell reads these entries (`catalog.widgets()`, `meta.order` then the
+entry id) at desktop start and on `desktop.refresh`, and hands the list to the
+base as `options.widgets`. The base checks the limits and refuses a size
+outside them by name — it does not clamp: a tree laid out for another size
+would be another widget — and spawns each entry as a state provider, with the
+widget's id (`g<n>`) where a window gets its window id.
+
+### The process
+
+A widget is an ordinary SDK application run by `app.main`, with an
+`interval` and no input:
+
+```lua
+local app = require("app")
+local gadget = require("gadget")
+local definition = {interval = "2s"}
+function definition.init(args, context) return {used = 0, top = 1, history = {}} end
+function definition.view(model, context)
+    return gadget.stack{
+        gadget.meter{caption = "Heap", value = model.used, ceiling = model.top, unit = " MB"},
+        gadget.history{values = model.history, ceiling = model.top, unit = " MB"},
+    }
+end
+function definition.update(model, action, context)
+    if action.type ~= "tick" then return false end
+    -- sample here: `view` reads no files and sends no messages
+end
+return {main = app.main(definition), definition = definition}
+```
+
+The interval arrives as `update(model, {type = "tick"})`; a widget without
+`update` is still redrawn on every tick. `view` publishes through
+`desktop.state` exactly as a window's does, and the runner closes the widget's
+id when the process ends. No input ever arrives: a tree with focusable
+components is laid out and drawn, nothing in it is drawn focused, and it never
+gets an event. Until the first state the panel shows its title over an empty
+body; a widget whose process stopped keeps its last tree with "stopped" in the
+body's last row; a tree `ui.problem` refuses shows the reason in place of the
+body. A refusal of the widget's own — a permission denial — is its text
+(`{kind = "label", alert = true, wrap = true, text = …}`), never a zero.
+
+### The kit — `butschster.windows.sdk:gadget`
+
+Plain, passive trees for the usual shapes; none needs an `id`:
+
+- `gadget.stat{caption, value, unit?, image?, icon?}` — three rows: the value
+  in two, the caption dimmed under it; `image` (a catalog or pack picture)
+  32 px on the left, `icon` its character in cells.
+- `gadget.meter{caption, value, ceiling, unit?}` — two rows: the caption, a
+  `gauge` toward the ceiling and the value on one line.
+- `gadget.history{caption?, values, ceiling?, unit?}` — the rows a stack
+  leaves, four or more: the caption over a `graph`; the ceiling is
+  `charts.ceiling_of(values)` when omitted.
+- `gadget.lines{lines}` — a row per line, up to four.
+- `gadget.stack{…}` — the shapes one under another, `gadget.GAP` (0) rows
+  apart.
+
+`unit` is appended as it is, with its own leading space (`" MB"`), the way a
+graph takes it; `gadget.amount(value, unit)` is the text the kit shows — a
+whole number without a fraction, any other with one decimal. The sizes assume a
+widget 20 cells wide. The panel takes one cell on each side, so the body of a
+`width × height` widget is `(width − 2) × (height − 2)`: the weather (a stat
+and two lines) is 20×7, the heap monitor (a meter and a four-row history) 20×8.
+The SDK has one interface font, so a stat's "big" value is room, not size.
+
+### How the shell draws it
+
+Widgets stand in a column at the right edge, `x = width − w` (one column in
+from the edge, as the icon grid is one in from the left), the first one row
+under the top of the desktop, one empty row between. The first that does not
+fit under the previous one opens a second column, one empty column left of the
+first column's widest; a widget that fits in neither is not drawn and has no
+hits. A widget wider than a third of the screen is drawn, and laid out, at a
+third. Icons are drawn over widgets and windows cover them. The layout and the
+hits are `butschster.windows.shell:gadgets`, one table for both themes: one
+record per widget row in `hits.desktop`, after the icons' — `{row, from, to,
+widget = id, entry = meta.opens, title}`.
+
+In cells the panel is `widgets.panel` with the title in its top edge, the body
+`ui.plan` + `cells.rows` at the inner rectangle. In pixels every widget row is
+one placement `widget:<id>:row:<n>` holding its slice of the frame and of the
+body, and only rows whose content changed are repainted: `render.tree_rows`
+is `render.rows` for a tree that is not a window's client — the same row keys
+and the same one rasterisation, plus a `key` and a `decorate` function for the
+frame painted into the same rows. `render.forget(id)` drops a gone widget's
+keys.
+
 ## Open: a window record sized in pixels
 
 A window entry names its size in cells (`meta.width`, `meta.height`), and one
