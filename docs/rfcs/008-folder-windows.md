@@ -2,7 +2,11 @@
 
 **Genre:** component specification. Reader: the implementer, an agent or a
 human.
-**Status:** proposed, 2026-09-13. Decision of the owner: "bring the file
+**Status:** implemented 2026-09-14 as 57adaae. Deviations: List is Small
+Icons until the SDK has a column-filled list; the toolbar buttons without
+pictures in the pack (Cut … the four views) carry captions, and a narrow window
+clips the last ones.
+**Proposed** 2026-09-13. Decision of the owner: "bring the file
 explorer (My Computer) to the Windows 95 look: there were fewer buttons and
 every folder opened in a new window".
 **References studied:** Windows 95 screenshots (toastytech.com/guis/win95:

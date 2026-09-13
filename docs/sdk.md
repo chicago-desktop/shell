@@ -236,7 +236,10 @@ current data; `update` changes the model on a component's action.
   A cell may carry a picture: `{text, image, icon, kind?}` instead of a string —
   in pixels a 16 px `image` (the icon catalog or an image pack) two pixels into
   the column and the text 3 px after it, in cells the `icon` character and a
-  space before the text (Explorer's Details view). `selected` may be a
+  space before the text (Explorer's Details view). A cell with a `kind` and no
+  `image` / `icon` gets that kind's picture by the one rule an icon's comes from —
+  `images.name_for` in pixels, `icons.glyph` in cells — so a folder row shows a
+  folder without the window naming a file. `selected` may be a
   multi-selection set, as for `icons` below; `list` takes the same set.
 - `text`: `id?`, `text`, `wrap` (on by default), `wheel_step` (3). Read-only text
   with its own vertical scroll — an event's payload, a log. The plan wraps it
@@ -466,7 +469,12 @@ did not take (returned `false`): a window with an open sheet closes the sheet in
 `return {main = app.main(definition), definition = definition}`.
 `definition.title` is the window title, as a string or a function of the model, when it
 does not match the menu item's name (for "Run…" the item has an ellipsis, the window
-is "Run"); empty means the title from the registry entry.
+is "Run"); empty means the title from the registry entry. `definition.image` is the
+title bar's picture in the same two forms, for a window whose picture follows its
+model — a folder window navigating in place shows `drive`, then `folder_open`; empty
+keeps the picture the window was opened with. Both travel with every published frame
+(`app.frame_meta(definition, model, context) -> title, image`, the pure half a test can
+call); the compositor applies them to the window record and repaints the title row.
 `dispose(model, context)` releases resources on a normal close. `context`
 contains `args`, `width`, `height`, `native`, `window_id`, `close()`, `after(duration, tag)`,
 and also `watch(ch)` and `unwatch(ch)` — always, in a test too:

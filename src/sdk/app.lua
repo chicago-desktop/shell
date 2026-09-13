@@ -195,6 +195,22 @@ end
 -- main(definition) -> the `main` a window entry names. A window ends with
 --   return {main = app.main(definition), definition = definition}
 -- instead of repeating the same five-line wrapper around `app.run`.
+-- frame_meta(definition, model, context) -> title, image
+--
+-- What a native frame says about its window beside the tree. `definition.title`
+-- is the window title when it differs from the menu item's ("Run…" in "Start",
+-- "Run" on the window); `definition.image` is the title bar's picture when it
+-- follows the model — a folder window navigating in place. Each is a string or
+-- a function of the model; empty means "keep the window's own" (nil).
+function app.frame_meta(definition: any, model: any, context: any): (any, any)
+    local function read(field: string): any
+        local value: any = definition[field]
+        if type(value) == "function" then value = guarded(context, field, value, model, context) end
+        return type(value) == "string" and value ~= "" and value or nil
+    end
+    return read("title"), read("image")
+end
+
 function app.main(definition: any): any
     return function(first: any, window_id: any, args: any, viewport: any)
         app.run(definition, first, window_id, args, viewport)
@@ -241,10 +257,9 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
             -- `definition.title` is the window title when it differs from the menu
             -- item's ("Run…" in "Start", "Run" on the window). A string or a function of the
             -- model; empty means the entry's title, as before.
-            local title: any = definition.title
-            if type(title) == "function" then title = guarded(context, "title", title, model, context) end
+            local title, image = app.frame_meta(definition, model, context)
             desktop.publish_state(window_id, {sdk = 1, revision = loop.revision, ui = tree, interaction = interaction,
-                title = type(title) == "string" and title ~= "" and title or nil})
+                title = title, image = image})
         else
             -- A frame in cells is also code that depends on the application's tree. A frame
             -- that failed to build sends the window to the fallback tree instead of carrying

@@ -560,9 +560,13 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                             local cx, cw = x + column.x * cell.w, column.w * cell.w
                             local tint = selected and color.select_fg or (node.disabled and color.shadow or color.field_text)
                             -- A cell's `image`: a 16 px picture two pixels in,
-                            -- the text 3 px after it (Explorer's Details).
+                            -- the text 3 px after it (Explorer's Details). No
+                            -- `image`, a `kind`: that kind's picture by the one
+                            -- rule an icon's comes from (`images.name_for`) — a
+                            -- folder row shows a folder with nothing named.
                             local inset = cell.w
-                            local picture: any = type(raw) == "table" and raw.image or nil
+                            local picture: any = nil
+                            if type(raw) == "table" then picture = images.name_for({image = raw.image, kind = raw.kind}) end
                             if type(picture) == "string" and picture ~= "" and cw >= 16 + cell.w then
                                 pixels.icon(raster, whole(cx + 2), whole(row_y + (cell.h - 16) // 2),
                                     {kind = raw.kind or "document", image = picture}, 16)

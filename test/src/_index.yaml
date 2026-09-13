@@ -918,6 +918,25 @@ entries:
       palette: butschster.windows.shell:palette
       glyphs: butschster.windows.shell:glyphs
 
+  - name: table_kind_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: A table cell's picture from its kind in both renderers (images.name_for, icons.glyph), and the title and picture a native SDK frame publishes (app.frame_meta).
+    source: file://table_kind_test.lua
+    method: run
+    modules: [tty, gfx, fs]
+    imports:
+      test: wippy.test:test
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
+      render: butschster.windows.sdk:render
+      rasters: butschster.windows.shell:rasters
+      glyphs: butschster.windows.shell:glyphs
+      app: butschster.windows.sdk:app
+
   - name: editor_model_test
     kind: function.lua
     meta:
@@ -970,3 +989,4 @@ entries:
       rasters: butschster.windows.shell:rasters
       palette: butschster.windows.shell:palette
       glyphs: butschster.windows.shell:glyphs
+

@@ -432,6 +432,12 @@ function definition.title(state: any): string
     return model.folder_title(state.path)
 end
 
+-- The title bar's picture follows the folder too: a window navigating in
+-- place (the single-window mode) goes from `drive` to `folder_open`.
+function definition.image(state: any): string
+    return model.folder_image(state.path)
+end
+
 -- ─── actions ─────────────────────────────────────────────────────────────
 
 function definition.init(args: any, context: any): any

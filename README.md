@@ -136,7 +136,8 @@ the model on actions, while the layout, hits, scrolling and both renderers
 are provided by the SDK. They have no paints of their own, no state provider, no
 second geometry for the mouse; in pixel mode they are drawn by the shared
 `butschster.windows.sdk:render`, in text mode by the same components in cells.
-Renderers of their own remain with the explorer and the image viewer.
+A renderer of its own remains with the image viewer; "My Computer" and the folder
+windows are on the SDK (FR-008).
 
 - Window: Date/Time; Entry: `butschster.windows.datetime:window`; What's inside: tabs, a month calendar with today's date, an analog clock, digital time, the time zone; **read-only** — there is nothing to adjust, "OK" and "Cancel" close it, "Apply" is disabled for good
 - Window: Calculator; Entry: `butschster.windows.calc:window`; What's inside: the standard Windows 95 view: the display, Back/CE/C, memory MC/MR/MS/M+, digits in blue, operations in red; it calculates like a desk calculator — an operation is applied immediately, 2 + 3 × 4 = 20; keyboard and mouse go into the same button. A window on the shell SDK: works both in cells and in pixels
@@ -516,17 +517,10 @@ The client, dragging and resizing use `window_insets`, so
 enlarging the title does not overlap the window content. The button sets differ
 for a normal window, a dialog and a tool window.
 
-The explorer toolbar has 23×22 px buttons centered in their cells
-(`tool_span`, three cells at 10 px), as on the folder window toolbar of the original.
 SDK tabs are labels with a bevelled corner and no bottom edge, the active one two
 pixels higher and merged with the page; SDK menu headings are centered in their cells
 with a highlight six pixels wider than the text; the group frame is etched
 (`pixels.etched`).
-
-The explorer address field is 24 px high including the sunken frame,
-and is centered in the minimum number of terminal rows. The 16 px icon and the text
-fit inside the frame; the whole height of these rows is clickable, the drop-down list
-and the file field start below it. In cell mode the address stays single-line.
 
 **The fill stays in cells.** The compositor calls `chrome.fill` for the desktop,
 then for each visible window in stacking order — the optional
@@ -549,17 +543,12 @@ For tall items `row` and `bottom_row` define the whole click area,
 while keeping one keyboard step per item. In character mode the
 old grid remains.
 
-"My Computer" declares `meta.pixel_render` and `meta.pixel_state`. If the theme
-confirms support through `chrome.renders(id)`, the compositor starts
-the state provider and hands drawing to the theme. The explorer uses the same
-controller and `render.layout` for both modes. In pixel mode
-`render.pixel_metrics` sets a grid of at least 88×72 px, 32 px icons,
-a toolbar of at least 26 px and a scrollbar of at least 16 px;
-sizes are rounded to cells. Captions are drawn by the theme font at 13 px.
-Input, including the wheel, arrows and resizing, uses the same layout.
-The theme keeps four rasters per window: menu, tools, field and status.
-Without support for this renderer the window stays in cells.
-`paint-png 8x18` saves `shots/explorer-native.png` with this geometry.
+"My Computer" and every folder window are an SDK application
+([FR-008](docs/rfcs/008-folder-windows.md)): `meta.pixel_render:
+butschster.windows.sdk:render`, and the window entry is its own `pixel_state`.
+The shared SDK renderer draws the tree in pixels, the SDK's cells renderer in
+cells; there is no explorer renderer of its own any more. `paint-png` saves
+`shots/mycomputer.png`, `shots/folder-details.png` and `shots/folder-context.png`.
 
 ## Where an exact copy runs into the terminal
 
@@ -795,7 +784,8 @@ brings some: on the test stand there are sixty-eight of them. Hence both rules a
 - Contents are read by the `fs` module under the window's own permissions. A drive
   that is declared but inaccessible answers with a **reason**, not with emptiness.
 
-The root of "My Computer" holds only file systems. Programs, registry
+The root of "My Computer" holds the file systems and, after them, the
+`Control Panel` folder — the catalog's `Settings` programs. Programs, registry
 entries of other kinds and service folders do not get there. The search uses
 the top-level `.kind` field; `kind` without the dot does not filter by entry kind.
 
@@ -818,52 +808,31 @@ the top-level `.kind` field; `kind` without the dot does not filter by entry kin
   clicked. The scrollbar is drawn only when there is something to scroll: with
   fully visible contents it would be a promise that there is more somewhere.
 
-### One layout, two backends
+### A folder window as in Windows 95
 
-`butschster.windows.explorer:render` is split into three parts, and the split is not
-cosmetic.
+The window is an SDK application (`src/explorer/window.lua`, [FR-008](docs/rfcs/008-folder-windows.md)):
+the menu bar `File Edit View Help` with the original's items (the ones the explorer
+cannot honour — Create Shortcut, Delete, Rename, Cut, Copy, Paste, Undo — are present
+and greyed), an optional toolbar (`View → Toolbar`, off by default: the folder combo,
+Up One Level, the greyed edit buttons, Properties and the four views), the objects in
+Large Icons, Small Icons, List (Small Icons until the SDK has a column-filled list)
+or Details (Name / Size / Type / Modified; the Control Panel shows Name / Type /
+Comment), and a status bar `N object(s)`. There is no Go menu, no Back / Forward and
+no address row: those came with Windows 98.
 
-- Part: `render.layout`; What it does: WHAT and WHERE: lines, field, grid, icon rectangles, hits. Not a single paint
-- Part: `render.cells`; What it does: draws with characters into a `tty` canvas
-- Part: `render_pixels.paint`; What it does: draws with pixels into rasters
+**Every folder opens in its own window.** Opening a folder asks the compositor what
+is open (`desktop.list`, answered on the window's reply channel) and raises the
+folder window already showing that path (`desktop.focus`) or opens a new one with the
+path in `args`. `View → Options…` switches to the other Windows 95 mode, one window
+that changes as you open each folder; the choice is the shell setting
+`explorer_browse`. Backspace and Up One Level go to the parent by the same rule.
 
-The shell must work in a plain xterm, where there are no graphics at all ([FR-005](docs/rfcs/005-pixel-chrome.md)
-§8b), and it has no right to die there silently. The price of the second backend is paid
-precisely by their layout being shared.
-
-**Hits are computed by the layout, not by the drawing.** Previously they were returned by whoever
-drew, and that was right while there was one drawer. With two drawers, "one
-table" no longer means "the function that draws" but the layout: two backends
-each computing hits in their own way would drift apart silently, and a click would land on
-a neighbor in one of the two modes. The icon rectangle is still
-taken from the shared grid: in cell mode through `icons.box`, in pixel mode
-through `render.pixel_metrics`. A test compares the plan with the drawing and with input.
-
-**The pixel backend is a separate entry, not a branch inside `render`.** An entry
-that declared `gfx` does not load at all on a runtime without it. The rule: `gfx`
-is declared only by whoever does not exist without it.
-
-**Rasters are taken from the store and not created anew.** A raster recreated
-every frame is not a slow screen but a WRONG one: the surface compares
-a buffer by its number, and a picture that changed but lies in a new buffer
-does not get sent at all. Yesterday's clock stays on screen, and not a single sign
-of breakage.
-
-The frame is sliced by ROWS ([FR-005](docs/rfcs/005-pixel-chrome.md) §3): menu, toolbar, field,
-status bar — four placements. One for the whole window would mean that
-selecting an icon redraws both the menu and the status bar.
-
-### The window's view lives outside the window's process
-
-The contents are drawn by `butschster.windows.explorer:render` — a library that
-needs only `tty`. That way the frame can be viewed with the `tools/themeprobe` probe without
-the runtime and without the test stand, and a full-screen program cannot be checked otherwise at all:
-it writes not lines but a stream with absolute positioning.
-
-Hits are returned by `render.hits` from the shared plan. In cell mode drawing is done by
-`render.cells`, in pixel mode by `render_pixels.paint`. The window controller reads
-the sources and handles input; the compositor passes the state to the theme without knowing
-about the menu, drives and files inside the window.
+The folder rules live in `explorer:model` — paths and parents, titles and title-bar
+pictures, the Details cells, sorting (drives, then folders, then files), the
+selection set, the open-or-focus intent — and are tested there without a window;
+`explorer:sources` reads the registry, the drives (a `stat` per row for size and
+date) and the settings under the window's own policy. The window reaches both, and
+the compositor, through `definition.deps`, so its tests swap them for stand-ins.
 
 ### Window permissions: read and ask, but not spawn
 

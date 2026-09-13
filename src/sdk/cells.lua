@@ -282,7 +282,12 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                         local raw: any = values[col]
                         local value = ui.cell_text(raw)
                         -- A cell's picture is its `icon` character here, before the text.
+                        -- No `icon`, a `kind`: the glyph an icon of that kind gets
+                        -- (`icons.glyph`, the one rule of the cells).
                         local glyph: any = type(raw) == "table" and raw.icon or nil
+                        if (type(glyph) ~= "string" or glyph == "") and type(raw) == "table" and raw.kind ~= nil then
+                            glyph = icon_cells.glyph({kind = raw.kind})
+                        end
                         if type(glyph) == "string" and glyph ~= "" then value = glyph .. " " .. value end
                         -- Text starts one cell in; a right-aligned value ends one
                         -- cell before its column's end. The same rule in pixels.
