@@ -454,11 +454,20 @@ function notepad.view(state: any, context: any): any
     }}
 end
 
--- update(state, action, context) -> whether to redraw. `close` asks nothing:
--- the compositor closes the window after its grace period whatever the
--- window answers, so the gate stands on Exit only (see the report of E2).
+-- update(state, action, context) -> whether to redraw; for `close`, false
+-- refuses it (C1).
 function notepad.update(state: any, action: any, context: any): boolean
-    if type(action) ~= "table" or action.type == "close" then return false end
+    if type(action) ~= "table" then return false end
+    -- The title bar's ×, Close or another window's `desktop.close`: a changed
+    -- document refuses and asks, as Exit does, and the answer closes the
+    -- window with `context.close()`; an unchanged one closes at once.
+    if action.type == "close" then
+        if editor.dirty(document_of(context)) then
+            gate(state, context, "exit")
+            return false
+        end
+        return true
+    end
     if state.sheet ~= nil then return sheet_update(state, context, action) end
     if action.type == "activate" and action.menu == "bar" then return command(state, context, action.id) end
     if action.type == "key" then
