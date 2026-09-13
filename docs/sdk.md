@@ -456,8 +456,11 @@ initial copy of the cell size.
 
 `init(args, context)` is called once. `view(model, context)` does not read
 files and does not send messages. `update(model, action, context)` handles
-actions, including `resize`, `tick`, `close` (the window is being closed from outside;
-it cannot be cancelled, you can finish cleaning up) and `key` — a key that no component
+actions, including `resize`, `tick`, `close` (the window is asked to close — the title
+bar ×, Close, another window's `desktop.close`; answering `false` refuses it and the
+window stays open, as Notepad does to ask "save changes?" and then closes with
+`context.close()`; anything else closes, and dispose runs; `app.refuses_close` is the
+rule) and `key` — a key that no component
 took (`key`, `key_type`, `alt`, `ctrl`, `shift`): that is how windows close on Esc and
 refresh on F5. Returning `false` from `update` means "nothing changed, do not
 redraw" — except for `end` and `scroll`, which report a move the SDK has already
@@ -505,9 +508,12 @@ they wait for now goes to another window, and redraws only when something was
 held. `update` does not receive it. A custom window reads the same event from
 `window_api.inputs()` or `tty.events()`.
 
-Both kinds of window receive `close`; after a common deadline the compositor terminates
-a process that has not finished. So `dispose` is not guaranteed on a crash or a
-forced stop. Long requests should be done outside the input handler: a synchronous
+Both kinds of window receive `close`. A close is a request: a window that has not closed
+by the common deadline stays open, and the status line says "<title> did not close" — a
+window that refuses is visible, not silently killed. Shutdown (Ctrl+Q, Shut Down) and
+`desktop.close{force = true}` do not wait: after the deadline the compositor terminates a
+process that has not finished. A PTY window (Bash) has no loop to answer and is closed
+as before. So `dispose` is not guaranteed on a crash or a forced stop. Long requests should be done outside the input handler: a synchronous
 `update` stops this window for the duration of the request.
 
 ## Low-level geometry, input and scrolling

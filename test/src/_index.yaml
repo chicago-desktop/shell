@@ -918,6 +918,20 @@ entries:
       palette: butschster.windows.shell:palette
       glyphs: butschster.windows.shell:glyphs
 
+  - name: sdk_close_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: A close the window may refuse — update answering false to the close action keeps the SDK loop running; anything else, a self-close or a failure ends it.
+    source: file://sdk_close_test.lua
+    method: run
+    modules: [process, channel, time, tty]
+    imports:
+      test: wippy.test:test
+      app: butschster.windows.sdk:app
+
   - name: table_kind_test
     kind: function.lua
     meta:

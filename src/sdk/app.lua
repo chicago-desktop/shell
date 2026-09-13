@@ -13,7 +13,8 @@
 --     `{type = "key"}` — that is how windows close on Esc and refresh on F5;
 --     `definition.close_on_escape = true` closes the window on an Esc that
 --     `update` did not take (returned false);
---   * `close` is delivered as an action before the loop exits.
+--   * `close` is delivered as an action; `update` answering false keeps the
+--     window open (a close the window refuses), anything else ends the loop.
 --
 -- The loop's mutable state lives in TABLES (`loop`, `context`), not in local
 -- variables, and this is not a matter of style. In go-lua (wippy 0.3.35a), after the first error
@@ -192,6 +193,20 @@ function app.dispatch(definition: any, model: any, context: any, action: any): b
     return verdict ~= false or REDRAWS[tostring(action.type)] == true or action.drawn == true
 end
 
+-- refuses_close(definition, model, context) -> whether the window stays open
+--
+-- The compositor's `close` is a request (the title bar ×, Close, another
+-- window's `desktop.close`): `update` gets `{type = "close"}`, and `false`
+-- means "not now" — Notepad asks to save first and closes later with
+-- `context.close()`. Anything else closes, and so does a window that called
+-- `context.close()` while answering or that is showing its failure tree (it has
+-- no update to ask). Shutdown and a forced close do not wait for the answer.
+function app.refuses_close(definition: any, model: any, context: any): boolean
+    if context.failure or not definition.update then return false end
+    local verdict = guarded(context, "update", definition.update, model, {type = "close"}, context)
+    return verdict == false and not context.closing and not context.failure
+end
+
 -- main(definition) -> the `main` a window entry names. A window ends with
 --   return {main = app.main(definition), definition = definition}
 -- instead of repeating the same five-line wrapper around `app.run`.
@@ -300,29 +315,32 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
             -- editor tells a double click from two clicks by it.
             if event.type == "mouse" and event.time == nil then event.time = time.now():unix_nano() // 1000000 end
             if event.type == "close" then
-                app.dispatch(definition, model, context, {type = "close"})
-                break
-            end
-            if event.type == "resize" then
-                if native then app.resize(context, event)
-                else context.width, context.height = tty.screen_size() end
-                action = {type = "resize", width = context.width, height = context.height}
-            elseif event.type ~= "focus" then
-                action = guarded(context, "event", ui.event, loop.plan, interaction, event)
-                -- A key no component took goes to the application: Esc, F5, Ctrl+S.
-                if action == nil and event.type == "key" and event.action ~= "release" then
-                    action = {type = "key", key = event.key, key_type = event.key_type,
-                        alt = event.alt, ctrl = event.ctrl, shift = event.shift}
-                end
-            end
-            if event.type == "focus" then
-                -- The SDK's own bookkeeping, not an application action: a lost
-                -- keyboard drops what was armed or captured (see `app.focus`).
-                redraw = app.focus(interaction, event)
+                -- A close the window may refuse: Notepad answers false to ask
+                -- "save changes?" first, and the compositor leaves it open.
+                if not app.refuses_close(definition, model, context) then break end
+                redraw = true
             else
-                -- A resize always redraws: the frame has to be laid out for the new
-                -- size even when `update` has nothing to say about it (returns false).
-                redraw = app.dispatch(definition, model, context, action) or action.type == "resize"
+                if event.type == "resize" then
+                    if native then app.resize(context, event)
+                    else context.width, context.height = tty.screen_size() end
+                    action = {type = "resize", width = context.width, height = context.height}
+                elseif event.type ~= "focus" then
+                    action = guarded(context, "event", ui.event, loop.plan, interaction, event)
+                    -- A key no component took goes to the application: Esc, F5, Ctrl+S.
+                    if action == nil and event.type == "key" and event.action ~= "release" then
+                        action = {type = "key", key = event.key, key_type = event.key_type,
+                            alt = event.alt, ctrl = event.ctrl, shift = event.shift}
+                    end
+                end
+                if event.type == "focus" then
+                    -- The SDK's own bookkeeping, not an application action: a lost
+                    -- keyboard drops what was armed or captured (see `app.focus`).
+                    redraw = app.focus(interaction, event)
+                else
+                    -- A resize always redraws: the frame has to be laid out for the new
+                    -- size even when `update` has nothing to say about it (returns false).
+                    redraw = app.dispatch(definition, model, context, action) or action.type == "resize"
+                end
             end
         else
             -- The application's own channel: a timer from `context.after` or a watched one.
