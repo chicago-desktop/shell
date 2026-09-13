@@ -34,6 +34,8 @@ entries:
       # File type registry: the program for an extension and its icon.
       associations: butschster.windows.viewers:associations
       catalog: butschster.windows.programs:catalog
+      # The extension rule for the Type column of an unknown file.
+      files: butschster.windows.viewers:files
 
   # butschster.windows.explorer:sources
   - name: sources

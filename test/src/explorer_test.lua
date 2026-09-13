@@ -20,8 +20,10 @@ end
 
 local function define_tests()
     test.describe("butschster.windows explorer", function()
-        test.it("leaves the root empty when there are no filesystems", function()
-            test.eq(#model.root({}), 0)
+        test.it("leaves only the Control Panel at the root when there are no filesystems", function()
+            local root = model.root({})
+            test.eq(#root, 1)
+            test.eq(root[1].id, model.CONTROL)
         end)
 
         test.it("makes a drive of every fs entry without creating anything itself", function()
@@ -61,13 +63,20 @@ local function define_tests()
                 "there is no point in lengthening an unambiguous name")
         end)
 
-        test.it("has only FS in the root, without shell folders", function()
+        test.it("has the drives and the Control Panel at the root, without the shell's pseudo-folders", function()
             local root = model.root({{id = "app:probe", kind = "fs.directory"}})
-            test.eq(#root, 1)
+            test.eq(#root, 2)
             test.eq(root[1].id, "app:probe")
             test.eq(root[1].kind, "drive")
+            local control = root[2]
+            test.eq(control.id, model.CONTROL, "the Control Panel comes after the drives")
+            test.eq(control.kind, "folder")
+            test.eq(control.title, "Control Panel")
+            test.eq(control.image, "control_panel", "the pack has its own picture")
+            test.eq(control.open.action, "folder")
+            test.eq(control.open.path, "control")
             for _, name in ipairs({"programs", "desktop", "windows"}) do
-                test.is_nil(by_id(root, name))
+                test.is_nil(by_id(root, name), "Windows 95 had no " .. name .. " folder in My Computer")
             end
         end)
 
@@ -83,11 +92,14 @@ local function define_tests()
             test.eq(model.parse("drive/app:fs/ui/dist").sub, "ui/dist")
             test.eq(model.parse("something else").view, "unknown",
                 "a silent fallback to the root would turn a typo into a navigation")
+            test.eq(model.parse("control").view, "control")
+            test.eq(model.address("control"), "My Computer\\Control Panel")
         end)
 
         test.it("goes one level up, not straight to the root", function()
             test.is_nil(model.parent(model.ROOT), "there is nowhere above the root")
             test.eq(model.parent("programs"), model.ROOT)
+            test.eq(model.parent("control"), model.ROOT)
             test.eq(model.parent("desktop/f1"), "desktop")
             test.eq(model.parent("drive/app:fs"), model.ROOT)
             test.eq(model.parent("drive/app:fs/ui"), "drive/app:fs")
@@ -119,7 +131,7 @@ local function define_tests()
                 {id = "app:settings", kind = "registry.entry"},
                 {id = "app:database", kind = "db.sql.sqlite"},
             })
-            test.eq(#root, 2)
+            test.eq(#root, 3, "two drives and the Control Panel")
             test.not_nil(by_id(root, "app:files"))
             test.not_nil(by_id(root, "app:embedded"))
         end)
@@ -188,6 +200,201 @@ local function define_tests()
             test.eq(objects[1].open.action, "folder")
             test.is_true(objects[1].open.path:find("f1", 1, true) ~= nil,
                 "the path must name the folder itself, otherwise the wrong one opens")
+        end)
+    end)
+
+    -- FR-008: the model half of the folder windows — the Control Panel, the
+    -- start path, the folder window intents, Details cells, sorting,
+    -- selection and the browse mode.
+    test.describe("folder windows (FR-008)", function()
+        local PROGRAMS = {
+            {entry = "app:display", title = "Display", group = {"Settings"}, image = "display_properties", width = 46, height = 24},
+            {entry = "app:calc", title = "Calculator", group = {"Programs"}, image = "calculator"},
+            {entry = "app:add", title = "Add/Remove Programs", group = {"Settings"}, image = "appwizard", width = 50, height = 20},
+            {entry = "app:root_one", title = "Run", group = {}},
+        }
+
+        test.it("the Control Panel holds the Settings programs, sorted by title, each opening its window", function()
+            local objects = model.control(PROGRAMS, {["app:display"] = "Desktop colour and screen."})
+            test.eq(#objects, 2, "only the Settings group")
+            test.eq(objects[1].title, "Add/Remove Programs")
+            test.eq(objects[2].title, "Display")
+            local display = objects[2]
+            test.eq(display.kind, "program")
+            test.eq(display.image, "display_properties")
+            test.eq(display.open.action, "open_window")
+            test.eq(display.open.entry, "app:display")
+            test.eq(display.open.title, "Display")
+            test.eq(display.open.w, 46)
+            test.eq(display.open.h, 24)
+            test.eq(display.detail, "Desktop colour and screen.", "the detail is the entry's comment")
+            test.eq(model.details(display).type, "Control Panel item")
+            test.eq(model.details(display).comment, "Desktop colour and screen.")
+            test.eq(objects[1].detail, "app:add", "without a comment the entry id says what it is")
+            test.eq(model.details(objects[1]).comment, "")
+        end)
+
+        test.it("a window starts at its args path; none is the root, an unknown path is the root with a notice", function()
+            test.eq(model.start(nil), model.ROOT)
+            test.eq(model.start(""), model.ROOT)
+            local path, notice = model.start("drive/app:fs/ui")
+            test.eq(path, "drive/app:fs/ui")
+            test.is_nil(notice)
+            test.eq(model.start("control"), "control")
+            path, notice = model.start("nowhere/at/all")
+            test.eq(path, model.ROOT)
+            test.is_true(tostring(notice):find("nowhere/at/all", 1, true) ~= nil, "the notice names the path: " .. tostring(notice))
+            path, notice = model.start(42)
+            test.eq(path, model.ROOT)
+            test.not_nil(notice)
+        end)
+
+        test.it("a folder window is titled and pictured by its folder", function()
+            test.eq(model.folder_title(""), "My Computer")
+            test.eq(model.folder_title("control"), "Control Panel")
+            test.eq(model.folder_title("drive/app:fs"), "fs")
+            test.eq(model.folder_title("drive/app:fs/ui/dist"), "dist")
+            test.eq(model.folder_image(""), "my_computer")
+            test.eq(model.folder_image("control"), "control_panel")
+            test.eq(model.folder_image("drive/app:fs"), "drive")
+            test.eq(model.folder_image("drive/app:fs/ui"), "folder_open")
+        end)
+
+        test.it("opening a folder focuses the window already open for it, else opens one with the path in args", function()
+            local listing = {
+                {id = "w1", entry = model.EXPLORER, args = "drive/app:fs"},
+                {id = "w2", entry = "app:other", args = "drive/app:fs/ui"},
+                {id = "w3", entry = model.EXPLORER},
+            }
+            local focus = model.open_folder("drive/app:fs", listing)
+            test.eq(focus.action, "focus")
+            test.eq(focus.id, "w1")
+            local opened = model.open_folder("drive/app:fs/ui", listing)
+            test.eq(opened.action, "open_window", "another entry's window for the path is not a folder window")
+            test.eq(opened.entry, model.EXPLORER)
+            test.eq(opened.args, "drive/app:fs/ui")
+            test.eq(opened.title, "ui")
+            test.eq(opened.image, "folder_open")
+            test.eq(model.open_folder("", listing).id, "w3", "a window opened without args is the root's")
+            test.eq(model.open_folder("drive/app:x", {}, "keeper ui_static_fs").title, "keeper ui_static_fs",
+                "the caller's caption wins over the path's")
+            test.eq(model.open_folder("control", nil).image, "control_panel")
+        end)
+
+        test.it("Details cells: sizes in whole kilobytes, the Type text, the US short date", function()
+            test.eq(model.size_text(nil), "")
+            test.eq(model.size_text(0), "0KB")
+            test.eq(model.size_text(1), "1KB")
+            test.eq(model.size_text(1024), "1KB")
+            test.eq(model.size_text(1025), "2KB")
+            test.eq(model.size_text(136192), "133KB")
+            test.eq(model.size_text(1500000 * 1024), "1,500,000KB")
+            test.eq(model.date_text({year = 1995, month = 7, day = 11, hour = 9, min = 50}), "7/11/95 9:50 AM")
+            test.eq(model.date_text({year = 2026, month = 12, day = 3, hour = 0, min = 5}), "12/3/26 12:05 AM")
+            test.eq(model.date_text({year = 2026, month = 1, day = 30, hour = 12, min = 0}), "1/30/26 12:00 PM")
+            test.eq(model.date_text({year = 2026, month = 9, day = 13, hour = 21, min = 7}), "9/13/26 9:07 PM")
+            test.is_true(model.date_text(804850200):match("^%d+/%d+/%d%d %d+:%d%d [AP]M$") ~= nil,
+                "seconds are read as a local date: " .. model.date_text(804850200))
+            test.eq(model.date_text(nil), "")
+
+            local objects = model.files({
+                {name = "notes.MD", type = "file", size = 2048, modified = 804850200},
+                {name = "Makefile", type = "file", size = 10},
+                {name = "ui", type = "directory", modified = 804850200},
+            }, "drive/app:fs", "app:fs", nil, nil)
+            local folder, notes, make = model.details(objects[1]), model.details(objects[3]), model.details(objects[2])
+            test.eq(folder.name, "ui")
+            test.eq(folder.size, "", "a folder has no size")
+            test.eq(model.details({id = "big", kind = "directory", title = "big", size = 4096}).size, "",
+                "not even when the reader gave one")
+            test.eq(folder.type, "File Folder")
+            test.eq(notes.name, "notes.MD")
+            test.eq(notes.size, "2KB")
+            test.eq(notes.type, "MD File", "an unknown type is its extension")
+            test.is_true(notes.modified ~= "")
+            test.eq(make.type, "File", "no extension, no letters")
+            test.eq(make.modified, "", "an unknown date is empty, not the epoch")
+            test.eq(model.details(model.drives({{id = "app:fs", kind = "fs.directory"}})[1]).type, "Local Disk")
+            test.eq(model.details(model.drives({{id = "app:em", kind = "fs.embed"}})[1]).type, "Read-only Disk")
+        end)
+
+        test.it("sorts by name, type, size and date with the folders always first, stable for ties", function()
+            local objects = {
+                {id = "b.txt", kind = "file", title = "b.txt", size = 300, modified = 30, type_name = "Notepad Document"},
+                {id = "Zed", kind = "directory", title = "Zed", modified = 10},
+                {id = "a.png", kind = "file", title = "a.png", size = 100, modified = 20, type_name = "Picture Document"},
+                {id = "c.md", kind = "file", title = "c.md", size = 200, modified = 10, type_name = "MD File"},
+                {id = "apps", kind = "directory", title = "apps", modified = 40},
+                {id = "twin", kind = "file", title = "same", size = 1},
+                {id = "twin2", kind = "file", title = "same", size = 1},
+            }
+            local function order(key: any): string
+                local out = {}
+                for _, item in ipairs(model.sort(objects, key)) do out[#out + 1] = (item :: any).id end
+                return table.concat(out, ",")
+            end
+            test.eq(order(nil), "apps,Zed,a.png,b.txt,c.md,twin,twin2", "by name, case aside")
+            test.eq(order("name"), order(nil))
+            test.eq(order("type"), "apps,Zed,twin,twin2,c.md,b.txt,a.png", "by the Type text: File, MD File, Notepad…, Picture…")
+            test.eq(order("size"), "apps,Zed,twin,twin2,a.png,c.md,b.txt")
+            test.eq(order("date"), "Zed,apps,twin,twin2,c.md,a.png,b.txt")
+            test.eq(order("colour"), order(nil), "an unknown key is by name")
+            test.eq(objects[1].id, "b.txt", "the input is not reordered")
+            test.eq(#model.SORT_KEYS, 4)
+        end)
+
+        test.it("selection: click, Ctrl toggles, Shift ranges from the anchor, all, invert, and the summary", function()
+            local objects = {
+                {id = "a", kind = "file", title = "a", size = 1024, detail = "file a"},
+                {id = "b", kind = "file", title = "b", size = 2048, detail = "file b"},
+                {id = "c", kind = "directory", title = "c", detail = "folder", size = 4096},
+                {id = "d", kind = "file", title = "d", size = 1, detail = "file d"},
+                {id = "e", kind = "file", title = "e", detail = "file e"},
+            }
+            local function ids(set: any): string
+                local out = {}
+                for _, item in ipairs(objects) do if set[item.id] then out[#out + 1] = item.id end end
+                return table.concat(out, ",")
+            end
+            local set, anchor = model.select({}, objects, 2, {})
+            test.eq(ids(set), "b")
+            test.eq(anchor, 2)
+            set, anchor = model.select(set, objects, 4, {ctrl = true})
+            test.eq(ids(set), "b,d", "Ctrl adds")
+            test.eq(anchor, 4)
+            set, anchor = model.select(set, objects, 1, {shift = true, anchor = anchor})
+            test.eq(ids(set), "a,b,c,d", "Shift selects the range from the anchor")
+            test.eq(anchor, 4, "the anchor stays")
+            test.eq(ids(model.select({e = true}, objects, 1, {shift = true, anchor = 3})), "a,b,c",
+                "and drops what lies outside it")
+            set = model.select({e = true}, objects, 2, {shift = true, ctrl = true, anchor = 4})
+            test.eq(ids(set), "b,c,d,e", "Ctrl+Shift adds the range")
+            set = model.select(set, objects, 3, {ctrl = true})
+            test.eq(ids(set), "b,d,e", "Ctrl toggles off")
+            test.eq(ids(model.select(set, objects, 0, {ctrl = true})), "b,d,e", "Ctrl on the empty field keeps")
+            set, anchor = model.select(set, objects, 0, {})
+            test.eq(ids(set), "", "a click on the empty field clears")
+            test.is_nil(anchor)
+            test.eq(ids(model.select({}, objects, 5, {shift = true})), "e", "Shift without an anchor is a click")
+            test.eq(ids(model.select_all(objects)), "a,b,c,d,e")
+            test.eq(ids(model.invert({b = true, d = true}, objects)), "a,c,e")
+
+            test.eq(model.selected_summary({}, objects), "")
+            test.eq(model.selected_summary({b = true}, objects), "file b", "one object: its detail")
+            test.eq(model.selected_summary({a = true, b = true, c = true}, objects), "3 object(s) selected, 3KB",
+                "the folder adds no size")
+            test.eq(model.selected_summary({c = true, e = true}, objects), "2 object(s) selected",
+                "nothing with a known size, no size")
+            test.eq(model.selected_summary({ghost = true}, objects), "", "only the listed objects count")
+        end)
+
+        test.it("the browse mode is separate unless single was chosen", function()
+            test.eq(model.BROWSE[1], "separate")
+            test.eq(model.browse_mode(nil), "separate")
+            test.eq(model.browse_mode("single"), "single")
+            test.eq(model.browse_mode("sideways"), "separate")
+            test.is_true(model.is_browse("separate") and model.is_browse("single"))
+            test.is_true(not model.is_browse("sideways"))
         end)
     end)
 

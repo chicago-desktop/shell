@@ -96,7 +96,62 @@ local function read_drive(id: any, sub: any)
         entries[#entries + 1] = entry
     end
 
-    return entries, nil, cut
+    -- Size and date for the Details view (FR-008 §4): `readdir` gives only a
+    -- name and a kind, so each row costs one `stat` — at most FILE_LIMIT of
+    -- them. A row whose `stat` failed keeps neither, and Details leaves its
+    -- cells empty rather than showing a zero.
+    local base = path == "/" and "" or path
+    local rows = {}
+    for _, entry in ipairs(entries) do
+        local record: any = entry
+        local row: any = {name = record.name, type = record.type}
+        local info: any = handle:stat(base .. "/" .. tostring(record.name))
+        if type(info) == "table" then
+            row.size = tonumber(info.size)
+            row.modified = tonumber(info.modified)
+        end
+        rows[#rows + 1] = row
+    end
+
+    return rows, nil, cut
+end
+
+-- comments() -> {[entry] = meta.comment}: the Control Panel's Comment column.
+-- The catalog keeps no comment, so the entries are read once more by the same
+-- filter the catalog uses. Unreadable → an empty map: the column is prose, and
+-- the objects are still listed with their ids for detail.
+function sources.comments(): any
+    local found, err = registry.find({["meta.type"] = catalog.WINDOW_TYPE})
+    local out = {}
+    if err or type(found) ~= "table" then return out end
+    for _, entry in ipairs(found) do
+        local record: any = entry
+        local meta: any = type(record.meta) == "table" and record.meta or {}
+        if type(meta.comment) == "string" and meta.comment ~= "" then out[record.id] = meta.comment end
+    end
+    return out
+end
+
+-- browse() -> mode, reason
+--
+-- How folders open (FR-008 §3): `separate` (the default) or `single`, from
+-- the shell's settings under `explorer_browse`. An unreadable setting is the
+-- default AND a reason: the window still opens folders, and says why it did
+-- not honour a choice.
+function sources.browse(): (string, any)
+    local value, err = repo.setting(model.BROWSE_KEY)
+    if err then return model.BROWSE[1], "browse mode not read: " .. tostring(err) end
+    return model.browse_mode(value), nil
+end
+
+-- set_browse(mode) -> true | nil, reason. An unknown mode is refused, not
+-- stored: a stray value would read back as the default and look like a save
+-- that did not happen.
+function sources.set_browse(mode: any): (any, any)
+    if not model.is_browse(mode) then return nil, "unknown browse mode: " .. tostring(mode) end
+    local ok, err = repo.set_setting(model.BROWSE_KEY, mode)
+    if not ok then return nil, "browse mode not saved: " .. tostring(err) end
+    return true, nil
 end
 
 -- list(path, context) -> (view, nil) | (nil, reason)
@@ -130,6 +185,15 @@ function sources.list(path, context: any)
         -- one of the two lists".
         return {objects = model.programs(catalog.listed(found.programs)),
                 title = "Programs"}, nil
+    end
+
+    if where.view == "control" then
+        local found, err = catalog.list()
+        if err or not found then return nil, err or "catalog not read" end
+        -- The programs the Start menu shows: a program hidden from the menu
+        -- is hidden here too, as in the Programs view.
+        return {objects = model.control(catalog.listed(found.programs), sources.comments()),
+                title = model.CONTROL_TITLE}, nil
     end
 
     if where.view == "desktop" then

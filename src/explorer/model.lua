@@ -8,9 +8,11 @@
 -- registry will not be here — a painted `C:` would be an object that does
 -- not exist, and the first question would be why it does not open.
 --
--- The root shows only drives. For desktop folders opened directly and for
--- service paths separate source models remain; the shell reads them for
--- other purposes:
+-- The root shows the drives and one folder, `Control Panel` — the catalog's
+-- `Settings` programs (FR-008 §5). For desktop folders opened directly and
+-- for service paths separate source models remain, reachable by path but not
+-- listed at the root (Windows 95 had no such folders in My Computer); the
+-- shell reads them for other purposes:
 --
 --   Programs       — the registry catalog, the same one that fills the "Start" menu
 --   Desktop        — our own layout, desktop shortcuts and folders
@@ -31,6 +33,7 @@
 
 local catalog = require("catalog")
 local associations = require("associations")
+local files = require("files")
 
 local model = {}
 
@@ -48,6 +51,25 @@ model.DRIVE_ICON = "▦"
 model.DIR_ICON = "▤"
 model.FILE_ICON = "▫"
 
+-- The folder window itself (FR-008 §3): opening a folder opens this entry with
+-- the folder's path in `args`.
+model.EXPLORER = "butschster.windows.explorer:window"
+
+-- The Control Panel: a folder at the root holding the catalog's `Settings`
+-- programs. Its picture is the pack's `control_panel`.
+model.CONTROL = "control"
+model.CONTROL_TITLE = "Control Panel"
+model.CONTROL_IMAGE = "control_panel"
+model.SETTINGS_GROUP = "Settings"
+
+-- How folders open (View → Options…): a window per folder, as Windows 95
+-- did by default, or one window that changes. The first is the default.
+model.BROWSE = {"separate", "single"}
+model.BROWSE_KEY = "explorer_browse"
+
+-- Arrange Icons: by name (the default), type, size, date.
+model.SORT_KEYS = {"name", "type", "size", "date"}
+
 -- A path is a string, and its whole grammar is here, because three parties
 -- read it: the window (to know what to draw), the sources (to know what to
 -- read) and the "Up" button (to know where to go back to). Were they to
@@ -58,6 +80,7 @@ model.FILE_ICON = "▫"
 --   "desktop"             the desktop, top level
 --   "desktop/<id>"        a desktop folder
 --   "windows"             open windows
+--   "control"             the Control Panel
 --   "drive/<entry>"       the root of a filesystem from the registry
 --   "drive/<entry>/<path>"  a directory inside it
 --
@@ -70,6 +93,7 @@ function model.parse(path: any)
     if text == "programs" then return {view = "programs"} end
     if text == "desktop" then return {view = "desktop"} end
     if text == "windows" then return {view = "windows"} end
+    if text == model.CONTROL then return {view = "control"} end
 
     local folder = string.match(text, "^desktop/(.+)$")
     if folder then return {view = "desktop_folder", id = folder} end
@@ -102,6 +126,7 @@ function model.address(path: any): string
     if where.view == "desktop" then return "My Computer\\Desktop" end
     if where.view == "desktop_folder" then return "My Computer\\Desktop\\" .. tostring(where.id) end
     if where.view == "windows" then return "My Computer\\Open Windows" end
+    if where.view == "control" then return "My Computer\\" .. model.CONTROL_TITLE end
     if where.view == "drive" then
         local text = tostring(where.id)
         if where.sub then text = text .. "\\" .. tostring(where.sub):gsub("/", "\\") end
@@ -164,6 +189,11 @@ local function object(fields: any)
         image = fields.image, entry = fields.entry, broken = fields.broken,
         detail = fields.detail,
         open = fields.open,
+        -- The Details columns (FR-008 §4): bytes, Unix seconds, the Type
+        -- text and the Control Panel's comment. Named at assembly, where the
+        -- file type registry is at hand, so `details` stays a pure format.
+        size = fields.size, modified = fields.modified,
+        type_name = fields.type_name, comment = fields.comment,
     }
 end
 
@@ -224,6 +254,7 @@ function model.drives(records: any)
             -- is frozen into the module and is read-only, `fs.directory` is a
             -- real directory on disk.
             detail = drive.id .. " · " .. tostring(drive.kind or "fs"),
+            type_name = drive.kind == "fs.embed" and "Read-only Disk" or "Local Disk",
             open = {action = "folder", path = "drive/" .. drive.id},
         })
     end
@@ -231,9 +262,22 @@ function model.drives(records: any)
 end
 
 -- The contents of a directory inside a drive. `entries` is what `readdir`
--- returned: a name and a kind, and nothing more. There is deliberately no
--- size here — it would require a `stat` on every row, that is, a hundred disk
--- accesses for the sake of a column that icons do not have anyway.
+-- returned — a name and a kind — plus the `size` (bytes) and `modified`
+-- (Unix seconds) the sources took with a `stat` per row for the Details view
+-- (FR-008 §4). A row whose `stat` failed has neither, and Details shows empty
+-- cells for it rather than a zero.
+--
+-- file_type(programs, name) -> the Type column of a file: the handling
+-- program's title with `Document`, as Windows showed a registered type;
+-- `<EXT> File` for an unknown one; `File` without an extension.
+function model.file_type(programs: any, name: any): string
+    local program: any = associations.find(programs, name)
+    if program then return tostring(program.title) .. " Document" end
+    local ext = files.ext(name)
+    if ext ~= "" then return ext:upper() .. " File" end
+    return "File"
+end
+
 --
 -- A file is opened by a program from the file type registry
 -- (`associations.open`). A file that has nothing to open it with has no
@@ -245,7 +289,8 @@ function model.files(entries: any, path: any, drive: any, sub: any, programs: an
     for _, entry in ipairs(type(entries) == "table" and entries or {}) do
         local record: any = entry
         if type(record.name) == "string" and record.name ~= "" then
-            rows[#rows + 1] = {name = record.name, dir = record.type == "directory"}
+            rows[#rows + 1] = {name = record.name, dir = record.type == "directory",
+                size = tonumber(record.size), modified = tonumber(record.modified)}
         end
     end
 
@@ -269,6 +314,8 @@ function model.files(entries: any, path: any, drive: any, sub: any, programs: an
                 title = row.name,
                 icon = model.DIR_ICON,
                 detail = "folder",
+                modified = row.modified,
+                type_name = "File Folder",
                 open = {action = "folder", path = base .. "/" .. row.name},
             })
         else
@@ -285,6 +332,8 @@ function model.files(entries: any, path: any, drive: any, sub: any, programs: an
                 icon = model.FILE_ICON,
                 image = associations.image_for(programs, row.name),
                 detail = open and "file" or tostring(why),
+                size = row.size, modified = row.modified,
+                type_name = model.file_type(programs, row.name),
                 open = open,
             })
         end
@@ -292,10 +341,26 @@ function model.files(entries: any, path: any, drive: any, sub: any, programs: an
     return out
 end
 
--- My Computer contains filesystem entries only; other shell objects are
--- reached through their own menu or desktop folder.
+-- The Control Panel folder object of the root.
+function model.control_folder(): any
+    return object({
+        id = model.CONTROL,
+        kind = "folder",
+        title = model.CONTROL_TITLE,
+        icon = model.DIR_ICON,
+        image = model.CONTROL_IMAGE,
+        detail = model.CONTROL_TITLE,
+        type_name = "System Folder",
+        open = {action = "folder", path = model.CONTROL},
+    })
+end
+
+-- My Computer: the filesystem entries and, after them, the Control Panel.
+-- Other shell objects are reached through their own menu or desktop folder.
 function model.root(records: any)
-    return model.drives(records)
+    local out = model.drives(records)
+    out[#out + 1] = model.control_folder()
+    return out
 end
 
 -- The catalog's programs. Flat, without menu folders: in an Explorer window
@@ -321,6 +386,44 @@ function model.programs(programs: any)
             },
         })
     end
+    return out
+end
+
+-- control(programs, comments) -> the Control Panel's objects: the programs of
+-- the catalog's `Settings` group, each opening its own window, sorted by
+-- title. `comments` maps an entry to its `meta.comment` (the Details Comment
+-- column); an entry without one shows its id instead.
+function model.control(programs: any, comments: any)
+    local out: any = {}
+    for _, item in ipairs(type(programs) == "table" and programs or {}) do
+        local program: any = item
+        local group: any = program.group
+        if type(group) == "table" and group[1] == model.SETTINGS_GROUP then
+            local comment: any = type(comments) == "table" and comments[program.entry] or nil
+            out[#out + 1] = object({
+                id = program.entry,
+                kind = "program",
+                title = program.title,
+                icon = program.icon or model.DEFAULT_ICON,
+                image = program.image, entry = program.entry,
+                detail = comment or program.entry,
+                comment = comment,
+                type_name = "Control Panel item",
+                open = {
+                    action = "open_window",
+                    entry = program.entry,
+                    title = program.title,
+                    w = program.width,
+                    h = program.height,
+                },
+            })
+        end
+    end
+    table.sort(out, function(left: any, right: any)
+        local a, b = tostring(left.title):lower(), tostring(right.title):lower()
+        if a ~= b then return a < b end
+        return tostring(left.id) < tostring(right.id)
+    end)
     return out
 end
 
@@ -381,6 +484,276 @@ function model.windows(windows: any)
         })
     end
     return out
+end
+
+-- ─── folder windows (FR-008 §3) ───────────────────────────────────────────
+
+-- start(args) -> path, notice
+--
+-- Where a folder window starts: `args` is the path it was opened for. None →
+-- the root. A path the grammar does not know → the root AND a notice saying
+-- so: a silent fallback would turn a bad argument into My Computer, and the
+-- person would take it for the folder they asked for.
+function model.start(args: any): (string, any)
+    if args == nil or args == "" then return model.ROOT, nil end
+    if type(args) ~= "string" then return model.ROOT, "not a folder path: " .. tostring(args) end
+    if model.parse(args).view == "unknown" then return model.ROOT, "unknown folder: " .. args end
+    return args, nil
+end
+
+-- title(path) -> the window's title: `My Computer`, the drive's caption (the
+-- entry name, as `model.drives` shows an unambiguous one), the last segment
+-- of a folder, `Control Panel`.
+function model.folder_title(path: any): string
+    local where: any = model.parse(path)
+    if where.view == "root" then return "My Computer" end
+    if where.view == "control" then return model.CONTROL_TITLE end
+    if where.view == "programs" then return "Programs" end
+    if where.view == "desktop" then return "Desktop" end
+    if where.view == "windows" then return "Open Windows" end
+    if where.view == "desktop_folder" then return tostring(where.id) end
+    if where.view == "drive" then
+        if where.sub then return tostring(where.sub):match("([^/]+)$") or tostring(where.sub) end
+        return tostring(where.id):match(":(.+)$") or tostring(where.id)
+    end
+    return tostring(path or "")
+end
+
+-- image(path) -> the title bar's picture: `my_computer` at the root, `drive`
+-- for a drive, the Control Panel's own, `folder_open` for any folder.
+function model.folder_image(path: any): string
+    local where: any = model.parse(path)
+    if where.view == "root" then return "my_computer" end
+    if where.view == "control" then return model.CONTROL_IMAGE end
+    if where.view == "drive" and not where.sub then return "drive" end
+    return "folder_open"
+end
+
+-- open_folder(path, listing, title?) -> intent
+--
+-- Opening a folder in the separate-window mode. `listing` is the windows of
+-- `desktop.list`: a folder window already open for the same path is focused
+-- instead of opening a second one, as Windows 95 raised it. `title`
+-- overrides the caption the path alone gives (an ambiguous drive's caption,
+-- a desktop folder's title). A window opened without args is the root.
+function model.open_folder(path: any, listing: any, title: any): any
+    local target = type(path) == "string" and path or model.ROOT
+    for _, item in ipairs(type(listing) == "table" and listing or {}) do
+        local window: any = item
+        if window.entry == model.EXPLORER and (window.args or model.ROOT) == target then
+            return {action = "focus", id = window.id}
+        end
+    end
+    return {
+        action = "open_window",
+        entry = model.EXPLORER,
+        title = type(title) == "string" and title ~= "" and title or model.folder_title(target),
+        image = model.folder_image(target),
+        args = target,
+    }
+end
+
+-- ─── browse mode ─────────────────────────────────────────────────────────
+
+function model.is_browse(mode: any): boolean
+    for _, known in ipairs(model.BROWSE) do
+        if mode == known then return true end
+    end
+    return false
+end
+
+-- browse_mode(value) -> a known mode; anything else (never set, a stray
+-- value) is the default, `separate`.
+function model.browse_mode(value: any): string
+    if model.is_browse(value) then return tostring(value) end
+    return model.BROWSE[1]
+end
+
+-- ─── Details (FR-008 §4) ──────────────────────────────────────────────────
+
+local function is_folder(item: any): boolean
+    return item.kind == "directory" or item.kind == "folder" or item.kind == "drive"
+end
+
+local function grouped(digits: string): string
+    local out, count = digits, 0
+    repeat
+        out, count = out:gsub("^(%d+)(%d%d%d)", "%1,%2")
+    until count == 0
+    return out
+end
+
+-- size_text(bytes) -> `133KB`: whole kilobytes rounded up, as Windows 95's
+-- Details did (`0KB` for an empty file, `1KB` for a few bytes), thousands
+-- grouped with a comma. nil → "".
+function model.size_text(bytes: any): string
+    local number = tonumber(bytes)
+    if number == nil then return "" end
+    local kb = math.tointeger(math.ceil(math.max(0, number) / 1024)) or 0
+    return grouped(tostring(kb)) .. "KB"
+end
+
+local function two(value: any): string
+    local text = tostring(math.tointeger(value) or value)
+    if #text < 2 then return "0" .. text end
+    return text
+end
+
+-- date_text(when) -> `7/11/95 9:50 AM`, the US short form. `when` is Unix
+-- seconds (local time) or a date table {year, month, day, hour, min}.
+function model.date_text(when: any): string
+    local t: any = when
+    if type(when) == "number" then t = os.date("*t", math.tointeger(when) or math.floor(when)) end
+    if type(t) ~= "table" or t.year == nil then return "" end
+    local hour = math.tointeger(t.hour or 0) or 0
+    local shown = hour % 12
+    if shown == 0 then shown = 12 end
+    return tostring(math.tointeger(t.month)) .. "/" .. tostring(math.tointeger(t.day)) .. "/"
+        .. two((math.tointeger(t.year) or 0) % 100) .. " " .. tostring(shown) .. ":" .. two(t.min or 0)
+        .. (hour < 12 and " AM" or " PM")
+end
+
+local function type_of(item: any): string
+    if type(item.type_name) == "string" and item.type_name ~= "" then return item.type_name end
+    if is_folder(item) then return "File Folder" end
+    if item.kind == "shortcut" then return "Shortcut" end
+    if item.kind == "program" then return "Application" end
+    return "File"
+end
+
+-- details(object) -> {name, size, type, modified, comment}: the cells of a
+-- Details row. A folder has no size; a cell the reader could not fill is
+-- empty, never a zero.
+function model.details(item: any): any
+    local folder = is_folder(item)
+    return {
+        name = tostring(item.title or item.id or ""),
+        size = folder and "" or model.size_text(item.size),
+        type = type_of(item),
+        modified = item.modified ~= nil and model.date_text(item.modified) or "",
+        comment = type(item.comment) == "string" and item.comment or "",
+    }
+end
+
+-- sort(objects, key) -> a new list: folders always before files, then by the
+-- key — `name` (the default), `type`, `size`, `date` — then by name; stable
+-- for rows the rule does not tell apart.
+function model.sort(objects: any, key: any): any
+    local rows: any = {}
+    for index, item in ipairs(type(objects) == "table" and objects or {}) do
+        rows[#rows + 1] = {item = item, index = index}
+    end
+    local by = key
+    if by ~= "type" and by ~= "size" and by ~= "date" then by = "name" end
+    local function name_of(item: any): string return tostring(item.title or item.id or ""):lower() end
+    table.sort(rows, function(left: any, right: any)
+        local a, b = left.item, right.item
+        local fa, fb = is_folder(a), is_folder(b)
+        if fa ~= fb then return fa end
+        if by == "type" then
+            local ta, tb = type_of(a):lower(), type_of(b):lower()
+            if ta ~= tb then return ta < tb end
+        elseif by == "size" then
+            local sa, sb = tonumber(a.size) or 0, tonumber(b.size) or 0
+            if sa ~= sb then return sa < sb end
+        elseif by == "date" then
+            local da, db = tonumber(a.modified) or 0, tonumber(b.modified) or 0
+            if da ~= db then return da < db end
+        end
+        local na, nb = name_of(a), name_of(b)
+        if na ~= nb then return na < nb end
+        return left.index < right.index
+    end)
+    local out = {}
+    for _, row in ipairs(rows) do out[#out + 1] = row.item end
+    return out
+end
+
+-- ─── selection (FR-008 §4) ────────────────────────────────────────────────
+--
+-- A selection is a set `{[id] = true}` over the objects in VIEW order. The
+-- anchor is the index a Shift range starts from.
+
+local function key_of(item: any): string
+    return tostring(item.id)
+end
+
+local function copy_set(selection: any): any
+    local out = {}
+    for id, on in pairs(type(selection) == "table" and selection or {}) do
+        if on then out[id] = true end
+    end
+    return out
+end
+
+-- select(selection, objects, index, {ctrl, shift, anchor}) -> selection, anchor
+--
+-- A click selects one; Ctrl+click toggles one; Shift+click selects the range
+-- from the anchor (Ctrl+Shift adds it to what is selected); a click on the
+-- empty field (no object at `index`) clears, unless Ctrl is held.
+function model.select(selection: any, objects: any, index: any, mods: any): (any, any)
+    local list: any = type(objects) == "table" and objects or {}
+    local keys: any = type(mods) == "table" and mods or {}
+    local at = math.tointeger(tonumber(index) or 0) or 0
+    local item: any = list[at]
+    if item == nil then
+        if keys.ctrl then return copy_set(selection), keys.anchor end
+        return {}, nil
+    end
+    local anchor = math.tointeger(tonumber(keys.anchor) or 0) or 0
+    if keys.shift and list[anchor] ~= nil then
+        local out: any = keys.ctrl and copy_set(selection) or {}
+        for step = math.min(anchor, at), math.max(anchor, at) do out[key_of(list[step])] = true end
+        return out, anchor
+    end
+    if keys.ctrl then
+        local out: any = copy_set(selection)
+        local id = key_of(item)
+        if out[id] then out[id] = nil else out[id] = true end
+        return out, at
+    end
+    return {[key_of(item)] = true}, at
+end
+
+function model.select_all(objects: any): any
+    local out = {}
+    for _, item in ipairs(type(objects) == "table" and objects or {}) do out[key_of(item)] = true end
+    return out
+end
+
+function model.invert(selection: any, objects: any): any
+    local set: any = type(selection) == "table" and selection or {}
+    local out = {}
+    for _, item in ipairs(type(objects) == "table" and objects or {}) do
+        local id = key_of(item)
+        if not set[id] then out[id] = true end
+    end
+    return out
+end
+
+-- selected_summary(selection, objects) -> the status bar's right field: the
+-- single object's detail; `N object(s) selected` with the selected files'
+-- size when there are more; "" for none.
+function model.selected_summary(selection: any, objects: any): string
+    local set: any = type(selection) == "table" and selection or {}
+    local count, bytes, sized, single = 0, 0, false, nil
+    for _, entry in ipairs(type(objects) == "table" and objects or {}) do
+        local item: any = entry
+        if set[key_of(item)] then
+            count = count + 1
+            single = item
+            local size = tonumber(item.size)
+            if not is_folder(item) and size ~= nil then
+                bytes = bytes + size
+                sized = true
+            end
+        end
+    end
+    if count == 0 then return "" end
+    if count == 1 then return tostring(single.detail or "") end
+    local text = tostring(count) .. " object(s) selected"
+    if sized then text = text .. ", " .. model.size_text(bytes) end
+    return text
 end
 
 -- ─── compositor replies ──────────────────────────────────────────────────

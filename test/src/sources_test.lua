@@ -111,17 +111,75 @@ local function define_tests()
                 "a double click must lead into this drive, not into a neighbouring one")
         end)
 
-        test.it("shows only FS in the root", function()
+        test.it("shows the drives and the Control Panel at the root", function()
             local shown, err = sources.list(model.ROOT, {})
             test.is_nil(err)
             test.not_nil(by_id(shown.objects, PROBE), "the drive must be in the root")
             test.is_nil(by_id(shown.objects, "programs"))
             test.is_nil(by_id(shown.objects, "desktop"))
             test.is_nil(by_id(shown.objects, "windows"))
+            local control = by_id(shown.objects, model.CONTROL)
+            test.not_nil(control, "the Control Panel is at the root")
+            test.eq(control.open.path, "control")
             for _, object in ipairs(shown.objects) do
-                test.eq(object.kind, "drive")
-                test.is_true(object.open.path:sub(1, 6) == "drive/")
+                if object ~= control then
+                    test.eq(object.kind, "drive")
+                    test.is_true(object.open.path:sub(1, 6) == "drive/")
+                end
             end
+        end)
+
+        test.it("lists the catalog's Settings programs in the Control Panel, with their comments", function()
+            local shown, err = sources.list("control", {})
+            test.is_nil(err)
+            test.eq(shown.title, "Control Panel")
+            local display = by_id(shown.objects, "butschster.windows.display:window")
+            test.not_nil(display, "Display Properties is a Settings program")
+            test.not_nil(by_id(shown.objects, "butschster.windows.taskman:window"), "so is the Task Manager")
+            test.is_nil(by_id(shown.objects, "butschster.windows.explorer:window"), "My Computer is not a Settings program")
+            test.eq(display.open.action, "open_window")
+            test.eq(display.open.entry, "butschster.windows.display:window")
+            test.is_true(type(display.comment) == "string" and display.comment ~= "",
+                "the Comment column is the entry's meta.comment")
+            test.eq(display.detail, display.comment)
+            local previous = ""
+            for _, object in ipairs(shown.objects) do
+                test.eq(object.kind, "program")
+                local title = tostring(object.title):lower()
+                test.is_true(title >= previous, "sorted by title: " .. title .. " after " .. previous)
+                previous = title
+            end
+        end)
+
+        test.it("reads each file's size and date with a stat, and names its type", function()
+            local shown, err = sources.list("drive/" .. PROBE, {})
+            test.is_nil(err)
+            local self_file = by_title(shown.objects, "sources_test.lua")
+            test.not_nil(self_file)
+            test.is_true(tonumber(self_file.size) ~= nil and self_file.size > 1000,
+                "this file is a few kilobytes: " .. tostring(self_file.size))
+            test.is_true(tonumber(self_file.modified) ~= nil and self_file.modified > 1700000000,
+                "modified is Unix seconds: " .. tostring(self_file.modified))
+            local cells = model.details(self_file)
+            test.is_true(cells.size:match("^[%d,]+KB$") ~= nil, cells.size)
+            test.is_true(cells.type:find(" Document", 1, true) ~= nil,
+                "a file Notepad opens is a document of it: " .. cells.type)
+            test.is_true(cells.modified ~= "")
+        end)
+
+        test.it("keeps the browse mode in the shell's settings and refuses an unknown one", function()
+            local ok, err = sources.set_browse("single")
+            test.is_nil(err)
+            test.is_true(ok == true)
+            test.eq(sources.browse(), "single")
+            ok, err = sources.set_browse("sideways")
+            test.is_nil(ok)
+            test.not_nil(err)
+            test.eq(sources.browse(), "single", "a refused mode is not stored")
+            test.is_true(sources.set_browse("separate") == true)
+            local mode, why = sources.browse()
+            test.eq(mode, "separate")
+            test.is_nil(why)
         end)
 
         test.it("reads the drive contents with the fs module", function()
