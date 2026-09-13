@@ -185,11 +185,12 @@ library), 426×264 px in the original — here 44×16 cells:
   (`Open` is the default).
 - Result to the application: `{drive, path}` — the form the explorer already
   passes to the viewers (`files.encode`) — or nil on Cancel.
-- Reading directories is the explorer's `sources` library: the sheet's
-  builder is pure, the reading is a function the application passes
-  (`spec.read(drive, path) -> objects, notice`), so the library holds no
-  permissions and the window's own `fs.get` and `process.registry` do the
-  work. The Notepad entry gains `registry` in `modules` and
+- Reading directories is the explorer's `sources` library, and it is the
+  application that reads: the sheet's builder and its `update` are pure,
+  and when the sheet needs another place it answers `{read = {drive, path}}`
+  for the application to read and pass back as `spec.objects`. So the
+  library holds no permissions and the window's own `fs.get` and
+  `process.registry` do the work. The Notepad entry gains `registry` in `modules` and
   `process.registry` in its policy for the drive list; nothing else.
 
 Tests: the tree passes `ui.problem` and lays out at 44×16 in both modes
