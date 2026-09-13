@@ -50,28 +50,55 @@ end
 -- that module pulls in `tty`, and the layout is also needed by the pixel renderer,
 -- which has no terminal at all.
 local ICON_GRID = {w = 12, h = 4, drawn = 3, caption = 2}
+-- The Small Icons grid (`icons` with `small = true`): a 16 px picture with
+-- the caption at its right, one row high, 15 cells a column — the glyph, a
+-- space, twelve cells of caption and a cell of air; 150 px at a 10 px cell,
+-- the Windows 95 column. No caption rows: the caption is on the picture's row.
+local SMALL_GRID = {w = 15, h = 1, drawn = 1, caption = 0}
 
-function ui.icon_grid(): any
-    return {w = ICON_GRID.w, h = ICON_GRID.h, drawn = ICON_GRID.drawn, caption = ICON_GRID.caption}
+function ui.icon_grid(small: any?): any
+    local grid = small and SMALL_GRID or ICON_GRID
+    return {w = grid.w, h = grid.h, drawn = grid.drawn, caption = grid.caption}
 end
 
 -- How many columns fit in the width and how many rows the items take.
 -- One arithmetic for layout, hits and scrolling.
-function ui.icon_shape(width: any, count: any): (integer, integer)
-    local columns = whole(width) // ICON_GRID.w
+function ui.icon_shape(width: any, count: any, small: any?): (integer, integer)
+    local columns = whole(width) // (small and SMALL_GRID or ICON_GRID).w
     if columns < 1 then columns = 1 end
     local total = math.max(0, whole(count))
     local rows = (total + columns - 1) // columns
     return columns, whole(rows)
 end
 
+-- entry_key(entry, index) -> what a selection set names an entry by: its
+-- `id`, or its 1-based position when it has none.
+function ui.entry_key(entry: any, index: any): any
+    if type(entry) == "table" and entry.id ~= nil then return entry.id end
+    return whole(index)
+end
+
 -- The index of the selected row: `selected` is a 1-based index or an item ID. This way
 -- the application ties the selection to the item, not to a row that a new
 -- measurement shifted, and does not recompute the index itself.
-local function selected_index(node: any, rows: any): integer
+--
+-- A multi-selection (`selected = {[id] = true}`, `icons`, `table` and `list`)
+-- has no single selected row; the index is then the cursor the keys move
+-- from: the `anchor` — the entry the last click or key stood on — while it is
+-- there, else the first selected entry in view order.
+local function selected_index(node: any, rows: any, anchor: any?): integer
     local wanted: any = node.selected
     if wanted == nil then return 0 end
     if type(wanted) == "number" then return whole(wanted) end
+    if type(wanted) == "table" then
+        local first = 0
+        for index, row in ipairs(rows) do
+            local key = ui.entry_key(row, index)
+            if anchor ~= nil and key == anchor then return index end
+            if first == 0 and wanted[key] == true then first = index end
+        end
+        return first
+    end
     for index, row in ipairs(rows) do
         local record: any = row
         if type(record) == "table" and record.id == wanted then return index end
@@ -94,6 +121,25 @@ function ui.tree_columns(depth: any): any
     return {expander = indent, icon = indent + 2, label = indent + 4}
 end
 ui.entries = entries
+-- is_selected(item, index) -> whether row or icon `index` is drawn selected:
+-- in a multi-selection its key is in the set, otherwise it is the selected
+-- row. One rule for both renderers and for the rows' keys.
+function ui.is_selected(item: any, index: any): boolean
+    local node: any = item.node
+    local wanted: any = node.selected
+    local at = whole(index)
+    if type(wanted) == "table" then
+        local entry: any = entries(node)[at]
+        return entry ~= nil and wanted[ui.entry_key(entry, at)] == true
+    end
+    return at > 0 and at == whole(item.selected_index)
+end
+-- cell_text(value) -> the text of a table cell: a string, or `text` of a cell
+-- that carries a picture (`{text, image, icon}`).
+function ui.cell_text(value: any): string
+    if type(value) == "table" then return tostring(value.text or "") end
+    return tostring(value or "")
+end
 -- wrap_text(value, width, wrap) -> the lines of a `text` view
 --
 -- The lines the plan keeps for a read-only text and both renderers draw: the
@@ -168,6 +214,32 @@ end
 -- the row straight under the bar, as the Windows 95 drop-down touches the bar.
 -- A separator stays a whole row: the mouse knows only rows, and a thinner one
 -- would move every item below it off the row its hit is counted by.
+--
+-- menu_rows(items) -> the rows of a drop-down list and its inner width. A row
+-- keeps what both renderers draw: the text with its accelerator, a
+-- `shortcut` ("Ctrl+Z") right-aligned in a column after the widest text, a
+-- `checked` checkmark or a `bullet` radio mark in the left margin, and
+-- `submenu` when the item opens a list of its own. The width is the widest
+-- text plus four cells, at least eight, as it always was; a list with
+-- shortcuts grows by the widest shortcut plus two cells, and one without
+-- keeps its width, so every existing menu stays as it was drawn.
+local function menu_rows(items: any): (any, integer)
+    local rows, widest, keys = {}, 8, 0
+    for position, choice in ipairs(type(items) == "table" and items or {}) do
+        local option: any = choice
+        local text = option.separator and "" or tostring(option.text or option.id or "")
+        local shortcut = (not option.separator and option.shortcut ~= nil) and tostring(option.shortcut) or ""
+        rows[#rows + 1] = {position = position, id = option.id, text = text,
+            separator = option.separator and true or false, disabled = option.disabled and true or false,
+            accel = whole(option.accel), shortcut = shortcut, checked = option.checked == true,
+            bullet = option.bullet == true,
+            submenu = not option.separator and type(option.items) == "table" and #option.items > 0}
+        if cells_of(text) + 4 > widest then widest = cells_of(text) + 4 end
+        if cells_of(shortcut) > keys then keys = cells_of(shortcut) end
+    end
+    if keys > 0 then widest = widest + keys + 2 end
+    return rows, widest
+end
 function ui.popup(item: any, index: any, pixel_rows: any?): any
     local node: any = item.node
     local entry: any = (node.entries or {})[whole(index)]
@@ -176,19 +248,40 @@ function ui.popup(item: any, index: any, pixel_rows: any?): any
         if candidate.index == whole(index) then span = candidate end
     end
     if not entry or not span then return nil end
-    local rows, widest = {}, 8
-    for position, choice in ipairs(entry.items or {}) do
-        local option: any = choice
-        local text = option.separator and "" or tostring(option.text or option.id or "")
-        rows[#rows + 1] = {position = position, id = option.id, text = text,
-            separator = option.separator and true or false, disabled = option.disabled and true or false,
-            accel = whole(option.accel)}
-        if cells_of(text) + 4 > widest then widest = cells_of(text) + 4 end
-    end
+    local rows, widest = menu_rows(entry.items)
     local rect = item.rect
     local lead = pixel_rows and 0 or 1
     return {rect = geometry.rect(rect.x + span.x, rect.y + 1, widest + 2, #rows + lead * 2), rows = rows,
         index = whole(index), lead = lead}
+end
+-- submenu_items(node, index, position) -> the items of the submenu the row at
+-- `position` of menu `index` opens, or nil: no such row, a disabled one, or
+-- one without items. The keys read it from the node, the plan lays it out.
+local function submenu_items(node: any, index: any, position: any): any
+    local entry: any = (node.entries or {})[whole(index)]
+    local option: any = entry and (entry.items or {})[whole(position)] or nil
+    if type(option) ~= "table" or option.separator or option.disabled then return nil end
+    if type(option.items) ~= "table" or #option.items == 0 then return nil end
+    return option.items
+end
+-- submenu(item, popup, position, width, height) -> the open submenu of the row
+-- at `position`, or nil
+--
+-- One level, as the Start menu's folders: to the right of the list, its first
+-- item on the row that opened it (the same `lead` as the list's, so the rule
+-- holds in both modes), to the left when the client has no room at the right,
+-- and moved up when it would run past the bottom. Rows as the list's.
+function ui.submenu(item: any, popup: any, position: any, width: any, height: any): any
+    local items = submenu_items(item.node, popup.index, position)
+    if items == nil then return nil end
+    local rows, widest = menu_rows(items)
+    local lead = whole(popup.lead)
+    local w, h = widest + 2, #rows + lead * 2
+    local x = whole(popup.rect.x) + whole(popup.rect.w)
+    if x + w - 1 > whole(width) then x = math.max(1, whole(popup.rect.x) - w) end
+    local y = whole(popup.rect.y) + whole(position) - 1
+    if y + h - 1 > whole(height) then y = math.max(1, whole(height) - h + 1) end
+    return {rect = geometry.rect(x, y, w, h), rows = rows, lead = lead, parent = whole(position)}
 end
 -- The index of a select's value among its options, 0 when none matches.
 local function option_index(node: any): integer
@@ -340,6 +433,35 @@ local function shape_problem(node: any): any
     if kind == "gauge" and node.orient ~= nil and node.orient ~= "horizontal" and node.orient ~= "vertical" then
         return "SDK gauge orient must be \"horizontal\" or \"vertical\": " .. tostring(node.orient)
     end
+    if kind == "menu" then
+        -- A row is checked or a bullet, never both: two marks in one margin
+        -- would draw one over the other. Submenus are one level deep, as the
+        -- plan lays them out; a deeper list would be silently unreachable.
+        local function rows_problem(items: any, depth: integer): any
+            if items == nil then return nil end
+            if type(items) ~= "table" then return "SDK menu items must be a list" end
+            for _, choice in ipairs(items) do
+                local option: any = choice
+                if type(option) ~= "table" then return "SDK menu item must be a table" end
+                if option.checked == true and option.bullet == true then
+                    return "SDK menu item cannot be both checked and a bullet: " .. tostring(option.id or option.text)
+                end
+                if option.items ~= nil then
+                    if depth > 1 then return "SDK menu submenus are one level deep: " .. tostring(option.id or option.text) end
+                    local deeper = rows_problem(option.items, depth + 1)
+                    if deeper then return deeper end
+                end
+            end
+            return nil
+        end
+        if node.entries ~= nil and type(node.entries) ~= "table" then return "SDK menu entries must be a list" end
+        -- An entry may be a bare title (a string, as `ui.spans` reads it): it
+        -- has no list to check.
+        for _, entry in ipairs(node.entries or {}) do
+            local why = type(entry) == "table" and rows_problem(entry.items, 1) or nil
+            if why then return why end
+        end
+    end
     return nil
 end
 local function id_problem(node: any, taken: any): any
@@ -446,7 +568,14 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         local open: any = interaction.menus[id]
         if open and open.index then
             item.popup = ui.popup(item, open.index, plan.cell ~= nil)
-            if item.popup then plan.overlays[#plan.overlays + 1] = item else interaction.menus[id] = nil end
+            if item.popup then
+                -- The open submenu lies in the popup: one overlay, one hit, one
+                -- fingerprint. A row that no longer opens one leaves none.
+                if open.sub ~= nil then
+                    item.popup.sub = ui.submenu(item, item.popup, open.sub, plan.width, plan.height)
+                end
+                plan.overlays[#plan.overlays + 1] = item
+            else interaction.menus[id] = nil end
         end
     end
     if kind == "select" then
@@ -467,14 +596,17 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         -- an item and not a line of text. The row is declared here once, and the bar,
         -- the wheel and the keys all count by it.
         local items = node.items or {}
+        -- `small = true` is the Small Icons view: the same grid walk on the
+        -- smaller step (`SMALL_GRID`), a row one cell high.
+        local grid = node.small == true and SMALL_GRID or ICON_GRID
         -- The grid leaves the scrollbar its columns: in cells the bar lies in
         -- the last cell's air column, and a wider bar in pixels takes that
         -- many columns more.
-        local columns, rows_total = ui.icon_shape(rect.w - (item.bar_cols - 1), #items)
-        local page = whole(rect.h) // ICON_GRID.h
+        local columns, rows_total = ui.icon_shape(rect.w - (item.bar_cols - 1), #items, node.small == true)
+        local page = whole(rect.h) // grid.h
         if page < 1 then page = 1 end
         item.columns, item.rows_total, item.page = columns, rows_total, page
-        item.selected_index = selected_index(node, items)
+        item.selected_index = selected_index(node, items, id ~= nil and interaction.anchors[id] or nil)
         item.offset = scroll.clamp(interaction.offsets[id], rows_total, page)
         if item.selected_index > 0 then
             local row = (item.selected_index - 1) // columns + 1
@@ -485,18 +617,18 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         -- The grid cells are computed ONCE and go into the plan: drawing, hits and
         -- selection read them instead of each recomputing them in its own way.
         item.cells = {}
-        local room = ICON_GRID.w - 1
+        local room = grid.w - 1
         for index, entry in ipairs(items) do
             local row = (index - 1) // columns
             local column = (index - 1) % columns
             local visible_row = row - item.offset
             if visible_row >= 0 and visible_row < page then
-                local x = rect.x + column * ICON_GRID.w
-                local y = rect.y + visible_row * ICON_GRID.h
+                local x = rect.x + column * grid.w
+                local y = rect.y + visible_row * grid.h
                 item.cells[#item.cells + 1] = {
                     index = index, item = entry, x = x, y = y, room = room,
-                    box = {from = x, to = x + room - 1, top = y, bottom = y + ICON_GRID.drawn - 1},
-                    selected = index == item.selected_index,
+                    box = {from = x, to = x + room - 1, top = y, bottom = y + grid.drawn - 1},
+                    selected = ui.is_selected(item, index),
                 }
             end
         end
@@ -506,7 +638,7 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         item.header = (kind == "table" and node.header ~= false) and 1 or 0
         item.page = math.max(1, whole(rect.h) - whole(item.header))
         local total = #entries(node)
-        item.selected_index = selected_index(node, entries(node))
+        item.selected_index = selected_index(node, entries(node), id ~= nil and interaction.anchors[id] or nil)
         -- A static table has no `id` to keep an offset under: it stays at the top.
         item.offset = scroll.clamp(id ~= nil and interaction.offsets[id] or 0, total, item.page)
         -- `reveal` brings the row into view ONCE per value: the chat shows
@@ -677,7 +809,7 @@ function ui.spectrum_color(t: any): string
     return "#" .. byte(r) .. byte(g) .. byte(b)
 end
 function ui.interaction(): any
-    return {focus = nil, offsets = {}, capture = nil, editors = {}, armed = nil, menus = {}, revealed = {}}
+    return {focus = nil, offsets = {}, capture = nil, editors = {}, armed = nil, menus = {}, revealed = {}, anchors = {}}
 end
 -- release(interaction) — forgets a pressed button and a dragged thumb whose
 -- release this window will never see. `ui.plan` drops them only when their
@@ -714,6 +846,7 @@ function ui.plan(tree: any, width: any, height: any, interaction: any, options: 
         scroll_cols = math.max(1, whole(given.scroll_cols or 1))}
     if interaction.menus == nil then interaction.menus = {} end
     if interaction.revealed == nil then interaction.revealed = {} end
+    if interaction.anchors == nil then interaction.anchors = {} end
     add(tree, geometry.rect(1, 1, width, height), plan, interaction)
     if not interaction.focus or not plan.by_id[interaction.focus] or plan.by_id[interaction.focus].node.disabled then
         interaction.focus = plan.focusable[1]
@@ -721,7 +854,7 @@ function ui.plan(tree: any, width: any, height: any, interaction: any, options: 
     -- Records of vanished controls are released: otherwise another control with the
     -- same `id` on the next screen would inherit someone else's offset or caret, and
     -- a thumb capture would survive the window being minimized.
-    for _, field in ipairs({"offsets", "editors", "menus", "revealed"}) do
+    for _, field in ipairs({"offsets", "editors", "menus", "revealed", "anchors"}) do
         local map: any = interaction[field]
         if type(map) == "table" then
             local stale = {}
@@ -747,7 +880,9 @@ end
 function ui.hit(plan: any, x: any, y: any): any
     -- An open menu lies on top of everything: it goes first.
     for _, item in ipairs(plan.overlays or {}) do
-        if item.popup and geometry.contains(item.popup.rect, x, y) then return item end
+        local popup: any = item.popup
+        if popup and (geometry.contains(popup.rect, x, y)
+            or (popup.sub ~= nil and geometry.contains(popup.sub.rect, x, y))) then return item end
     end
     -- A frame (`group`) contains its children: the hit is looked for among them
     -- first, and the frame itself only if nothing else was hit.
@@ -765,16 +900,85 @@ local function span_at(item: any, x: any): any
     end
     return nil
 end
+-- step_row(rows, cursor, step) -> the next row from `cursor` that can be
+-- chosen, around the ends, skipping separators and disabled items.
+local function step_row(rows: any, cursor: any, step: integer): integer
+    local count = #rows
+    local at = whole(cursor)
+    for _ = 1, count do
+        at = ((at - 1 + step) % count) + 1
+        local row: any = rows[at]
+        if not row.separator and not row.disabled then break end
+    end
+    return at
+end
 -- Menu: a click on a title opens or closes it, on a list row it is
 -- an action, a click outside closes it and swallows the click. Keys while it is open:
--- arrows, Enter, Esc.
+-- arrows, Enter, Esc, F10.
+--
+-- A row with `items` opens its submenu (`open.sub` is that row's position,
+-- `open.sub_cursor` the row inside it, 0 while the keys stay in the list): a
+-- click or the pointer over it, → or Enter on it; ← and Esc close it again,
+-- as the Start menu's folders do. A choice in the submenu is `activate` with
+-- the leaf's `id`.
 local function menu_event(item: any, state: any, event: any): any
     local node, id = item.node, item.node.id
     local open: any = state.menus[id]
+    local popup: any = item.popup
+    local sub: any = popup and popup.sub or nil
+    local function row_at(list: any): any
+        return list.rows[event.y - list.rect.y + 1 - list.lead]
+    end
+    -- enter(position) — the keys go into the submenu of that row, on its
+    -- first row that can be chosen. The rows are read from the node, not the
+    -- plan: → then ↓ between two frames would find no submenu in the plan.
+    local function enter(position: any): boolean
+        local items = submenu_items(node, open.index, position)
+        if items == nil then return false end
+        local rows = menu_rows(items)
+        open.cursor, open.sub, open.sub_cursor = whole(position), whole(position), step_row(rows, 0, 1)
+        return true
+    end
     if event.type == "mouse" then
+        if event.action == "motion" then
+            -- The pointer walks the menu as it walks the Start menu: the row
+            -- under it takes the cursor, a row with a submenu opens it and
+            -- any other row closes it; over another title the open menu
+            -- moves there.
+            if not open then return nil end
+            if sub and geometry.contains(sub.rect, event.x, event.y) then
+                local row: any = row_at(sub)
+                if row and not row.separator then open.sub_cursor = row.position end
+            elseif popup and geometry.contains(popup.rect, event.x, event.y) then
+                local row: any = row_at(popup)
+                if row and not row.separator then
+                    open.cursor = row.position
+                    if row.submenu and not row.disabled then
+                        if open.sub ~= row.position then open.sub, open.sub_cursor = row.position, 0 end
+                    else open.sub, open.sub_cursor = nil, nil end
+                end
+            elseif event.y == item.rect.y then
+                local span = span_at(item, event.x)
+                if span and span.index ~= open.index then state.menus[id] = {index = span.index, cursor = 0} end
+            end
+            return nil
+        end
         if not input.pressed(event) then return nil end
-        if open and item.popup and geometry.contains(item.popup.rect, event.x, event.y) then
-            local row: any = item.popup.rows[event.y - item.popup.rect.y + 1 - item.popup.lead]
+        if open and sub and geometry.contains(sub.rect, event.x, event.y) then
+            local row: any = row_at(sub)
+            state.menus[id] = nil
+            if row and not row.separator and not row.disabled and row.id then
+                return {type = "activate", id = row.id, menu = id}
+            end
+            return nil
+        end
+        if open and popup and geometry.contains(popup.rect, event.x, event.y) then
+            local row: any = row_at(popup)
+            -- A row with a submenu opens it: it is not a choice.
+            if row and row.submenu and not row.disabled then
+                open.cursor, open.sub, open.sub_cursor = row.position, row.position, 0
+                return nil
+            end
             state.menus[id] = nil
             if row and not row.separator and not row.disabled and row.id then
                 return {type = "activate", id = row.id, menu = id}
@@ -789,24 +993,36 @@ local function menu_event(item: any, state: any, event: any): any
     end
     local key = input.key(event)
     if not open or not key then return nil end
-    local popup: any = item.popup
     local count = popup and #popup.rows or 0
-    if key == "esc" then state.menus[id] = nil
+    local inner: any = open.sub ~= nil and submenu_items(node, open.index, open.sub) or nil
+    local inner_rows: any = inner ~= nil and menu_rows(inner) or nil
+    local inside = inner_rows ~= nil and whole(open.sub_cursor) > 0
+    if key == "f10" then state.menus[id] = nil
+    elseif key == "esc" then
+        if open.sub ~= nil then open.sub, open.sub_cursor = nil, nil else state.menus[id] = nil end
+    elseif key == "left" and open.sub ~= nil then
+        open.sub, open.sub_cursor = nil, nil
+    elseif key == "right" and not inside and popup and enter(open.cursor) then
+        return nil
     elseif key == "left" or key == "right" then
         local total = #(item.spans or {})
         if total > 0 then
             local next_index = ((open.index - 1 + (key == "left" and -1 or 1)) % total) + 1
             state.menus[id] = {index = next_index, cursor = 0}
         end
+    elseif (key == "up" or key == "down") and inside then
+        open.sub_cursor = step_row(inner_rows, open.sub_cursor, key == "up" and -1 or 1)
     elseif (key == "up" or key == "down") and count > 0 then
-        local cursor = whole(open.cursor)
-        for _ = 1, count do
-            cursor = ((cursor - 1 + (key == "up" and -1 or 1)) % count) + 1
-            local row: any = popup.rows[cursor]
-            if not row.separator and not row.disabled then break end
+        open.cursor = step_row(popup.rows, open.cursor, key == "up" and -1 or 1)
+        open.sub, open.sub_cursor = nil, nil
+    elseif key == "enter" and inside then
+        local row: any = inner_rows[whole(open.sub_cursor)]
+        state.menus[id] = nil
+        if row and row.id and not row.separator and not row.disabled then
+            return {type = "activate", id = row.id, menu = id}
         end
-        open.cursor = cursor
     elseif key == "enter" and popup then
+        if enter(open.cursor) then return nil end
         local row: any = popup.rows[whole(open.cursor)]
         state.menus[id] = nil
         if row and row.id and not row.separator and not row.disabled then
@@ -911,6 +1127,64 @@ local function tabs_event(item: any, state: any, event: any): any
     local index = ((current - 1 + (key == "left" and -1 or 1)) % total) + 1
     return {type = "select", id = node.id, index = index, value = labels[index]}
 end
+-- multi(node) -> whether the node keeps a multi-selection set
+-- (`selected = {[id] = true}`) rather than one selected row.
+local function multi(node: any): boolean
+    return type(node.selected) == "table"
+end
+-- picked(item, state, index, event) -> the selection set after a click on
+-- entry `index` (0: empty space), as in Explorer: a click alone selects that
+-- entry, Ctrl toggles it in the set, Shift selects the range from the anchor
+-- to it in view order. A click and Ctrl+click move the anchor, Shift keeps it.
+-- A click on empty space clears the set, Ctrl+click there keeps it.
+local function picked(item: any, state: any, index: integer, event: any): any
+    local node: any = item.node
+    local rows: any = entries(node)
+    if state.anchors == nil then state.anchors = {} end
+    local current: any = multi(node) and node.selected or {}
+    local out: any = {}
+    local key: any = index > 0 and ui.entry_key(rows[index], index) or nil
+    if event.ctrl then
+        for name, on in pairs(current) do if on == true then out[name] = true end end
+        if key ~= nil then
+            if out[key] then out[key] = nil else out[key] = true end
+            state.anchors[node.id] = key
+        end
+    elseif event.shift and key ~= nil then
+        -- The anchor from the state, not the plan: a click and a Shift+click
+        -- between two frames see the anchor the first one set.
+        local from = 0
+        local anchor: any = state.anchors[node.id]
+        for at, row in ipairs(rows) do
+            if anchor ~= nil and ui.entry_key(row, at) == anchor then from = at end
+        end
+        if from < 1 then from = whole(item.selected_index) end
+        if from < 1 then from = index end
+        for at = math.min(from, index), math.max(from, index) do out[ui.entry_key(rows[at], at)] = true end
+        state.anchors[node.id] = ui.entry_key(rows[from], from)
+    elseif key ~= nil then
+        out[key] = true
+        state.anchors[node.id] = key
+    end
+    return out
+end
+-- every(rows) -> the set of all entries: Ctrl+A of a multi-selection.
+local function every(rows: any): any
+    local out: any = {}
+    for at, row in ipairs(rows) do out[ui.entry_key(row, at)] = true end
+    return out
+end
+-- chosen_one(node, state, rows, index, action) -> `action`, carrying the set
+-- of the one entry a key moved to when the node keeps a multi-selection.
+local function chosen_one(node: any, state: any, rows: any, index: integer, action: any): any
+    if multi(node) then
+        local key = ui.entry_key(rows[index], index)
+        if state.anchors == nil then state.anchors = {} end
+        state.anchors[node.id] = key
+        action.selected = {[key] = true}
+    end
+    return action
+end
 local function list_event(item: any, state: any, event: any): any
     local node, rect = item.node, item.rect
     local rows = entries(node)
@@ -941,7 +1215,8 @@ local function list_event(item: any, state: any, event: any): any
             if line.has_children and event.x == rect.x + columns.expander then
                 return {type = "toggle", id = node.id, index = index, value = line}
             end
-            return {type = "select", id = node.id, index = index, value = line}
+            -- `pointer`, as for a list: a second click is told from a key re-selecting the row.
+            return {type = "select", id = node.id, index = index, value = line, pointer = true}
         end
         if event.x >= bar_left then
             -- The bar's columns are not a row, even when there is nothing to scroll.
@@ -954,7 +1229,16 @@ local function list_event(item: any, state: any, event: any): any
             local index = offset + row + 1
             -- `pointer` tells a click from the arrows: the application is free to treat
             -- a repeated click on an already selected item as a double click.
-            if index <= total then return {type = "select", id = node.id, index = index, value = rows[index], pointer = true} end
+            if index <= total then
+                local action: any = {type = "select", id = node.id, index = index, value = rows[index], pointer = true}
+                if multi(node) then action.selected = picked(item, state, index, event) end
+                return action
+            end
+            -- Below the last row a multi-selection clears, as empty space does in Explorer.
+            if multi(node) then
+                return {type = "select", id = node.id, index = 0, value = nil, pointer = true,
+                    selected = picked(item, state, 0, event)}
+            end
         end
     end
     return nil
@@ -1017,11 +1301,15 @@ local function icons_event(item: any, state: any, event: any): any
     for _, cell in ipairs(item.cells or {}) do
         local box: any = cell.box
         if event.x >= box.from and event.x <= box.to and event.y >= box.top and event.y <= box.bottom then
-            return {type = "select", id = node.id, index = cell.index, value = items[cell.index], pointer = true}
+            local action: any = {type = "select", id = node.id, index = cell.index, value = items[cell.index], pointer = true}
+            if multi(node) then action.selected = picked(item, state, whole(cell.index), event) end
+            return action
         end
     end
     if geometry.contains(rect, event.x, event.y) and total > 0 then
-        return {type = "select", id = node.id, index = 0, value = nil, pointer = true}
+        local action: any = {type = "select", id = node.id, index = 0, value = nil, pointer = true}
+        if multi(node) then action.selected = picked(item, state, 0, event) end
+        return action
     end
     return nil
 end
@@ -1089,12 +1377,24 @@ function ui.event(plan: any, state: any, original: any): any
         end
         if item.node.kind == "menu" then
             local open: any = state.menus[item.node.id]
-            if open and (input.pressed(event) or event.type == "key") then
+            local motion = event.type == "mouse" and event.action == "motion"
+            if open and (input.pressed(event) or event.type == "key" or motion) then
                 if event.type == "mouse" then
                     local target = ui.hit(plan, event.x, event.y)
-                    if target ~= item then state.menus[item.node.id] = nil; return nil end
+                    -- The pointer passing elsewhere leaves the menu open; a
+                    -- press elsewhere closes it and goes no further.
+                    if target ~= item then
+                        if not motion then state.menus[item.node.id] = nil end
+                        return nil
+                    end
                 end
                 return menu_event(item, state, event)
+            end
+            -- F10 opens the first menu, as in Windows (and closes it again,
+            -- in `menu_event`).
+            if input.key(event) == "f10" and not open then
+                state.menus[item.node.id] = {index = 1, cursor = 0}
+                return nil
             end
             if event.type == "key" and event.alt and event.action ~= "release" then
                 local letter = tostring(event.key or ""):lower()
@@ -1183,6 +1483,10 @@ function ui.event(plan: any, state: any, original: any): any
                 return {type = "select", id = node.id, index = parent, value = rows[parent]}
             end
         end
+        -- Ctrl+A selects every row of a multi-selection.
+        if multi(node) and key == "runes" and event.ctrl and tostring(event.key or ""):lower() == "a" then
+            return {type = "select", id = node.id, index = chosen, value = rows[chosen], selected = every(rows)}
+        end
         -- Pushing past the last row — ↓, Page Down or End with the last row
         -- already selected — is `end`, as the wheel at the bottom is.
         if chosen == total and (key == "down" or key == "pgdown" or key == "end") then
@@ -1198,7 +1502,7 @@ function ui.event(plan: any, state: any, original: any): any
         else return nil end
         index = whole(math.max(1, math.min(total, index)))
         state.offsets[node.id] = scroll.reveal(item.offset, index, total, item.page)
-        return {type = "select", id = node.id, index = index, value = rows[index]}
+        return chosen_one(node, state, rows, index, {type = "select", id = node.id, index = index, value = rows[index]})
     elseif node.kind == "icons" and key then
         -- Grid keys: right and left move by items, up and down move by a
         -- row, pages move by a page of rows. The column width is the same as the
@@ -1210,6 +1514,9 @@ function ui.event(plan: any, state: any, original: any): any
         local chosen = whole(item.selected_index)
         local index = chosen > 0 and chosen or 1
         local moves = key == "left" or key == "right" or key == "up" or key == "down" or key == "pgup" or key == "pgdown"
+        if multi(node) and key == "runes" and event.ctrl and tostring(event.key or ""):lower() == "a" then
+            return {type = "select", id = node.id, index = chosen, value = items[chosen], selected = every(items)}
+        end
         if key == "home" then index = 1
         elseif key == "end" then index = total
         -- With no selection any arrow selects the first icon, as in a list.
@@ -1225,7 +1532,7 @@ function ui.event(plan: any, state: any, original: any): any
         index = whole(math.max(1, math.min(total, index)))
         local row = (index - 1) // columns + 1
         state.offsets[node.id] = scroll.reveal(item.offset, row, whole(item.rows_total), math.max(1, whole(item.page)))
-        return {type = "select", id = node.id, index = index, value = items[index]}
+        return chosen_one(node, state, items, index, {type = "select", id = node.id, index = index, value = items[index]})
     elseif node.kind == "text" and key then
         return text_event(item, state, event)
     elseif node.kind == "select" then

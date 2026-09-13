@@ -229,6 +229,11 @@ current data; `update` changes the model on a component's action.
   end — the same in cells and pixels. `static = true` is a table nobody selects
   (the "name — value" pairs of a properties sheet): it needs no `id`, takes no
   focus and no clicks, and keeps no scroll offset.
+  A cell may carry a picture: `{text, image, icon, kind?}` instead of a string —
+  in pixels a 16 px `image` (the icon catalog or an image pack) two pixels into
+  the column and the text 3 px after it, in cells the `icon` character and a
+  space before the text (Explorer's Details view). `selected` may be a
+  multi-selection set, as for `icons` below; `list` takes the same set.
 - `text`: `id?`, `text`, `wrap` (on by default), `wheel_step` (3). Read-only text
   with its own vertical scroll — an event's payload, a log. The plan wraps it
   ONCE by the rectangle's width in characters, minus the scrollbar and the cell
@@ -263,6 +268,18 @@ current data; `update` changes the model on a component's action.
   on an empty spot of the grid clears the selection (`index = 0`, `value = nil`) — like
   empty space in Explorer. Arrows move over the grid in two dimensions (←/→ across
   items, ↑/↓ by a row), Enter gives `activate`.
+  `small = true` is the Small Icons view: 16 px pictures with the caption at
+  their right, cells one row high, 15 cells a column (`ui.icon_grid(true)`), the
+  same walk, scroll and hits; in cells the glyph, a space and the caption, cut
+  with "…". `selected = {[id] = true}` is a multi-selection set (an entry without
+  an `id` is keyed by its position; `ui.entry_key`), next to the single
+  `selected` that keeps working: a click selects one, Ctrl+click toggles one,
+  Shift+click selects the range from the anchor — the entry the last click or
+  key stood on — in view order, Ctrl+A selects all, a click on empty space
+  clears the set (Ctrl+click there keeps it), and an arrow moves from the
+  anchor and selects one. Every such `select` carries the resulting set in
+  `selected`; the window stores it and passes it back. Each selected icon is
+  drawn inverted, as a single one is (`ui.is_selected`).
 - `calendar`: `year`, `month`, `day`, `first_weekday` (0 = Monday),
   `days` — a month grid with weekdays, today highlighted; read-only.
   The grid is computed by `ui.month_grid(first, days)`, leap years by the `time` module.
@@ -309,6 +326,19 @@ current data; `update` changes the model on a component's action.
   While the list is open, ←/→ move across the titles, ↑/↓ across the rows (separators
   and disabled items are skipped), Enter chooses, Esc and a click outside collapse it,
   and such a click goes no further. The menu is not part of the Tab ring, as in Windows.
+  F10 opens the first menu, and closes it again.
+  A row may also carry `shortcut = "Ctrl+Z"` — drawn right-aligned in a column
+  after the widest text, ending a cell before the edge; a list with shortcuts is
+  wider by the widest shortcut plus two cells, one without keeps its width —
+  `checked = true` (a checkmark in the left margin: `✓` in cells, the Windows 95
+  7 px check in pixels) or `bullet = true` (a radio mark: `•`, a 6 px round dot);
+  both on one row is refused by `ui.problem`. A row with `items = {…}` (the same
+  row shape) opens a submenu to the right of the list, its first item on that
+  row, left of the list when there is no room: a click or the pointer over the
+  row, → or Enter opens it, ← or Esc closes it, and a choice in it is `activate`
+  with the leaf's `id` — the keys walk it as they walk the Start menu's folders.
+  Submenus are one level deep; a deeper one is refused by `ui.problem`. The
+  pointer's plain motion reaches a window only where the compositor forwards it.
 
 The `id` of an interactive component is mandatory, unique within the window and stable
 between frames. The SDK keeps focus, the input position and the list offset by this ID.
@@ -511,6 +541,91 @@ on a terminal without graphics the main process in cells remains.
 `window_content: pixels` + `render/state` means graphics are required. In text mode the base can show only such a window's `state.caption`;
 that does not give a full interface. Do not claim
 GNOME Terminal support for an application that has only a pixel view.
+
+## File dialog
+
+`butschster.windows.sdk:filedialog` is the Windows 95 common dialog, Open and
+Save As, as a sheet the window returns from `view` while it is open
+([FR-007 §5](rfcs/007-notepad.md)). 44×16 cells: `Look in:` with the places
+and `Up One Level` on top, the list (folders first, then the files of the
+active type, 16-px icons), `File name:` and `Files of type:` with `Open` /
+`Save` (the default) and `Cancel` at their right. Save As reads `Save in:` and
+`Save as type:`, as the original did.
+
+The library is pure and holds no permissions. **Reading a folder is the
+application's**: when the sheet needs another place, `update` answers
+`{read = {drive, path}}`, the window reads it with the explorer's
+`butschster.windows.explorer:sources` under its own `fs.get` and
+`process.registry`, and hands the objects back with `filedialog.arrive`. A
+folder that could not be read shows its reason where the list was — it is not
+an empty folder.
+
+- `filedialog.sheet(state) -> tree`. The state is the spec, kept in the model:
+  `title` (`"Open"` | `"Save As"`), `button` (`"Open"` | `"Save"`), `place =
+  {drive, path}` (a registry drive and a path in it, `"/"` or `"/a/b"`),
+  `objects` (what `sources.list` returned for the place), `notice`, `drives`
+  (the explorer's drive objects), `name` (the File name field), `types`
+  (`filedialog.TYPES` by default: `Text Documents (*.txt)` and `All Files
+  (*.*)`) with the active `type` id, and `selected`.
+- `filedialog.update(state, action) -> state, result`. `result` is
+  `{read = {drive, path}}` — a double click or Enter on a folder, a choice in
+  Look in, Up One Level; `{accept = {drive, path}}` — a double click or Enter
+  on a file, or Open/Save with the File name resolved against the place (`..`
+  and `\` understood, never above the drive's root; the name of a folder in
+  the list enters it); `{cancel = true}` — Cancel or Esc; nil when only the
+  state changed. A click on a file puts its name into File name, a click on a
+  folder only selects it. A double click is a second **click** on the selected
+  row: `update` looks for `pointer = true`, because ↑ or Home on the first row
+  selects it again too.
+- `filedialog.arrive(state, place, objects, notice)` — the place read; the
+  selection goes, the File name stays. `filedialog.title(state)` is the
+  caption to return from `definition.title` while the sheet is up, and
+  `filedialog.address(place)` is the explorer path `sources.list` reads.
+
+```lua
+local filedialog = require("filedialog")        -- butschster.windows.sdk:filedialog
+local sources = require("sources")              -- butschster.windows.explorer:sources
+local drives = require("explorer_model")        -- butschster.windows.explorer:model
+
+local function read(model, place)
+    local view, err = sources.list(filedialog.address(place))
+    filedialog.arrive(model.dialog, place, view and view.objects, err)
+end
+
+local function open_dialog(model)
+    local records = sources.drives()
+    model.dialog = {title = "Open", button = "Open", name = "", type = "txt",
+        drives = drives.drives(records or {}), place = {drive = "app:documents", path = "/"}}
+    read(model, model.dialog.place)
+end
+
+function definition.view(model, context)
+    if model.dialog then return filedialog.sheet(model.dialog) end
+    -- the window's own tree
+end
+
+function definition.title(model)
+    return model.dialog and filedialog.title(model.dialog) or "Notepad"
+end
+
+function definition.update(model, action, context)
+    if model.dialog then
+        local _, result = filedialog.update(model.dialog, action)
+        if result and result.read then read(model, result.read)
+        elseif result and result.accept then model.dialog = nil; load(model, result.accept)
+        elseif result and result.cancel then model.dialog = nil end
+        return
+    end
+    -- the window's own actions
+end
+```
+
+The window entry needs `registry` in `modules` and `process.registry` in its
+policy for the drive list, and `fs.get` on the drives it reads; the library
+adds nothing. The list is a `tree` of depth 0 for now — the one component that
+draws 16-px icons today; its clicks carry no `pointer` yet, so a double click
+opens only once they do (Enter and Open work already). When the `icons` view
+gains small icons, the list moves there.
 
 ## Desktop widgets
 

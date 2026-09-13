@@ -28,6 +28,13 @@ entries:
       charts: butschster.windows.sdk:charts
       text: butschster.tui_desktop.desktop:text
 
+  - name: filedialog
+    kind: library.lua
+    meta: {comment: "Window SDK file dialog. The Windows 95 Open / Save As sheet, pure: the application reads the places it asks for. See docs/sdk.md."}
+    source: file://filedialog.lua
+    imports:
+      files: butschster.windows.viewers:files
+
   - name: cells
     kind: library.lua
     meta: {comment: "Window SDK cells. See docs/sdk.md."}
@@ -42,6 +49,7 @@ entries:
       widgets: butschster.windows.shell:widgets
       icons: butschster.windows.shell:icons
       palette: butschster.windows.shell:palette
+      glyphs: butschster.windows.shell:glyphs
 
   - name: render
     kind: library.lua

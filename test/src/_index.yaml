@@ -726,6 +726,24 @@ entries:
       test: wippy.test:test
       apps: butschster.tui_desktop.persist:apps
 
+  - name: filedialog_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: The Windows 95 Open / Save As sheet — layout at 44×16 in both modes, every action of update, a PNG shot.
+    source: file://filedialog_test.lua
+    method: run
+    modules: [fs, gfx, registry]
+    imports:
+      test: wippy.test:test
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
+      render: butschster.windows.sdk:render
+      rasters: butschster.windows.shell:rasters
+      filedialog: butschster.windows.sdk:filedialog
+
   - name: list_reveal_test
     kind: function.lua
     meta:
@@ -888,3 +906,42 @@ entries:
     modules: [gfx]
     imports:
       gadget: butschster.windows.sdk:gadget
+
+  - name: menu_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: Menu rows as Windows 95 draws them — the shortcut column, the checkmark, the bullet, one level of submenus and F10 — in the plan, in cells, in pixels, by keys and by the pointer.
+    source: file://menu_test.lua
+    method: run
+    modules: [tty, gfx, fs]
+    imports:
+      test: wippy.test:test
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
+      render: butschster.windows.sdk:render
+      rasters: butschster.windows.shell:rasters
+      palette: butschster.windows.shell:palette
+      glyphs: butschster.windows.shell:glyphs
+
+  - name: selection_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: Small Icons, the multi-selection set of icons and tables with the Ctrl and Shift rules, and a picture in a table cell, in the plan and both renderers.
+    source: file://selection_test.lua
+    method: run
+    modules: [tty, gfx, fs]
+    imports:
+      test: wippy.test:test
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
+      render: butschster.windows.sdk:render
+      rasters: butschster.windows.shell:rasters
+      palette: butschster.windows.shell:palette
+      glyphs: butschster.windows.shell:glyphs
+

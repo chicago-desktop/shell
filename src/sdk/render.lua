@@ -549,22 +549,32 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 for row = 0, rect.h - 1 - header do
                     local index = item.offset + row + 1
                     local record: any = rows[index]
-                    local selected = not node.disabled and item.selected_index == index
+                    local selected = not node.disabled and ui.is_selected(item, index)
                     local row_y = y + (row + header) * cell.h
                     if selected then raster:rect(whole(x), whole(row_y), whole(w - bar_w), whole(cell.h), color.select_bg) end
                     if record then
                         local values: any = type(record) == "table" and (record.cells or record) or {record}
                         for col, column in ipairs(columns) do
-                            local value = tostring(values[col] or "")
+                            local raw: any = values[col]
+                            local value = ui.cell_text(raw)
                             local cx, cw = x + column.x * cell.w, column.w * cell.w
                             local tint = selected and color.select_fg or (node.disabled and color.shadow or color.field_text)
+                            -- A cell's `image`: a 16 px picture two pixels in,
+                            -- the text 3 px after it (Explorer's Details).
+                            local inset = cell.w
+                            local picture: any = type(raw) == "table" and raw.image or nil
+                            if type(picture) == "string" and picture ~= "" and cw >= 16 + cell.w then
+                                pixels.icon(raster, whole(cx + 2), whole(row_y + (cell.h - 16) // 2),
+                                    {kind = raw.kind or "document", image = picture}, 16)
+                                inset = 21
+                            end
                             -- Text starts one cell in; a right-aligned value ends
                             -- one cell before its column's end — the rule of cells.
                             if column.align == "right" and font then
-                                local shown = pixels.ellipsize(font, value, whole(math.max(0, cw - cell.w)))
+                                local shown = pixels.ellipsize(font, value, whole(math.max(0, cw - inset)))
                                 local measured = whole(font:measure(shown))
-                                text(cx + math.max(cell.w, cw - cell.w - measured), row_y, cw - cell.w, cell.h, shown, tint)
-                            else text(cx + cell.w, row_y, cw - cell.w, cell.h, value, tint) end
+                                text(cx + math.max(inset, cw - cell.w - measured), row_y, cw - cell.w, cell.h, shown, tint)
+                            else text(cx + inset, row_y, cw - inset, cell.h, value, tint) end
                         end
                     end
                 end
@@ -583,21 +593,35 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                     local bx = x + (box.from - rect.x) * cell.w
                     local by = y + (box.top - rect.y) * cell.h
                     local bw = (box.to - box.from + 1) * cell.w
-                    pixels.icon(raster, whole(bx + (bw - side) // 2), whole(by + 2), spot.item, side)
                     local caption = tostring((spot.item :: any).title or (spot.item :: any).text or "")
-                    local lines = pixels.wrap(font, caption, whole(bw - 4), 2)
-                    local top = by + 2 + side + 3
-                    for line_index, line in ipairs(lines) do
-                        local measured = font and whole(font:measure(line)) or 0
-                        local left = bx + (bw - measured) // 2
-                        local chosen = spot.selected and not node.disabled
-                        if chosen then
-                            raster:rect(whole(left - 1), whole(top - 1), whole(measured + 2), 16, color.select_bg)
+                    local chosen = spot.selected and not node.disabled
+                    local ink = chosen and color.select_fg or (node.disabled and color.shadow or color.field_text)
+                    if node.small == true then
+                        -- Small Icons: the 16 px picture two pixels in, the
+                        -- caption 3 px after it on the same row, the band
+                        -- hugging the caption as in the large grid.
+                        pixels.icon(raster, whole(bx + 2), whole(by + (cell.h - 16) // 2), spot.item, 16)
+                        if font then
+                            local left, top = bx + 21, by + (cell.h - 15) // 2
+                            local shown = pixels.ellipsize(font, caption, whole(math.max(0, bw - 23)))
+                            local measured = whole(font:measure(shown))
+                            if chosen then raster:rect(whole(left - 1), whole(top - 1), whole(measured + 2), 16, color.select_bg) end
+                            raster:text(whole(left), whole(top), shown, {font = font, color = ink})
                         end
-                        raster:text(whole(left), whole(top), line, {font = font,
-                            color = chosen and color.select_fg or (node.disabled and color.shadow or color.field_text)})
-                        top = top + 15
-                        if line_index >= 2 then break end
+                    else
+                        pixels.icon(raster, whole(bx + (bw - side) // 2), whole(by + 2), spot.item, side)
+                        local lines = pixels.wrap(font, caption, whole(bw - 4), 2)
+                        local top = by + 2 + side + 3
+                        for line_index, line in ipairs(lines) do
+                            local measured = font and whole(font:measure(line)) or 0
+                            local left = bx + (bw - measured) // 2
+                            if chosen then
+                                raster:rect(whole(left - 1), whole(top - 1), whole(measured + 2), 16, color.select_bg)
+                            end
+                            raster:text(whole(left), whole(top), line, {font = font, color = ink})
+                            top = top + 15
+                            if line_index >= 2 then break end
+                        end
                     end
                 end
                 pixels.scrollbar(raster, x + w - bar_w, y, bar_w, h, item.bar, cell.h, math.min(bar_w, cell.h))
@@ -619,7 +643,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 raster:rect(whole(x), whole(y), whole(w), whole(h), node.disabled and color.face or color.field)
                 for row = 0, rect.h - 1 do
                     local index = item.offset + row + 1
-                    local selected = not node.disabled and item.selected_index == index
+                    local selected = not node.disabled and ui.is_selected(item, index)
                     local value: any = (node.items or {})[index]
                     local label = type(value) == "table" and value.text or value
                     local row_y = y + row * cell.h
@@ -799,12 +823,11 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 end
             else menus[#menus + 1] = item end
         end
-        for _, item in ipairs(menus) do
-            local popup: any = item.popup
-            local open: any = interaction.menus[item.node.id]
-            -- The rows are whole cells (hits are counted by them); the Windows 95
-            -- frame — a 2 px raised edge and 1 px of face, the highlight 3 px
-            -- in — lies inside them.
+        -- One drop-down list: the menu's and its open submenu's, by one rule.
+        -- The rows are whole cells (hits are counted by them); the Windows 95
+        -- frame — a 2 px raised edge and 1 px of face, the highlight 3 px
+        -- in — lies inside them.
+        local function drop(popup: any, cursor: any)
             local box = render.menu_box(popup, cell)
             raster:rect(whole(box.x), whole(box.y), whole(box.w), whole(box.h), color.face)
             pixels.edge(raster, box.x, box.y, box.w, box.h, true)
@@ -815,7 +838,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                     raster:rect(whole(box.x + 4), whole(ry + cell.h // 2 - 1), whole(box.w - 8), 1, color.shadow)
                     raster:rect(whole(box.x + 4), whole(ry + cell.h // 2), whole(box.w - 8), 1, color.light)
                 elseif font then
-                    local chosen = position == whole(open and open.cursor or 0)
+                    local chosen = position == whole(cursor)
                     if chosen then
                         -- On the first and the last row the highlight gives way
                         -- to the frame.
@@ -833,8 +856,28 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                         raster:rect(whole(tx + before), whole(ty + 13),
                             math.max(1, whole(font:measure(runes[line.accel]))), 1, tint)
                     end
+                    -- The marks stand in the 8 px column before the text:
+                    -- the 7 px check ends 4 px before it, the 6 px bullet too.
+                    if line.checked then pixels.mark_check(raster, whole(tx - 11), whole(ry + (cell.h - 7) // 2), tint)
+                    elseif line.bullet then pixels.mark_bullet(raster, whole(tx - 10), whole(ry + (cell.h - 6) // 2), tint) end
+                    -- The shortcut ends where the text's cell of air begins
+                    -- at the right, the mirror of the text's start.
+                    local shortcut = tostring(line.shortcut or "")
+                    if shortcut ~= "" then
+                        raster:text(whole(box.x + box.w - 2 * cell.w - whole(font:measure(shortcut))), whole(ty), shortcut,
+                            {font = font, color = tint})
+                    end
+                    if line.submenu then
+                        pixels.mark_submenu(raster, whole(box.x + box.w - 12), whole(ry + (cell.h - 7) // 2), 7, tint)
+                    end
                 end
             end
+        end
+        for _, item in ipairs(menus) do
+            local popup: any = item.popup
+            local open: any = interaction.menus[item.node.id]
+            drop(popup, open and open.cursor or 0)
+            if popup.sub then drop(popup.sub, open and open.sub_cursor or 0) end
         end
     end
 end
@@ -926,7 +969,7 @@ local function line_sig(item: any, row: integer): string
     if at < 0 then return "header" end
     local index = whole(item.offset) + at + 1
     local entries: any = node.kind == "list" and (node.items or {}) or (node.rows or {})
-    return tostring(index) .. ":" .. sig(entries[index]) .. (index == whole(item.selected_index) and ":selected" or "")
+    return tostring(index) .. ":" .. sig(entries[index]) .. (ui.is_selected(item, index) and ":selected" or "")
 end
 local function row_keys(plan: any, interaction: any, rows: integer, base: string): any
     local common: any = {}
@@ -952,7 +995,10 @@ local function row_keys(plan: any, interaction: any, rows: integer, base: string
         end
         for _, item in ipairs(plan.overlays or {}) do
             local popup: any = item.popup
-            if popup and row >= popup.rect.y and row <= popup.rect.y + popup.rect.h - 1 then
+            local sub: any = popup and popup.sub or nil
+            -- An open submenu may reach below its list: its rows are the overlay's too.
+            if popup and ((row >= popup.rect.y and row <= popup.rect.y + popup.rect.h - 1)
+                or (sub ~= nil and row >= sub.rect.y and row <= sub.rect.y + sub.rect.h - 1)) then
                 parts[#parts + 1] = "over:" .. sig(popup) .. sig((interaction.menus or {})[item.node.id])
             end
         end

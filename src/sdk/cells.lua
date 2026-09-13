@@ -7,6 +7,7 @@ local text = require("text")
 local geometry = require("geometry")
 local editor = require("editor")
 local palette = require("palette")
+local glyphs = require("glyphs")
 local whole = geometry.whole
 local cells = {}
 -- A cut is marked, as in pixels: text wider than its room loses its tail to
@@ -269,13 +270,17 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             for row = 0, r.h - 1 - header do
                 local index = item.offset + row + 1
                 local record: any = rows[index]
-                local style = not node.disabled and item.selected_index == index and styles.select or ground
+                local style = not node.disabled and ui.is_selected(item, index) and styles.select or ground
                 local y = r.y + header + row
                 put(r.x, y, "", r.w - 1, style)
                 if record then
                     local values: any = type(record) == "table" and (record.cells or record) or {record}
                     for col, column in ipairs(columns) do
-                        local value = tostring(values[col] or "")
+                        local raw: any = values[col]
+                        local value = ui.cell_text(raw)
+                        -- A cell's picture is its `icon` character here, before the text.
+                        local glyph: any = type(raw) == "table" and raw.icon or nil
+                        if type(glyph) == "string" and glyph ~= "" then value = glyph .. " " .. value end
                         -- Text starts one cell in; a right-aligned value ends one
                         -- cell before its column's end. The same rule in pixels.
                         if column.align == "right" then
@@ -325,8 +330,9 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 put(r.x, r.y + row, "", r.w - 1, ground)
             end
             for _, cell in ipairs(item.cells or {}) do
-                icon_cells.cell(canvas, cell.x, cell.y, cell.item,
-                    {room = cell.room, surface = "panel", selected = cell.selected and not node.disabled})
+                local look = {room = cell.room, surface = "panel", selected = cell.selected and not node.disabled}
+                if node.small == true then icon_cells.small(canvas, cell.x, cell.y, cell.item, look)
+                else icon_cells.cell(canvas, cell.x, cell.y, cell.item, look) end
             end
             scrollbar(r.x + r.w - 1, r.y, r.h, item.offset, item.page, item.rows_total)
         elseif node.kind == "text" then
@@ -346,7 +352,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 local label = type(value) == "table" and value.text or value
                 -- Text starts one cell in, as in a table and in pixels.
                 put(r.x, r.y + row, label ~= nil and (" " .. tostring(label)) or "", r.w - 1,
-                    not node.disabled and item.selected_index == index and styles.select or ground)
+                    not node.disabled and ui.is_selected(item, index) and styles.select or ground)
             end
             scrollbar(r.x + r.w - 1, r.y, r.h, item.offset, item.page, #(node.items or {}))
         else
@@ -441,24 +447,35 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             end
         else menus[#menus + 1] = item end
     end
-    for _, item in ipairs(menus) do
-        local popup: any = item.popup
-        local open: any = interaction.menus[item.node.id]
+    -- One drop-down list, the menu's and its open submenu's: the mark column
+    -- (✓ checked, • a bullet), the text, the shortcut right-aligned so that it
+    -- ends a cell before the edge, and the submenu arrow in that last cell.
+    local function drop(popup: any, cursor: any)
         local body = {}
         for position, row in ipairs(popup.rows) do
             local line: any = row
             local inner = popup.rect.w - 2
             if line.separator then body[#body + 1] = widgets.etched(inner)
             else
-                local style = position == whole(open and open.cursor or 0) and styles.select
+                local style = position == whole(cursor) and styles.select
                     or (line.disabled and styles.face_dim or styles.face)
-                local text = " " .. line.text
+                local mark = line.checked and glyphs.icons.check or (line.bullet and glyphs.icons.radio or " ")
+                local text = mark .. line.text
                 local shown = line.accel > 0 and widgets.accel(style, text, line.accel + 1) or style:render(text)
-                local pad = inner - widgets.cells(text)
-                body[#body + 1] = shown .. style:render(string.rep(" ", math.max(0, pad)))
+                local shortcut = tostring(line.shortcut or "")
+                local tail = line.submenu and glyphs.icons.submenu or ""
+                if shortcut ~= "" then tail = shortcut .. (line.submenu and glyphs.icons.submenu or " ") end
+                local pad = inner - widgets.cells(text) - widgets.cells(tail)
+                body[#body + 1] = shown .. style:render(string.rep(" ", math.max(0, pad)) .. tail)
             end
         end
         widgets.panel(canvas, popup.rect.x, popup.rect.y, popup.rect.w, body, false)
+    end
+    for _, item in ipairs(menus) do
+        local popup: any = item.popup
+        local open: any = interaction.menus[item.node.id]
+        drop(popup, open and open.cursor or 0)
+        if popup.sub then drop(popup.sub, open and open.sub_cursor or 0) end
     end
     return canvas:rows()
 end

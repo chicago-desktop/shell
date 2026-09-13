@@ -89,6 +89,7 @@ glyphs.icons = {
     submenu = "▸",       -- the item has a submenu
     bullet = "▪",        -- line marker
     check = "✓",         -- checked item
+    radio = "•",         -- the chosen item of a group (a menu's bullet)
     divider = "─",       -- menu separator
 }
 

@@ -180,6 +180,23 @@ function icons.box(x: any, y: any, room: any): any
     return {from = col, to = col + span - 1, top = row, bottom = row + CELL_DRAWN - 1}
 end
 
+-- glyph(item) -> the icon's one character: a broken shortcut, a folder, the
+-- item's own `icon`, else the program without an icon. One rule for the
+-- large cell and the small one.
+--
+-- A broken shortcut is visible both by its icon and by the caption color.
+-- The icon alone is not enough on a small font, the color alone not on a
+-- monochrome terminal; and it has no right to disappear: a vanished icon
+-- reads as "I deleted it by accident", a broken one as "the program is
+-- gone".
+function icons.glyph(item): string
+    local record: any = type(item) == "table" and item or {}
+    if record.broken then return glyphs.icons.broken end
+    if record.kind == "folder" then return glyphs.icons.folder end
+    if type(record.icon) == "string" and record.icon ~= "" then return record.icon end
+    return glyphs.icons.unknown
+end
+
 function icons.cell(target, x: any, y: any, item, state)
     local opts: any = type(state) == "table" and state or {}
     local surface: any = surfaces[opts.surface] or surfaces.desktop
@@ -191,18 +208,8 @@ function icons.cell(target, x: any, y: any, item, state)
     if not box then return nil end
 
     local record: any = type(item) == "table" and item or {}
-
-    -- A broken shortcut is visible both by its icon and by the caption color.
-    -- The icon alone is not enough on a small font, the color alone not on a
-    -- monochrome terminal; and it has no right to disappear: a vanished icon
-    -- reads as "I deleted it by accident", a broken one as "the program is
-    -- gone".
     local broken = record.broken and true or false
-    local glyph
-    if broken then glyph = glyphs.icons.broken
-    elseif record.kind == "folder" then glyph = glyphs.icons.folder
-    elseif type(record.icon) == "string" and record.icon ~= "" then glyph = record.icon
-    else glyph = glyphs.icons.unknown end
+    local glyph = icons.glyph(record)
 
     target:put(col, row, centered(surface.icon, glyph, span), span)
 
@@ -226,6 +233,29 @@ function icons.cell(target, x: any, y: any, item, state)
     end
 
     return box
+end
+
+-- small(target, x, y, item, state) — the Small Icons cell: the glyph, a space
+-- and the caption on ONE row, `room` cells wide; a caption that does not fit
+-- ends with "…". Selection inverts the caption only, as in `cell`. Returns
+-- the hit rectangle, one row high, or nil without room.
+function icons.small(target, x: any, y: any, item, state)
+    local opts: any = type(state) == "table" and state or {}
+    local surface: any = surfaces[opts.surface] or surfaces.desktop
+    local col, row = whole(x), whole(y)
+    local span = whole(opts.room)
+    if span <= 0 then span = CELL_W end
+    if span < 3 then return nil end
+    local record: any = type(item) == "table" and item or {}
+    local glyph = icons.glyph(record)
+    local room = span - cells(glyph) - 1
+    local title = tostring(record.title or "?")
+    if cells(title) > room then title = clip(title, room - 1) .. "…" end
+    local caption = record.broken and surface.broken or surface.text
+    if opts.selected then caption = surface.select end
+    target:put(col, row, surface.icon:render(glyph) .. surface.back:render(" ") .. caption:render(title)
+        .. surface.back:render(string.rep(" ", math.max(0, room - cells(title)))), span)
+    return {from = col, to = col + span - 1, top = row, bottom = row}
 end
 
 -- The desktop was repainted: the icon cell styles are re-read from the

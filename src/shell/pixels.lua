@@ -314,6 +314,27 @@ function pixels.checkbox(r: any, x: any, y: any, checked: any, disabled: any)
     end
 end
 
+-- Menu marks, as Windows 95 draws them in the column before an item's text:
+-- a 7×7 checkmark (a checked item) and a 6×6 round bullet (the chosen one of
+-- a group). Rows of the checkmark, top to bottom, `#` inked.
+local CHECK_ROWS = {"......#", ".....##", "#...###", "##.###.", "#####..", ".###...", "..#...."}
+function pixels.mark_check(raster, x: any, y: any, tint)
+    local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    for row, line in ipairs(CHECK_ROWS) do
+        for column = 1, #line do
+            if line:sub(column, column) == "#" then raster:set(left + column - 1, top + row - 1, ink) end
+        end
+    end
+end
+function pixels.mark_bullet(raster, x: any, y: any, tint)
+    local left, top = whole(x), whole(y)
+    local ink = tint or color.face_text
+    raster:rect(left + 1, top, 4, 1, ink)
+    raster:rect(left, top + 1, 6, 4, ink)
+    raster:rect(left + 1, top + 5, 4, 1, ink)
+end
+
 -- ─── Title button marks ──────────────────────────────────────────────────
 --
 -- With primitives, not with the font: in Windows 95 these were small
