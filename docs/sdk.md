@@ -433,6 +433,11 @@ does not fit is cut with "…" in both renderers; each measures in its own unit 
 by cell width, pixels by the font — so pixels keep what the proportional font fits.
 In cells a button wider than its caption fills its room, the caption centred, as in
 pixels. A list and a field have a double sunken bevel; a checkbox is a 13×13 px square.
+A menu's drop-down (the bar's, a submenu, `ui.context_menu`) keeps whole cell rows for
+its hits; in pixels its 3 px Windows 95 frame (face, then white at the top-left; black,
+then dark gray at the bottom-right; a pixel of face) lies inside them, so the first
+item's band starts under the frame and the last one's ends over it. The highlight, the
+text and the marks are centred in the band; separators stand 2 px in from the frame.
 Panel buttons can be given an equal `size` instead of stretching across the whole
 width of the window. For custom styling use these primitives,
 do not copy combinations of `panel` and `bevel` into the application.

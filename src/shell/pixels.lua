@@ -124,6 +124,15 @@ function pixels.edge(r: any, x: any, y: any, w: any, h: any, raised: any)
         edge_pair(r, whole(x) + 1, whole(y) + 1, whole(w) - 2, whole(h) - 2, color.frame, color.face)
     end
 end
+-- A window's and a popup menu's raised edge: GDI's EDGE_RAISED without
+-- BF_SOFT — face, then white at the top-left, black, then dark gray at the
+-- bottom-right. A button's (`edge`) is the soft one, white outermost; a menu
+-- drawn with that showed one white line at the top and looked flat.
+-- chrome_pixels paints the window frame's the same way, slice by slice.
+function pixels.frame_edge(r: any, x: any, y: any, w: any, h: any)
+    edge_pair(r, x, y, w, h, color.face, color.frame)
+    edge_pair(r, whole(x) + 1, whole(y) + 1, whole(w) - 2, whole(h) - 2, color.light, color.shadow)
+end
 function pixels.focus_rect(r: any, x: any, y: any, w: any, h: any)
     x, y, w, h = whole(x), whole(y), whole(w), whole(h)
     if w < 2 or h < 2 then return end

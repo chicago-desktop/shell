@@ -1429,7 +1429,8 @@ local function define_tests()
                     label .. "the panel's top pixel row is the one under the bar")
                 test.eq(int(box.first), int(box.y), label .. "the first item lies in the panel's first row")
 
-                -- The painter draws exactly that panel, and underlines the N.
+                -- The painter draws exactly that panel, and underlines the N
+                -- of New centred in its band: the row less the frame at the top.
                 local rects: any = {}
                 local raster: any = {fill = function() end, set = function() end, blit = function() end,
                     text = function() return 0 end,
@@ -1442,14 +1443,28 @@ local function define_tests()
                 local drawn = " " .. table.concat(rects, " ") .. " "
                 local panel = int(box.x) .. "," .. int(box.y) .. "," .. int(box.w) .. "," .. int(box.h)
                 test.not_nil(drawn:find(" " .. panel .. " ", 1, true), label .. "the panel is painted at " .. panel)
-                local underline = int(box.x + 2 * cell.w) .. "," .. int(box.first + (cell.h - 15) // 2 + 13) .. ","
+                local frame = render.MENU_FRAME
+                local underline = int(box.x + 2 * cell.w) .. "," .. int(box.first + frame + (cell.h - frame - 15) // 2 + 13) .. ","
                     .. int(math.max(1, (font:measure("N")))) .. ",1"
                 test.not_nil(drawn:find(" " .. underline .. " ", 1, true),
                     label .. "the accelerator of New is underlined at " .. underline)
+                -- Exit, the last item, is centred in its band: the row less the
+                -- frame at the bottom.
+                local last = box.first + 2 * cell.h
+                local exit_underline = int(box.x + 2 * cell.w + font:measure("E")) .. ","
+                    .. int(last + (cell.h - frame - 15) // 2 + 13) .. "," .. int(math.max(1, (font:measure("x")))) .. ",1"
+                test.not_nil(drawn:find(" " .. exit_underline .. " ", 1, true),
+                    label .. "the accelerator of Exit is underlined at " .. exit_underline)
 
                 local chosen = ui.event(plan, interaction, {type = "mouse", action = "press", button = "left",
                     x = popup.rect.x + 1, y = popup.rect.y})
                 test.eq(chosen and chosen.id, "new", label .. "a click on the first item row is New")
+                -- The frame took pixels, not rows: the last cell row is still Exit.
+                local again = opened()
+                local replanned = ui.plan(tree(), 30, 10, again, {cell = cell})
+                local exit = ui.event(replanned, again, {type = "mouse", action = "press", button = "left",
+                    x = popup.rect.x + 1, y = popup.rect.y + 2})
+                test.eq(exit and exit.id, "exit", label .. "a click on the last item row is Exit")
             end
         end)
 
@@ -1465,6 +1480,79 @@ local function define_tests()
             local chosen = ui.event(plan, interaction, {type = "mouse", action = "press", button = "left",
                 x = popup.rect.x + 1, y = popup.rect.y + 1})
             test.eq(chosen and chosen.id, "new", "a click on New's row is New")
+        end)
+
+        -- Windows 95's popup menu: a 3 px frame (face, then white at the
+        -- top-left; black, then dark gray at the bottom-right; a pixel of
+        -- face) inside the whole cell rows the hits count. One pixel at a
+        -- time, from the real raster.
+        test.it("frames the list as Windows 95 inside its rows: the first band under the frame, the last over it", function()
+            local fonts = {face = face()}
+            local frame = render.MENU_FRAME
+            local FACE, WHITE, DARK, BLACK, BLUE = "#c0c0c0", "#ffffff", "#808080", "#000000", "#000080"
+            local function probe(raster: any, x: any, y: any): string
+                local part = gfx.raster(1, 1)
+                part:blit(raster, geometry.whole(2 - x), geometry.whole(2 - y))
+                return assert(part:encode("png"))
+            end
+            local function filled(colour: string): string
+                local part = gfx.raster(1, 1)
+                part:fill(colour)
+                return assert(part:encode("png"))
+            end
+            for _, cell in ipairs({{w = 10, h = 20}, {w = 8, h = 16}}) do
+                -- New highlighted, then Exit: the first band's top, the last one's bottom.
+                for _, cursor in ipairs({1, 3}) do
+                    local label = cell.w .. "x" .. cell.h .. ", cursor " .. cursor .. ": "
+                    local function interaction(): any
+                        local made = opened()
+                        made.menus.bar.cursor = cursor
+                        return made
+                    end
+                    local popup = ui.plan(tree(), 30, 10, interaction(), {cell = cell}).by_id.bar.popup
+                    local box = render.menu_box(popup, cell)
+                    local store = rasters.store()
+                    store.begin()
+                    local placed = assert(render.placement({id = "mines", state_revision = 1, content_state = {sdk = 1,
+                        revision = 1, interaction = interaction(), ui = tree()}}, {x = 1, y = 1, cols = 30, rows = 10},
+                        cell, fonts, store))
+                    local function sees(x: any, y: any, colour: string, what: string)
+                        test.eq(probe(placed.raster, x, y), filled(colour), label .. what .. " at " .. int(x) .. "," .. int(y))
+                    end
+                    local left, top = box.x, box.y
+                    local right, bottom = box.x + box.w - 1, box.y + box.h - 1
+                    sees(left, top, FACE, "top-left: face outermost")
+                    sees(left + 1, top + 1, WHITE, "then white")
+                    sees(left + 2, top + 2, FACE, "then a pixel of face")
+                    sees(right, top, BLACK, "top-right: black outermost")
+                    sees(right - 1, top + 1, DARK, "then dark gray")
+                    sees(left, bottom, BLACK, "bottom-left: black")
+                    sees(left + 1, bottom - 1, DARK, "then dark gray")
+                    sees(right, bottom, BLACK, "bottom-right: black")
+                    sees(right - 1, bottom - 1, DARK, "then dark gray")
+                    -- The separator: dark over light, 2 px in from the frame.
+                    local line = box.first + cell.h + cell.h // 2 - 1
+                    sees(left + frame + 2, line, DARK, "the separator's dark line starts 2 px in")
+                    sees(left + frame + 1, line, FACE, "face before it")
+                    sees(right - frame - 2, line, DARK, "and ends 2 px in")
+                    sees(right - frame - 1, line, FACE, "face after it")
+                    sees(left + frame + 2, line + 1, WHITE, "the light line under it")
+                    if cursor == 1 then
+                        sees(left + frame, top + frame, BLUE, "the first band's top, under the frame")
+                        sees(left + frame, top + frame - 1, FACE, "the frame's face above it")
+                        sees(left + frame - 1, top + frame, FACE, "and beside it")
+                        sees(left + frame, box.first + cell.h - 1, BLUE, "the band reaches its row's end")
+                        sees(left + frame, box.first + cell.h, FACE, "and stops there")
+                    else
+                        local row = box.first + 2 * cell.h
+                        sees(left + frame, bottom - frame, BLUE, "the last band's bottom, over the frame")
+                        sees(left + frame, bottom - frame + 1, FACE, "the frame's face under it")
+                        sees(right - frame, row, BLUE, "the band's right end")
+                        sees(right - frame + 1, row, FACE, "the frame beside it")
+                        sees(left + frame, row - 1, FACE, "the band starts at its row")
+                    end
+                end
+            end
         end)
     end)
 

@@ -151,14 +151,50 @@ local function define_tests()
             test.eq(pixel(raster, 17, 90), face)
             test.eq(pixel(raster, 11, 93), face)
             -- Ctrl+Z ends at x = 211, a cell before the edge's 20 px; its text
-            -- stands on y = 23..39, under the list's 2 px top edge.
+            -- stands on y = 23..39, under the list's 3 px frame.
             local width = math.tointeger(font:measure("Ctrl+Z")) or 0
             test.eq(region(raster, 211, 23, 15, 17), filled(color.face, 15, 17), "nothing after the shortcut")
             test.is_true(region(raster, 211 - width, 23, width, 17) ~= filled(color.face, width, 17), "the shortcut itself")
-            test.eq(pixel(raster, 219, 107), ink, "the submenu arrow's base")
-            test.eq(pixel(raster, 222, 110), ink, "the arrow's point")
-            test.eq(pixel(raster, 223, 110), face)
-            test.eq(pixel(raster, 220, 107), face)
+            -- Arrange is the last row, 101..120; its band stops 3 px short
+            -- for the frame, 101..117, and the 7 px arrow is centred in it.
+            test.eq(pixel(raster, 219, 106), ink, "the submenu arrow's base")
+            test.eq(pixel(raster, 219, 112), ink, "the base's bottom")
+            test.eq(pixel(raster, 219, 113), face, "centred in the band, not in the row")
+            test.eq(pixel(raster, 222, 109), ink, "the arrow's point")
+            test.eq(pixel(raster, 223, 109), face)
+            test.eq(pixel(raster, 220, 106), face)
+        end)
+
+        test.it("centres the marks in the first and the last band, under and over the 3 px frame", function()
+            local font = face_font()
+            local color: any = palette.exact
+            local ink, face = swatch(color.face_text), swatch(color.face)
+            local marked = {kind = "column", children = {
+                {kind = "menu", id = "bar", size = 1, entries = {
+                    {title = "View", accel = 1, items = {
+                        {id = "large", text = "Large", bullet = true},
+                        {id = "small", text = "Small"},
+                        {id = "wrap", text = "Word Wrap", checked = true},
+                    }},
+                }},
+                {kind = "label", text = ""},
+            }}
+            local store = rasters.store()
+            store.begin()
+            local raster = assert(render.placement({id = "marks", state_revision = 1, content_state = {sdk = 1, revision = 1,
+                ui = marked, interaction = opened({index = 1, cursor = 0})}}, {x = 1, y = 1, cols = 40, rows = 12},
+                CELL, {face = font}, store)).raster
+            -- Rows from y = 21, 20 px each. The first band is 24..40: the 6 px
+            -- bullet stands on 29..34, not on the row's 28..33.
+            test.eq(pixel(raster, 12, 29), ink, "the bullet's top")
+            test.eq(pixel(raster, 12, 28), face, "nothing above it")
+            test.eq(pixel(raster, 12, 34), ink, "the bullet's bottom")
+            test.eq(pixel(raster, 12, 35), face)
+            -- The last band is 61..77: the 7 px check stands on 66..72, not on 67..73.
+            test.eq(pixel(raster, 16, 66), ink, "the check's top-right pixel")
+            test.eq(pixel(raster, 16, 65), face, "nothing above it")
+            test.eq(pixel(raster, 12, 72), ink, "the check's bottom point")
+            test.eq(pixel(raster, 12, 73), face)
         end)
 
         test.it("opens a submenu to the right with its first item on the row that opened it, in both modes", function()

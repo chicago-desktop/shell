@@ -155,6 +155,12 @@ local function define_tests()
             local bare = painted({kind = "column", children = {{kind = "list", id = "files", items = {"a", "b", "c"}}}})
             test.eq(region(open, 44, 50, 1, 1), filled(color.face, 1, 1), "the list's face at the cell 5,3")
             test.eq(region(bare, 44, 50, 1, 1), filled(color.field, 1, 1), "without it, the list's white")
+            -- The same Windows 95 frame as a bar's list.
+            local box = render.menu_box(ui.plan(with_menu(5, 3), 40, 12, ui.interaction(), {cell = CELL}).by_id.ctx.popup, CELL)
+            test.eq(region(open, box.x, box.y, 1, 1), filled(color.face, 1, 1), "the frame: face outermost")
+            test.eq(region(open, box.x + 1, box.y + 1, 1, 1), filled(color.light, 1, 1), "then white")
+            test.eq(region(open, box.x + box.w - 1, box.y + box.h - 1, 1, 1), filled(color.frame, 1, 1), "black at the bottom-right")
+            test.eq(region(open, box.x + box.w - 2, box.y + box.h - 2, 1, 1), filled(color.shadow, 1, 1), "then dark gray")
         end)
 
         test.it("refuses a popup without its cell and a row both checked and a bullet", function()

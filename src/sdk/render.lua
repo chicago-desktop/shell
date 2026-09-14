@@ -67,6 +67,8 @@ end
 -- A cells plan (`lead` 1) keeps its frame rows, and the panel is drawn tight
 -- around the items, 4 px into them: a whole frame row is a couple dozen
 -- pixels of emptiness no Windows 95 menu had.
+-- A drop-down's frame: a 2 px raised edge and 1 px of face on every side.
+render.MENU_FRAME = 3
 function render.menu_box(popup: any, cell: any): any
     local lead = whole(popup.lead or 0)
     local px, py = (popup.rect.x - 1) * cell.w + 1, (popup.rect.y - 1) * cell.h + 1
@@ -865,29 +867,33 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
         end
         -- One drop-down list: the menu's and its open submenu's, by one rule.
         -- The rows are whole cells (hits are counted by them); the Windows 95
-        -- frame — a 2 px raised edge and 1 px of face, the highlight 3 px
-        -- in — lies inside them.
+        -- frame lies inside them. So each item has a BAND — its row, less
+        -- the frame where the frame reaches into it (a pixel plan's first
+        -- and last row) — and the highlight, the text and the marks are
+        -- centred in the band, not in the row: otherwise the first item sat
+        -- right under the bar and the last one on the bottom edge.
+        local frame = render.MENU_FRAME
         local function drop(popup: any, cursor: any)
             local box = render.menu_box(popup, cell)
             raster:rect(whole(box.x), whole(box.y), whole(box.w), whole(box.h), color.face)
-            pixels.edge(raster, box.x, box.y, box.w, box.h, true)
+            pixels.frame_edge(raster, box.x, box.y, box.w, box.h)
             for position, row in ipairs(popup.rows) do
                 local line: any = row
                 local ry = box.first + (position - 1) * cell.h
+                local top = whole(math.max(whole(ry), whole(box.y) + frame))
+                local band = whole(math.min(whole(ry + cell.h), whole(box.y + box.h) - frame)) - top
                 if line.separator then
-                    raster:rect(whole(box.x + 4), whole(ry + cell.h // 2 - 1), whole(box.w - 8), 1, color.shadow)
-                    raster:rect(whole(box.x + 4), whole(ry + cell.h // 2), whole(box.w - 8), 1, color.light)
+                    -- Dark over light, 2 px in from the frame.
+                    local inset = frame + 2
+                    raster:rect(whole(box.x + inset), whole(top + band // 2 - 1), whole(box.w - 2 * inset), 1, color.shadow)
+                    raster:rect(whole(box.x + inset), whole(top + band // 2), whole(box.w - 2 * inset), 1, color.light)
                 elseif font then
                     local chosen = position == whole(cursor)
                     if chosen then
-                        -- On the first and the last row the highlight gives way
-                        -- to the frame.
-                        local top = whole(math.max(whole(ry), whole(box.y) + 3))
-                        local bottom = whole(math.min(whole(ry + cell.h), whole(box.y + box.h) - 3))
-                        raster:rect(whole(box.x + 3), whole(top), whole(box.w - 6), whole(bottom - top), color.select_bg)
+                        raster:rect(whole(box.x + frame), top, whole(box.w - 2 * frame), band, color.select_bg)
                     end
                     local tint = chosen and color.select_fg or (line.disabled and color.shadow or color.face_text)
-                    local tx, ty = box.x + 2 * cell.w, ry + (cell.h - 15) // 2
+                    local tx, ty = box.x + 2 * cell.w, top + (band - 15) // 2
                     raster:text(whole(tx), whole(ty), line.text, {font = font, color = tint})
                     -- The accelerator is an underlined letter, as on the bar.
                     local runes: any = text_lib.runes(line.text)
@@ -898,8 +904,8 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                     end
                     -- The marks stand in the 8 px column before the text:
                     -- the 7 px check ends 4 px before it, the 6 px bullet too.
-                    if line.checked then pixels.mark_check(raster, whole(tx - 11), whole(ry + (cell.h - 7) // 2), tint)
-                    elseif line.bullet then pixels.mark_bullet(raster, whole(tx - 10), whole(ry + (cell.h - 6) // 2), tint) end
+                    if line.checked then pixels.mark_check(raster, whole(tx - 11), whole(top + (band - 7) // 2), tint)
+                    elseif line.bullet then pixels.mark_bullet(raster, whole(tx - 10), whole(top + (band - 6) // 2), tint) end
                     -- The shortcut ends where the text's cell of air begins
                     -- at the right, the mirror of the text's start.
                     local shortcut = tostring(line.shortcut or "")
@@ -908,7 +914,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                             {font = font, color = tint})
                     end
                     if line.submenu then
-                        pixels.mark_submenu(raster, whole(box.x + box.w - 12), whole(ry + (cell.h - 7) // 2), 7, tint)
+                        pixels.mark_submenu(raster, whole(box.x + box.w - 12), whole(top + (band - 7) // 2), 7, tint)
                     end
                 end
             end
