@@ -56,6 +56,22 @@ local function wrapped(value: any, width: integer, limit: integer): any
     if line ~= "" and #out < limit then out[#out + 1] = line end
     return out
 end
+-- hbar_marks(length, bar, scrollable) -> a horizontal bar's row in cells: ◀,
+-- the track with the thumb from `bar` (the hit test's), ▶; blank when there
+-- is nothing to scroll, as the vertical bar is. One rule for the editor's bar
+-- and the List view's.
+local function hbar_marks(length: integer, bar: any, scrollable: boolean): string
+    if not scrollable or length < 3 then return string.rep(" ", whole(math.max(0, length))) end
+    local marks: any = {}
+    for index = 0, length - 1 do
+        local mark = glyphs.scrollbar.track
+        if index == 0 then mark = glyphs.scrollbar.left
+        elseif index == length - 1 then mark = glyphs.scrollbar.right
+        elseif index >= whole(bar.start) and index < whole(bar.start) + whole(bar.size) then mark = glyphs.scrollbar.thumb end
+        marks[#marks + 1] = mark
+    end
+    return table.concat(marks)
+end
 -- An input's placeholder: grey on the field's own white, not the face's grey —
 -- a face-colored row inside a field reads as a disabled field.
 local placeholder_style = tty.style():foreground(palette.active.shadow):background(palette.active.field)
@@ -334,15 +350,26 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             -- on the desktop and in the explorer. A copy of our own here would mean a third
             -- look of the same icon, diverging on two-line captions.
             local ground = node.disabled and styles.face_dim or styles.field
+            -- The List view has no vertical bar: its field is the whole width.
+            local field_w = item.flow and r.w or r.w - 1
             for row = 0, r.h - 1 do
-                put(r.x, r.y + row, "", r.w - 1, ground)
+                put(r.x, r.y + row, "", field_w, ground)
             end
             for _, cell in ipairs(item.cells or {}) do
                 local look = {room = cell.room, surface = "panel", selected = cell.selected and not node.disabled}
-                if node.small == true then icon_cells.small(canvas, cell.x, cell.y, cell.item, look)
+                if node.small == true or item.flow then icon_cells.small(canvas, cell.x, cell.y, cell.item, look)
                 else icon_cells.cell(canvas, cell.x, cell.y, cell.item, look) end
             end
-            scrollbar(r.x + r.w - 1, r.y, r.h, item.offset, item.page, item.rows_total)
+            if item.flow then
+                -- Its bar is the last row, as the editor's, and only when the
+                -- columns do not fit.
+                if item.hbar then
+                    canvas:put(whole(r.x), whole(r.y + r.h - 1),
+                        styles.face:render(hbar_marks(whole(r.w), item.hbar, whole(item.hbar.limit) > 0)), whole(r.w))
+                end
+            else
+                scrollbar(r.x + r.w - 1, r.y, r.h, item.offset, item.page, item.rows_total)
+            end
         elseif node.kind == "editor" then
             -- The multi-line editor: the plan's rows, a column a cell, a tab
             -- as its spaces; the selection inverted, and without one the
@@ -383,20 +410,8 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 -- thumb from `item.hbar` (the hit test's), ▶; nothing to
                 -- scroll, nothing drawn, as the vertical bar does.
                 local length = whole(r.w) - 1
-                local bar: any = item.hbar
-                local marks: any = {}
-                if whole(item.span) > columns and length >= 3 then
-                    for index = 0, length - 1 do
-                        local mark = glyphs.scrollbar.track
-                        if index == 0 then mark = glyphs.scrollbar.left
-                        elseif index == length - 1 then mark = glyphs.scrollbar.right
-                        elseif index >= whole(bar.start) and index < whole(bar.start) + whole(bar.size) then mark = glyphs.scrollbar.thumb end
-                        marks[#marks + 1] = mark
-                    end
-                else
-                    marks[1] = string.rep(" ", length)
-                end
-                canvas:put(whole(r.x), whole(r.y + page), styles.face:render(table.concat(marks)), length)
+                canvas:put(whole(r.x), whole(r.y + page),
+                    styles.face:render(hbar_marks(length, item.hbar, whole(item.span) > columns)), length)
                 canvas:put(whole(r.x + r.w - 1), whole(r.y + page), styles.face:render(" "), 1)
             end
         elseif node.kind == "text" then

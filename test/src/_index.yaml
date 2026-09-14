@@ -102,15 +102,17 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: The folder window on the SDK (FR-008) — every menu item through update, open or focus, Backspace in both browse modes, the toggles, the context menus, the Options sheet, the four views laid out at 48×16 and 72×22 in both modes, and the window alive in a viewport.
+      comment: The folder window on the SDK (FR-008) — every menu item through update, open or focus, Backspace in both browse modes, the toggles, the context menus, the Options sheet, the four views laid out at 48×16 and 72×22 in both modes, List as column-filled icons with test/shots/folder-list.png, and the window alive in a viewport.
       group: Windows Shell
       suite: butschster_windows
     source: file://explorer_window_test.lua
-    modules: [tty, process, channel, time]
+    modules: [tty, process, channel, time, gfx, fs]
     imports:
       test: wippy.test:test
       ui: butschster.windows.sdk:ui
       app: butschster.windows.sdk:app
+      render: butschster.windows.sdk:render
+      rasters: butschster.windows.shell:rasters
       model: butschster.windows.explorer:model
       explorer_window: butschster.windows.explorer:window
     method: run
@@ -1005,6 +1007,26 @@ entries:
       palette: butschster.windows.shell:palette
       glyphs: butschster.windows.shell:glyphs
 
+  - name: list_view_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: butschster_windows
+      comment: The List view — icons with small and flow = columns fill a column top to bottom, then the next; the plan at two sizes with a partial last column, scrolling by columns (wheel, bar, reveal), the keys, Ctrl/Shift and context, the cells and pixel drawing with probes, and a selection move repainting two rows.
+    source: file://list_view_test.lua
+    method: run
+    modules: [tty, gfx, fs]
+    imports:
+      test: wippy.test:test
+      ui: butschster.windows.sdk:ui
+      cells: butschster.windows.sdk:cells
+      render: butschster.windows.sdk:render
+      rasters: butschster.windows.shell:rasters
+      palette: butschster.windows.shell:palette
+      glyphs: butschster.windows.shell:glyphs
+      pixels: butschster.windows.shell:pixels
+
   - name: notepad_test
     kind: function.lua
     meta:
@@ -1026,3 +1048,8 @@ entries:
       notepad: butschster.windows.viewers:notepad_model
       filedialog: butschster.windows.sdk:filedialog
       files: butschster.windows.viewers:files
+
+  # ─── AntiBug (FR-009 §3): does a funcs call honour the callee's declared actor? ───
+  # A probe with its own `security` block and the same probe without one; the
+  # test calls them as itself and as a narrow caller it builds, and reads who
+  # they ran as and what they could do.

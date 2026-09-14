@@ -15,6 +15,10 @@ local tty = require("tty")
 local process = require("process")
 local channel = require("channel")
 local time = require("time")
+local render = require("render")
+local rasters = require("rasters")
+local gfx = require("gfx")
+local fs = require("fs")
 
 local definition: any = explorer.definition
 local REAL: any = definition.deps
@@ -37,6 +41,14 @@ local function listing(path: any): any
     if path == "drive/app:docs/letters" then
         return {objects = model.files({{name = "a.txt", type = "file", size = 10}},
             "drive/app:docs/letters", "app:docs", "letters", PROGRAMS), title = "app:docs/letters"}
+    end
+    if path == "drive/app:docs/many" then
+        local names = {}
+        for index = 1, 18 do
+            names[index] = {name = string.format("letter %02d.txt", index), type = "file", size = index * 100,
+                modified = 804850000 + index}
+        end
+        return {objects = model.files(names, "drive/app:docs/many", "app:docs", "many", PROGRAMS), title = "app:docs/many"}
     end
     if path == "control" then
         return {objects = model.control({{entry = "app:display", title = "Display", group = {"Settings"},
@@ -530,6 +542,32 @@ local function define_tests()
                     end
                 end
             end
+            finish()
+        end)
+
+        test.it("List is the SDK's column-filled icons: objects run down a column, then the next; shot folder-list.png", function()
+            local state, _, context = start("drive/app:docs/many")
+            act(state, context, menu("view_list"))
+            test.eq(state.view, "list")
+            local tree = definition.view(state, context)
+            local objects = node_of(tree, "objects")
+            test.eq(objects and objects.flow, "columns", "List asks the SDK for columns")
+            test.eq(objects and objects.small, true, "of small icons")
+            local plan = ui.plan(tree, 48, 16, ui.interaction(), {cell = {w = 10, h = 20}, scroll_cols = 2})
+            local item = plan.by_id.objects
+            test.is_true(item.flow == true and item.columns_total >= 2, "18 objects take more than one column")
+            for _, cell in ipairs(item.cells) do
+                local column = (cell.index - 1) // item.lines - item.offset
+                test.eq(cell.x .. "," .. cell.y, (item.rect.x + column * item.column) .. "," .. (item.rect.y + (cell.index - 1) % item.lines),
+                    "top to bottom, then the next column: " .. tostring(cell.index))
+            end
+            local font_files = assert(fs.get("app:system_fonts"))
+            local fonts = {face = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))}
+            local store = rasters.store()
+            store.begin()
+            local placed = assert(render.placement({id = "folder", state_revision = 1, content_state = {sdk = 1, revision = 1,
+                interaction = ui.interaction(), ui = tree}}, {x = 1, y = 1, cols = 48, rows = 16}, {w = 10, h = 20}, fonts, store))
+            assert(assert(fs.get("app:shots")):writefile("folder-list.png", assert(placed.raster:encode("png"))))
             finish()
         end)
 

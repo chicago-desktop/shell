@@ -71,6 +71,37 @@ function ui.icon_shape(width: any, count: any, small: any?): (integer, integer)
     return columns, whole(rows)
 end
 
+-- The List view (`icons` with `small = true, flow = "columns"`, FR-008 §4):
+-- the small icons fill a column top to bottom, then the next one to the
+-- right. A column is as wide as the widest caption plus the glyph, its space
+-- and a cell of air — counted in cells, as the plan has no font (the pixel
+-- caption is narrower and fits) — within these bounds and never wider than
+-- the view.
+local LIST_COLUMN = {least = 8, most = 32}
+
+-- list_shape(items, width, height) -> {column, lines, total, fit, bar}: the
+-- column's width, how many items a column holds, how many columns there are,
+-- how many fit whole, and whether the horizontal bar takes the last row (it
+-- does only when the columns do not fit).
+function ui.list_shape(items: any, width: any, height: any): any
+    local list: any = type(items) == "table" and items or {}
+    local widest = 0
+    for _, entry in ipairs(list) do
+        local caption: any = type(entry) == "table" and (entry.title or entry.text) or entry
+        widest = whole(math.max(widest, #editor.runes(tostring(caption or ""))))
+    end
+    local w, h = whole(math.max(1, whole(width))), whole(math.max(1, whole(height)))
+    local column = whole(math.min(w, math.max(LIST_COLUMN.least, math.min(LIST_COLUMN.most, widest + 3))))
+    local lines = h
+    local total = (#list + lines - 1) // lines
+    local bar = total * column > w and h > 1
+    if bar then
+        lines = h - 1
+        total = (#list + lines - 1) // lines
+    end
+    return {column = column, lines = whole(lines), total = whole(total), fit = whole(math.max(1, w // column)), bar = bar}
+end
+
 -- entry_key(entry, index) -> what a selection set names an entry by: its
 -- `id`, or its 1-based position when it has none.
 function ui.entry_key(entry: any, index: any): any
@@ -675,7 +706,38 @@ local function add(node: any, rect: any, plan: any, interaction: any)
             else interaction.menus[id] = nil end
         end
     end
-    if kind == "icons" then
+    if kind == "icons" and node.flow == "columns" then
+        -- The List view: columns filled top to bottom and scrolled sideways
+        -- by COLUMNS — the wheel, the bar and the keys count them. No
+        -- vertical bar: a column holds as many items as the view has rows.
+        local items = node.items or {}
+        local shape = ui.list_shape(items, rect.w, rect.h)
+        item.flow, item.column, item.lines = true, shape.column, shape.lines
+        item.columns_total, item.fit, item.page, item.bar_cols = shape.total, shape.fit, shape.fit, 0
+        item.selected_index = selected_index(node, items, id ~= nil and interaction.anchors[id] or nil)
+        item.offset = scroll.clamp(id ~= nil and interaction.offsets[id] or 0, shape.total, shape.fit)
+        if item.selected_index > 0 then
+            item.offset = scroll.reveal(item.offset, (item.selected_index - 1) // shape.lines + 1, shape.total, shape.fit)
+        end
+        if id ~= nil then interaction.offsets[id] = item.offset end
+        item.hbar = shape.bar and scroll.bar(item.offset, shape.total, shape.fit, rect.w) or nil
+        item.cells = {}
+        for index, entry in ipairs(items) do
+            local shown = (index - 1) // shape.lines - item.offset
+            local x = rect.x + shown * shape.column
+            -- The last column may be partial: its cells keep what fits, the
+            -- caption cut with "…"; narrower than the glyph and two cells, none.
+            local room = whole(math.min(shape.column - 1, rect.x + rect.w - x))
+            if shown >= 0 and room >= 3 then
+                local y = rect.y + (index - 1) % shape.lines
+                item.cells[#item.cells + 1] = {
+                    index = index, item = entry, x = x, y = y, room = room,
+                    box = {from = x, to = x + room - 1, top = y, bottom = y},
+                    selected = ui.is_selected(item, index),
+                }
+            end
+        end
+    elseif kind == "icons" then
         -- An icon grid, as in Explorer: the scroll unit is a ROW, not
         -- an item and not a line of text. The row is declared here once, and the bar,
         -- the wheel and the keys all count by it.
@@ -1437,13 +1499,26 @@ local function icons_event(item: any, state: any, event: any): any
     local node, rect = item.node, item.rect
     local items = node.items or {}
     local total = #items
-    local offset = scroll.clamp(state.offsets[node.id] or item.offset, whole(item.rows_total), whole(item.page))
+    -- The List view scrolls by COLUMNS: the wheel turns them, and its bar is
+    -- the last row, as the editor's.
+    local rows_total, page = whole(item.rows_total), whole(item.page)
+    if item.flow then rows_total, page = whole(item.columns_total), whole(item.fit) end
+    local offset = scroll.clamp(state.offsets[node.id] or item.offset, rows_total, page)
     if event.action == "wheel" then
-        state.offsets[node.id] = scroll.wheel(offset, event.button, whole(item.rows_total), whole(item.page),
-            node.wheel_step or 1)
+        state.offsets[node.id] = scroll.wheel(offset, event.button, rows_total, page, node.wheel_step or 1)
         return nil
     end
     if not input.pressed(event) then return nil end
+    local bar_row = rect.y + rect.h - 1
+    if item.flow and item.hbar ~= nil and event.y == bar_row and geometry.contains(rect, event.x, event.y) then
+        if item.hbar.limit <= 0 then return nil end
+        local turned = {type = "mouse", action = "press", button = "left", x = event.y, y = event.x}
+        local shifted, capture = scroll.pointer(offset, rows_total, page, {x = bar_row, y = rect.x, w = 1, h = rect.w},
+            nil, turned)
+        state.offsets[node.id] = shifted
+        state.capture = capture and {id = node.id, grab = capture.grab, axis = "columns"} or nil
+        return nil
+    end
     -- The scrollbar, as in a list: `icon_shape` keeps its columns free of
     -- cells, and a press on them scrolls instead of clearing the selection.
     local bar_left = rect.x + rect.w - whole(item.bar_cols or 1)
@@ -1478,6 +1553,8 @@ end
 local function context_at(item: any, state: any, event: any): any
     local node, rect = item.node, item.rect
     if event.x >= rect.x + rect.w - whole(item.bar_cols or 1) then return nil end
+    -- The List view's horizontal bar is no entry's row.
+    if item.flow and item.hbar ~= nil and whole(event.y) == rect.y + rect.h - 1 then return nil end
     local index = 0
     if node.kind == "icons" then
         for _, cell in ipairs(item.cells or {}) do
@@ -1643,7 +1720,12 @@ function ui.event(plan: any, state: any, original: any): any
             if event.action == "release" then state.capture = nil end
             return dragged
         end
-        if item then state.offsets[state.capture.id] = scroll.drag(event.y - item.rect.y - whole(item.header), state.capture.grab, item.bar) end
+        if item and state.capture.axis == "columns" and item.hbar ~= nil then
+            -- The List view's thumb runs along its bottom row.
+            state.offsets[state.capture.id] = scroll.drag(event.x - item.rect.x, state.capture.grab, item.hbar)
+        elseif item then
+            state.offsets[state.capture.id] = scroll.drag(event.y - item.rect.y - whole(item.header), state.capture.grab, item.bar)
+        end
         if event.action == "release" or not item then state.capture = nil end
         return nil
     end
@@ -1818,6 +1900,24 @@ function ui.event(plan: any, state: any, original: any): any
         elseif key == "end" then index = total
         -- With no selection any arrow selects the first icon, as in a list.
         elseif chosen < 1 and moves then index = 1
+        elseif item.flow then
+            -- The List view: ↑/↓ within the column, ←/→ to the same row of
+            -- the next column (its last item when that column is shorter),
+            -- pages by the columns that fit whole.
+            local lines = math.max(1, whole(item.lines))
+            local column, last = (index - 1) // lines, (total - 1) // lines
+            if key == "up" then
+                if (index - 1) % lines > 0 then index = index - 1 end
+            elseif key == "down" then
+                if (index - 1) % lines < lines - 1 then index = index + 1 end
+            elseif key == "left" then
+                if column > 0 then index = index - lines end
+            elseif key == "right" then
+                if column < last then index = index + lines end
+            elseif key == "pgup" then index = index - lines * math.max(1, whole(item.fit))
+            elseif key == "pgdown" then index = index + lines * math.max(1, whole(item.fit))
+            elseif key == "enter" then return {type = "activate", id = node.id, index = index, value = items[index]}
+            else return nil end
         elseif key == "left" then index = index - 1
         elseif key == "right" then index = index + 1
         elseif key == "up" then index = index - columns
@@ -1827,8 +1927,13 @@ function ui.event(plan: any, state: any, original: any): any
         elseif key == "enter" then return {type = "activate", id = node.id, index = index, value = items[index]}
         else return nil end
         index = whole(math.max(1, math.min(total, index)))
-        local row = (index - 1) // columns + 1
-        state.offsets[node.id] = scroll.reveal(item.offset, row, whole(item.rows_total), math.max(1, whole(item.page)))
+        if item.flow then
+            local column = (index - 1) // math.max(1, whole(item.lines)) + 1
+            state.offsets[node.id] = scroll.reveal(item.offset, column, whole(item.columns_total), math.max(1, whole(item.fit)))
+        else
+            local row = (index - 1) // columns + 1
+            state.offsets[node.id] = scroll.reveal(item.offset, row, whole(item.rows_total), math.max(1, whole(item.page)))
+        end
         return chosen_one(node, state, items, index, {type = "select", id = node.id, index = index, value = items[index]})
     elseif node.kind == "text" and key then
         return text_event(item, state, event)

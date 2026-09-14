@@ -312,6 +312,19 @@ current data; `update` changes the model on a component's action.
   on an empty spot of the grid clears the selection (`index = 0`, `value = nil`) — like
   empty space in Explorer. Arrows move over the grid in two dimensions (←/→ across
   items, ↑/↓ by a row), Enter gives `activate`.
+  `small = true` is Small Icons: 16-px pictures, the caption to their right,
+  rows one cell high. `small = true, flow = "columns"` is Explorer's **List**
+  view: the items fill a column top to bottom, then the next one to the right
+  (`ui.list_shape`). A column is as wide as the widest caption plus the glyph,
+  its space and a cell of air (8…32 cells, never wider than the view; a longer
+  caption is cut with "…"), and holds as many items as the view has rows. When
+  the columns do not fit, the last row is a horizontal bar, as the editor's,
+  and **the scroll unit is a COLUMN**: the wheel, the bar and `scroll.reveal`
+  count columns; there is no vertical bar. ↑/↓ move within a column, ←/→ to the
+  same row of the neighbour column (its last item when that column is shorter),
+  Page Up/Down by the columns that fit whole. Selection, `context` and the
+  Ctrl/Shift rules are the grid's; the view is keyed per row, so a selection
+  move repaints the two rows it touches.
   `small = true` is the Small Icons view: 16 px pictures with the caption at
   their right, cells one row high, 15 cells a column (`ui.icon_grid(true)`), the
   same walk, scroll and hits; in cells the glyph, a space and the caption, cut

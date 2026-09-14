@@ -602,7 +602,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                     local caption = tostring((spot.item :: any).title or (spot.item :: any).text or "")
                     local chosen = spot.selected and not node.disabled
                     local ink = chosen and color.select_fg or (node.disabled and color.shadow or color.field_text)
-                    if node.small == true then
+                    if node.small == true or item.flow then
                         -- Small Icons: the 16 px picture two pixels in, the
                         -- caption 3 px after it on the same row, the band
                         -- hugging the caption as in the large grid.
@@ -630,7 +630,15 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                         end
                     end
                 end
-                pixels.scrollbar(raster, x + w - bar_w, y, bar_w, h, item.bar, cell.h, math.min(bar_w, cell.h))
+                if item.flow then
+                    -- The List view scrolls sideways: its bar is the last
+                    -- row, as the editor's, and only when the columns do not fit.
+                    if item.hbar then
+                        pixels.hscrollbar(raster, x, y + (rect.h - 1) * cell.h, w, cell.h, item.hbar, cell.w, cell.w)
+                    end
+                else
+                    pixels.scrollbar(raster, x + w - bar_w, y, bar_w, h, item.bar, cell.h, math.min(bar_w, cell.h))
+                end
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "editor" then
                 -- The multi-line editor: white under a sunken edge, the plan's
@@ -989,7 +997,9 @@ end
 local function item_sig(item: any, plan: any, interaction: any): string
     local node: any = item.node
     local id = node.id
-    local lines = LINES[node.kind] == true
+    -- The List view is keyed per row too (`cells_sig`): a selection move
+    -- repaints the two rows it touches, not the whole view.
+    local lines = LINES[node.kind] == true or (node.kind == "icons" and item.flow == true)
     local armed: any = interaction.armed
     local capture: any = interaction.capture
     local menus: any = interaction.menus or {}
@@ -1003,7 +1013,7 @@ local function item_sig(item: any, plan: any, interaction: any): string
         sig(item.rect),
         tostring(item.offset), tostring(item.header), lines and "" or tostring(item.selected_index),
         sig(item.bar), sig(item.px), tostring(item.current), tostring(item.bar_cols),
-        sig(item.spans), sig(item.frame), sig(item.popup), sig(item.cells),
+        sig(item.spans), sig(item.frame), sig(item.popup), lines and "" or sig(item.cells),
         sig(item.hbar), tostring(item.left), tostring(item.selecting),
         id ~= nil and interaction.focus == id and "F" or "",
         id ~= nil and armed ~= nil and armed.id == id and (armed.inside and "A" or "a") or "",
@@ -1021,6 +1031,14 @@ local function line_sig(item: any, row: integer): string
     local entries: any = node.kind == "list" and (node.items or {}) or (node.rows or {})
     return tostring(index) .. ":" .. sig(entries[index]) .. (ui.is_selected(item, index) and ":selected" or "")
 end
+-- The cells the List view draws in one row, with their selection.
+local function cells_sig(item: any, row: integer): string
+    local parts: any = {}
+    for _, cell in ipairs(item.cells or {}) do
+        if whole(cell.y) == row then parts[#parts + 1] = sig(cell) end
+    end
+    return table.concat(parts, "|")
+end
 local function row_keys(plan: any, interaction: any, rows: integer, base: string): any
     local common: any = {}
     for index, item in ipairs(plan.items) do common[index] = item_sig(item, plan, interaction) end
@@ -1032,7 +1050,8 @@ local function row_keys(plan: any, interaction: any, rows: integer, base: string
             local frame: any = item.frame
             if row >= r.y and row <= r.y + r.h - 1 then
                 parts[#parts + 1] = common[index]
-                if LINES[item.node.kind] then parts[#parts + 1] = line_sig(item, row) end
+                if LINES[item.node.kind] then parts[#parts + 1] = line_sig(item, row)
+                elseif item.flow then parts[#parts + 1] = cells_sig(item, row) end
                 -- An editor's text row: its runes, their selection, the caret on it.
                 if item.node.kind == "editor" then parts[#parts + 1] = sig((item.visible or {})[row - r.y + 1]) end
             elseif frame and row >= frame.y and row <= frame.y + frame.h - 1 then

@@ -358,13 +358,13 @@ local function details_table(state: any): any
     return {kind = "table", id = "objects", columns = columns, rows = rows, selected = state.selection}
 end
 
--- The objects in the chosen view. List is Small Icons for now: the SDK has no
--- column-filled list, and Small Icons is the nearer of the two.
+-- The objects in the chosen view: Large and Small Icons are the grid, List
+-- the column-filled icons (`flow = "columns"`), Details the table.
 local function body(state: any): any
     if state.failure then return {kind = "label", alert = true, wrap = true, text = state.failure} end
     if state.view == "details" then return details_table(state) end
     return {kind = "icons", id = "objects", items = icon_items(state), selected = state.selection,
-        small = state.view ~= "large" or nil}
+        small = state.view ~= "large" or nil, flow = state.view == "list" and "columns" or nil}
 end
 
 local function right_field(state: any): string

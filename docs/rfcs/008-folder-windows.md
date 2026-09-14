@@ -2,10 +2,10 @@
 
 **Genre:** component specification. Reader: the implementer, an agent or a
 human.
-**Status:** implemented 2026-09-14 as 57adaae. Deviations: List is Small
-Icons until the SDK has a column-filled list; the toolbar buttons without
-pictures in the pack (Cut … the four views) carry captions, and a narrow window
-clips the last ones.
+**Status:** implemented 2026-09-14 as 57adaae; List is the SDK's
+column-filled `icons` (`flow = "columns"`) since 2026-09-14. Deviation: the
+toolbar buttons without pictures in the pack (Cut … the four views) carry
+captions, and a narrow window clips the last ones.
 **Proposed** 2026-09-13. Decision of the owner: "bring the file
 explorer (My Computer) to the Windows 95 look: there were fewer buttons and
 every folder opened in a new window".
@@ -107,9 +107,8 @@ address row and the history are gone.
   right, rows 1 cell high, several columns (`icons` with `small = true`; add
   the option to the component if it lacks it).
 - **List** — small icons in columns filled top to bottom, then the next
-  column, scrolling horizontally (`list` with columns, or `icons` with
-  `columns = "fill"`; whichever is the smaller change to the SDK, decided in
-  the task).
+  column, scrolling horizontally by columns (`icons` with `small = true,
+  flow = "columns"`; see docs/sdk.md).
 - **Details** — the SDK `table` with `Name` (small icon + name), `Size`
   (`133KB`, empty for folders), `Type` (`File Folder`, `Text Document`, the
   handling program's title with `Document` — what Windows showed for a
