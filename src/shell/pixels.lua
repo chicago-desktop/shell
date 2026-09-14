@@ -133,6 +133,23 @@ function pixels.frame_edge(r: any, x: any, y: any, w: any, h: any)
     edge_pair(r, x, y, w, h, color.face, color.frame)
     edge_pair(r, whole(x) + 1, whole(y) + 1, whole(w) - 2, whole(h) - 2, color.light, color.shadow)
 end
+-- The Windows 95 size grip (DFCS_SCROLLSIZEGRIP): a GRIP×GRIP square of face
+-- whose bottom-right pixel is (right, bottom), crossed by three diagonals
+-- running from its bottom-left to its top-right. Counted from the corner,
+-- each is two dark gray lines under a white one, with a line of face between
+-- them and at the corner itself.
+pixels.GRIP = 13
+function pixels.size_grip(r: any, right: any, bottom: any)
+    local x, y = whole(right), whole(bottom)
+    r:rect(x - pixels.GRIP + 1, y - pixels.GRIP + 1, pixels.GRIP, pixels.GRIP, color.face)
+    for step = 1, 11 do
+        local phase = step % 4
+        local tint: any = phase == 3 and color.light or (phase ~= 0 and color.shadow or nil)
+        if tint ~= nil then
+            for across = 0, step do r:rect(x - across, y - step + across, 1, 1, tint) end
+        end
+    end
+end
 function pixels.focus_rect(r: any, x: any, y: any, w: any, h: any)
     x, y, w, h = whole(x), whole(y), whole(w), whole(h)
     if w < 2 or h < 2 then return end

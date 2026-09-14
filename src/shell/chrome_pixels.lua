@@ -743,8 +743,12 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
             x = side == "left" and window.x or window.x + w - 1,
             y = window.y + head_rows, cols = 1, rows = body}
     end
+    -- A resizable window's frame ends in the Windows 95 size grip, inside the
+    -- raised edge, over the last two cells of the bottom row: exactly where
+    -- the base starts a resize drag, by the same `resizable ~= false`.
+    local grip = window.resizable ~= false
     local foot_id = id .. ":foot"
-    local foot, foot_dirty = store.take(foot_id, w, 1, cell, inside)
+    local foot, foot_dirty = store.take(foot_id, w, 1, cell, tostring(inside) .. (grip and "\30grip" or ""))
     if foot_dirty then
         local width, height = w * cell.w, cell.h
         foot:fill(inside)
@@ -756,6 +760,7 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
         foot:rect(width - 1, 1, 1, height - 1, color.shadow)
         foot:rect(1, height, width, 1, color.frame)
         foot:rect(width, 1, 1, height, color.frame)
+        if grip then pixels.size_grip(foot, width - 2, height - 2) end
     end
     out[#out + 1] = {id = foot_id, raster = foot, x = window.x, y = window.y + h - 1, cols = w, rows = 1}
 

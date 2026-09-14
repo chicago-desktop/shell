@@ -275,6 +275,66 @@ local function define_tests()
             end
         end)
 
+        test.it("ends a resizable window's frame in the Windows 95 size grip, inside the edge; a fixed one has none", function()
+            local function probe(raster: any, x: integer, y: integer): string
+                local part = gfx.raster(1, 1)
+                part:blit(raster, 2 - x, 2 - y)
+                return assert(part:encode("png"))
+            end
+            local function swatch(colour: string): string
+                local part = gfx.raster(1, 1)
+                part:fill(colour)
+                return assert(part:encode("png"))
+            end
+            local FACE, WHITE, DARK = swatch("#c0c0c0"), swatch("#ffffff"), swatch("#808080")
+            local function foot(painted: any, id: string): any
+                for _, item in ipairs(painted.placements) do
+                    if item.id == "win:" .. id .. ":foot" then return item.raster end
+                end
+                return nil
+            end
+            for _, cell in ipairs({{10, 20}, {8, 16}}) do
+                local cw, ch = cell[1], cell[2]
+                chrome_pixels.use_cell_size(cw, ch)
+                local state = {width = 80, height = 24, bottom = 23, clock = "12:00", items = {}, windows = {
+                    {id = "free", x = 2, y = 3, w = 20, h = 8, title = "Free"},
+                    {id = "fixed", x = 40, y = 3, w = 20, h = 8, title = "Fixed", resizable = false},
+                }, focused_id = "free"}
+                local painted = chrome_pixels.paint(state, cw, ch)
+                local free, fixed = foot(painted, "free"), foot(painted, "fixed")
+                test.not_nil(free)
+                test.not_nil(fixed)
+                -- The grip's corner is the last pixel inside the 2 px raised
+                -- edge; a point is (left of it, above it).
+                local right, bottom = 20 * cw - 2, ch - 2
+                local label = cw .. "x" .. ch .. ": "
+                local function sees(raster: any, dx: integer, dy: integer, expected: string, what: string)
+                    test.eq(probe(raster, right - dx, bottom - dy), expected, label .. what .. " at -" .. dx .. ",-" .. dy)
+                end
+                sees(free, 0, 0, FACE, "the corner itself is face")
+                sees(free, 0, 1, DARK, "the first line is dark")
+                sees(free, 1, 0, DARK, "along the whole diagonal")
+                sees(free, 0, 2, DARK, "two dark lines")
+                sees(free, 0, 3, WHITE, "under a white one")
+                sees(free, 3, 0, WHITE, "a white one")
+                sees(free, 0, 4, FACE, "a line of face between")
+                sees(free, 2, 3, DARK, "the second line")
+                sees(free, 0, 7, WHITE, "the second's white")
+                sees(free, 4, 4, FACE, "the grip's own face over the window's white")
+                sees(free, 11, 0, WHITE, "the third's white reaches the grip's left, in the second-to-last cell")
+                sees(free, 5, 6, WHITE, "across its middle")
+                sees(free, 0, 12, FACE, "and nothing beyond it")
+                -- On a fixed window these points are the frame's plain face.
+                for _, point in ipairs({{0, 1}, {1, 0}, {0, 3}, {3, 0}, {0, 7}, {11, 0}, {1, 10}}) do
+                    sees(fixed, point[1], point[2], FACE, "a fixed window has no grip")
+                end
+                -- The same window made fixed loses its grip: the foot is repainted.
+                state.windows[1].resizable = false
+                sees(foot(chrome_pixels.paint(state, cw, ch), "free"), 0, 1, FACE, "made fixed, the grip is gone")
+            end
+            chrome_pixels.use_cell_size(10, 20)
+        end)
+
         test.it("the taskbar and tall menu items are pressable over their whole drawn height", function()
             for _, cell in ipairs({{10, 20}, {12, 23}, {8, 16}}) do
                 chrome_pixels.use_cell_size(cell[1], cell[2])
