@@ -124,6 +124,51 @@ Behaviour:
   on its own in the runtime; its events go to a pid that is gone.
 - The window keeps the last results in its model only; nothing is stored.
 
+## 4a. Scan targets beyond the registry (decision of the owner, 2026-09-14)
+
+"It feels like the tests of wippy itself, of kickside and so on are
+missing." They are: the registry holds only the application's own suites
+(§5); Hub modules publish without their tests, and the runtime's tests are
+Go. So `Scan in:` lists **targets**, and a target is one of three kinds:
+
+- **`registry`** — the running application's test entries (§2–§4), the
+  default target `This computer`.
+- **`wippy`** — a module working copy on disk: the scan runs the module's
+  tests the way `make test` does (`cd <dir>/test && <wippy> test --host
+  <host>`, the binary and host from the target's declaration; the local
+  runtime build by default, `~/repos/wippy/runtime/dist/wippy-linux-amd64`)
+  as a child process through the `exec` module, and parses its output
+  line by line into cases (the runner's text lines — the implementer reads
+  `wippy/test/display.lua` for the exact forms of a passed, failed and
+  skipped case, of a suite header and of the final counts; if the runner has
+  a machine-readable mode, use it instead of parsing).
+- **`go`** — a Go module: `go test -json ./...` in the directory, parsed
+  from its event stream (`Action` = `run` / `pass` / `fail` / `skip` /
+  `output`, `Package`, `Test`, `Elapsed`); a failed test's `Infected by` is
+  the last `output` lines of that test.
+
+Targets are **registry entries of the application**, found like widgets and
+image packs: `meta.type: windows.antibug_target` with `meta.title`,
+`meta.kind` (`wippy` | `go`), `meta.dir` (absolute), `meta.wippy` (the
+binary, optional), `meta.host` (optional), `meta.order`. The stand declares
+four: `Wippy runtime` (go, `~/repos/wippy/runtime`), `tui-desktop` (wippy,
+`~/repos/wippy/kickside-module`), `Windows shell` (wippy,
+`~/repos/wippy/windows-module`), and the registry target needs no entry.
+Rights: `exec` for the runner (§3), on the declared directories only if the
+policy can name them; the window itself never execs.
+
+The child runs for minutes: its output arrives through a channel the
+window watches, one case at a time into the findings and the log, the
+progress gauge counting cases against the previous scan's total of that
+target (the first scan of a target shows entries done / entries known,
+i.e. the gauge fills only at the end — say `first scan` in the progress
+row). `Stop` kills the child (`exec` gives the handle) and marks the target
+`Stopped`. A target whose command cannot start (no binary, no directory) is
+one failed finding with the reason.
+
+`Scan in: All targets` runs them one after another; the Reports tab keeps
+one log with a header per target.
+
 ## 5. Where the tests come from on this stand
 
 The stand's own `app_*` suites (`src/app/*/_index.yaml`, `meta.type: test`),
