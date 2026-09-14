@@ -457,10 +457,12 @@ initial copy of the cell size.
 `init(args, context)` is called once. `view(model, context)` does not read
 files and does not send messages. `update(model, action, context)` handles
 actions, including `resize`, `tick`, `close` (the window is asked to close — the title
-bar ×, Close, another window's `desktop.close`; answering `false` refuses it and the
-window stays open, as Notepad does to ask "save changes?" and then closes with
-`context.close()`; anything else closes, and dispose runs; `app.refuses_close` is the
-rule — and a refusal is told to the compositor, `desktop.close{refused = true}` from the
+bar ×, Close, another window's `desktop.close`; calling `context.stay()` while answering
+refuses it and the window stays open, as Notepad does to ask "save changes?" and then
+closes with `context.close()`; without `stay()` it closes whatever `update` returns —
+`false`, `nil` or `true` — because `false` only means "nothing changed" and many windows
+answer it to every action they do not handle; `close()` wins over `stay()`; dispose runs;
+`app.refuses_close` is the rule — and a refusal is told to the compositor, `desktop.close{refused = true}` from the
 window's own process, so it drops the pending request without its "did not close"
 notice and a later × asks again) and `key` — a key that no component
 took (`key`, `key_type`, `alt`, `ctrl`, `shift`): that is how windows close on Esc and
@@ -481,7 +483,7 @@ keeps the picture the window was opened with. Both travel with every published f
 (`app.frame_meta(definition, model, context) -> title, image`, the pure half a test can
 call); the compositor applies them to the window record and repaints the title row.
 `dispose(model, context)` releases resources on a normal close. `context`
-contains `args`, `width`, `height`, `native`, `window_id`, `close()`, `after(duration, tag)`,
+contains `args`, `width`, `height`, `native`, `window_id`, `close()`, `stay()`, `after(duration, tag)`,
 and also `watch(ch)` and `unwatch(ch)` — always, in a test too:
 `app.context({width = …, height = …})` builds the same context without a loop, and
 `app.dispatch(definition, model, context, action)` runs one action the way the loop

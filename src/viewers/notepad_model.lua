@@ -454,17 +454,17 @@ function notepad.view(state: any, context: any): any
     }}
 end
 
--- update(state, action, context) -> whether to redraw; for `close`, false
--- refuses it (C1).
+-- update(state, action, context) -> whether to redraw; a `close` is refused
+-- with `context.stay()` (C1).
 function notepad.update(state: any, action: any, context: any): boolean
     if type(action) ~= "table" then return false end
     -- The title bar's ×, Close or another window's `desktop.close`: a changed
-    -- document refuses and asks, as Exit does, and the answer closes the
-    -- window with `context.close()`; an unchanged one closes at once.
+    -- document stays and asks, as Exit does, and the answer closes the window
+    -- with `context.close()`; an unchanged one closes at once.
     if action.type == "close" then
         if editor.dirty(document_of(context)) then
-            gate(state, context, "exit")
-            return false
+            context.stay()
+            return gate(state, context, "exit")
         end
         return true
     end

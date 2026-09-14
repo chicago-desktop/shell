@@ -37,7 +37,8 @@ when repairing an older custom window.
    Esc, refresh on F5), `{type = "channel"}` for a channel registered with
    `context.watch(ch)` (`context.unwatch(ch)` stops; a closed channel is
    dropped by itself), `resize`, `tick` and `close` (delivered before the loop
-   exits: release resources, it cannot be cancelled). Return `false` from
+   exits: release resources; the window refuses it only by calling
+   `context.stay()` while answering, whatever `update` returns). Return `false` from
    `update` when nothing changed to skip the redraw. Give every
    interactive control a stable unique ID. Keep callbacks and resource handles
    out of `view`'s tree. Handle service failures as visible states. Extend the

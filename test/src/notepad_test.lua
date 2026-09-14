@@ -407,10 +407,24 @@ local function define_tests()
         end)
 
         test.it("the title bar's close asks for a changed document: Yes saves and closes, No closes, Cancel stays", function()
+            -- A refusal is `context.stay()` called while answering `close`;
+            -- what `update` returns does not matter (C1). The close goes
+            -- through the SDK's own rule, and the window must have stayed
+            -- exactly when that rule refused.
             local function refuses(state: any, context: any): boolean
-                return app.refuses_close({update = function(model: any, action: any, ctx: any): any
+                local calls: any = {stay = 0}
+                local stay = context.stay
+                test.eq(type(stay), "function", "the context can stay")
+                context.stay = function()
+                    calls.stay = calls.stay + 1
+                    stay()
+                end
+                local refused = app.refuses_close({update = function(model: any, action: any, ctx: any): any
                     return notepad.update(model, action, ctx)
                 end}, state, context)
+                context.stay = stay
+                test.eq(refused, calls.stay > 0, "refused exactly when the window stayed")
+                return refused
             end
             local clean, clean_context = opened({[DRIVE .. "/a.txt"] = "alpha"}, files.encode(DRIVE, "/a.txt"))
             test.is_false(refuses(clean, clean_context), "an unchanged document closes at once")

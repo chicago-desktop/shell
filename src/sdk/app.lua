@@ -13,8 +13,10 @@
 --     `{type = "key"}` — that is how windows close on Esc and refresh on F5;
 --     `definition.close_on_escape = true` closes the window on an Esc that
 --     `update` did not take (returned false);
---   * `close` is delivered as an action; `update` answering false keeps the
---     window open (a close the window refuses), anything else ends the loop.
+--   * `close` is delivered as an action; the window keeps itself open only by
+--     calling `context.stay()` while answering it (a close the window
+--     refuses) — `update`'s answer does not count, since `false` there means
+--     "nothing changed" — and anything else ends the loop.
 --
 -- The loop's mutable state lives in TABLES (`loop`, `context`), not in local
 -- variables, and this is not a matter of style. In go-lua (wippy 0.3.35a), after the first error
@@ -56,8 +58,8 @@ end
 -- context(fields) -> the context `init`, `view` and `update` receive.
 --
 -- The loop builds its own with it, and a test builds one the same way, so a
--- window calls `context.watch`, `context.after` and `context.close` without
--- asking first whether they exist. `fields` gives `args`, `width`, `height`,
+-- window calls `context.watch`, `context.after`, `context.close` and
+-- `context.stay` without asking first whether they exist. `fields` gives `args`, `width`, `height`,
 -- `native`, `window_id`, `cell_w` and `cell_h`. `watched` and `timers` are the lists the loop
 -- selects on; a test reads them to see what the window asked for.
 -- `scroll_cols` is the scrollbar width the plan reserves: in a native window
@@ -67,7 +69,7 @@ end
 function app.context(fields: any?): any
     local given: any = type(fields) == "table" and fields or {}
     local context: any = {args = given.args, width = given.width or 1, height = given.height or 1,
-        native = given.native == true, closing = false, failure = nil, window_id = given.window_id,
+        native = given.native == true, closing = false, staying = false, failure = nil, window_id = given.window_id,
         scroll_cols = given.native == true and widgets.scroll_cols(given.cell_w) or 1,
         cell = given.native == true and (tonumber(given.cell_w) or 0) > 0 and (tonumber(given.cell_h) or 0) > 0
             and {w = given.cell_w, h = given.cell_h} or nil,
@@ -76,6 +78,10 @@ function app.context(fields: any?): any
     -- state, one table for the window's life.
     context.interaction = given.interaction or ui.interaction()
     function context.close() context.closing = true end
+    -- stay() — called while answering `{type = "close"}`: the window refuses
+    -- the close and stays open (`app.refuses_close`). Outside that answer it
+    -- means nothing, and `close()` wins over it.
+    function context.stay() context.staying = true end
     -- editor(id) -> the document of the multi-line `editor` with that id,
     -- for `sdk:editor`'s functions (`editor.set`, `editor.text`, `find`,
     -- `undo`, the clipboard's `selection` and `replace_selection`). Asked
@@ -196,15 +202,19 @@ end
 -- refuses_close(definition, model, context) -> whether the window stays open
 --
 -- The compositor's `close` is a request (the title bar ×, Close, another
--- window's `desktop.close`): `update` gets `{type = "close"}`, and `false`
--- means "not now" — Notepad asks to save first and closes later with
--- `context.close()`. Anything else closes, and so does a window that called
--- `context.close()` while answering or that is showing its failure tree (it has
--- no update to ask). Shutdown and a forced close do not wait for the answer.
+-- window's `desktop.close`): `update` gets `{type = "close"}`, and the window
+-- says "not now" by calling `context.stay()` — Notepad asks to save first and
+-- closes later with `context.close()`. What `update` returns does not count:
+-- `false` is "nothing changed, do not draw", and a window answering it to every
+-- action it does not handle would refuse every close. Without `stay()` the
+-- window closes, and so does one that called `context.close()` while answering
+-- or that is showing its failure tree (it has no update to ask). Shutdown and a
+-- forced close do not wait for the answer.
 function app.refuses_close(definition: any, model: any, context: any): boolean
     if context.failure or not definition.update then return false end
-    local verdict = guarded(context, "update", definition.update, model, {type = "close"}, context)
-    return verdict == false and not context.closing and not context.failure
+    context.staying = false
+    guarded(context, "update", definition.update, model, {type = "close"}, context)
+    return context.staying == true and not context.closing and not context.failure
 end
 
 -- main(definition) -> the `main` a window entry names. A window ends with
