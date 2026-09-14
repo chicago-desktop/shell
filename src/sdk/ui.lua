@@ -1470,7 +1470,8 @@ local function icons_event(item: any, state: any, event: any): any
     return nil
 end
 -- context_at(item, state, event) -> the `context` of a right press on a
--- list, a table or an icon grid: the entry under the pointer (`index` 0 and no
+-- list, a table, a tree or an icon grid: the entry under the pointer (a tree's
+-- visible row; `index` 0 and no
 -- `value` on the empty field) and the cell, where the window opens its menu
 -- (`ui.context_menu`). The scroll bar and a table's header have none. The
 -- press takes the focus, as a left one does.
@@ -1708,8 +1709,8 @@ function ui.event(plan: any, state: any, original: any): any
         if item.node.kind == "button" and item.node.id and event.action == "press" and event.button == "right" then
             return {type = "context", id = item.node.id}
         end
-        if (item.node.kind == "list" or item.node.kind == "table" or item.node.kind == "icons") and item.node.id
-            and event.action == "press" and event.button == "right" then
+        if (item.node.kind == "list" or item.node.kind == "table" or item.node.kind == "icons" or item.node.kind == "tree")
+            and item.node.id and event.action == "press" and event.button == "right" then
             return context_at(item, state, event)
         end
         -- Only what can hold the focus takes it. Otherwise a passive view with an `id`

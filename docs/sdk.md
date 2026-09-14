@@ -200,7 +200,8 @@ current data; `update` changes the model on a component's action.
   A right press is `{type = "context", id, index, value, x, y}`: the entry under
   the pointer (`index` 0 and no `value` on the empty field) and the cell, where
   the window opens its `ui.context_menu`; it takes the focus, and the scroll bar
-  and a table's header have none. Tables and icon grids say it the same way.
+  and a table's header have none. Tables, trees (the visible row) and icon grids
+  say it the same way.
   `selected` is a 1-based row number **or an item ID** (`{id = …}` on the element):
   that way the selection holds on to the item when new data shifts the rows.
   The scrollbar is part of the list's rectangle, flush right: one column in

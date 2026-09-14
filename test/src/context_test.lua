@@ -87,6 +87,17 @@ local function define_tests()
             local grid = ui.plan({kind = "icons", id = "grid", items = items}, 38, 8, grid_state)
             test.eq(ui.event(grid, grid_state, press(13, 1, "right")).index, 2)
             test.eq(ui.event(grid, grid_state, press(25, 5, "right")).index, 0, "between the icons")
+            -- A tree too, with its visible row under the pointer: aICQ's contact list.
+            local tree_state = ui.interaction()
+            local tree_plan = ui.plan({kind = "tree", id = "folders", rows = {
+                {id = "a", label = "A", depth = 0, has_children = true, expanded = true, kind = "folder"},
+                {id = "b", label = "B", depth = 1, has_children = false, kind = "entry"},
+            }}, 20, 5, tree_state)
+            local on_child = ui.event(tree_plan, tree_state, press(6, 2, "right"))
+            test.eq(on_child and on_child.type, "context")
+            test.eq(on_child and on_child.value and on_child.value.id, "b", "the row under the pointer")
+            test.eq(tree_state.focus, "folders", "it takes the focus")
+            test.eq(ui.event(tree_plan, tree_state, press(6, 5, "right")).index, 0, "the tree's empty field")
         end)
 
         test.it("a context menu floats at its cell, taking no room, and is open while the tree carries it", function()
