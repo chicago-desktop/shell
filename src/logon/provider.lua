@@ -56,6 +56,21 @@ function provider.configured(): (any, any)
     return {func = func, store = store}, nil
 end
 
+-- unvouched_refusal(auth, config, config_error) -> reason | nil
+--
+-- A terminal host can let a person in without asking who they are
+-- (`terminal.ssh` with `auth: logon`), and says so in the session's context:
+-- `terminal.auth` is "none". Then the logon is the only door. A shell that
+-- would come up without one — logon not configured, or not permitted — must
+-- not open a desktop under its own account to whoever connected; on the
+-- machine's own terminal (no `terminal.auth`) and behind a key it still may.
+function provider.unvouched_refusal(auth: any, config: any, config_error: any): any
+    if auth ~= "none" or config ~= nil then return nil end
+    local why = config_error ~= nil and tostring(config_error)
+        or ("the logon is not configured (" .. provider.FUNC_ENV .. ", " .. provider.STORE_ENV .. ")")
+    return "this desktop was reached without a key and cannot ask who you are: " .. why
+end
+
 -- authenticate(config, login, password) -> identity | nil, reason
 --
 -- identity = {actor, scope, context = {user_id, user_name}} — the form that
@@ -65,6 +80,30 @@ function provider.authenticate(config: any, login: any, password: any): (any, an
         login = tostring(login or ""),
         password = tostring(password or ""),
     })
+    local identity, why = provider.redeem(config, answer, err)
+    return identity, why
+end
+
+-- authenticate_key(config, key, call?) -> identity | nil, reason
+--
+-- The terminal host saw the client prove it holds this account key and put it
+-- in the session's context (`terminal.key`); the application's logon function
+-- turns it into the owner's session, or says why not — and then the logon
+-- screen asks as usual. `call` stands in for `funcs.new():call` in tests.
+function provider.authenticate_key(config: any, key: any, call: any?): (any, any)
+    if type(key) ~= "string" or key == "" then return nil, "no SSH key" end
+    local invoke: any = call or function(name: any, args: any): (any, any)
+        local answer, err = funcs.new():call(tostring(name), args)
+        return answer, err
+    end
+    local answer, err = invoke(tostring(config.func), {ssh_key = key})
+    local identity, why = provider.redeem(config, answer, err)
+    return identity, why
+end
+
+-- redeem(config, answer, err) -> identity | nil, reason: the logon function's
+-- answer turned into an actor and a scope by the token store.
+function provider.redeem(config: any, answer: any, err: any): (any, any)
     if type(answer) ~= "table" then
         return nil, "the logon function did not answer: " .. tostring(err)
     end

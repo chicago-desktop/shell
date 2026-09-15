@@ -59,6 +59,8 @@ entries:
         path: .meta.target_db
       - entry: butschster.windows.migrations:03_settings
         path: .meta.target_db
+      - entry: butschster.windows.migrations:04_layout_per_user
+        path: .meta.target_db
 
   # There is NO font folder here, and that is not an omission.
   # `ns.requirement` writes a field into the entry, and a process does not
@@ -126,6 +128,9 @@ entries:
     method: main
     modules:
       - channel
+      # terminal.auth: whether the terminal host let this person in without
+      # asking who they are.
+      - ctx
       - env
       # The font arrives as bytes through fs, and the cell size is asked of
       # gfx: the mechanics entry does not declare them, so the shell asks.

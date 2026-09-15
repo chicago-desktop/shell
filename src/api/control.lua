@@ -12,10 +12,15 @@
 -- does not answer" and "the shell is not running" are different things. The
 -- second is normal: the layout can be edited with the shell shut down too,
 -- and that must not be called a refusal.
+--
+-- There may be several shells at once: a terminal.ssh host gives every
+-- connection its own desktop, under `name`, `name.2` … (window_api's rule).
+-- A question goes to the first one running; a refresh goes to every one.
 
 local channel = require("channel")
 local process = require("process")
 local time = require("time")
+local desktop = require("desktop")
 
 local control = {}
 
@@ -63,43 +68,59 @@ local function await(budget)
     end
 end
 
--- call(topic, body) -> (answer, nil, running) | (nil, reason, running)
---
--- The third value is whether the shell was running at all. The layout
--- handler needs it so as not to pass off a shut-down shell as a refusal.
-function control.call(topic, body)
-    local pid, lerr = process.registry.lookup(control.SERVICE_NAME)
-    if not pid then
-        return nil, "the shell is not running (" .. tostring(lerr)
-            .. "): run `wippy run --host butschster.windows:terminal windows`", false
-    end
-
-    body = type(body) == "table" and body or {}
-    body.reply_to = process.pid()
-
-    local sent, serr = process.send(pid, topic, body)
-    if not sent then
-        return nil, "could not deliver the command to the shell: " .. tostring(serr), true
-    end
-
-    local answer, aerr = await(BUDGET)
-    if not answer then return nil, aerr, true end
-    if answer.ok == false then
-        return nil, tostring(answer.error or "the shell refused without a reason"), true
-    end
-    return answer, nil, true
+-- desktops() -> {{name, pid}, …}: the shell desktops running now.
+function control.desktops()
+    return desktop.desktops(control.SERVICE_NAME)
 end
 
--- refresh() -> {refreshed, error}
+local function ask(pid, topic, body)
+    local payload = {}
+    for key, value in pairs(type(body) == "table" and body or {}) do payload[key] = value end
+    payload.reply_to = process.pid()
+
+    local sent, serr = process.send(pid, topic, payload)
+    if not sent then
+        return nil, "could not deliver the command to the shell: " .. tostring(serr)
+    end
+    local answer, aerr = await(BUDGET)
+    if not answer then return nil, aerr end
+    if answer.ok == false then
+        return nil, tostring(answer.error or "the shell refused without a reason")
+    end
+    return answer, nil
+end
+
+-- call(topic, body) -> (answer, nil, running) | (nil, reason, running)
+--
+-- The third value is whether a shell was running at all. The layout
+-- handler needs it so as not to pass off a shut-down shell as a refusal.
+function control.call(topic, body)
+    local first = control.desktops()[1]
+    if not first then
+        return nil, "the shell is not running: run `wippy run --host butschster.windows:terminal windows`", false
+    end
+    local answer, err = ask(tostring(first.pid), topic, body)
+    return answer, err, true
+end
+
+-- refresh() -> {refreshed, desktops, reason}
 --
 -- Neither a refusal nor an exception: the layout is already written, and a
 -- failed re-read is a separate fact that the handler must name without
 -- passing off the write as failed. A shut-down shell is not an error at all.
+-- Every desktop re-reads: one that did not would show the old layout.
 function control.refresh()
-    local answer, err, running = control.call("desktop.refresh", {})
-    if answer then return {refreshed = true} end
-    if not running then return {refreshed = false, reason = "the shell is not running"} end
-    return {refreshed = false, reason = tostring(err)}
+    local running = control.desktops()
+    if #running == 0 then return {refreshed = false, reason = "the shell is not running"} end
+    local failed = {}
+    for _, found in ipairs(running) do
+        local answer, err = ask(tostring(found.pid), "desktop.refresh", {})
+        if not answer then failed[#failed + 1] = found.name .. ": " .. tostring(err) end
+    end
+    if #failed > 0 then
+        return {refreshed = false, desktops = #running, reason = table.concat(failed, "; ")}
+    end
+    return {refreshed = true, desktops = #running}
 end
 
 return control

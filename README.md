@@ -368,6 +368,28 @@ cleanup but like broken icon deletion.
 along with it. A cascade would carry away icons the user had put into it, and
 there would be nothing to restore them from; the handler's answer names the number moved out.
 
+**The layout belongs to a person.** Several people use one runtime at once
+(a `terminal.ssh` host gives every connection its own desktop), so shortcuts,
+the offered marks and the settings carry `user_id` (migration 04), and
+`repo.of(user)` is one person's layout. The shell uses the logged-on person's;
+a window finds its person with `repo.person()` (the `user_id` its desktop wrote
+into the process context); a handler uses the actor of the request. The
+module's own functions (`repo.list()` …) are the **shared** layout, the one a
+desktop without logon shows. A person's first use inherits the shared layout
+once — shortcuts with their folders, marks, settings — so the desktop that
+existed before logon does not vanish at the first logon; from then on the two
+are apart. Another person's icon reads as "no such shortcut".
+
+### Windows only an administrator opens
+
+Task Manager, AntiBug, Add/Remove Programs and the Registry Editor run under
+their entries' broad policies — ending any process, building on the server,
+editing the application's dependencies, reading the whole registry — whoever
+logged on. Each names `requires: windows.admin`, and the base's compositor asks
+the logged-on person's scope before opening it (the base README, `meta.requires`).
+An application grants `windows.admin` to its administrators; a group whose
+policy allows `*` has it already.
+
 ### What stands on the desktop at first start
 
 An empty desktop does not explain what to do with it, so the shell puts furniture there:

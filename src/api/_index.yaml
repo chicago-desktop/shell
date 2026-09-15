@@ -25,6 +25,10 @@ entries:
       - channel
       - process
       - time
+    imports:
+      # The rule of desktop names (name, name.2, …): one shell per terminal.ssh
+      # connection, and a refresh has to reach every one.
+      desktop: butschster.tui_desktop.desktop:window_api
 
   # butschster.windows.api:list_programs
   - name: list_programs

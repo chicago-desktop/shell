@@ -60,12 +60,14 @@ local function wallpaper_file(name: any): any
 end
 
 function definition.init(args: any, context: any): any
-    local stored, err = repo.setting("desktop_color")
+    -- The logged-on person's settings: another person's desktop keeps its own.
+    local store: any = repo.of(repo.person())
+    local stored, err = store.setting("desktop_color")
     local chosen = model.valid(stored) and stored or model.DEFAULT
-    local stored_pattern, perr = repo.setting("desktop_pattern")
+    local stored_pattern, perr = store.setting("desktop_pattern")
     local pattern = pattern_of(stored_pattern)
-    local stored_wallpaper, werr = repo.setting("desktop_wallpaper")
-    local stored_mode, merr = repo.setting("wallpaper_mode")
+    local stored_wallpaper, werr = store.setting("desktop_wallpaper")
+    local stored_mode, merr = store.setting("wallpaper_mode")
     local wallpaper = wallpaper_of(stored_wallpaper)
     local entry: any = wallpapers.find(wallpaper)
     local mode = (stored_mode == "tile" or stored_mode == "center") and stored_mode or (entry and entry.mode or "center")
@@ -80,7 +82,7 @@ function definition.init(args: any, context: any): any
         persist = function(changes: any)
             for _, key in ipairs({"desktop_color", "desktop_pattern", "desktop_wallpaper", "wallpaper_mode"}) do
                 if changes[key] ~= nil then
-                    local _, werr = repo.set_setting(key, changes[key])
+                    local _, werr = store.set_setting(key, changes[key])
                     if werr then return nil, tostring(werr) end
                 end
             end

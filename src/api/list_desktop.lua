@@ -31,7 +31,8 @@ local function handler()
         return
     end
 
-    local items, err = repo.list()
+    -- The layout of the person asking: each person has their own desktop.
+    local items, err = repo.of(tostring(security.actor():id())).list()
     if err then
         res:set_status(http.STATUS.INTERNAL_ERROR)
         res:write_json({success = false, error = "reading the layout: " .. tostring(err)})

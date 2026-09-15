@@ -34,11 +34,14 @@ local function handler()
         return
     end
 
+    -- The layout of the person asking: each person has their own desktop.
+    local store: any = repo.of(tostring(security.actor():id()))
+
     local spec, why = desktop_body.create(req:body())
     if not spec then return bad(res, why) end
 
     if spec.parent_id then
-        local parent, perr = repo.get(spec.parent_id)
+        local parent, perr = store.get(spec.parent_id)
         if perr then
             res:set_status(http.STATUS.INTERNAL_ERROR)
             res:write_json({success = false, error = "reading the folder: " .. tostring(perr)})
@@ -60,7 +63,7 @@ local function handler()
     end
     if title == "" then title = spec.entry or "New Folder" end
 
-    local item, err = repo.create({
+    local item, err = store.create({
         kind = spec.kind,
         entry = spec.entry,
         parent_id = spec.parent_id,

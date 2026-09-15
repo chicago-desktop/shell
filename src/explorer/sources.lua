@@ -123,7 +123,7 @@ end
 -- default AND a reason: the window still opens folders, and says why it did
 -- not honour a choice.
 function sources.browse(): (string, any)
-    local value, err = repo.setting(model.BROWSE_KEY)
+    local value, err = repo.of(repo.person()).setting(model.BROWSE_KEY)
     if err then return model.BROWSE[1], "browse mode not read: " .. tostring(err) end
     return model.browse_mode(value), nil
 end
@@ -133,7 +133,7 @@ end
 -- that did not happen.
 function sources.set_browse(mode: any): (any, any)
     if not model.is_browse(mode) then return nil, "unknown browse mode: " .. tostring(mode) end
-    local ok, err = repo.set_setting(model.BROWSE_KEY, mode)
+    local ok, err = repo.of(repo.person()).set_setting(model.BROWSE_KEY, mode)
     if not ok then return nil, "browse mode not saved: " .. tostring(err) end
     return true, nil
 end
@@ -181,7 +181,8 @@ function sources.list(path, context: any)
     end
 
     if where.view == "desktop" then
-        local items, err = repo.list()
+        -- The logged-on person's desktop, as their shell shows it.
+        local items, err = repo.of(repo.person()).list()
         if err then return nil, "layout not read: " .. tostring(err) end
         -- The catalog is needed to tell a broken shortcut from a working
         -- one. Its failure does NOT hide the desktop: the objects are
@@ -202,7 +203,8 @@ function sources.list(path, context: any)
     end
 
     if where.view == "desktop_folder" then
-        local items, err = repo.list()
+        -- The logged-on person's desktop, as their shell shows it.
+        local items, err = repo.of(repo.person()).list()
         if err then return nil, "layout not read: " .. tostring(err) end
 
         local folder: any = nil

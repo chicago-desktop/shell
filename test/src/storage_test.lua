@@ -392,6 +392,84 @@ local function define_tests()
             repo.delete(marker.id)
         end)
     end)
+
+    -- Several people use one runtime at once (a terminal.ssh host gives every
+    -- connection a desktop): an icon or a color one of them changes must not
+    -- change on the others' screens.
+    test.describe("layouts of people", function()
+        test.it("two people's layouts and settings do not mix, and the shared one stays", function()
+            local alice, bob = repo.of("test:alice"), repo.of("test:bob")
+            local mine, cerr = alice.create({kind = repo.KIND_SHORTCUT, entry = "butschster.windows.test:alice", title = "Alice's"})
+            test.is_nil(cerr, tostring(cerr))
+            local function has(list: any, id: any): boolean
+                for _, item in ipairs(list or {}) do if item.id == id then return true end end
+                return false
+            end
+            test.is_true(has(alice.list(), mine.id), "the owner sees the icon")
+            test.is_false(has(bob.list(), mine.id), "another person does not")
+            test.is_false(has(repo.list(), mine.id), "the shared layout does not")
+            test.is_nil(bob.get(mine.id), "another person's icon does not read")
+            test.eq(bob.update(mine.id, {x = 9, y = 9}), false, "another person's icon is no such row")
+            test.is_false(bob.delete(mine.id).existed, "another person cannot delete it")
+            test.eq(alice.get(mine.id).x, nil, "and it did not move")
+
+            alice.set_setting("test.color", "#112233")
+            bob.set_setting("test.color", "#445566")
+            test.eq(alice.setting("test.color"), "#112233")
+            test.eq(bob.setting("test.color"), "#445566")
+            test.is_nil(repo.setting("test.color"), "the shared settings stay untouched")
+            test.eq(repo.of(nil).user, repo.SHARED, "nobody is the shared layout")
+            alice.delete(mine.id)
+        end)
+
+        test.it("a person inherits the shared layout once, folders with their contents, marks and settings", function()
+            local folder = assert(repo.create({kind = repo.KIND_FOLDER, title = "Shared folder"}))
+            local inside = assert(repo.create({kind = repo.KIND_SHORTCUT, entry = "butschster.windows.test:shared_inside",
+                title = "Inside", parent_id = folder.id}))
+            repo.set_setting("test.inherited", "yes")
+            repo.mark_seeded("butschster.windows.test:shared_mark")
+
+            local carol = repo.of("test:carol")
+            local copied_folder: any, copied_inside: any = nil, nil
+            for _, item in ipairs(carol.list() or {}) do
+                if item.title == "Shared folder" then copied_folder = item end
+                if item.entry == "butschster.windows.test:shared_inside" then copied_inside = item end
+            end
+            test.not_nil(copied_folder, "the shared folder came along")
+            test.not_nil(copied_inside, "and its contents")
+            test.is_true(copied_folder.id ~= folder.id, "as a row of her own, not the shared one")
+            test.eq(copied_inside.parent_id, copied_folder.id, "the contents follow her copy of the folder")
+            test.eq(carol.setting("test.inherited"), "yes")
+            local marks = carol.seeded() or {}
+            test.is_true(marks["butschster.windows.test:shared_mark"] == true, "what was offered stays offered")
+            test.is_true(marks[repo.INHERITED] == true, "the inheritance is marked, among marks never deleted")
+
+            -- A second process of the same person (another desktop) asks the
+            -- database again: the mark keeps it to once.
+            repo.forget("test:carol")
+            local folders = 0
+            for _, item in ipairs(carol.list() or {}) do
+                if item.title == "Shared folder" then folders = folders + 1 end
+            end
+            test.eq(folders, 1, "a second desktop of the same person does not copy the shared layout again")
+
+            -- After the inheritance the layouts are apart.
+            local later = assert(repo.create({kind = repo.KIND_FOLDER, title = "Shared later"}))
+            for _, item in ipairs(carol.list() or {}) do
+                test.is_true(item.title ~= "Shared later", "a later shared icon does not reach her")
+            end
+            carol.delete(copied_inside.id)
+            test.not_nil(repo.get(inside.id), "her deletion leaves the shared icon")
+
+            repo.delete(inside.id)
+            repo.delete(folder.id)
+            repo.delete(later.id)
+        end)
+
+        test.it("a process without a logged-on person is the shared layout", function()
+            test.eq(repo.person(), repo.SHARED)
+        end)
+    end)
 end
 
 local run_cases = test.run_cases(define_tests)

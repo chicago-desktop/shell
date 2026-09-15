@@ -208,6 +208,53 @@ local function define_tests()
             test.eq(#asked, 5, "the last call is not made without a user")
         end)
     end)
+
+    test.describe("A desktop nobody vouched for", function()
+        test.it("is refused only when the host asked nothing and the shell cannot ask either", function()
+            local config = {func = "app:logon", store = "app:tokens"}
+            test.is_nil(provider.unvouched_refusal(nil, nil, nil), "the machine's own terminal")
+            test.is_nil(provider.unvouched_refusal("key", nil, nil), "a key vouched for the connection")
+            test.is_nil(provider.unvouched_refusal("none", config, nil), "the logon asks who came")
+
+            local unset = provider.unvouched_refusal("none", nil, nil)
+            test.not_nil(unset)
+            test.is_true(string.find(tostring(unset), "not configured", 1, true) ~= nil, tostring(unset))
+
+            local denied = provider.unvouched_refusal("none", nil, "no permission to read X (env.get)")
+            test.is_true(string.find(tostring(denied), "no permission to read X", 1, true) ~= nil,
+                "a permission denial is named, not called 'not configured'")
+        end)
+    end)
+
+    test.describe("Logging on by an SSH key", function()
+        test.it("asks the logon function with the key alone and passes its refusal on", function()
+            local asked: any = {}
+            local function call(name: any, args: any): (any, any)
+                asked[#asked + 1] = {name = name, args = args}
+                return {success = false, error = "This SSH key is not registered to any account."}, nil
+            end
+            local identity, why = provider.authenticate_key({func = "app:logon", store = "app:tokens"},
+                "ssh-ed25519 AAAA", call)
+            test.is_nil(identity)
+            test.eq(why, "This SSH key is not registered to any account.")
+            test.eq(#asked, 1)
+            test.eq(asked[1].name, "app:logon")
+            test.eq(asked[1].args.ssh_key, "ssh-ed25519 AAAA")
+            test.is_nil(asked[1].args.password, "no password travels with a key")
+        end)
+
+        test.it("does not ask without a key, and names a function that did not answer", function()
+            local count: any = {n = 0}
+            local function call(): (any, any)
+                count.n = count.n + 1
+                return nil, "boom"
+            end
+            test.is_nil((provider.authenticate_key({func = "f", store = "s"}, "", call)))
+            test.eq(count.n, 0)
+            local _, why = provider.authenticate_key({func = "f", store = "s"}, "ssh-ed25519 AAAA", call)
+            test.is_true(string.find(tostring(why), "did not answer", 1, true) ~= nil, tostring(why))
+        end)
+    end)
 end
 
 local run_cases = test.run_cases(define_tests)

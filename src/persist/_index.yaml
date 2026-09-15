@@ -22,3 +22,6 @@ entries:
       - sql
       - time
       - uuid
+      # `repo.person()` reads the logged-on person's id from a window's
+      # process context; a desktop without logon writes none.
+      - ctx

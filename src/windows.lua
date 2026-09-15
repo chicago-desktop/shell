@@ -10,6 +10,7 @@
 -- stand.
 
 local logger = require("logger")
+local ctx = require("ctx")
 local environment = require("environment")
 local fs = require("fs")
 local gfx = require("gfx")
@@ -155,6 +156,16 @@ local function main()
         return items, nil
     end
 
+    -- Whose layout this desktop shows: the logged-on person's, or the shared
+    -- one without logon. Several people use one runtime at once (terminal.ssh),
+    -- and an icon one of them moves must not move on the others' screens.
+    -- Asked every time, not taken once: the person is known only after logon.
+    local function layout(): any
+        local session: any = chrome.session
+        local user: any = type(session) == "table" and session.user or nil
+        return repo.of(type(user) == "table" and user.id or nil)
+    end
+
     -- What appears on the desktop by itself. First-run furniture is created
     -- before programs: the compositor lays out icons in the order the layout
     -- returns them, and "My Computer" must take the head of the column
@@ -172,10 +183,10 @@ local function main()
     local function furnish(found: any)
         local programs = type(found) == "table" and found.programs or {}
 
-        local _, ferr = seed.furnish(defaults.resolve(programs))
+        local _, ferr = seed.furnish(defaults.resolve(programs), layout())
         if ferr then log:warn("desktop furniture not created", {error = tostring(ferr)}) end
 
-        local _, serr = seed.ensure(programs)
+        local _, serr = seed.ensure(programs, layout())
         if serr then log:warn("shortcuts not placed on the desktop", {error = tostring(serr)}) end
     end
 
@@ -193,7 +204,7 @@ local function main()
     -- desktop by this same path. A database failure does not bring the
     -- desktop down: the previous color stays, the reason goes to the log.
     local function apply_desktop_color()
-        local hex, err = repo.setting("desktop_color")
+        local hex, err = layout().setting("desktop_color")
         if err then
             log:warn("desktop color not read", {error = tostring(err)})
             return
@@ -206,7 +217,7 @@ local function main()
     -- The desktop pattern, the same way: a name in the settings, the rows
     -- from the pattern library; a name nobody knows is no pattern.
     local function apply_desktop_pattern()
-        local name, err = repo.setting("desktop_pattern")
+        local name, err = layout().setting("desktop_pattern")
         if err then
             log:warn("desktop pattern not read", {error = tostring(err)})
             return
@@ -218,8 +229,8 @@ local function main()
     -- picture's file from the wallpaper list; a name nobody knows is none,
     -- and a missing mode is the one the wallpaper is meant for.
     local function apply_desktop_wallpaper()
-        local name, err = repo.setting("desktop_wallpaper")
-        local mode, merr = repo.setting("wallpaper_mode")
+        local name, err = layout().setting("desktop_wallpaper")
+        local mode, merr = layout().setting("wallpaper_mode")
         if err or merr then
             log:warn("desktop wallpaper not read", {error = tostring(err or merr)})
             return
@@ -265,7 +276,7 @@ local function main()
         local found = catalog.list()
         furnish(found)
 
-        local items, err = repo.list()
+        local items, err = layout().list()
         if err then return {}, "layout not read: " .. tostring(err) end
 
         -- A catalog failure does NOT get in here. `failure` means "the layout
@@ -305,7 +316,7 @@ local function main()
         if type(id) ~= "string" or id == "" then
             return false, "icon not named"
         end
-        local item, err = repo.update(id, {x = x, y = y})
+        local item, err = layout().update(id, {x = x, y = y})
         if err then return false, "writing the position: " .. tostring(err) end
         -- `false` from the repository means "no such row", not a database
         -- failure. Silence here would turn a typo into a successful move.
@@ -405,13 +416,36 @@ local function main()
 
     local logon: any = nil
     local logon_config, logon_error = logon_provider.configured()
+    -- The terminal host may have let this person in without asking who they
+    -- are; then there is no desktop without a logon.
+    local refusal = logon_provider.unvouched_refusal(ctx.get("terminal.auth"), logon_config, logon_error)
+    if refusal then
+        log:warn("desktop refused", {reason = refusal})
+        return nil, refusal
+    end
     if logon_error then
         log:warn("logon not enabled", {reason = tostring(logon_error)})
     elseif logon_config then
         logon = function(screen)
-            local identity, why = logon_screen.run(screen, function(login, password)
-                return logon_provider.authenticate(logon_config, login, password)
-            end)
+            -- A key the SSH host saw the client prove, registered to an
+            -- account: its owner is let in without the password screen. A
+            -- refusal (the key was removed meanwhile, the account is blocked)
+            -- is not the end — the screen asks as usual.
+            local identity: any, why: any = nil, nil
+            local account_key = ctx.get("terminal.key")
+            if type(account_key) == "string" and account_key ~= "" then
+                identity, why = logon_provider.authenticate_key(logon_config, account_key)
+                if identity then
+                    log:info("logged on by SSH key", {user = tostring(identity.context and identity.context.user_id)})
+                else
+                    log:warn("SSH key logon refused; asking for the password", {reason = tostring(why)})
+                end
+            end
+            if not identity then
+                identity, why = logon_screen.run(screen, function(login, password)
+                    return logon_provider.authenticate(logon_config, login, password)
+                end)
+            end
             -- The logged-on user's name goes into "Start", for both themes at
             -- once: they compute the menu layout with one function and read
             -- one table.

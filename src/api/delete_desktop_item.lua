@@ -38,7 +38,8 @@ local function handler()
         return
     end
 
-    local result, err = repo.delete(id)
+    -- The layout of the person asking: another person's icon is not theirs to delete.
+    local result, err = repo.of(tostring(security.actor():id())).delete(id)
     if err or not result then
         res:set_status(http.STATUS.INTERNAL_ERROR)
         res:write_json({success = false, error = "deleting: " .. tostring(err or "row untouched")})

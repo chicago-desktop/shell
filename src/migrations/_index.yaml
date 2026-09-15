@@ -40,3 +40,16 @@ entries:
     imports:
       migration: wippy.migration:migration
     method: migrate
+
+  # butschster.windows.migrations:04_layout_per_user
+  - name: 04_layout_per_user
+    kind: function.lua
+    meta:
+      type: migration
+      comment: The layout, the offered marks and the settings belong to a person (user_id); the rows that exist become the shared layout, the one a desktop without logon shows and a person inherits at first use.
+      target_db: app:db
+      timestamp: "2026-09-14T23:00:00Z"
+    source: file://04_layout_per_user.lua
+    imports:
+      migration: wippy.migration:migration
+    method: migrate

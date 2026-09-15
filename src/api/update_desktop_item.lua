@@ -38,6 +38,9 @@ local function handler()
         return
     end
 
+    -- The layout of the person asking: another person's icon is "no such shortcut".
+    local store: any = repo.of(tostring(security.actor():id()))
+
     local id = req:param("id")
     if type(id) ~= "string" or id == "" then
         return bad(res, "id: shortcut not named")
@@ -49,20 +52,20 @@ local function handler()
     -- Moving into a folder: what is being put in is decided by the kind of
     -- the icon itself, so it is read here, before the write.
     if type(patch.parent_id) == "string" then
-        local item, ierr = repo.get(id)
+        local item, ierr = store.get(id)
         if ierr then return failed(res, "reading the shortcut: " .. tostring(ierr)) end
         if not item then
             res:set_status(http.STATUS.NOT_FOUND)
             res:write_json({success = false, error = "no such shortcut: " .. id})
             return
         end
-        local parent, perr = repo.get(patch.parent_id)
+        local parent, perr = store.get(patch.parent_id)
         if perr then return failed(res, "reading the folder: " .. tostring(perr)) end
         local refused = desktop_body.nest(item.kind, parent)
         if refused then return bad(res, tostring(refused)) end
     end
 
-    local item, err = repo.update(id, patch)
+    local item, err = store.update(id, patch)
     if err then return failed(res, "moving: " .. tostring(err)) end
     if item == false then
         res:set_status(http.STATUS.NOT_FOUND)

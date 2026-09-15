@@ -20,6 +20,8 @@ entries:
     meta:
       type: tui_desktop.window
       title: Registry Editor
+      # Shows every registry entry of the runtime: only for windows.admin.
+      requires: windows.admin
       image: regedit
       icon: "▤"
       group: Settings

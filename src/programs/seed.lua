@@ -28,13 +28,14 @@ local repo = require("repo")
 
 local seed = {}
 
--- place(wanted) -> (created, nil) | (nil, reason)
+-- place(wanted, store) -> (created, nil) | (nil, reason)
 --
 -- `wanted` is a list of {key, kind, entry, title}. `key` is what "already
 -- offered" is counted by: for a program it is its entry, for furniture — the
--- shell's own key.
-local function place(wanted: any)
-    local seeded, serr = repo.seeded()
+-- shell's own key. `store` is whose layout (repo.of); none is the shared one.
+local function place(wanted: any, store: any)
+    local layout: any = store or repo
+    local seeded, serr = layout.seeded()
     if serr then return nil, "offered marks: " .. tostring(serr) end
 
     -- The traversal order is the one the list came in, so two startups in a
@@ -45,7 +46,7 @@ local function place(wanted: any)
         -- The marks read here are a cheap filter, not the decision: `offer`
         -- decides inside a transaction, and a late writer gets `false`.
         if not (seeded :: any)[want.key] then
-            local item, cerr = repo.offer(want.key, {
+            local item, cerr = layout.offer(want.key, {
                 kind = want.kind,
                 entry = want.entry,
                 title = want.title,
@@ -63,7 +64,7 @@ end
 -- First-run furniture. It is created FIRST, before programs: the compositor
 -- lays out icons in the order the layout returns them, and the furniture
 -- must take the head of the column, as on a real desktop.
-function seed.furnish(objects: any)
+function seed.furnish(objects: any, store: any?)
     local wanted = {}
     for _, object in ipairs(type(objects) == "table" and objects or {}) do
         wanted[#wanted + 1] = {
@@ -73,17 +74,17 @@ function seed.furnish(objects: any)
             title = object.title,
         }
     end
-    local created, err = place(wanted)
+    local created, err = place(wanted, store)
     return created, err
 end
 
--- ensure(programs) -> (created, nil) | (nil, reason)
+-- ensure(programs, store?) -> (created, nil) | (nil, reason)
 --
 -- Idempotent: a repeated call with an unchanged catalog writes nothing.
 -- Therefore it can be called not only at startup — a window built by the
 -- workshop while the shell is running gets its icon without waiting for a
 -- restart.
-function seed.ensure(programs: any)
+function seed.ensure(programs: any, store: any?)
     local wanted = {}
     for _, program in ipairs(type(programs) == "table" and programs or {}) do
         if program.desktop then
@@ -95,7 +96,7 @@ function seed.ensure(programs: any)
             }
         end
     end
-    local created, err = place(wanted)
+    local created, err = place(wanted, store)
     return created, err
 end
 

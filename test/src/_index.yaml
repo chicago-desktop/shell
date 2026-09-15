@@ -16,6 +16,19 @@ entries:
     kind: ns.definition
     meta: { title: Windows Shell Test Harness }
 
+  - name: admin_windows_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: Task Manager, AntiBug, Add/Remove Programs and the Registry Editor name windows.admin in meta.requires, so the compositor opens them only for an administrator.
+      group: Windows Shell
+      suite: butschster_windows
+    source: file://admin_windows_test.lua
+    modules: [registry]
+    imports:
+      test: wippy.test:test
+    method: run
+
   - name: storage_test
     kind: function.lua
     meta:
