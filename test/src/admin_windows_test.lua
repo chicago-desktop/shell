@@ -1,8 +1,8 @@
 -- The windows that change the system open only for an administrator.
 --
 -- Each runs under its entry's own broad policy — ending any process, running
--- builds on the server, editing the application's dependencies, reading the
--- whole registry — whoever logged on. Under a terminal.ssh host anyone with
+-- reading the whole registry (AntiBug and Add/Remove Programs, now modules
+-- of their own, name it the same way) — whoever logged on. Under a terminal.ssh host anyone with
 -- an account logs on, so each entry names `meta.requires`, and the base's
 -- compositor asks the logged-on person's scope before opening it (the base's
 -- desktop_requires_test checks the asking). What is checked here is that the
@@ -12,14 +12,12 @@ local registry = require("registry")
 
 local ADMIN_ONLY = {
     "windows.shell.taskman:window",
-    "windows.shell.antibug:window",
-    "windows.shell.appwiz:window",
     "windows.shell.regedit:window",
 }
 
 local function define_tests()
     test.describe("windows.shell administrator windows", function()
-        test.it("Task Manager, AntiBug, Add/Remove Programs and the Registry Editor require windows.admin", function()
+        test.it("Task Manager and the Registry Editor require windows.admin", function()
             for _, id in ipairs(ADMIN_ONLY) do
                 local entry, err = registry.get(id)
                 test.is_nil(err, id .. ": " .. tostring(err))

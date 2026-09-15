@@ -1,516 +1,0 @@
-[?25l
-[1m[36m  Running Tests[0m[0m
-
-[2m  41 tests in 1 suites[0m
-[2m  [0m
-[2K  [36m⠋[0m [1mwindows_shell[0m [2m(1/41)[0m [2mantibug_actor_test[0m  [36m[0m[2m░░░░░░░░░░░░░░░[0m [2m  2%[0m[2K    [32mo[0m [2mmeasured: the facts of one wide and two narrow calls, in one line[0m [2m<1ms[0m
-[2K  [36m⠙[0m [1mwindows_shell[0m [2m(2/41)[0m [2mantibug_test[0m  [36m█[0m[2m░░░░░░░░░░░░░░[0m [2m  7%[0m[2K    [31mx[0m takes only function test entries, sorted by group, suite and order; no suite is 'other'
-[2K    [31mx[0m builds the group → suite → entry tree with counts and the expander state
-[2K    [31mx[0m chooses the entries of every selection shape and filter
-[2K    [32mo[0m [2mruns a scan through plan, cases, answer and completion, in either order[0m [2m<1ms[0m
-[2K    [32mo[0m [2mjudges a plain function test by its answer; times out; stops between entries[0m [2m<1ms[0m
-[2K    [32mo[0m [2mshows failures and skips, passes only with Show all; logs every case[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlays out at 62×19 without overlaps in cells and pixels, on both tabs[0m [2m5ms[0m
-[2K    [32mo[0m [2mScan Now runs the chosen entries one at a time through channels and ends with the box[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma stale timer and a timeout; Stop after current; a refused start is a finding[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe menu items: Show all, Reports, Refresh list, New Scan, About, Exit[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe close gate: a scan running asks and stays on No; idle closes[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe tree and the options choose the scan; a findings row opens Virus Info[0m [2m<1ms[0m
-[2K    [32mo[0m [2mSave… writes the log through the file dialog as antibug.log, asking before a replace[0m [2m<1ms[0m
-[2K    [32mo[0m [2mshots: mid-scan with two findings, and the Scan complete box[0m [2m21ms[0m
-[2K    [32mo[0m [2mthe runner runs only test entries: anything else is refused by name[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlive: scans one real harness test entry through the real runner and sees its cases arrive[0m [2m<1ms[0m
-[2K  [36m⠹[0m [1mwindows_shell[0m [2m(3/41)[0m [2mappwiz_test[0m  [36m█[0m[2m░░░░░░░░░░░░░░[0m [2m 12%[0m[2K    [32mo[0m [2mthe application declaration outranks another, the cache gives the pinned version and size[0m [2m<1ms[0m
-[2K    [32mo[0m [2msize is formatted with a dot and MB[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe entry name is the second half, a taken one gives way to the form org-name[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma module is named org/name in lowercase[0m [2m<1ms[0m
-[2K    [32mo[0m [2mreads the namespace[0m [2m<1ms[0m
-[2K    [32mo[0m [2mremoves exactly its own item along with its comment[0m [2m<1ms[0m
-[2K    [32mo[0m [2mremoves the last item of the file and an item where name comes first[0m [2m<1ms[0m
-[2K    [32mo[0m [2mrefuses with a reason for an unknown name and for an item of another kind[0m [2m<1ms[0m
-[2K    [32mo[0m [2mappends a declaration that reads back and can be removed[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma file without namespace is rejected with a reason, not appended under app.deps[0m [2m<1ms[0m
-[2K    [32mo[0m [2man appended item takes the neighbours' indent, not always two spaces[0m [2m1ms[0m
-[2K    [32mo[0m [2man edit that changed other than one declaration is rejected before writing[0m [2m<1ms[0m
-[2K    [32mo[0m [2mwrites with a backup next to it, and the disk holds exactly what was written[0m [2m1ms[0m
-[2K    [32mo[0m [2ma mismatch after writing is named together with where the previous text is[0m [2m<1ms[0m
-[2K  [36m⠸[0m [1mwindows_shell[0m [2m(4/41)[0m [2mcatalog_test[0m  [36m██[0m[2m░░░░░░░░░░░░░[0m [2m 17%[0m[2K    [32mo[0m [2mreads the host's exact clock entry[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps meta.image all the way to the desktop, the menu and the explorer[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma stand declaration gives an icon to exactly one entry, keeping the program's meta.image[0m [2m<1ms[0m
-[2K    [32mo[0m [2mreads the stand's icons from the registry and passes them identically to the desktop and to Start[0m [2m2ms[0m
-[2K    [32mo[0m [2mbuilds menu folders from meta.group[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcollapses a path deeper than three levels to the third instead of losing the program[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthrows away empty path segments[0m [2m<1ms[0m
-[2K    [32mo[0m [2mputs order ahead of the alphabet, and orderless ones alphabetically[0m [2m<1ms[0m
-[2K    [32mo[0m [2msubstitutes an icon and a name when they were not declared[0m [2m<1ms[0m
-[2K    [32mo[0m [2mreads desktop as a request, not as a statement[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtells an empty catalog from an unreadable registry[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not lose programs when one arrives without an identifier[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not show in the menu one that asked to be hidden[0m [2m<1ms[0m
-[2K    [32mo[0m [2mreads in_menu as a field, not through and-or[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not create a menu folder whose children are all hidden[0m [2m<1ms[0m
-[2K    [32mo[0m [2mnames an unknown window type but shows the program[0m [2m<1ms[0m
-[2K    [32mo[0m [2mbuilds a folder from a real registry entry[0m [2m<1ms[0m
-[2K  [36m⠼[0m [1mwindows_shell[0m [2m(5/41)[0m [2mchrome_test[0m  [36m███[0m[2m░░░░░░░░░░░░[0m [2m 21%[0m[2K    [32mo[0m [2mrefuses to paint or fill until the cell size is named, and once it is forgotten[0m [2m<1ms[0m
-[2K    [32mo[0m [2mapplies terminal defaults by entry identity in both themes[0m [2m<1ms[0m
-[2K    [32mo[0m [2mfills blank PTY rows and passes defaults through to ANSI parsing[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps the caption in one row from 16px cells and maps every button pixel to its hit[0m [2m318ms[0m
-[2K    [32mo[0m [2mwraps long names without silently dropping the remaining characters[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps shutdown with its icon on a short screen[0m [2m<1ms[0m
-[2K    [32mo[0m [2mclock hits cover both rows and the right edge[0m [2m1ms[0m
-[2K    [32mo[0m [2mpixel buttons have separate cells and perform the declared action[0m [2m1ms[0m
-[2K    [32mo[0m [2mthe pixel frame and the icon behind the front window are cropped and not repainted without changes[0m [2m1ms[0m
-[2K    [32mo[0m [2mends a resizable window's frame in the Windows 95 size grip, inside the edge; a fixed one has none[0m [2m11ms[0m
-[2K    [32mo[0m [2mthe taskbar and tall menu items are pressable over their whole drawn height[0m [2m2ms[0m
-[2K    [32mo[0m [2mclosed and open Start give different taskbar frames[0m [2m<1ms[0m
-[2K    [32mo[0m [2mgives each window type its own set of buttons[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtreats an unknown and an unnamed type as an ordinary window[0m [2m<1ms[0m
-[2K    [32mo[0m [2mexactly what is drawn is what gets pressed[0m [2m1ms[0m
-[2K    [32mo[0m [2mdoes not draw buttons on a dialog that it does not have[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdraws no digit shortcuts in the menu[0m [2m<1ms[0m
-[2K    [32mo[0m [2mhighlights the menu row that Enter will open[0m [2m<1ms[0m
-[2K    [32mo[0m [2mhighlights nothing when there is no cursor[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcounts selectable rows, not all of them[0m [2m<1ms[0m
-[2K    [32mo[0m [2mgives way to the name when the buttons do not fit[0m [2m<1ms[0m
-[2K    [32mo[0m [2mfills the desktop and the taskbar face in both modes[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps the styles in one table, not in two similar ones[0m [2m<1ms[0m
-[2K    [32mo[0m [2mroot rows go by order, a program can stand above a folder, separator_after separates the next one[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe logged-on user is the first root row, with an icon, without a hit and without a slot[0m [2m<1ms[0m
-[2K    [32mo[0m [2mwith a profile entry the user row is the first hit, opening the profile item[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma click on the user row finds its hit at 8x16 and 10x20[0m [2m<1ms[0m
-[2K    [32mo[0m [2mchrome.use_user raises the name into the shared session and clears it[0m [2m<1ms[0m
-[2K    [32mo[0m [2mchrome.rename_user keeps the id and the profile entry, and the row and the menu key follow the name[0m [2m<1ms[0m
-[2K    [32mo[0m [2min pixels the measure gets the level and the kind, and the hits cover the whole panel[0m [2m<1ms[0m
-[2K    [32mo[0m [2man icon's context menu is one panel at the anchor, without folders and banner, inside the screen[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcarries a group from the registry entry to a folder in the menu[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps the menu depth as one number, not two[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe cell theme takes its taskbar bounds from chrome.taskbar_layout[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe pixel theme takes its taskbar bounds from the same layout[0m [2m<1ms[0m
-[2K    [32mo[0m [2mputs the tray between the window buttons and the clock in both themes[0m [2m6ms[0m
-[2K    [32mo[0m [2mreserves the tray before window buttons and drops only what does not fit[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcells: the notice shows with and without windows, the status hint never[0m [2m<1ms[0m
-[2K    [32mo[0m [2mpixels: the notice shows with and without windows, the status hint never[0m [2m9ms[0m
-[2K    [32mo[0m [2mplaces a desktop icon by one clipping rule and gives one hit table[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdraws the Start banner from the one string chrome.MENU_BANNER in both themes[0m [2m18ms[0m
-[2K    [32mo[0m [2mthe desktop names the reason for an unreadable layout in full, wrapped, not cut off[0m [2m12ms[0m
-[2K    [32mo[0m [2mthe taskbar shows the notice between the windows and the clock[0m [2m9ms[0m
-[2K    [32mo[0m [2ma desktop pattern is a strip per row, and a dragged window re-sends only its own rows[0m [2m10ms[0m
-[2K    [32mo[0m [2ma wallpaper is drawn into the row strips, tiled or centred, and a drag re-sends only its rows[0m [2m27ms[0m
-[2K    [32mo[0m [2ma view that threw an error is a failure text in the window, not a crashed shell frame[0m [2m1ms[0m
-[2K    [32mo[0m [2ma frame with the same menu measures no text; a changed menu is laid out anew[0m [2m8ms[0m
-[2K    [32mo[0m [2mno piece of a window lies under the menu, and a change of the window does not touch the menu[0m [2m7ms[0m
-[2K    [32mo[0m [2man icon's context menu is the top layer too[0m [2m3ms[0m
-[2K    [32mo[0m [2mthe base's pixels.frame: under an open menu the canvas is empty, after closing it is content again[0m [2m2ms[0m
-[2K    [32mo[0m [2min cells, under the menu is the menu, not the window[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlays a cascade out in compact metrics: panels side by side, a submenu level with its folder[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtakes the banner as a parameter and writes it bottom to top[0m [2m<1ms[0m
-[2K    [32mo[0m [2mputs a context menu at the anchor and keeps it on the screen[0m [2m<1ms[0m
-[2K    [32mo[0m [2msubtract returns the very rectangle when the cover misses it[0m [2m<1ms[0m
-[2K    [32mo[0m [2msubtract cuts the four overlap cases into what is left[0m [2m<1ms[0m
-[2K    [32mo[0m [2mvisible cuts a picture by the windows above its layer and by the menu, never the menu[0m [2m<1ms[0m
-[2K    [32mo[0m [2mnames a crop after its source and offset, and keys it by the source's version[0m [2m<1ms[0m
-[2K  [36m⠴[0m [1mwindows_shell[0m [2m(6/41)[0m [2mcontext_test[0m  [36m████[0m[2m░░░░░░░░░░░[0m [2m 26%[0m[2K    [32mo[0m [2ma right press on a list, a table and icons is context with the entry and the cell[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma context menu floats at its cell, taking no room, and is open while the tree carries it[0m [2m<1ms[0m
-[2K    [32mo[0m [2mEsc, F10 and a press outside dismiss it; the keys walk it and its submenu[0m [2m<1ms[0m
-[2K    [32mo[0m [2mflips left and up to end at its cell when it would run past the edges[0m [2m<1ms[0m
-[2K    [32mo[0m [2mpaints its list in pixels over what is under it[0m [2m6ms[0m
-[2K    [32mo[0m [2mrefuses a popup without its cell and a row both checked and a bullet[0m [2m<1ms[0m
-[2K  [36m⠦[0m [1mwindows_shell[0m [2m(7/41)[0m [2mdefaults_test[0m  [36m████[0m[2m░░░░░░░░░░░[0m [2m 31%[0m[2K    [32mo[0m [2mdoes not put on the desktop an icon with nothing behind it[0m [2m<1ms[0m
-[2K    [32mo[0m [2mgives furniture names that fit under the icon[0m [2m<1ms[0m
-[2K    [32mo[0m [2mskips a shortcut to a program that is not in the catalog[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcreates furniture once and does not bring back what was thrown away[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcreates furniture before programs[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps the furniture key in a form a registry entry cannot have[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not assign furniture a place at all[0m [2m<1ms[0m
-[2K  [36m⠧[0m [1mwindows_shell[0m [2m(8/41)[0m [2mdesktop_widgets_test[0m  [36m█████[0m[2m░░░░░░░░░░[0m [2m 36%[0m[2K    [32mo[0m [2mstands in the right column, one row under the top, an empty row apart, at x = width - w[0m [2m<1ms[0m
-[2K    [32mo[0m [2mopens a second column, one empty column left of the first column's widest[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdraws a wide widget at a third of the screen and leaves out one that fits nowhere[0m [2m<1ms[0m
-[2K    [32mo[0m [2mgives a hit per widget row, the same records in both themes, after the icons'[0m [2m3ms[0m
-[2K    [32mo[0m [2mdraws a raised panel, the title in its top edge and the body at the inner rectangle, under the icons[0m [2m4ms[0m
-[2K    [32mo[0m [2mdraws nothing in a waiting body, a broken tree's reason, and a stopped widget's last row[0m [2m1ms[0m
-[2K    [32mo[0m [2mgives a placement per row on the desktop layer, under the icons, cut by the window over it[0m [2m26ms[0m
-[2K    [32mo[0m [2mdraws the raised frame and the titled group, and waiting, a broken tree and stopped in their rows[0m [2m15ms[0m
-[2K    [32mo[0m [2mdraws nothing focused: a tree with controls is laid out and never given the focus[0m [2m2ms[0m
-[2K    [32mo[0m [2mre-sends only the rows of a changed number, and nothing for an unchanged frame[0m [2m37ms[0m
-[2K    [32mo[0m [2mforgets the row keys of a widget that is gone[0m [2m13ms[0m
-[2K    [32mo[0m [2mreads widget entries: the defaults, a declared size as declared, by order then id[0m [2m<1ms[0m
-[2K    [32mo[0m [2mfinds the harness's widget entry in the real registry, and not among the programs[0m [2m<1ms[0m
-[2K    [32mo[0m [2mruns a widget on the SDK runner as it is: its id, the interval, a published view, no update[0m [2m20ms[0m
-[2K  [36m⠇[0m [1mwindows_shell[0m [2m(9/41)[0m [2mdisplay_test[0m  [36m██████[0m[2m░░░░░░░░░[0m [2m 41%[0m[2K    [32mo[0m [2mchecks the color format and captions the resolution[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlays out all four tabs without overlaps, in cells and at 8×16 and 10×20[0m [2m8ms[0m
-[2K    [32mo[0m [2mmatches the Windows 95 dialog at 8×16 and 10×20[0m [2m4ms[0m
-[2K    [32mo[0m [2mthe Settings tab is Windows 95's: palette and spectrum, a disabled slider, Font size, Change Display Type[0m [2m1ms[0m
-[2K    [32mo[0m [2mchoosing a wallpaper and how to show it writes both and previews it on the monitor[0m [2m1ms[0m
-[2K    [32mo[0m [2mchoosing a color and a pattern, "Apply" and "OK" write through the substituted write[0m [2m1ms[0m
-[2K    [32mo[0m [2mthe theme repaints the desktop from one point in both modes[0m [2m<1ms[0m
-[2K  [36m⠏[0m [1mwindows_shell[0m [2m(10/41)[0m [2meditor_model_test[0m  [36m██████[0m[2m░░░░░░░░░[0m [2m 46%[0m[2K    [32mo[0m [2mgo-lua: table.concat(t, sep, j + 1, j) is t[j], not the empty string — a tripwire[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps a document as lines; set replaces it with the caret at the start and no undo[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtypes runes, breaks a line with Enter and joins lines with Backspace and Delete[0m [2m<1ms[0m
-[2K    [32mo[0m [2mjumps by words both ways, across a line's end[0m [2m<1ms[0m
-[2K    [32mo[0m [2mextends the selection with Shift from the anchor, and replaces it by typing[0m [2m<1ms[0m
-[2K    [32mo[0m [2mundoes one level and redoes on the second Undo; typing is one step[0m [2m<1ms[0m
-[2K    [32mo[0m [2mfinds down after the selection and up before it, with and without Match case[0m [2m<1ms[0m
-[2K    [32mo[0m [2mwraps display rows at the width after the last space, hard inside a long word, tabs at eight[0m [2m<1ms[0m
-[2K    [32mo[0m [2mwalks display rows with the arrows, keeps the column, Home and End stay on the row[0m [2m<1ms[0m
-[2K    [32mo[0m [2mleaves Ctrl+Z, X, C, V and Esc to the application; a read-only document only moves[0m [2m<1ms[0m
-[2K    [32mo[0m [2mpastes lines at the caret, and the pointer places, extends and takes a word[0m [2m<1ms[0m
-[2K    [32mo[0m [2mbrings the caret into view by rows and, without wrap, by columns[0m [2m<1ms[0m
-[2K  [36m⠋[0m [1mwindows_shell[0m [2m(11/41)[0m [2meditor_test[0m  [36m███████[0m[2m░░░░░░░░[0m [2m 51%[0m[2K    [32mo[0m [2mlays out a horizontal bar only without wrap, a vertical bar always[0m [2m1ms[0m
-[2K    [32mo[0m [2mmakes the document from the node's text once and keeps it when the tree does not show it[0m [2m<1ms[0m
-[2K    [32mo[0m [2mbrings the caret into view in the plan after a key moved it past the page[0m [2m<1ms[0m
-[2K    [32mo[0m [2mrepaints only the rows whose text changed[0m [2m2ms[0m
-[2K    [32mo[0m [2mthe shell keeps the fixed-pitch face it is given, and none when there is none[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtakes the keys when focused: an edit is a drawn change, a move a caret, Ctrl+Z goes to the window[0m [2m<1ms[0m
-[2K    [32mo[0m [2mputs the caret under the pointer, selects by a drag, a word by a double click, extends with Shift[0m [2m1ms[0m
-[2K    [32mo[0m [2mscrolls by the wheel and both bars, as a text view does[0m [2m1ms[0m
-[2K    [32mo[0m [2mdraws the exact rows in cells: the text, a tab to column eight, the horizontal bar[0m [2m2ms[0m
-[2K    [32mo[0m [2mdraws in pixels a band per row under the selection and a 1-px caret in the 8-px columns[0m [2m8ms[0m
-[2K    [32mo[0m [2mdraws the bars in pixels: the horizontal one only without wrap[0m [2m3ms[0m
-[2K    [32mo[0m [2mdraws an edit and a move whatever update answers[0m [2m<1ms[0m
-[2K    [32mo[0m [2mpaints a 40×10 editor with three lines, a selection and word wrap, in pixels and in cells[0m [2m11ms[0m
-[2K  [36m⠙[0m [1mwindows_shell[0m [2m(12/41)[0m [2menvironment_test[0m  [36m████████[0m[2m░░░░░░░[0m [2m 56%[0m[2K    [32mo[0m [2ma permission denial is called a denial, not 'not set'[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma missing variable is 'not set' and is not called a denial[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe process environment outranks the store, an empty string is not a value[0m [2m<1ms[0m
-[2K    [32mo[0m [2mreads the error kind, not its text[0m [2m<1ms[0m
-[2K  [36m⠹[0m [1mwindows_shell[0m [2m(13/41)[0m [2mexplorer_test[0m  [36m█████████[0m[2m░░░░░░[0m [2m 60%[0m[2K    [32mo[0m [2mleaves only the Control Panel at the root when there are no filesystems[0m [2m<1ms[0m
-[2K    [32mo[0m [2mmakes a drive of every fs entry without creating anything itself[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcaptions with the full name the drives that cannot be told apart otherwise[0m [2m<1ms[0m
-[2K    [32mo[0m [2mhas the drives and the Control Panel at the root, without the shell's pseudo-folders[0m [2m<1ms[0m
-[2K    [32mo[0m [2mreads a path the same way for a click and for the "Up" button[0m [2m<1ms[0m
-[2K    [32mo[0m [2mgoes one level up, not straight to the root[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not promise to open a file that has nothing to open it with[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not turn registry processes and data into drives[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdescribes a double click by an intent, not by an action[0m [2m<1ms[0m
-[2K    [32mo[0m [2mraises an open window rather than opening a second one of the same kind[0m [2m<1ms[0m
-[2K    [32mo[0m [2mshows a broken shortcut as broken and does not let it be opened[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not pass a working shortcut off as broken when the catalog is not read[0m [2m<1ms[0m
-[2K    [32mo[0m [2mopens a desktop folder in its own window[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe Control Panel holds the Settings programs, sorted by title, each opening its window[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma window starts at its args path; none is the root, an unknown path is the root with a notice[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma folder window is titled and pictured by its folder[0m [2m<1ms[0m
-[2K    [32mo[0m [2mopening a folder focuses the window already open for it, else opens one with the path in args[0m [2m<1ms[0m
-[2K    [32mo[0m [2mDetails cells: sizes in whole kilobytes, the Type text, the US short date[0m [2m<1ms[0m
-[2K    [32mo[0m [2msorts by name, type, size and date with the folders always first, stable for ties[0m [2m<1ms[0m
-[2K    [32mo[0m [2mselection: click, Ctrl toggles, Shift ranges from the anchor, all, invert, and the summary[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe browse mode is separate unless single was chosen[0m [2m<1ms[0m
-[2K    [32mo[0m [2man unsolicited refusal does not touch the window list and goes to the status bar[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma reply to desktop.list still fills the list[0m [2m<1ms[0m
-[2K    [32mo[0m [2msomeone else's reply is not passed off as the list[0m [2m<1ms[0m
-[2K  [36m⠸[0m [1mwindows_shell[0m [2m(14/41)[0m [2mexplorer_window_test[0m  [36m█████████[0m[2m░░░░░░[0m [2m 65%[0m[2K    [32mo[0m [2mstarts at its args path, titled by it; an unknown path is My Computer with a notice[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe menus are Windows 95's, verbatim, with the disabled items greyed and doing nothing[0m [2m<1ms[0m
-[2K    [32mo[0m [2mSelect All, Invert Selection and Open[0m [2m<1ms[0m
-[2K    [32mo[0m [2mView: toolbar and status bar toggle, one of four views is bulleted, Arrange sorts[0m [2m1ms[0m
-[2K    [32mo[0m [2mDetails: the cells of the model, a picture in the Name cell, the Control Panel's own columns[0m [2m<1ms[0m
-[2K    [32mo[0m [2mRefresh re-reads, Close closes, Help Topics and About are sheets[0m [2m<1ms[0m
-[2K    [32mo[0m [2mProperties: System Properties for My Computer and a drive, a sheet for a file[0m [2m<1ms[0m
-[2K    [32mo[0m [2mopening a folder asks what is open, then focuses that window or opens one with the path[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe single-window mode navigates in place and asks the compositor nothing[0m [2m<1ms[0m
-[2K    [32mo[0m [2mBackspace and Up One Level go to the parent in both modes; at the root they do nothing[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma double click is a second CLICK on the same object; the arrows reselecting do not open[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcontext menus: on an object Open and Properties, on the field View, Arrange, Refresh, Properties[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe toolbar: places open a folder, the view buttons switch and show the current one pressed[0m [2m<1ms[0m
-[2K    [32mo[0m [2mOptions: the two browse modes as radio buttons; OK stores the choice, Cancel does not[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe status bar counts the objects and names the selection or the drive[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe four views lay out at 48×16 and 72×22 in cells and pixels without overlaps[0m [2m57ms[0m
-[2K    [32mo[0m [2mthe real window comes up in a viewport and shows My Computer with its menu and status bar[0m [2m51ms[0m
-[2K  [36m⠼[0m [1mwindows_shell[0m [2m(15/41)[0m [2mfiledialog_test[0m  [36m██████████[0m[2m░░░░░[0m [2m 70%[0m[2K    [32mo[0m [2mlays out at 44×16 in cells and pixels without overlaps, rows as in the original[0m [2m1ms[0m
-[2K    [32mo[0m [2mthe list: folders first, then the files of the type with their pictures; cells draw every row[0m [2m1ms[0m
-[2K    [32mo[0m [2mSave As names its rows as Windows 95 did[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma click on a file puts its name into File name; a click on a folder only selects it[0m [2m1ms[0m
-[2K    [32mo[0m [2ma double click on a folder asks to read it; only a click counts as the second one[0m [2m4ms[0m
-[2K    [32mo[0m [2mUp One Level asks for the parent; at a drive's root it is disabled and asks nothing[0m [2m<1ms[0m
-[2K    [32mo[0m [2mLook in lists every drive with the way to the place, and choosing one asks to read it[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe type filter hides the files of other types and the selection they carried[0m [2m1ms[0m
-[2K    [32mo[0m [2mOpen resolves the File name against the place; Enter in the field is Open[0m [2m<1ms[0m
-[2K    [32mo[0m [2mCancel and Esc cancel; an action that is not the sheet's asks nothing[0m [2m<1ms[0m
-[2K    [32mo[0m [2marrive shows the place read; a folder that was not read shows its reason, not an empty list[0m [2m1ms[0m
-[2K    [32mo[0m [2mdraws in pixels: the shot test/shots/filedialog.png[0m [2m17ms[0m
-[2K  [36m⠴[0m [1mwindows_shell[0m [2m(16/41)[0m [2mgadget_test[0m  [36m███████████[0m[2m░░░░[0m [2m 75%[0m[2K    [32mo[0m [2mevery builder gives a plain, passive tree ui.problem accepts[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtakes the rows the kit promises, and a history takes the rest of a stack[0m [2m<1ms[0m
-[2K    [32mo[0m [2mscales a history to charts.ceiling_of when no ceiling is named, and keeps one that is[0m [2m<1ms[0m
-[2K    [32mo[0m [2mwrites a value as text: a whole number bare, a fraction to one place, the unit as given[0m [2m<1ms[0m
-[2K    [32mo[0m [2mputs a stat's picture on its left in four columns, and leaves it out without one[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlays a meter out as the caption and the value over a bar across the whole width[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlays the weather and the monitor out inside a widget's panel without overlaps, at 20×6 and 20×8[0m [2m3ms[0m
-[2K  [36m⠦[0m [1mwindows_shell[0m [2m(17/41)[0m [2mgauge_test[0m  [36m████████████[0m[2m░░░[0m [2m 80%[0m[2K    [32mo[0m [2mlays a gauge out in either orientation and refuses any other[0m [2m<1ms[0m
-[2K    [32mo[0m [2mfills the share of value over ceiling, clamped, to the nearest unit[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdraws a horizontal gauge in pixels as a sunken progress bar of navy blocks[0m [2m2ms[0m
-[2K    [32mo[0m [2mkeeps the vertical LED meter as the default, apart from the horizontal bar[0m [2m3ms[0m
-[2K    [32mo[0m [2mdraws a horizontal gauge in cells as a sunken field of blocks on its middle row[0m [2m2ms[0m
-[2K  [36m⠧[0m [1mwindows_shell[0m [2m(18/41)[0m [2mglyphs_test[0m  [36m████████████[0m[2m░░░[0m [2m 85%[0m[2K    [32mo[0m [2mkeeps every character of the set in one cell[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps the same names in both sets[0m [2m<1ms[0m
-[2K  [36m⠇[0m [1mwindows_shell[0m [2m(19/41)[0m [2mimages_test[0m  [36m█████████████[0m[2m░░[0m [2m 90%[0m[2K    [32mo[0m [2mreads a picture from a pack by <entry>/<file> and keeps one raster[0m [2m<1ms[0m
-[2K    [32mo[0m [2mrefuses an fs entry that did not declare itself a pack[0m [2m<1ms[0m
-[2K    [32mo[0m [2mnames the pack that is not in the registry and the file that is not in the pack[0m [2m<1ms[0m
-[2K    [32mo[0m [2mrefuses a picture whose size is not its folder's[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtakes a name, not a path, and a size it can read[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdraws a pack applied to the live registry without touching the shell[0m [2m6ms[0m
-[2K    [32mo[0m [2mshows a picture replaced in a pack, and keeps the raster while the file is the same[0m [2m4ms[0m
-[2K    [32mo[0m [2mdecodes every icon in both sizes[0m [2m3ms[0m
-[2K    [32mo[0m [2mreturns one and the same raster on a repeated request[0m [2m<1ms[0m
-[2K    [32mo[0m [2mrefuses by name rather than staying silent[0m [2m<1ms[0m
-[2K    [32mo[0m [2mrefuses a size that is not in the pack[0m [2m<1ms[0m
-[2K    [32mo[0m [2mresolves the name by kind and by an explicit image[0m [2m<1ms[0m
-[2K    [32mo[0m [2mputs the icon and the shortcut overlay into a raster[0m [2m<1ms[0m
-[2K  [36m⠏[0m [1mwindows_shell[0m [2m(20/41)[0m [2mlist_reveal_test[0m  [36m██████████████[0m[2m░[0m [2m 95%[0m[2K    [32mo[0m [2mshows the named row and does not knock the scroll off while the value stays the same[0m [2m<1ms[0m
-[2K  [36m⠋[0m [1mwindows_shell[0m [2m(21/41)[0m [2mlogon_test[0m  [36m███████████████[0m[2m[0m [2m100%[0m[2K    [32mo[0m [2mmasks the password with asterisks, keeping the real value in the tree[0m [2m1ms[0m
-[2K    [32mo[0m [2mEnter in the name leads to the password; a refusal clears the password, the second attempt logs on[0m [2m19ms[0m
-[2K    [32mo[0m [2mdoes not call the check with an empty name and shows a hint[0m [2m2ms[0m
-[2K    [32mo[0m [2mEsc and 'Cancel' refuse without a check; a closed terminal names the reason[0m [2m8ms[0m
-[2K    [32mo[0m [2mdraws the dialog in cells as a theme window: title, fields, buttons[0m [2m1ms[0m
-[2K    [32mo[0m [2mdraws the dialog in pixels through the theme's paint and produces a snapshot[0m [2m40ms[0m
-[2K    [32mo[0m [2mtakes the name only from a success, and tells a permission denial apart[0m [2m<1ms[0m
-[2K  [36m⠙[0m [1mwindows_shell[0m [2m(22/41)[0m [2mmenu_test[0m  [36m███████████████[0m[2m[0m [2m104%[0m[2K    [32mo[0m [2mkeeps a list without shortcuts at its width and grows one with them by the widest plus two[0m [2m1ms[0m
-[2K    [32mo[0m [2mdraws in cells the check, the bullet, the right-aligned shortcut and the submenu arrow[0m [2m1ms[0m
-[2K    [32mo[0m [2mdraws in pixels a 7-px check and a 6-px bullet before the text, the shortcut ending a cell early[0m [2m6ms[0m
-[2K    [32mo[0m [2mcentres the marks in the first and the last band, under and over the 3 px frame[0m [2m4ms[0m
-[2K    [32mo[0m [2mopens a submenu to the right with its first item on the row that opened it, in both modes[0m [2m1ms[0m
-[2K    [32mo[0m [2ma click on a submenu's row opens it, a click in the submenu gives the leaf[0m [2m<1ms[0m
-[2K    [32mo[0m [2mwalks into a submenu by keys and back, as the Start menu's folders[0m [2m1ms[0m
-[2K    [32mo[0m [2mfollows the pointer: a submenu's row opens it, another row closes it, another title takes over[0m [2m<1ms[0m
-[2K    [32mo[0m [2mrefuses a row both checked and a bullet, and a submenu inside a submenu[0m [2m<1ms[0m
-[2K    [32mo[0m [2mpaints an open submenu with its cursor, and keys the rows it covers[0m [2m18ms[0m
-[2K  [36m⠹[0m [1mwindows_shell[0m [2m(23/41)[0m [2mnetwork_test[0m  [36m████████████████[0m[2m[0m [2m109%[0m[2K    [32mo[0m [2mputs this computer first and names the elected leader[0m [2m<1ms[0m
-[2K    [32mo[0m [2mfills the table with the address, and writes a dash where there is none[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtells a lone node from a refusal in the status line[0m [2m<1ms[0m
-[2K    [32mo[0m [2mnames the selected node, and the leader when nothing is selected[0m [2m<1ms[0m
-[2K    [32mo[0m [2mopens with Entire Network and gives every node the host icon[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcounts objects, and says when one is picked[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlays out the menu, the icon grid and the status bar without overlaps[0m [2m<1ms[0m
-[2K    [32mo[0m [2mopens a node on the second click and closes the sheet with Escape[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps only working menu items, and each of them does something[0m [2m<1ms[0m
-[2K    [32mo[0m [2mswitches to About and back, and Escape closes the window[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtells a policy refusal from an absent cluster, whatever kind the runtime used[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps each field's value or its reason, and the screen shows the refusal[0m [2m2ms[0m
-[2K  [36m⠸[0m [1mwindows_shell[0m [2m(24/41)[0m [2mnotepad_test[0m  [36m█████████████████[0m[2m[0m [2m114%[0m[2K    [32mo[0m [2mstarts untitled, opens the explorer's file, and titles the window with a plain hyphen[0m [2m<1ms[0m
-[2K    [32mo[0m [2mrefuses a file over 64 KB with the original's words before it is read into the editor[0m [2m8ms[0m
-[2K    [32mo[0m [2mreads through the drive's own handle: stat first, then the 64 KB rule, a missing file apart[0m [2m<1ms[0m
-[2K    [32mo[0m [2mhas the menus of Windows 95: the shortcut column, Word Wrap checked, what cannot be done greyed[0m [2m<1ms[0m
-[2K    [32mo[0m [2masks before New, Open and Exit drop a changed document: Yes saves and goes on, No goes on, Cancel stays[0m [2m<1ms[0m
-[2K    [32mo[0m [2msaves an untitled document through Save As, adds .txt under Text Documents, and titles it[0m [2m<1ms[0m
-[2K    [32mo[0m [2mopens the chosen file, and a name that is not there asks to create it[0m [2m<1ms[0m
-[2K    [32mo[0m [2mfinds with the Find sheet, F3 finds the next, a text that is not there says Cannot find[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps the clipboard in the window: Ctrl+X, C and V, Ctrl+Z toggles, F5 inserts the time, Help and About[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe title bar's close asks for a changed document: Yes saves and closes, No closes, Cancel stays[0m [2m<1ms[0m
-[2K    [32mo[0m [2mpaints a few lines with a selection and the Edit menu open, in pixels and in cells[0m [2m24ms[0m
-[2K  [36m⠼[0m [1mwindows_shell[0m [2m(25/41)[0m [2mprograms_live_test[0m  [36m█████████████████[0m[2m[0m [2m119%[0m[2K    [32mo[0m [2mTask Manager, Notepad and the picture viewer answer with a window description[0m [2m518ms[0m
-[2K  [36m⠴[0m [1mwindows_shell[0m [2m(26/41)[0m [2mrun_test[0m  [36m██████████████████[0m[2m[0m [2m124%[0m[2K    [32mo[0m [2mbuilds a Bash launch spec and rejects empty commands[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlays out the dialog on the SDK: input, OK by default, Cancel, no overlaps[0m [2m<1ms[0m
-[2K    [32mo[0m [2mBrowse… asks for My Computer and does not close the dialog on the reply[0m [2m<1ms[0m
-[2K    [32mo[0m [2mopens Bash and Run from Start and keeps the launched shell after Run closes[0m [2m2.2s[0m
-[2K    [32mo[0m [2mkeeps a usable cell dialog with Escape cancellation[0m [2m87ms[0m
-[2K  [36m⠦[0m [1mwindows_shell[0m [2m(27/41)[0m [2msdk_close_test[0m  [36m███████████████████[0m[2m[0m [2m129%[0m[2K    [32mo[0m [2mthe rule: only stay() keeps the window open; update's answer does not count[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe loop keeps running after a refused close and ends on the one the window accepts[0m [2m50ms[0m
-[2K    [32mo[0m [2ma window answering false to everything closes at the first close[0m [2m50ms[0m
-[2K    [32mo[0m [2ma window that calls context.close() while answering a close ends at once[0m [2m51ms[0m
-[2K  [36m⠧[0m [1mwindows_shell[0m [2m(28/41)[0m [2msdk_focus_test[0m  [36m████████████████████[0m[2m[0m [2m134%[0m[2K    [32mo[0m [2ma release after the window lost the keyboard does not press the button[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdrops a captured drag too, and redraws only when something was held[0m [2m<1ms[0m
-[2K    [32mo[0m [2mgaining the keyboard and other events leave the interaction alone[0m [2m<1ms[0m
-[2K  [36m⠇[0m [1mwindows_shell[0m [2m(29/41)[0m [2msdk_test[0m  [36m████████████████████[0m[2m[0m [2m139%[0m[2K    [32mo[0m [2mkeeps the same step as the shell icon library[0m [2m<1ms[0m
-[2K    [32mo[0m [2mwraps items into rows, scrolls by row and walks the grid with arrows[0m [2m<1ms[0m
-[2K    [32mo[0m [2mpadding_bottom = 0 puts the last row against the frame while the other sides keep padding[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlays out disjoint controls at actual client sizes and clamps after data shrink[0m [2m2ms[0m
-[2K    [32mo[0m [2mshares wheel, page, keyboard selection and drag geometry[0m [2m<1ms[0m
-[2K    [32mo[0m [2mactivates buttons on release inside and cancels an outside release[0m [2m<1ms[0m
-[2K    [32mo[0m [2mgives a right press on a button to the window as context and arms nothing[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdraws a button's picture from an image pack in pixels and keeps the caption when it is missing[0m [2m1ms[0m
-[2K    [32mo[0m [2mtoggles a checkbox through change actions, skips disabled controls and ignores key release[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtable: one column layout for header, rows, hits and both renderers[0m [2m7ms[0m
-[2K    [32mo[0m [2mtabs, menu and statusbar: one strip layout, page frame, popup on top, both renderers[0m [2m5ms[0m
-[2K    [32mo[0m [2medits Unicode without deleting on key release[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdiscovers the application from registry metadata with no theme-specific renderer[0m [2m<1ms[0m
-[2K    [32mo[0m [2mreuses an unchanged raster and exports the real SDK controls[0m [2m31ms[0m
-[2K    [32mo[0m [2mopens through the real compositor, resizes and closes in pixels and cells[0m [2m320ms[0m
-[2K    [32mo[0m [2mgo-lua: an error under pcall tears upvalues in the frames BELOW too — a tripwire[0m [2m<1ms[0m
-[2K    [32mo[0m [2mA8: a state without interaction gives a frame, a tree that is not a table is refused with a reason[0m [2m7ms[0m
-[2K    [32mo[0m [2mA6: an error in ui.event sends the window to the fallback tree and does not skip dispose[0m [2m1ms[0m
-[2K    [32mo[0m [2mA2: a passive view with an id does not take focus on click, Tab after the click moves on[0m [2m<1ms[0m
-[2K    [32mo[0m [2mA12: with no selection an arrow selects the first row, not the second[0m [2m2ms[0m
-[2K    [32mo[0m [2mthere is one scrollbar in cells: list, table, tree and icons draw it the same way[0m [2m4ms[0m
-[2K    [32mo[0m [2mdisabled list, table, tree and icons are dimmed in both backends[0m [2m14ms[0m
-[2K    [32mo[0m [2mA9: a clean raster is reused without a layout, and the compositor's interaction stays as it was[0m [2m<1ms[0m
-[2K    [32mo[0m [2mA14: Space presses and types whatever the decoder calls it, and Shift+Tab steps back[0m [2m<1ms[0m
-[2K    [32mo[0m [2mA11: a new press drops a button and a thumb whose release was never seen[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlist and table text start one cell in; a right-aligned column ends one cell early[0m [2m1ms[0m
-[2K    [32mo[0m [2ma caption that does not fit is cut with an ellipsis in both; one that fits is whole[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma field takes one cell row in cells, the middle one, like a button[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtakes 16 px of whole cells in list, table, tree and icons[0m [2m4ms[0m
-[2K    [32mo[0m [2ma press on the bar's leftmost column scrolls; in cells the bar is one column[0m [2m2ms[0m
-[2K    [32mo[0m [2ma native window takes the bar width from the compositor's cell and follows a resize[0m [2m<1ms[0m
-[2K    [32mo[0m [2man empty input shows its placeholder in grey until it is focused, and never sends it[0m [2m1ms[0m
-[2K    [32mo[0m [2ma select opens under its field, chooses by a click or Enter, and steps with the arrows when closed[0m [2m2ms[0m
-[2K    [32mo[0m [2mui.message takes buttons, OK alone stays the default, and ui.confirm is Yes and No with No the default[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma wrapped label flows by words into its height and cuts only the last line[0m [2m<1ms[0m
-[2K    [32mo[0m [2msize_px, padding_px and gap_px round to whole cells in pixels; cells keep size, padding and gap[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma right-aligned row packs 75 px buttons 6 px apart from its right edge, each inside its own cells[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtabs are measured by their captions in pixels, so four Windows 95 tabs fit[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma native window plans with the compositor's cell and follows a resize[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma slider changes by keys and clicks within min..max; a disabled one takes nothing[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe spectrum runs from magenta to red by one rule in both renderers[0m [2m1ms[0m
-[2K    [32mo[0m [2ma radio button is chosen by a click, Space or Enter, and never unchosen by itself[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtouches the bar in pixels at 8x16 and 10x20: no frame row, the first item row is New[0m [2m1ms[0m
-[2K    [32mo[0m [2mkeeps the frame rows in cells: the box's top row, then New[0m [2m<1ms[0m
-[2K    [32mo[0m [2mframes the list as Windows 95 inside its rows: the first band under the frame, the last over it[0m [2m36ms[0m
-[2K    [32mo[0m [2ma list says end when the wheel pushes down with its last row on screen[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma table counts its rows below the header[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeys past the last row say end; reaching it is still a select[0m [2m<1ms[0m
-[2K    [32mo[0m [2mend and scroll are drawn even when update ignores them[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma text wraps by characters after a space, keeping its lines and indents[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma text with an id scrolls by lines — wheel, bar and keys, each a scroll action[0m [2m1ms[0m
-[2K    [32mo[0m [2ma text without an id is inert: no focus, no scroll, no problem[0m [2m<1ms[0m
-[2K    [32mo[0m [2mboth renderers draw the plan's lines from the offset[0m [2m1ms[0m
-[2K    [32mo[0m [2monly the rows whose content changed are repainted; the same revision repaints none; a resize all[0m [2m13ms[0m
-[2K    [32mo[0m [2ma graph's integer ceiling is printed as digits[0m [2m1ms[0m
-[2K    [32mo[0m [2mapp.main wraps app.run, and a bare context has watch, unwatch, after and close[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcontext.after delivers one timer action with its tag, once[0m [2m2ms[0m
-[2K    [32mo[0m [2ma row with align = right puts fixed children against its far end[0m [2m<1ms[0m
-[2K    [32mo[0m [2mclose_on_escape closes on an Esc update did not take, and not on one it did[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma static table needs no id, takes no focus and no clicks[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdraws the active tab higher and open into the page, the frame line under the inactive one[0m [2m1ms[0m
-[2K    [32mo[0m [2mrepaints the page frame's top row when the active tab changes[0m [2m<1ms[0m
-[2K  [36m⠏[0m [1mwindows_shell[0m [2m(30/41)[0m [2mselection_test[0m  [36m█████████████████████[0m[2m[0m [2m143%[0m[2K    [32mo[0m [2mlays small icons out in 15-cell columns one row high and walks them as the large grid[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdraws a small icon in cells as its glyph, a space and the caption, cut with an ellipsis[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdraws a small icon in pixels as a 16-px picture and the caption 3 px after it[0m [2m5ms[0m
-[2K    [32mo[0m [2micons: a click selects one, Ctrl toggles, Shift takes the range in view order, Ctrl+A all[0m [2m1ms[0m
-[2K    [32mo[0m [2micons: the set is what is drawn, and the single selected index still works[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtable: the same rules, keys select one, and a click below the rows clears[0m [2m<1ms[0m
-[2K    [32mo[0m [2mtable: every row of the set is drawn selected, and a change repaints only the rows it touches[0m [2m4ms[0m
-[2K    [32mo[0m [2ma click on a tree row is a select with pointer, a key is one without[0m [2m<1ms[0m
-[2K    [32mo[0m [2mshows a cell's icon character before its text in cells[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdraws a cell's 16-px picture two pixels in and its text 3 px after it[0m [2m2ms[0m
-[2K  [36m⠋[0m [1mwindows_shell[0m [2m(31/41)[0m [2mshell_test[0m  [36m██████████████████████[0m[2m[0m [2m148%[0m[2K    [32mo[0m [2mre-reads the layout on a handler's command[0m [2m112ms[0m
-[2K    [32mo[0m [2mdoes not pass off a stopped shell as a failure[0m [2m<1ms[0m
-[2K  [36m⠙[0m [1mwindows_shell[0m [2m(32/41)[0m [2msources_test[0m  [36m███████████████████████[0m[2m[0m [2m153%[0m[2K    [32mo[0m [2mtakes drives from the registry, not from its own table[0m [2m<1ms[0m
-[2K    [32mo[0m [2mshows the drives and the Control Panel at the root[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlists the catalog's Settings programs in the Control Panel, with their comments[0m [2m<1ms[0m
-[2K    [32mo[0m [2mreads each file's size and date with a stat, and names its type[0m [2m33ms[0m
-[2K    [32mo[0m [2mkeeps the browse mode in the shell's settings and refuses an unknown one[0m [2m<1ms[0m
-[2K    [32mo[0m [2mreads the drive contents with the fs module[0m [2m30ms[0m
-[2K    [32mo[0m [2manswers with a reason, not emptiness, for a drive that does not exist[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not show folder contents on the top level of the desktop[0m [2m4ms[0m
-[2K    [32mo[0m [2manswers with a reason for a desktop folder that does not exist[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not pass an unknown path off as the root[0m [2m<1ms[0m
-[2K  [36m⠹[0m [1mwindows_shell[0m [2m(33/41)[0m [2mstorage_test[0m  [36m███████████████████████[0m[2m[0m [2m158%[0m[2K    [32mo[0m [2msurvives the round created — read — moved — deleted[0m [2m<1ms[0m
-[2K    [32mo[0m [2manswers whether the row EXISTED, not just "deleted"[0m [2m<1ms[0m
-[2K    [32mo[0m [2mmoves the contents of a deleted folder to the desktop instead of deleting them along with it[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps a shortcut to a vanished entry and marks it broken[0m [2m<1ms[0m
-[2K    [32mo[0m [2mputs a program with desktop true on the desktop once and does not bring back a deleted shortcut[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not touch a program without desktop true[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcreates an automatic icon WITHOUT coordinates[0m [2m<1ms[0m
-[2K    [32mo[0m [2mmakes an icon placed when a place is named[0m [2m<1ms[0m
-[2K    [32mo[0m [2mreturns placed icons before those whose place was not named[0m [2m<1ms[0m
-[2K    [32mo[0m [2mbroken JSON and a non-object are a failure with a reason, not an empty successful PATCH[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma coordinate is a finite integer from 1 to 10000, and the database does not glue infinity to the corner[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma folder does not nest into a folder — neither on creation nor by moving[0m [2m<1ms[0m
-[2K    [32mo[0m [2mparent_id: null is only a top-level key, not a substring of the body[0m [2m<1ms[0m
-[2K    [32mo[0m [2mentry and title are at most 256 and 512 characters[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma full PATCH passes validation and reaches the database[0m [2m<1ms[0m
-[2K    [32mo[0m [2moffering one icon twice gives one shortcut and not a single error[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma setting is written and read with placeholders of one dialect[0m [2m<1ms[0m
-[2K    [32mo[0m [2mmigration 02: rebuilding the table inside a transaction rolls back entirely[0m [2m<1ms[0m
-[2K  [36m⠸[0m [1mwindows_shell[0m [2m(34/41)[0m [2msysprops_test[0m  [36m████████████████████████[0m[2m[0m [2m163%[0m[2K    [32mo[0m [2mlays out registry entries by kind prefix, marks empty groups[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlays out three tabs without overlaps and keeps the buttons[0m [2m3ms[0m
-[2K    [32mo[0m [2mthe runtime resources are a static table: no id, no focus[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe tree expands and selects, OK closes[0m [2m<1ms[0m
-[2K    [32mo[0m [2munread hosts show the reason instead of "(none)", the permission denial is named[0m [2m<1ms[0m
-[2K  [36m⠼[0m [1mwindows_shell[0m [2m(35/41)[0m [2mtable_kind_test[0m  [36m█████████████████████████[0m[2m[0m [2m168%[0m[2K    [32mo[0m [2mcells: a cell with a kind and no icon gets the kind's glyph; its own icon still wins[0m [2m1ms[0m
-[2K    [32mo[0m [2mpixels: a cell's kind draws that kind's picture — the same as naming it[0m [2m3ms[0m
-[2K    [32mo[0m [2mframe meta: title and image as strings or functions of the model; empty keeps the window's own[0m [2m<1ms[0m
-[2K  [36m⠴[0m [1mwindows_shell[0m [2m(36/41)[0m [2mtaskman_test[0m  [36m█████████████████████████[0m[2m[0m [2m173%[0m[2K    [32mo[0m [2mlays out tabs, tables, groups and the refresh button without overlaps at several sizes[0m [2m12ms[0m
-[2K    [32mo[0m [2mthe name — value pairs are static tables: no made-up id, no focus[0m [2m1ms[0m
-[2K    [32mo[0m [2mkeeps the selected task by id when sampling reorders rows and switches tabs[0m [2m<1ms[0m
-[2K    [32mo[0m [2mopens the real native window, handles tabs and refresh, and keeps sampling[0m [2m1.1s[0m
-[2K    [32mo[0m [2mkeeps the history no longer than the cap, the oldest goes first[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdraws columns bottom up, the latest measurement on the right[0m [2m<1ms[0m
-[2K    [32mo[0m [2msplits a tall column into lines: full ones at the bottom, the fractional one on top[0m [2m<1ms[0m
-[2K    [32mo[0m [2mmissing measurements on the left are blank, not zero[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe ceiling is round and not below the maximum[0m [2m<1ms[0m
-[2K    [32mo[0m [2mmemory in megabytes, uptime in hours[0m [2m<1ms[0m
-[2K    [32mo[0m [2mseconds from a number of any unit[0m [2m<1ms[0m
-[2K    [32mo[0m [2mprocesses are sorted stably, by entry and pid[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma permission denial is named, not turned into zero or "unavailable"[0m [2m<1ms[0m
-[2K  [36m⠦[0m [1mwindows_shell[0m [2m(37/41)[0m [2mviewers_test[0m  [36m██████████████████████████[0m[2m[0m [2m178%[0m[2K    [32mo[0m [2mis assembled and parsed with one form[0m [2m<1ms[0m
-[2K    [32mo[0m [2mrefuses with a reason on garbage and emptiness[0m [2m<1ms[0m
-[2K    [32mo[0m [2mextension — lower case, without the dot, only the last one[0m [2m<1ms[0m
-[2K    [32mo[0m [2massembles the table from both entry forms[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma dispute over an extension names both and chooses stably[0m [2m<1ms[0m
-[2K    [32mo[0m [2mfinds the program by file name regardless of case[0m [2m<1ms[0m
-[2K    [32mo[0m [2mrefuses with a reason when there is nothing to open it with[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma file's icon is the icon of the program that opens it[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma window request carries the entry, the size and an argument that parses back[0m [2m<1ms[0m
-[2K    [32mo[0m [2mfits a large picture into the window, does not enlarge a small one[0m [2m<1ms[0m
-[2K    [32mo[0m [2mat a zoom the offset is clamped by the edge of the picture[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe frame is exactly the window size and one and the same while nothing changed[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe placement covers exactly the inner rectangle[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma waiting window and a provider failure are named, not drawn[0m [2m<1ms[0m
-[2K  [36m⠧[0m [1mwindows_shell[0m [2m(38/41)[0m [2mviews_test[0m  [36m███████████████████████████[0m[2m[0m [2m182%[0m[2K    [32mo[0m [2mthe month grid starts on the right day and ends with the last one[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe bottom buttons share no cells, "OK" is the default, "Apply" cannot be pressed[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe same second does not redraw, "OK" closes, Esc is left to the loop[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcounts like the buttons, not like an expression[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe display shows a whole number with a dot, a fraction without a second one[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdivision by zero is a phrase, and after it only a reset works[0m [2m<1ms[0m
-[2K    [32mo[0m [2mmemory survives the C reset and is shown on the display[0m [2m<1ms[0m
-[2K    [32mo[0m [2mBack, CE, square root and percent behave as in the original[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeys arrive at the same buttons as the mouse[0m [2m<1ms[0m
-[2K    [32mo[0m [2mSDK buttons stand in the original's grid, share no cells and fit in the window[0m [2m1ms[0m
-[2K    [32mo[0m [2ma click and a key count the same, the highlight goes out by its own timer[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdraws every key caption whole in pixels at the shell's font and 8 to 10 px cells[0m [2m5ms[0m
-[2K    [32mo[0m [2mfits the cell client and shows every caption whole between bevels[0m [2m6ms[0m
-[2K    [32mo[0m [2mthe menu has only "About": the sheet opens, keys do not count under it[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlays namespaces out by dots, folders before entries[0m [2m<1ms[0m
-[2K    [32mo[0m [2mvisible rows depend on the expanded keys, the path is written as in regedit[0m [2m<1ms[0m
-[2K    [32mo[0m [2mentry fields — kind, meta and data alphabetically, tables on one line[0m [2m<1ms[0m
-[2K    [32mo[0m [2mthe expander box and the keys of the SDK tree expand, move and keep the selection[0m [2m2ms[0m
-[2K    [32mo[0m [2ma long tree scrolls and keeps the selection on screen[0m [2m18ms[0m
-[2K    [32mo[0m [2mthe menu has no permanently disabled items, and each remaining one does something[0m [2m8ms[0m
-[2K    [32mo[0m [2man empty filter returns the whole registry, and the tree is built from it[0m [2m9ms[0m
-[2K    [32mo[0m [2mafter "Shut Down" — a black screen with the caption in the middle[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma narrow screen gets a cut caption, not emptiness[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma window with resizable false has no "maximize" button[0m [2m<1ms[0m
-[2K    [32mo[0m [2mshows a product past 1e15 as a number, not as %!g(lua.LInteger=…)[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcontrol: an ordinary integer result keeps the %d path[0m [2m<1ms[0m
-[2K  [36m⠇[0m [1mwindows_shell[0m [2m(39/41)[0m [2mwindow_life_test[0m  [36m████████████████████████████[0m[2m[0m [2m187%[0m[2K    [32mo[0m [2mTask Manager does not die on the first frame[0m [2m321ms[0m
-[2K    [32mo[0m [2mNotepad does not die on the first frame[0m [2m342ms[0m
-[2K  [36m⠏[0m [1mwindows_shell[0m [2m(40/41)[0m [2mwiring_test[0m  [36m████████████████████████████[0m[2m[0m [2m192%[0m[2K    [32mo[0m [2msilences the log on its own terminal host[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not set up a window host of its own[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdeclares "My Computer" as an ordinary registry program[0m [2m<1ms[0m
-[2K    [32mo[0m [2masks the compositor through the base's library, not a protocol of its own[0m [2m<1ms[0m
-[2K    [32mo[0m [2mis an SDK application: the shared components and renderer, not a copy of its own[0m [2m<1ms[0m
-[2K    [32mo[0m [2mkeeps no custom renderer entries behind[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not let the window spawn processes or run programs[0m [2m<1ms[0m
-[2K    [32mo[0m [2mputs shortcuts on the desktop only to existing entries[0m [2m<1ms[0m
-[2K    [32mo[0m [2mserves the shell as the windows command with its own actor[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcalls the base's mechanics rather than copying them[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdeclares a dependency on the base[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcarries the layout migration[0m [2m<1ms[0m
-[2K    [32mo[0m [2mwires each handle to its handler on the application router[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not set up handles for creating a program[0m [2m<1ms[0m
-[2K    [32mo[0m [2mnudges the shell after a layout change[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdoes not let the layout handles spawn processes[0m [2m<1ms[0m
-[2K    [32mo[0m [2mgrants the environment by variable name, never over "*"[0m [2m<1ms[0m
-[2K    [32mo[0m [2mgrants no registry.entry anywhere: it is not an action[0m [2m<1ms[0m
-[2K    [32mo[0m [2mnames one database for every migration and for the repository[0m [2m<1ms[0m
-[2K    [32mo[0m [2mlets the shell return workshop windows to the registry[0m [2m<1ms[0m
-[2K    [32mo[0m [2mcloses the handles with a policy the application injects[0m [2m<1ms[0m
-[2K    [32mo[0m [2mdeclares no module whose right has not been granted[0m [2m<1ms[0m
-[2K  [36m⠋[0m [1mwindows_shell[0m [2m(41/41)[0m [2mworkshop_sdk_test[0m  [36m█████████████████████████████[0m[2m[0m [2m197%[0m[2K    [32mo[0m [2mthe description passes validation and ends up in an entry with the SDK import and the pixel view[0m [2m<1ms[0m
-[2K    [32mo[0m [2ma window applied to the registry starts and stays alive[0m [2m328ms[0m
-[2K    [32mo[0m [2ma window that dies right after its first frame is caught, not taken for alive[0m [2m6ms[0m
-[2K  [31mx[0m [1mwindows_shell[0m [2m(493)[0m [31m3 failed[0m [2m7.4s[0m
-
-[1m[31m  Failures[0m[0m
-
-    [36mAntiBug model > takes only function test entries, sorted by group, suite and order; no suite is 'other'[0m
-    [31mwippy.test:test:477: assertion failed: expected "app:loose_test,app:plain_test,app:db_test,app:menu_test,app:a_test,app:b_test", got "app:loose_test,app:helper,app:plain_test,app:db_test,app:menu_test,app:a_test,app:b_test"[0m
-
-    [36mAntiBug model > builds the group → suite → entry tree with counts and the expander state[0m
-    [31mwippy.test:test:477: assertion failed: expected "(no group) (1)|loose (1)|Data (2)|other (1)|storage (1)|Shell (3)|menus (1)|shell (2)", got "(no group) (2)|loose (1)|other (1)|Data (2)|other (1)|storage (1)|Shell (3)|menus (1)|shell (2)"[0m
-
-    [36mAntiBug model > chooses the entries of every selection shape and filter[0m
-    [31mwippy.test:test:477: nothing selected: everything: expected 6, got 7[0m
-
-  [31m[1mFAILED[0m[0m  [36m████████████████████████[0m[2m░[0m
-
-  [32m490 passed[0m  [31m3 failed[0m  [2m7.4s[0m
-
-[?25h

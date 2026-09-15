@@ -32,7 +32,6 @@ local explorer_window = require("explorer_window")
 local datetime_window = require("datetime_window")
 local sysprops_window = require("sysprops_window")
 local display_window = require("display_window")
-local calc_window = require("calc_window")
 local taskman_window = require("taskman_window")
 local sdk_render = require("sdk_render")
 local reg_model = require("reg_model")
@@ -710,20 +709,6 @@ local function main(spec)
         context.popup = {x = 20, y = 7, target = "object"}
         shot("folder-context", context, 46, 14)
     end
-    do
-        -- Network Neighborhood: a mesh of two nodes, the leader is the
-        -- neighbor. The screenshot is taken from an INVENTED membership on
-        -- purpose: the live cluster here is single-node, and a "one computer"
-        -- picture would show neither the leader nor the addresses.
-        local network_window = require("network_window")
-        local snap: any = {node_id = "kickside", node_addr = "127.0.0.1:7946", node_role = "voter",
-            leader = "mesh-node",
-            members = {{id = "mesh-node", is_local = false, addr = "127.0.0.1:7947"},
-                {id = "kickside", is_local = true, addr = "127.0.0.1:7946"}}}
-        local state: any = {snapshot = snap, selected = "kickside", about = false}
-        view_shot("network", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
-            interaction = ui.interaction(), ui = network_window.definition.view(state, {width = 60, height = 14})}}, 60, 14)
-    end
     -- "Display Properties": the four tabs at the entry's 46×24, the client
     -- inside the pixel frame; the Background with a pattern chosen.
     for tab = 1, 4 do
@@ -779,13 +764,6 @@ local function main(spec)
         session.selected = "windows.shell.theme:chrome"
         view_shot("regedit", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
             interaction = ui.interaction(), ui = regedit.definition.view(session, {width = 78, height = 22})}}, 78, 22)
-    end
-    do
-        local calc_state = calc_window.definition.init(nil, {})
-        calc_state.calc.entry, calc_state.calc.memory, calc_state.calc.pressed = "1234.5", 1, "5"
-        view_shot("calc", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
-            interaction = ui.interaction(),
-            ui = calc_window.definition.view(calc_state, {width = 27, height = 14, native = true})}}, 27, 14)
     end
 
     for _, scene in ipairs(SCENES) do

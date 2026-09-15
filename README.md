@@ -128,9 +128,9 @@ Menu folders are given by the path in `group`, not by a separate entry: a folder
 programs is meaningless, and one declared separately drifts apart from its
 contents when a module is removed.
 
-### SDK windows: "Date/Time", calculator, registry, task manager, "Run…"
+### SDK windows: "Date/Time", registry, task manager, "Run…"
 
-Five shell programs are built on the window SDK (`windows.shell.sdk:app`,
+Four shell programs are built on the window SDK (`windows.shell.sdk:app`,
 [docs/sdk.md](docs/sdk.md)): the application gives a component tree and changes
 the model on actions, while the layout, hits, scrolling and both renderers
 are provided by the SDK. They have no paints of their own, no state provider, no
@@ -140,13 +140,11 @@ A renderer of its own remains with the image viewer; "My Computer" and the folde
 windows are on the SDK (FR-008).
 
 - Window: Date/Time; Entry: `windows.shell.datetime:window`; What's inside: tabs, a month calendar with today's date, an analog clock, digital time, the time zone; **read-only** — there is nothing to adjust, "OK" and "Cancel" close it, "Apply" is disabled for good
-- Window: Calculator; Entry: `windows.shell.calc:window`; What's inside: the standard Windows 95 view: the display, Back/CE/C, memory MC/MR/MS/M+, digits in blue, operations in red; it calculates like a desk calculator — an operation is applied immediately, 2 + 3 × 4 = 20; keyboard and mouse go into the same button. A window on the shell SDK: works both in cells and in pixels
 - Window: Registry Editor; Entry: `windows.shell.regedit:window`; What's inside: regedit: on the left a tree of namespaces split by dots and of the entries inside them, on the right `kind`, `meta.*` and `data.*` of the selected entry, at the bottom the path `Registry\a\b\name`. The [+] box, Enter and → expand, ← collapses or goes to the parent, the wheel and the scrollbar scroll; F5 rereads. **Read-only** (FR-004 §3.4): the `regedit_state` policy has `registry.find` but not `registry.apply`. A window on the shell SDK (the `tree` component)
 - Window: Task Manager; Entry: `windows.shell.taskman:window`; What's inside: open applications, Wippy processes, performance and the node on four tabs, refreshed every second; opened from Start → Settings → Task Manager. Details: [docs/taskman.md](docs/taskman.md)
 - Window: Run…; Entry: `windows.shell.run:window`; What's inside: a command field; Enter or "OK" starts the command in its own Bash window, which is the base's terminal window; opened from Start → Run…. Details: [docs/run.md](docs/run.md)
-- Window: AntiBug; Entry: `windows.shell.antibug:window`; What's inside: a test scanner in the style of McAfee VirusScan 95 — runs the application's `meta.type: test` entries one at a time through its own runner (its own actor and a wide scope; the window stays narrow), and the targets the application declares (`meta.type: windows.antibug_target`: a module working copy through the wippy test runner, a Go module through `go test -json`) as children; findings, progress, the log and "Scan complete."; opened from Start → Programs → AntiBug. Details: [docs/antibug.md](docs/antibug.md)
 
-"Date/Time" has `resizable: false`, the calculator too; the registry editor can be resized. The taskbar clock opens "Date/Time": the host
+"Date/Time" has `resizable: false`; the registry editor can be resized. The taskbar clock opens "Date/Time": the host
 declares this with a `windows.taskbar_clock` entry (below).
 
 **How the theme finds `render`.** `require` can only load declared `imports`,
@@ -231,14 +229,15 @@ The mechanics are in the base (`windows/tui-desktop`, `hover_menu`), the theme o
 draws the selected line; in pixels the panel is redrawn because
 `selected` is part of its raster key.
 
-### Add/Remove Programs
+### Programs that became modules of their own (2026-09-15)
 
-Start → Settings → Add/Remove Programs shows the wippy modules — the
-`ns.dependency` declarations plus the vendor cache with version and size — and
-edits the application's declarations file: it removes and appends entries. The
-change takes effect after `wippy update` and a restart, which the window says
-itself; it does not touch the registry or the Hub. The declarations folder is
-named by `WINDOWS_DEPS_FS`. Details: [docs/appwiz.md](docs/appwiz.md).
+The Calculator, AntiBug, Network Neighborhood and Add/Remove Programs left
+this module: they are `windows/calculator`, `windows/antibug`,
+`windows/network` and `windows/appwiz` in the Hub (repositories
+wippy-windows/{calculator,antibug,network,appwiz}). Each is a plain window
+module on the SDK; an application that wants them declares the dependency.
+The `windows.antibug_target` and `WINDOWS_DEPS_FS` conventions moved with
+them and are described in their READMEs.
 
 ### System Properties
 
@@ -382,10 +381,9 @@ are apart. Another person's icon reads as "no such shortcut".
 
 ### Windows only an administrator opens
 
-Task Manager, AntiBug, Add/Remove Programs and the Registry Editor run under
-their entries' broad policies — ending any process, building on the server,
-editing the application's dependencies, reading the whole registry — whoever
-logged on. Each names `requires: windows.admin`, and the base's compositor asks
+Task Manager and the Registry Editor run under their entries' broad
+policies — ending any process, reading the whole registry — whoever logged
+on (AntiBug and Add/Remove Programs, modules of their own now, do the same). Each names `requires: windows.admin`, and the base's compositor asks
 the logged-on person's scope before opening it (the base README, `meta.requires`).
 An application grants `windows.admin` to its administrators; a group whose
 policy allows `*` has it already.
@@ -401,8 +399,8 @@ and it is not created again.
 Only what has something behind it is created. A "Recycle Bin" is deliberately
 absent: an icon that does nothing looks like a working part of the system, and the
 first thing people will ask about it is why it does not work. "Network
-Neighborhood" is not furniture: it is a program (`windows.shell.network:window`)
-that asks for its own shortcut with `desktop: true`, so it reaches the desktop the
+Neighborhood" is not furniture: it is a program (`windows.network:window`, a
+module of its own) that asks for its own shortcut with `desktop: true`, so it reaches the desktop the
 way any program shortcut does, by the rule below.
 
 Furniture counts as offered by the same rule as program shortcuts:

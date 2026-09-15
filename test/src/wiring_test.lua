@@ -306,7 +306,7 @@ local function define_tests()
                     end
                 end
             end
-            test.is_true(checked >= 2, "the shell's and the install panel's env policies were not found")
+            test.is_true(checked >= 1, "the shell's env policy was not found")
         end)
 
         test.it("grants no registry.entry anywhere: it is not an action", function()

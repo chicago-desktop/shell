@@ -269,12 +269,10 @@ entries:
       explorer_window: windows.shell.explorer:window
       run_window: windows.shell.run:window
       datetime_window: windows.shell.datetime:window
-      calc_window: windows.shell.calc:window
       sdk_render: windows.shell.sdk:render
       taskman_window: windows.shell.taskman:window
       sysprops_window: windows.shell.sysprops:window
       sysprops_model: windows.shell.sysprops:model
-      network_window: windows.shell.network:window
       display_window: windows.shell.display:window
       reg_model: windows.shell.regedit:model
       regedit_window: windows.shell.regedit:window
@@ -448,7 +446,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: View windows — the month grid, buttons in cells without shared cells, a second resends only the clock; the calculator computes like the buttons, memory survives a clear, a press resends the display and one row; a fixed window has no "maximize".
+      comment: View windows — the month grid, buttons in cells without shared cells, a second resends only the clock; a fixed window has no "maximize".
       group: Windows Shell
       suite: windows_shell
     source: file://views_test.lua
@@ -461,25 +459,9 @@ entries:
       chrome: windows.shell.theme:chrome
       chrome_pixels: windows.shell.theme:chrome_pixels
       datetime_window: windows.shell.datetime:window
-      engine: windows.shell.calc:engine
-      calc_window: windows.shell.calc:window
       ui: windows.shell.sdk:ui
       reg_model: windows.shell.regedit:model
       regedit_window: windows.shell.regedit:window
-    method: run
-
-  - name: appwiz_test
-    kind: function.lua
-    meta:
-      type: test
-      comment: Add/Remove Programs — merging the declarations with the cache, editing the declarations file as text, the name of a new entry.
-      group: Windows Shell
-      suite: windows_shell
-    source: file://appwiz_test.lua
-    modules: [fs]
-    imports:
-      test: wippy.test:test
-      model: windows.shell.appwiz:model
     method: run
 
   - name: environment_test
@@ -494,17 +476,6 @@ entries:
       test: wippy.test:test
       environment: windows.shell.config:environment
     method: run
-
-  # Where appwiz_test writes the declarations file for real: writing with a
-  # copy and reading it back is checked on a live fs, not on a stand-in. Under
-  # .wippy — outside git.
-  - name: appwiz_scratch
-    kind: fs.directory
-    meta:
-      comment: Scratch folder for appwiz_test to write a real declarations file into.
-    base: project
-    directory: ./.wippy/appwiz-scratch
-    auto_init: true
 
   - name: display_test
     kind: function.lua
@@ -525,24 +496,6 @@ entries:
       chrome_pixels: windows.shell.theme:chrome_pixels
       widgets: windows.shell.theme:widgets
       palette: windows.shell.theme:palette
-    method: run
-
-  - name: network_test
-    kind: function.lua
-    meta:
-      type: test
-      comment: Network Neighborhood — the local node first, the leader marked, a lone node differs from a membership failure, the window layout without overlaps.
-      group: Windows Shell
-      suite: windows_shell
-    source: file://network_test.lua
-    modules: [system]
-    imports:
-      test: wippy.test:test
-      model: windows.shell.network:model
-      ui: windows.shell.sdk:ui
-      network_window: windows.shell.network:window
-      cells: windows.shell.sdk:cells
-      facts: windows.shell.config:system
     method: run
 
   - name: sysprops_test
@@ -775,7 +728,6 @@ entries:
       chrome: windows.shell.theme:chrome_pixels
       cell_chrome: windows.shell.theme:chrome
       catalog: windows.shell.programs:catalog
-
 
   - name: sdk_focus_test
     kind: function.lua
@@ -1061,129 +1013,3 @@ entries:
       notepad: windows.shell.viewers:notepad_model
       filedialog: windows.shell.sdk:filedialog
       files: windows.shell.viewers:files
-
-  # ─── AntiBug (FR-009 §3): does a funcs call honour the callee's declared actor? ───
-  # A probe with its own `security` block and the same probe without one; the
-  # test calls them as itself and as a narrow caller it builds, and reads who
-  # they ran as and what they could do.
-  - name: antibug_probe_grant
-    kind: security.policy
-    meta:
-      comment: The one grant of the AntiBug actor probe, an action nobody else is given.
-    policy:
-      actions:
-        - antibug.probe
-      resources: "*"
-      effect: allow
-
-  - name: antibug_narrow_grant
-    kind: security.policy
-    meta:
-      comment: The narrow caller the test builds may only call the two probes.
-    policy:
-      actions:
-        - funcs.call
-      resources:
-        - app:antibug_actor_probe
-        - app:antibug_actor_plain
-      effect: allow
-
-  - name: antibug_actor_probe
-    kind: function.lua
-    meta:
-      comment: Reports its actor and whether it may probe — a function entry with its own declared actor and policy.
-    source: file://antibug_actor_probe.lua
-    method: run
-    modules: [security]
-    security:
-      actor:
-        id: app:antibug_actor_probe
-      policies:
-        - app:antibug_probe_grant
-
-  # The control: the same probe without a `security` block.
-  - name: antibug_actor_plain
-    kind: function.lua
-    meta:
-      comment: The AntiBug actor probe without a security block of its own — the control of the measurement.
-    source: file://antibug_actor_probe.lua
-    method: run
-    modules: [security]
-
-  - name: antibug_actor_test
-    kind: function.lua
-    meta:
-      type: test
-      group: Windows Shell
-      suite: windows_shell
-      comment: AntiBug FR-009 §3 — a funcs call runs the callee under the actor its entry declares, its declared policies added to the caller's scope; measured as the runner and as a narrow caller, against a probe without a security block.
-    source: file://antibug_actor_test.lua
-    method: run
-    modules: [security, funcs]
-    imports:
-      test: wippy.test:test
-
-  - name: antibug_test
-    kind: function.lua
-    meta:
-      type: test
-      group: Windows Shell
-      suite: windows_shell
-      comment: AntiBug FR-009 §6 — the model on fake events, every menu item and button, the close gate, Save…, the layout in both modes, a live scan of a real harness entry through the real runner, and test/shots/antibug.png and antibug-complete.png.
-    source: file://antibug_test.lua
-    method: run
-    modules: [channel, time, fs, gfx, funcs]
-    imports:
-      test: wippy.test:test
-      ui: windows.shell.sdk:ui
-      app: windows.shell.sdk:app
-      render: windows.shell.sdk:render
-      rasters: windows.shell.theme:rasters
-      scan: windows.shell.antibug:scan
-      antibug_window: windows.shell.antibug:window
-
-  # AntiBug FR-009 §4a: output captured from the real tools, and a Go module
-  # scanned as a `go` target by the live case.
-  - name: antibug_fixtures
-    kind: fs.directory
-    meta:
-      comment: AntiBug's captured runner output (wippy.txt, go.jsonl) and the Go module of its live target.
-    base: project
-    directory: ./fixtures/antibug
-    auto_init: false
-
-  # A target declared the way an application declares one; the directory is
-  # relative to the runtime's working directory, test/, where `wippy test` runs.
-  - name: antibug_go_target
-    kind: registry.entry
-    meta:
-      type: windows.antibug_target
-      title: AntiBug fixture (Go)
-      kind: go
-      dir: fixtures/antibug/gomod
-      order: 1
-      # exec.native gives the child nothing of the runtime's environment:
-      # go needs PATH, and a HOME or its cache directories.
-      env:
-        HOME: /tmp/antibug-go-home
-        GOCACHE: /tmp/antibug-gocache
-        GOPATH: /tmp/antibug-gopath
-        PATH: /usr/local/go/bin:/snap/bin:/usr/local/bin:/usr/bin:/bin
-      comment: A tiny Go module with a pass, a failure and a skip, for the live scan of a go target.
-
-  - name: antibug_targets_test
-    kind: function.lua
-    meta:
-      type: test
-      group: Windows Shell
-      suite: windows_shell
-      comment: AntiBug FR-009 §4a — the wippy runner and go test -json parsers on captured output, the declarations and commands, a target's state machine in the model and the window, and a live Go target through the real runner, target process and exec.
-    source: file://antibug_targets_test.lua
-    method: run
-    modules: [channel, time, fs]
-    imports:
-      test: wippy.test:test
-      app: windows.shell.sdk:app
-      scan: windows.shell.antibug:scan
-      targets: windows.shell.antibug:targets
-      antibug_window: windows.shell.antibug:window
