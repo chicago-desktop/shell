@@ -148,10 +148,10 @@ The file name is the icon name; there are no two lists.
 ## The directory is declared by the module, not by the application
 
 `icon_files` is an `fs.directory` with `base: module` and `directory: ./assets/icons`:
-the path is resolved from the module root, not from the application's working directory. With
-fonts it is different (`app:system_fonts` is set up by the application), because fonts are
-system ones and lie wherever they happen to; icons are part of the look, and the application
-should not know about them.
+the path is resolved from the module root, not from the application's working directory. The
+fonts are declared the same way (`chicago.shell.theme:fonts` over `./assets/fonts`,
+Liberation under the OFL): icons and fonts are part of the look, and the application should
+not have to know about them.
 
 `auto_init: false` — read-only. The module must neither create the directory nor rearrange
 permissions on someone else's artwork.

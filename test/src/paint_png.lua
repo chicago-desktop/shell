@@ -60,7 +60,7 @@ local REPORT = "report.txt"
 local color_desktop = "#008080"
 
 local SHOTS = "app:shots"
-local FONTS = "app:system_fonts"
+local FONTS = "chicago.shell.theme:fonts"
 local FACE = "LiberationSans-Regular.ttf"
 -- Bold is a separate FILE, not an option: in Windows 95 the title is set in
 -- it, and synthesizing it by smearing pixels means ceasing to look alike.

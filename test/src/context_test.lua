@@ -153,7 +153,7 @@ local function define_tests()
 
         test.it("paints its list in pixels over what is under it", function()
             local color: any = palette.exact
-            local files = assert(fs.get("app:system_fonts"))
+            local files = assert(fs.get("chicago.shell.theme:fonts"))
             local fonts = {face = assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))}
             local function painted(tree: any): any
                 local store = rasters.store()

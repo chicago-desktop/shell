@@ -280,7 +280,7 @@ entries:
       effect: allow
 
   # Snapshot directory. It is written to, so auto_init is on; the font
-  # directory next to it is read-only — the application must not try to create
+  # store below is read-only — the application must not try to create
   # it or change its permissions.
   # app:test_images — an image pack declared the way any module declares one:
   # an fs entry with meta.type chicago.images, pictures as <size>/<file>.png.
@@ -301,12 +301,17 @@ entries:
     directory: ./shots
     auto_init: true
 
-  - name: system_fonts
+  # app:override_fonts — the module's three font files under another id, for
+  # the case where CHICAGO_FONTS names a store other than the module's own.
+  # The harness has NO app:system_fonts: the suites read the module's
+  # chicago.shell.theme:fonts, which proves the shell needs no font package.
+  - name: override_fonts
     kind: fs.directory
     meta:
-      comment: System TrueType fonts, read-only — the font arrives in gfx as bytes, not as a path.
+      comment: The module's fonts under another id — the store CHICAGO_FONTS names in fonts_test.
+    base: project
+    directory: ../assets/fonts
     auto_init: false
-    directory: /usr/share/fonts/truetype/liberation/
 
   - name: db
     kind: db.sql.sqlite
@@ -455,6 +460,20 @@ entries:
       test: wippy.test:test
       environment: chicago.shell.config:environment
     method: run
+
+  - name: fonts_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: The shell's own fonts — the module's store is read with no system font folder in the harness, every face draws a caption, and CHICAGO_FONTS still names another store.
+      group: Windows Shell
+      suite: chicago_shell
+    source: file://fonts_test.lua
+    method: run
+    modules: [fs, gfx, registry]
+    imports:
+      test: wippy.test:test
+      font_set: chicago.shell.theme:font_set
 
   - name: display_test
     kind: function.lua

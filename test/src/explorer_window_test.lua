@@ -561,7 +561,7 @@ local function define_tests()
                 test.eq(cell.x .. "," .. cell.y, (item.rect.x + column * item.column) .. "," .. (item.rect.y + (cell.index - 1) % item.lines),
                     "top to bottom, then the next column: " .. tostring(cell.index))
             end
-            local font_files = assert(fs.get("app:system_fonts"))
+            local font_files = assert(fs.get("chicago.shell.theme:fonts"))
             local fonts = {face = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))}
             local store = rasters.store()
             store.begin()

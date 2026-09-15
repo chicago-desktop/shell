@@ -974,7 +974,7 @@ local function define_tests()
             -- not paint under this one.
             chrome.use_pattern(nil)
             chrome.use_wallpaper(nil, nil)
-            local files = assert(fs.get("app:system_fonts"))
+            local files = assert(fs.get("chicago.shell.theme:fonts"))
             chrome_pixels.use_fonts(
                 assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true})),
                 assert(gfx.font(assert(files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true})))
@@ -1275,7 +1275,7 @@ local function define_tests()
             -- not paint under this one.
             chrome.use_pattern(nil)
             chrome.use_wallpaper(nil, nil)
-            local files = assert(fs.get("app:system_fonts"))
+            local files = assert(fs.get("chicago.shell.theme:fonts"))
             local face = assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local bold = assert(gfx.font(assert(files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
             chrome_pixels.use_fonts(face, bold)
@@ -1511,7 +1511,7 @@ local function define_tests()
             -- not paint under this one.
             chrome.use_pattern(nil)
             chrome.use_wallpaper(nil, nil)
-            local files = assert(fs.get("app:system_fonts"))
+            local files = assert(fs.get("chicago.shell.theme:fonts"))
             local face = assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local bold = assert(gfx.font(assert(files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
             chrome_pixels.use_fonts(face, bold)

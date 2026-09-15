@@ -134,7 +134,7 @@ local function define_tests()
         end)
 
         test.it("draws the dialog in pixels through the theme's paint and produces a snapshot", function()
-            local font_files = assert(fs.get("app:system_fonts"))
+            local font_files = assert(fs.get("chicago.shell.theme:fonts"))
             local face = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local bold = assert(gfx.font(assert(font_files:readfile("LiberationSans-Bold.ttf")), {size = 13, smooth = true}))
             chrome_pixels.use_fonts(face, bold, bold)

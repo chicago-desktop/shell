@@ -38,8 +38,10 @@ CHICAGO_PIXELS=1 $WIPPY run --host chicago.shell:terminal chicago
 
 Pixel mode needs two things, and without either of them the shell comes up **in
 cells and states the reason in the log**: a terminal with sixel or kitty that answered
-the cell-size query, and a TrueType font directory (`app:system_fonts`,
-overridden by `CHICAGO_FONTS`). Look in the log for the line
+the cell-size query, and a readable font store — by default the module's own
+`chicago.shell.theme:fonts`, Liberation Sans and Mono under the OFL
+([assets/fonts](assets/fonts/SOURCE.md)); `CHICAGO_FONTS` names another one.
+Look in the log for the line
 `pixel mode` — it is written before any attempt.
 
 **Almost everything can be checked without occupying the test stand**:
@@ -495,8 +497,8 @@ the log: no graphics, the terminal did not report the cell size, no font was fou
 Pixel mode that silently failed to turn on looks like "somehow the old way",
 and a person goes looking for a breakage where there is none.
 
-The font arrives **as bytes** through `fs` (the directory is `CHICAGO_FONTS`,
-by default `app:system_fonts`), not by a path inside `gfx`: reading a file is
+The font arrives **as bytes** through `fs` (the store is `CHICAGO_FONTS`,
+by default the module's own `chicago.shell.theme:fonts`), not by a path inside `gfx`: reading a file is
 governed by the process's permissions, and a module that opens paths by itself would be a road
 around them. Bold is a separate file, not an option.
 

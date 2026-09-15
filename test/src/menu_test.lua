@@ -42,7 +42,7 @@ end
 local function pixel(raster: any, x: integer, y: integer): string return region(raster, x, y, 1, 1) end
 local function swatch(colour: string): string return filled(colour, 1, 1) end
 local function face_font(): any
-    local files = assert(fs.get("app:system_fonts"))
+    local files = assert(fs.get("chicago.shell.theme:fonts"))
     return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
 end
 

@@ -281,7 +281,7 @@ local function define_tests()
             -- One cell of padding on the right, as in Explorer; only spaces to the left of the text.
             test.is_true(cell_text:match("^%s+1000 КБ ?$") ~= nil, "the size is at the right edge: [" .. cell_text .. "]")
             -- Pixels: drawn and reused, the snapshot goes to test/shots.
-            local font_files = assert(fs.get("app:system_fonts"))
+            local font_files = assert(fs.get("chicago.shell.theme:fonts"))
             local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local state = {sdk = 1, revision = 1, ui = {kind = "column", padding = 1, children = {node}}, interaction = ui.interaction()}
             local window = {id = "sdk-table", state_revision = 1, content_state = state}
@@ -368,7 +368,7 @@ local function define_tests()
             test.is_true(last:find("Ready", 1, true) ~= nil and last:find("1 object", 1, true) ~= nil, last)
             test.is_true(plain(lines[1]):find("File", 1, true) ~= nil, "the menu bar is on top")
             -- Pixels: with an open menu, the snapshot goes to test/shots.
-            local font_files = assert(fs.get("app:system_fonts"))
+            local font_files = assert(fs.get("chicago.shell.theme:fonts"))
             local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local shown = ui.interaction()
             shown.menus.bar = {index = 1, cursor = 1}
@@ -400,7 +400,7 @@ local function define_tests()
             test.not_nil(registry.get("chicago.shell.sdk:render"))
         end)
         test.it("reuses an unchanged raster and exports the real SDK controls", function()
-            local font_files = assert(fs.get("app:system_fonts"))
+            local font_files = assert(fs.get("chicago.shell.theme:fonts"))
             local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local context = app.context({width = 60, height = 20})
             local model = fixture.definition.init(nil, context)
@@ -580,7 +580,7 @@ local function define_tests()
     -- cells: one scrollbar, a dimmed `disabled`.
     test.describe("Window SDK review follow-up", function()
         local function fonts(): any
-            local files = assert(fs.get("app:system_fonts"))
+            local files = assert(fs.get("chicago.shell.theme:fonts"))
             local face = assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             return {face = face, bold = face}
         end
@@ -890,7 +890,7 @@ local function define_tests()
     test.describe("Window SDK: one rule for cells and pixels", function()
         local CELL = {w = 10, h = 20}
         local function font(): any
-            local files = assert(fs.get("app:system_fonts"))
+            local files = assert(fs.get("chicago.shell.theme:fonts"))
             return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
         end
         local function captions(tree: any, cols: integer, rows: integer, face: any): any
@@ -997,7 +997,7 @@ local function define_tests()
             }}
         end
         local function face(): any
-            local files = assert(fs.get("app:system_fonts"))
+            local files = assert(fs.get("chicago.shell.theme:fonts"))
             return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
         end
         -- What the renderer draws, through a stub raster: every rectangle and
@@ -1092,7 +1092,7 @@ local function define_tests()
     test.describe("Window SDK: placeholder, select, confirm and wrapped labels", function()
         local CELL = {w = 10, h = 20}
         local function face(): any
-            local files = assert(fs.get("app:system_fonts"))
+            local files = assert(fs.get("chicago.shell.theme:fonts"))
             return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
         end
         local function rows_of(plan: any, interaction: any, cols: integer, rows: integer): any
@@ -1428,7 +1428,7 @@ local function define_tests()
     -- shots/sdk-rows-cost.txt.
     test.describe("Window SDK: a menu's drop-down", function()
         local function face(): any
-            local files = assert(fs.get("app:system_fonts"))
+            local files = assert(fs.get("chicago.shell.theme:fonts"))
             return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
         end
         -- Integers on both sides: go-lua's `//` and math.max give floats, and
@@ -1600,7 +1600,7 @@ local function define_tests()
 
     test.describe("Window SDK: the end of a list, and a read-only text", function()
         local function face(): any
-            local files = assert(fs.get("app:system_fonts"))
+            local files = assert(fs.get("chicago.shell.theme:fonts"))
             return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
         end
         local function numbered(count: integer): any
@@ -1769,7 +1769,7 @@ local function define_tests()
 
     test.describe("Window SDK: client rows", function()
         local function face(): any
-            local files = assert(fs.get("app:system_fonts"))
+            local files = assert(fs.get("chicago.shell.theme:fonts"))
             return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
         end
         local function list_window(selected: integer, revision: integer): any

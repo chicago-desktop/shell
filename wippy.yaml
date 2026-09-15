@@ -33,7 +33,8 @@ exclude:
 # Module directories are not packed by themselves: `wippy publish` packs the
 # entries of src/ and embeds only the fs.directory entries named here (they
 # become fs.embed in the package). Without this list the published shell would
-# have no icons and no wallpapers.
+# have no icons, no wallpapers and no fonts.
 embed:
   - chicago.shell.theme:icon_files
+  - chicago.shell.theme:fonts
   - chicago.shell.display:wallpaper_files

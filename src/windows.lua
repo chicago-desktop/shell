@@ -12,7 +12,7 @@
 local logger = require("logger")
 local ctx = require("ctx")
 local environment = require("environment")
-local fs = require("fs")
+local font_set = require("font_set")
 local gfx = require("gfx")
 local library = require("library")
 local chrome = require("chrome")
@@ -29,33 +29,13 @@ local logon_provider = require("logon_provider")
 
 local SERVICE_NAME = "chicago.shell.desktop"
 
--- Font of the pixel theme. It arrives as BYTES through `fs`, not as a path
--- inside `gfx`: file reads are governed by the process's permissions, and a
--- module that opens paths itself would be a road around them. As a side
--- effect this means the font can arrive from anywhere — from the module's
--- embedded filesystem, from the database.
---
--- Bold is a SEPARATE file, not an option: in the original the title bar is set
--- in it, and synthesizing it by smearing pixels means ceasing to look alike.
--- The environment is read by `chicago.shell.config:environment` — which
--- also holds both traps that make "the variable is not set" sometimes a lie:
--- `env.get` does not see the process environment, and `get_all` keeps silent
--- about a permission denial.
-
-local function whole_cell(value: any): integer
-    return math.tointeger(math.floor(tonumber(value) or 0)) or 0
-end
-
--- Via `read_or`, not `read(...) or …`: the default is substituted, but a
--- permission denial is named in the log instead of passing for "the person
--- did not override it".
-local FONTS = environment.read_or("CHICAGO_FONTS", "app:system_fonts")
-local FONT_FACE = "LiberationSans-Regular.ttf"
-local FONT_BOLD = "LiberationSans-Bold.ttf"
--- The fixed-pitch face of the multi-line editor (FR-007 §4), from the same
--- font entry: Notepad draws its text in it.
-local FONT_MONO = "LiberationMono-Regular.ttf"
-local FONT_SIZE = 13
+-- Fonts of the pixel theme: `chicago.shell.theme:font_set` names the store
+-- (CHICAGO_FONTS, by default the module's own `chicago.shell.theme:fonts`)
+-- and makes the faces of it. The environment is read by
+-- `chicago.shell.config:environment` — which also holds both traps that make
+-- "the variable is not set" sometimes a lie: `env.get` does not see the
+-- process environment, and `get_all` keeps silent about a permission denial.
+local FONTS = font_set.store()
 
 -- Pixel mode is switched on EXPLICITLY, not by the presence of graphics
 -- (FR-005 §6): a terminal that can do sixel is no reason to redraw the
@@ -68,56 +48,6 @@ local function wants_pixels(): (boolean, string)
     if asked == "1" or asked == "true" or asked == "yes" then return true, source end
     if asked ~= nil then return false, "set to \"" .. tostring(asked) .. "\"" end
     return false, source
-end
-
--- Fonts for the pixel theme. A failure here is NOT a reason to take the shell
--- down: it comes up in cells and states the reason. An empty screen instead
--- of a desktop reads as a broken stand, not as a file that was not found.
--- The large font is for the farewell screen: in the original "It's now safe to
--- turn off your computer" is set large, in two lines, across the whole
--- screen. The size is computed from the cell height, not a constant: on a
--- terminal with a different cell, a 34-pixel caption would be either tiny or
--- wider than the screen.
-local function display_size(cell_h: any): integer
-    local size = (whole_cell(cell_h) * 17) // 10
-    if size < 20 then size = 20 end
-    if size > 64 then size = 64 end
-    return math.tointeger(size) or 34
-end
-
-local function load_fonts(log, cell_h: any)
-    local store, err = fs.get(FONTS)
-    if err or not store then
-        return nil, "fonts not opened (" .. FONTS .. "): " .. tostring(err)
-    end
-
-    local face_data, ferr = store:readfile(FONT_FACE)
-    if ferr or not face_data then
-        return nil, FONT_FACE .. " not read: " .. tostring(ferr)
-    end
-    local bold_data, berr = store:readfile(FONT_BOLD)
-    if berr or not bold_data then
-        return nil, FONT_BOLD .. " not read: " .. tostring(berr)
-    end
-
-    -- A set without the fixed-pitch file is not a reason to stay in cells:
-    -- `mono` stays nil, the editor draws with the interface face, and the
-    -- log says so here, once — a Notepad in the wrong font is better than no
-    -- Notepad.
-    local mono: any = nil
-    local mono_data, merr = store:readfile(FONT_MONO)
-    if merr or not mono_data then
-        log:warn("no fixed-pitch font: the editor draws with the interface face",
-            {file = FONT_MONO, error = tostring(merr)})
-    end
-
-    -- Thresholding small TrueType glyphs erases thin strokes. Set smoothing
-    -- once on each face so the shell and every client share readable text.
-    if mono_data then mono = gfx.font(mono_data, {size = FONT_SIZE, smooth = true}) end
-    return {face = gfx.font(face_data, {size = FONT_SIZE, smooth = true}),
-            bold = gfx.font(bold_data, {size = FONT_SIZE, smooth = true}),
-            display = gfx.font(bold_data, {size = display_size(cell_h), smooth = true}),
-            mono = mono}, nil
 end
 
 local function main()
@@ -373,7 +303,7 @@ local function main()
             log:warn("pixel mode not enabled: the terminal did not report a cell size",
                 {reason = tostring(height)})
         else
-            local fonts, ferr = load_fonts(log, height)
+            local fonts, ferr = font_set.load(FONTS, height, log)
             if not fonts then
                 pixel_note = "pixels off: no font (" .. tostring(ferr) .. ")"
                 log:warn("pixel mode not enabled: no font", {error = tostring(ferr)})

@@ -27,3 +27,7 @@ system's resources; they are not covered by this licence and are being
 replaced with original pixel art drawn for the project (issue #1). The
 wallpapers in `assets/wallpaper` are original and MIT. Details:
 assets/icons/SOURCE.md.
+
+The fonts in `assets/fonts` (Liberation Sans and Liberation Mono 2.1.5) are
+under the SIL Open Font License 1.1, not this licence; its text travels with
+them as assets/fonts/LICENSE, details in assets/fonts/SOURCE.md.

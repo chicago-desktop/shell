@@ -305,7 +305,7 @@ local function define_tests()
         end)
 
         test.it("draws in pixels: the shot test/shots/filedialog.png", function()
-            local font_files = assert(fs.get("app:system_fonts"))
+            local font_files = assert(fs.get("chicago.shell.theme:fonts"))
             local font = assert(gfx.font(assert(font_files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
             local state = dialog()
             click(state, "readme.txt")

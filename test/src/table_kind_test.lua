@@ -36,7 +36,7 @@ local function drawn_row(cell: any): string
 end
 
 local function face_font(): any
-    local files = assert(fs.get("app:system_fonts"))
+    local files = assert(fs.get("chicago.shell.theme:fonts"))
     return assert(gfx.font(assert(files:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true}))
 end
 

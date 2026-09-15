@@ -474,7 +474,7 @@ local function define_tests()
             interaction.focus = notepad.DOC
             local tree = notepad.view(state, context)
             test.is_nil(ui.problem(tree), tostring(ui.problem(tree)))
-            local files_dir = assert(fs.get("app:system_fonts"))
+            local files_dir = assert(fs.get("chicago.shell.theme:fonts"))
             local fonts = {face = assert(gfx.font(assert(files_dir:readfile("LiberationSans-Regular.ttf")), {size = 13, smooth = true})),
                 mono = assert(gfx.font(assert(files_dir:readfile("LiberationMono-Regular.ttf")), {size = 13, smooth = true}))}
             local store = rasters.store()

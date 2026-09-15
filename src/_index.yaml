@@ -67,8 +67,9 @@ entries:
   # `ns.requirement` writes a field into the entry, and a process does not
   # read its entry's fields about itself — the value would simply get
   # nowhere, and the requirement would become a decoration that looks like a
-  # setting. The folder is named by the environment: CHICAGO_FONTS,
-  # default `app:system_fonts`. The database is the exception: its name has to
+  # setting. The folder is named by the environment: CHICAGO_FONTS, by default
+  # the module's own `chicago.shell.theme:fonts` (Liberation, assets/fonts).
+  # The database is the exception: its name has to
   # reach the migrations, which only a requirement does, and the repository
   # reads it from their entry with registry.get.
 
@@ -158,3 +159,4 @@ entries:
       logon_screen: chicago.shell.logon:screen
       logon_provider: chicago.shell.logon:provider
       environment: chicago.shell.config:environment
+      font_set: chicago.shell.theme:font_set

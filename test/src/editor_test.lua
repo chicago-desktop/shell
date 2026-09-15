@@ -38,7 +38,7 @@ local function filled(colour: string, w: integer, h: integer): string
     return assert(part:encode("png"))
 end
 local function font_of(file: string): any
-    local files = assert(fs.get("app:system_fonts"))
+    local files = assert(fs.get("chicago.shell.theme:fonts"))
     return assert(gfx.font(assert(files:readfile(file)), {size = 13, smooth = true}))
 end
 local function key(name: string, mods: any?): any

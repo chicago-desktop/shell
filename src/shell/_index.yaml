@@ -193,6 +193,38 @@ entries:
     directory: ./assets/icons
     auto_init: false
 
+  # chicago.shell.theme:fonts
+  #
+  # The pixel theme's typefaces — Liberation Sans Regular and Bold and
+  # Liberation Mono Regular in assets/fonts, under the SIL Open Font License
+  # 1.1 (LICENSE and SOURCE.md in the same place). Declared by the module like
+  # the icons, so the pixel theme needs no font package on the machine;
+  # CHICAGO_FONTS still names another store. Read only.
+  - name: fonts
+    kind: fs.directory
+    meta:
+      comment: Liberation Sans and Liberation Mono under the OFL 1.1 — the pixel theme's typefaces, read as bytes.
+    base: module
+    directory: ./assets/fonts
+    auto_init: false
+
+  # chicago.shell.theme:font_set
+  #
+  # Which store the shell reads its fonts from and the faces it makes of
+  # them. The store is CHICAGO_FONTS when the environment names one, the
+  # module's own fonts otherwise. The permissions belong to the caller —
+  # fs.get and env.get on CHICAGO_FONTS in the shell's policies.
+  - name: font_set
+    kind: library.lua
+    meta:
+      comment: The shell's font store and faces — CHICAGO_FONTS or the module's own fonts; regular, bold, display and fixed-pitch.
+    source: file://font_set.lua
+    modules:
+      - fs
+      - gfx
+    imports:
+      environment: chicago.shell.config:environment
+
   # chicago.shell.theme:images
   #
   # Raster icons: name → file → decoded raster, with a per-process cache.
