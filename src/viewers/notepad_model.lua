@@ -240,8 +240,8 @@ local function command(state: any, context: any, id: any): boolean
     elseif id == "find_next" then return find_next(state, context)
     elseif id == "help" then return message(state, {notepad.NO_HELP}, {image = "help", icon = "?"})
     elseif id == "about" then
-        return message(state, {"Notepad", "The Windows 95 shell for Wippy (chicago/shell).",
-            "Icons: Microsoft artwork from shell32.dll, not under the module's MIT licence."}, {title = "About Notepad"})
+        return message(state, {"Notepad", "The Chicago shell for Wippy (chicago/shell).",
+            "Icons: an interim set, being replaced with original pixel art (chicago-desktop/shell#1)."}, {title = "About Notepad"})
     else
         return false
     end

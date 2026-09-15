@@ -1,4 +1,4 @@
-# The real Windows 95 icons
+# The icon set
 
 A 32×32 icon is a thousand pixels. Primitives (`rect`, `set`) turn it into a
 silhouette: the folder is recognizable, the computer is recognizable, but it is

@@ -1,4 +1,4 @@
-# Windows module: instructions for coding agents
+# Chicago shell module: instructions for coding agents
 
 Read [README.md](README.md) for the module and local runtime setup.
 For any window application, start with the canonical [SDK](docs/sdk.md) and

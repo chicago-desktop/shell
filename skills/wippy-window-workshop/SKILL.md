@@ -1,6 +1,6 @@
 ---
 name: wippy-window-workshop
-description: Build a window for the Wippy Windows 95 shell in the running runtime through the ChicagoWorkshop MCP tool (or the HTTP workshop) — no files, no restart. Use when an agent connected over MCP must add, iterate, inspect or remove a shell window live. For windows that belong in module sources use wippy-window-app instead.
+description: Build a window for the Chicago shell in the running runtime through the ChicagoWorkshop MCP tool (or the HTTP workshop) — no files, no restart. Use when an agent connected over MCP must add, iterate, inspect or remove a shell window live. For windows that belong in module sources use wippy-window-app instead.
 ---
 
 # Building shell windows through MCP

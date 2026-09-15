@@ -491,8 +491,8 @@ local function command(state: any, id: any, context: any): boolean
         return message(state, {title = "Help", icon = "?", image = "help", lines = {"Help is not available."}})
     elseif id == "help_about" then
         return message(state, {title = "About Windows", image = "windows", icon = "▩", lines = {
-            "The Windows 95 shell for Wippy (chicago/shell).",
-            "Icons: Microsoft artwork from shell32.dll, not under the module's MIT licence.",
+            "The Chicago shell for Wippy (chicago/shell).",
+            "Icons: an interim set, being replaced with original pixel art (chicago-desktop/shell#1).",
         }})
     elseif id == "tb_up" then
         return up(state)

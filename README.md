@@ -1,4 +1,4 @@
-# chicago/shell — a Windows 95-style shell for the terminal desktop
+# chicago/shell — the Chicago shell for the terminal desktop, in the look of the mid-nineties desktops
 
 New window applications: [SDK](docs/sdk.md),
 [skill for agents](skills/wippy-window-app/SKILL.md),
@@ -113,9 +113,9 @@ The shell reads from the entry:
 - `order` — the order within the folder; without it, alphabetical, and the unordered ones come
   after those that have an order.
 - `icon` — one or two characters; without it `▢`.
-- `image` — the name of a raster icon from the [library](docs/icons.md). The icons themselves are
-  Microsoft artwork: they are not covered by MIT and are not included in the published module,
-  see the icons' [License](docs/icons.md#license).
+- `image` — the name of a raster icon from the [library](docs/icons.md). The icon set is an
+  interim one and is being replaced with original pixel art
+  ([chicago-desktop/shell#1](https://github.com/chicago-desktop/shell/issues/1)); the code is MIT.
 - `width`, `height` — the window size on opening.
 - `args` — the default launch argument.
 - `desktop: true` — a request to put a shortcut on the desktop when the program first appears.
@@ -232,8 +232,8 @@ The Calculator, AntiBug, Network Neighborhood and Add/Remove Programs left
 this module with 0.1.1, "Date/Time", the Registry Editor, Task Manager and
 "Run…" with 0.1.2: they are `chicago/calculator`, `chicago/antibug`,
 `chicago/network`, `chicago/appwiz`, `chicago/datetime`, `chicago/regedit`,
-`chicago/taskman` and `chicago/run` in the Hub (repositories
-chicago-desktop/<name>). Each is a plain window
+`chicago/taskman` and `chicago/run`, resolved from their GitHub repositories
+by tag (chicago-desktop/<name>, v0.2.0 is the first). Each is a plain window
 module on the SDK; an application that wants them declares the dependency.
 The `chicago.antibug_target` and `CHICAGO_DEPS_FS` conventions moved with
 them and are described in their READMEs.
@@ -782,9 +782,10 @@ cd test && $WIPPY run --host chicago.shell:terminal chicago
 
 ### The base is taken from a working copy
 
-`chicago/tui-desktop` is not yet published to the Hub, so it is connected
+Modules are resolved from their GitHub repositories by tag (v0.2.0 is the
+first); while that runtime feature is being built, `chicago/tui-desktop` is connected
 by a replacement in `.wippy.yaml` — at the module root and in `test/`. **Condition for removal:** as
-soon as the base is published, remove both replacements; otherwise the module builds only
+soon as the base resolves by tag, remove both replacements; otherwise the module builds only
 on a machine where the needed directory lies next to it.
 
 ## "My Computer": drives are registry entries
@@ -830,7 +831,7 @@ the top-level `.kind` field; `kind` without the dot does not filter by entry kin
   clicked. The scrollbar is drawn only when there is something to scroll: with
   fully visible contents it would be a promise that there is more somewhere.
 
-### A folder window as in Windows 95
+### A folder window, one per folder
 
 The window is an SDK application (`src/explorer/window.lua`, [FR-008](docs/rfcs/008-folder-windows.md)):
 the menu bar `File Edit View Help` with the original's items (the ones the explorer

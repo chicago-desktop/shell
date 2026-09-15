@@ -1,4 +1,4 @@
--- Windows 95-style shell: the base compositor, called with its own theme.
+-- The Chicago shell: the base compositor, called with its own theme.
 --
 -- There is not a single line of window mechanics of its own here. Window
 -- hosting, PTY, the command channel and the workshop stay in

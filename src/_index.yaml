@@ -1,7 +1,7 @@
 version: "1.0"
 namespace: chicago.shell
 
-# A Windows 95 style shell for the terminal desktop.
+# The Chicago shell for the terminal desktop, in the look of the mid-nineties desktops.
 #
 # There is no window mechanics of its own here: window hosting, PTY, the
 # command channel and the store of apps built on the fly stay in
@@ -19,8 +19,8 @@ entries:
   - name: definition
     kind: ns.definition
     meta:
-      title: Windows Shell
-      description: A Windows 95 style shell for the terminal desktop — teal desktop, a taskbar with Start and a clock, a program menu built from the registry and a shortcut layout the user rearranges.
+      title: Chicago Shell
+      description: The Chicago shell for the terminal desktop, in the look of the mid-nineties desktops — teal desktop, a taskbar with Start and a clock, a program menu built from the registry and a shortcut layout the user rearranges.
 
   # ─── Dependencies ────────────────────────────────────────────────────
   - version: "*"
@@ -117,10 +117,10 @@ entries:
   - name: shell
     kind: process.lua
     meta:
-      comment: The Windows 95 shell — the base's compositor with its own theme, its own catalog and its own desktop layout.
+      comment: The Chicago shell — the base's compositor with its own theme, its own catalog and its own desktop layout.
       command:
         name: chicago
-        short: A Windows 95 style shell for the terminal desktop
+        short: The Chicago shell for the terminal desktop
         security:
           actor: {id: chicago.shell:shell}
           policies: [chicago.shell.security:shell_runtime, chicago.shell.security:shell_env]
