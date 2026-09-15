@@ -545,7 +545,8 @@ function chrome.window(canvas, window, focused)
 
     -- The raised window frame.
     canvas:put(x, y, edge_top(w, false), w)
-    canvas:put(x, y + 1, bezel(title_bar(window.title, w - 2, focused, window), false), w)
+    -- A flashing window's lit phase shows the active title (FlashWindow).
+    canvas:put(x, y + 1, bezel(title_bar(window.title, w - 2, focused or window.flash_lit == true, window), false), w)
     local blank = bezel(styles.face:render(string.rep(" ", w - 2)), false)
     for row = 2, h - 2 do
         canvas:put(x, y + row, blank, w)
@@ -694,6 +695,139 @@ function chrome.taskbar_layout(width: any, windows: any, metrics: any): any
     return plan
 end
 
+-- ─── Balloon tip ─────────────────────────────────────────────────────────
+--
+-- A balloon by the notification area (`state.balloon`, the base's
+-- `desktop.balloon`): pale yellow, a thin black frame, a picture and a bold
+-- title on the first line, the text wrapped under it, × at the top right,
+-- and a tail on the row above the taskbar pointing at the tray item it names
+-- or at the clock. Both themes place it with `balloon_anchor` and
+-- `balloon_place` and turn it into hits with `balloon_hits`; each draws it in
+-- its own cells or pixels. One placement for the drawing and the click, as
+-- everywhere here.
+
+chrome.BALLOON_LINES = 4      -- lines of text at most; the last one ellipsized when cut
+chrome.BALLOON_CELLS = 40     -- the text's width at most, in cells
+chrome.BALLOON_REACH = 3      -- how far the box reaches right of the anchor, in cells
+
+-- balloon_anchor(plan, tray, key, width) -> the column the tail points at:
+-- the middle of the tray item with that key, else of the clock, else the
+-- right edge. `plan` is `taskbar_layout`'s, `tray` the state's.
+function chrome.balloon_anchor(plan: any, tray: any, key: any, width: any): integer
+    local items: any = type(tray) == "table" and tray or {}
+    if type(key) == "string" and key ~= "" then
+        for _, entry in ipairs(type(plan.tray) == "table" and plan.tray or {}) do
+            local slot: any = entry
+            local item: any = items[slot.index]
+            if type(item) == "table" and item.key == key then return whole((slot.from + slot.to) // 2) end
+        end
+    end
+    local clock: any = plan.clock
+    if type(clock) == "table" then return whole((clock.from + clock.to) // 2) end
+    return whole(width)
+end
+
+-- balloon_place(width, top, bar_top, anchor, cols, rows) -> box | nil
+--
+-- `bar_top` is the taskbar's first row. The tail takes the row above it, at
+-- the anchor's column; the box ends on the row above the tail, reaches
+-- BALLOON_REACH cells right of the anchor where the screen allows and grows
+-- to the left. `box.tail.right` says the tail hangs on the box's right half
+-- (its vertical edge on the right, the point down-right). Nil when the
+-- desktop has no room: nothing is drawn, and the base still times it out.
+function chrome.balloon_place(width: any, top: any, bar_top: any, anchor: any, cols: any, rows: any): any
+    local w = whole(width)
+    local span = math.min(whole(cols), w)
+    local tall = whole(rows)
+    local tail_y = whole(bar_top) - 1
+    local y = tail_y - tall
+    if span < 6 or tall < 3 or y < math.max(1, whole(top)) then return nil end
+    local point = math.max(1, math.min(w, whole(anchor)))
+    local right = math.min(w, point + chrome.BALLOON_REACH)
+    local x = math.max(1, right - span + 1)
+    local tail_x = math.max(x + 1, math.min(x + span - 2, point))
+    return {x = x, y = y, cols = span, rows = tall,
+        tail = {x = tail_x, y = tail_y, right = tail_x >= x + span // 2}}
+end
+
+-- balloon_hits(box, close, tail_from, tail_to) -> the bar hits of a placed
+-- balloon: its × (`close` = {row, bottom_row?, from, to}) first — the first
+-- hit under the pointer wins — then its body and its tail's cells. The base
+-- dismisses the balloon on the first and opens its entry on the others.
+function chrome.balloon_hits(box: any, close: any, tail_from: any, tail_to: any): any
+    return {
+        {row = close.row, bottom_row = close.bottom_row, from = close.from, to = close.to, balloon = "close"},
+        {row = box.y, bottom_row = box.y + box.rows - 1, from = box.x, to = box.x + box.cols - 1, balloon = "open"},
+        {row = box.tail.y, from = tail_from, to = tail_to, balloon = "open"},
+    }
+end
+
+-- balloon_lines(text, room) -> lines of at most `room` cells, BALLOON_LINES at
+-- most, the last one ending in "…" when the text was cut.
+function chrome.balloon_lines(text: any, room: any): any
+    local width = whole(room)
+    local lines, cut = wrap(tostring(text or ""), width, chrome.BALLOON_LINES)
+    if cut and #lines > 0 then
+        local last = lines[#lines]
+        if cells(last) >= width then last = clip(last, width - 1) end
+        lines[#lines] = last .. "…"
+    end
+    return lines
+end
+
+-- The notification pictures in cells: a letter on its own colour.
+local BALLOON_STYLES: any = {info = styles.balloon_info, warning = styles.balloon_warning, error = styles.balloon_error}
+
+-- balloon(canvas, width, top, bar_top, plan, tray, balloon) -> its hits
+--
+-- The cell balloon: box-drawing lines in black on pale yellow, the picture a
+-- letter on its own colour before the bold title, ✕ at the right end of the
+-- title line, the text under it, the tail a triangle on the desktop colour.
+-- `image` has no cell form: without `icon` the title stands alone. Nothing is
+-- drawn, and no hit returned, without a balloon or without room.
+function chrome.balloon(canvas, width: any, top: any, bar_top: any, plan: any, tray: any, balloon: any): any
+    if type(balloon) ~= "table" then return {} end
+    local w = whole(width)
+    local room = math.min(chrome.BALLOON_CELLS, w - 4)
+    if room < 8 then return {} end
+    local icon: any = type(balloon.icon) == "string" and BALLOON_STYLES[balloon.icon] ~= nil and balloon.icon or nil
+    local title = tostring(balloon.title or "")
+    local lines: any = chrome.balloon_lines(balloon.text, room)
+    local lead = icon and 2 or 0
+    local inner = math.min(room, lead + cells(title) + 2)
+    for _, line in ipairs(lines) do inner = math.max(inner, cells(line)) end
+    local box: any = chrome.balloon_place(w, top, bar_top, chrome.balloon_anchor(plan, tray, balloon.anchor, w),
+        inner + 4, #lines + 3)
+    if not box then return {} end
+    inner = box.cols - 4
+
+    local g: any = glyphs.balloon
+    local frame, face = styles.tooltip_frame, styles.tooltip
+    local x, y = whole(box.x), whole(box.y)
+    canvas:put(x, y, frame:render(g.top_left .. string.rep(g.across, box.cols - 2) .. g.top_right), box.cols)
+    local head: any = {frame:render(g.down), face:render(" ")}
+    if icon then
+        local picture: any = BALLOON_STYLES[icon]
+        head[#head + 1] = picture:render(tostring(g[icon]))
+        head[#head + 1] = face:render(" ")
+    end
+    head[#head + 1] = fit(styles.tooltip_bold, title, inner - lead - 2)
+    head[#head + 1] = face:render(" " .. glyphs.buttons.close .. " ")
+    head[#head + 1] = frame:render(g.down)
+    canvas:put(x, y + 1, table.concat(head), box.cols)
+    for index, line in ipairs(lines) do
+        canvas:put(x, y + 1 + index, frame:render(g.down) .. face:render(" ") .. fit(face, line, inner)
+            .. face:render(" ") .. frame:render(g.down), box.cols)
+    end
+    canvas:put(x, y + box.rows - 1, frame:render(g.bottom_left .. string.rep(g.across, box.cols - 2) .. g.bottom_right),
+        box.cols)
+    canvas:put(box.tail.x, box.tail.y, styles.balloon_tail:render(box.tail.right and g.tail_right or g.tail_left), 1)
+
+    -- The ✕ and the blank after it: two cells, as a title button has three.
+    local close_x = x + box.cols - 3
+    return chrome.balloon_hits(box, {row = y + 1, from = close_x, to = close_x + 1}, box.tail.x, box.tail.x)
+end
+
 function chrome.bars(canvas, width: any, height: any, state)
     local hits = {}
     local w, h = whole(width), whole(height)
@@ -753,8 +887,11 @@ function chrome.bars(canvas, width: any, height: any, state)
         -- A minimized window gets a dimmed caption. Nothing formally asks
         -- for it, but otherwise "raise" and "restore" look the same on
         -- screen, and they are different expectations of one click.
+        -- A flashing window's lit phase: the button in the selection colour
+        -- (FlashWindow), whatever else it is.
         local face_style = styles.face
-        if active then face_style = styles.face_bold
+        if window.flash_lit == true then face_style = styles.select
+        elseif active then face_style = styles.face_bold
         elseif window.minimized then face_style = styles.face_dim end
 
         -- A narrow button has no icon: it is the same for every window and
@@ -809,7 +946,12 @@ function chrome.bars(canvas, width: any, height: any, state)
     end
 
     canvas:put(1, row, table.concat(parts), w)
-    return hits
+
+    -- The balloon tip lies over the windows (`bars` is drawn after them);
+    -- its hits go first, the taskbar's after.
+    local out: any = chrome.balloon(canvas, w, 1, row, plan, tray, bar.balloon)
+    for _, hit in ipairs(hits) do out[#out + 1] = hit end
+    return out
 end
 
 -- ─── Start menu ──────────────────────────────────────────────────────────

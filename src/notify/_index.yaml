@@ -1,0 +1,35 @@
+version: "1.0"
+namespace: chicago.shell.notify
+
+# The message window of the shell's notifications (docs/sdk.md, section
+# "Notifications"). A service with no window of its own asks for it through
+# chicago.shell.sdk:notify, and every call is a window of its own — the way
+# "net send" and a message box looked. It is not in the Start menu, and its
+# size is fixed, so the library centres it without reading the registry.
+
+entries:
+  # chicago.shell.notify:message
+  - name: message
+    kind: process.lua
+    meta:
+      type: tui_desktop.window
+      title: Message
+      in_menu: false
+      window_type: dialog
+      resizable: false
+      width: 56
+      height: 18
+      pixel_render: chicago.shell.sdk:render
+      pixel_state: chicago.shell.notify:message
+      comment: A message from a service — the title on the caption, an info, warning or error picture, the text and one OK button (or the caller's caption); OK or Esc closes it. Opened with JSON args by chicago.shell.sdk:notify.
+    source: file://message.lua
+    method: main
+    modules: [json]
+    security:
+      # Publish the frame to the compositor and close — nothing else.
+      policies: [chicago.shell.security:view_state]
+    imports:
+      app: chicago.shell.sdk:app
+      ui: chicago.shell.sdk:ui
+      text: chicago.tui_desktop.desktop:text
+      geometry: chicago.tui_desktop.desktop:geometry

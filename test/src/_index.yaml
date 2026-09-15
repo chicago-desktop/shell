@@ -152,6 +152,82 @@ entries:
       images: chicago.shell.theme:images
     method: run
 
+  - name: notify_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: The shell's notifications — the SDK library reaches every desktop of a person and nothing without one, a named desktop, a refusal with its reason, an entry's windows for a flash; the notify policy alone is enough for a caller that is not a window; the message window reads its args, wraps its text, closes on OK or Esc and draws its first frame.
+      group: Windows Shell
+      suite: chicago_shell
+    source: file://notify_test.lua
+    modules: [process, channel, time, json, security, registry, tty]
+    imports:
+      test: wippy.test:test
+      notify: chicago.shell.sdk:notify
+      app: chicago.shell.sdk:app
+      ui: chicago.shell.sdk:ui
+      message: chicago.shell.notify:message
+    method: run
+
+  - name: balloon_test
+    kind: function.lua
+    meta:
+      type: test
+      comment: The balloon tip and the flash in both themes — the box above the taskbar with its tail at the clock or at a tray item, the text wrapped and ellipsized, the × and the body as hits, the windows cut away under it; a flashing window's lit button and title, a swap repainting only those; PNG shots in test/shots.
+      group: Windows Shell
+      suite: chicago_shell
+    source: file://balloon_test.lua
+    modules: [tty, gfx, fs]
+    imports:
+      test: wippy.test:test
+      chrome: chicago.shell.theme:chrome
+      chrome_pixels: chicago.shell.theme:chrome_pixels
+    method: run
+
+  # A stand-in desktop of the shell's family for notify_test.
+  - name: desktop_standin
+    kind: process.lua
+    meta:
+      comment: A stand-in desktop for notify_test — takes the name it is given, answers desktop.list with its person and every notification command, and tells the watcher what it got.
+    source: file://desktop_standin.lua
+    method: main
+    modules: [process, channel, json]
+
+  # A caller of the notify library that is not a window, spawned by
+  # notify_test under a scope of its choosing.
+  - name: notify_caller
+    kind: process.lua
+    meta:
+      comment: A notify caller for notify_test — sends one balloon to a person and returns what the call answered as its result.
+    source: file://notify_caller.lua
+    method: main
+    modules: [json]
+    imports:
+      notify: chicago.shell.sdk:notify
+
+  # The scopes notify_test runs its caller under, beside the notify policy —
+  # one that may only send, and the control that may do everything but send.
+  - name: send_only
+    kind: security.policy
+    meta:
+      comment: A scope that may send a message and nothing more — what notify needs at the least.
+    policy:
+      actions:
+        - process.send
+      resources: "*"
+      effect: allow
+
+  - name: no_send
+    kind: security.policy
+    meta:
+      comment: A scope that may read its context and look names up but not send — the control for the notify policy.
+    policy:
+      actions:
+        - process.context
+        - process.registry
+      resources: "*"
+      effect: allow
+
   - name: shell_test
     kind: function.lua
     meta:

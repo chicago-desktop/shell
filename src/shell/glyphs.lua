@@ -100,12 +100,33 @@ glyphs.outline = {
     down = "┆",
 }
 
+-- The balloon tip in cells: a thin frame (the pixel one is one black
+-- pixel), the tail under it as one triangle pointing down at the
+-- notification area, and the notification pictures as one letter each on a
+-- cell of their own colour.
+glyphs.balloon = {
+    top_left = "┌",
+    top_right = "┐",
+    bottom_left = "└",
+    bottom_right = "┘",
+    across = "─",
+    down = "│",
+    -- The tail: a flat top joined to the box, a vertical edge on the side the
+    -- notification area is on, the point at the bottom.
+    tail_right = "◥",
+    tail_left = "◤",
+    info = "i",
+    warning = "!",
+    error = "×",
+}
+
 -- The full set as one table, for the width test. The order does not matter;
 -- what matters is that no character is left out of the check: a set you can
 -- forget to add a line to does not check what is drawn.
 function glyphs.all()
     local out = {}
-    for _, group in ipairs({glyphs.bevel, glyphs.shade, glyphs.buttons, glyphs.scrollbar, glyphs.icons, glyphs.outline}) do
+    for _, group in ipairs({glyphs.bevel, glyphs.shade, glyphs.buttons, glyphs.scrollbar, glyphs.icons, glyphs.outline,
+        glyphs.balloon}) do
         for _, char in pairs(group) do
             out[#out + 1] = char
         end

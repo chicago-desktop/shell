@@ -939,6 +939,155 @@ and the same one rasterisation, plus a `key` and a `decorate` function for the
 frame painted into the same rows. `render.forget(id)` drops a gone widget's
 keys.
 
+## Notifications
+
+A module tells a person something without a window of its own through
+`chicago.shell.sdk:notify`. There are four kinds, and both of the shell's
+themes draw each:
+
+- **Balloon** — a balloon tip by the notification area, as Windows 2000 and
+  ME showed one: pale yellow (#FFFFE1), a thin black frame, an info, warning
+  or error picture and a bold title on the first line, the text wrapped under
+  it (40 cells or 320 px wide at most, four lines, the last one ellipsized), ×
+  at the top right, and a tail on the row above the taskbar pointing at a tray
+  item or at the clock. One is shown per desktop at a time and the others
+  wait; a desktop holds at most 8, the shown one included, and a ninth is
+  refused with its key named. A click on its body opens `entry` (or raises the
+  window already open, as a tray click does) and dismisses it; a click on ×
+  dismisses it; its timeout (10 s, clamped to 2..60) dismisses it. It takes no
+  keyboard focus. The same `key` replaces a waiting or the shown balloon, and
+  `{key, remove = true}` dismisses it.
+- **Flash** — FlashWindow: the window's taskbar button and its title bar swap
+  between their lit look (the button in the selection colour, the title in
+  the active colours) and their plain look every half second until the window
+  takes the focus. `count` ends it after that many cycles, `stop = true` ends
+  it. A window that has the focus flashes only with a count.
+- **Message** — a small window of its own (`chicago.shell.notify:message`, a
+  fixed-size dialog outside the Start menu) for a service with no window: the
+  title on the caption and beside the picture, the text wrapped under it, one
+  OK button (or `button`'s caption). OK or Esc closes it. Every call is a
+  window of its own, centred on the screen.
+- **Notice** — the taskbar notice line, where the compositor says "could not
+  open: …": `text` for `ttl` seconds (5, clamped to 1..60). An empty text
+  clears it, and the latest notice wins, the compositor's own included.
+
+```lua
+local notify = require("notify")        -- imports: notify: chicago.shell.sdk:notify
+
+notify.balloon({user = id, title = "aICQ", text = "Anna: hi", icon = "info",
+    entry = "chicago.aicq:window", timeout = 10})
+notify.flash(window_id)                                   -- on the calling window's desktop
+notify.flash({id = window_id, count = 3})                 -- three cycles, even with the focus
+notify.flash({entry = "chicago.aicq:window", user = id})  -- that entry's windows on the person's desktops
+notify.message({user = id, title = "ScanDisk", text = "Errors were found on drive C.", icon = "warning"})
+notify.notice({user = id, text = "Backup finished", ttl = 5})
+```
+
+The balloon's fields are the base's `desktop.balloon`: `title` and `text`
+(required), `icon` (`info` | `warning` | `error`), `image` (a pack picture,
+`<pack>/<file>`, 16 px, drawn instead of the icon), `anchor` (the `key` of the
+tray item the tail points at; the clock otherwise), `entry` and `args` (what a
+click on the body opens; `args` a string), `timeout`, `bell`, `key`. The
+message's are `title`, `text`, `icon`, `button`, `bell`; the notice's `text`
+and `ttl`.
+
+### Targeting
+
+- `user = <id>` — every desktop of the shell's family (`notify.FAMILY`,
+  `chicago.shell.desktop`, `.2` … `.16`: one per connection under the SSH
+  host) whose logged-on user has that id — the `user = {id, name}` its
+  `desktop.list` reports. The library asks each running desktop, found the way
+  Task Manager finds them (`window_api.desktops`), and gives each 2 s
+  (`notify.BUDGET`) to answer.
+- `desktop = <service name>` — that one desktop.
+- neither — the calling window's own desktop, from its process context. A
+  process that is not a window names one of the two.
+- `flash` takes a window id on the caller's desktop (or on `desktop`);
+  `{entry = …, user = …}` flashes every open window of that entry on the
+  person's desktops. A window id belongs to one desktop, so `user` goes only
+  with `entry`.
+
+### Return values
+
+- a number — how many desktops it reached (for a flash: on how many a window
+  flashed). Reaching one desktop of two answers 1.
+- `nil, "nobody to show it to"` (`notify.NOBODY`) — the person has no open
+  desktop, or the named desktop is not running. **There is no offline
+  delivery** (the owner's rule): nothing is kept for a later logon, and the
+  caller decides what to do — keep it, mail it, drop it.
+- `nil, <reason>` — a refusal: the desktop's own (a missing title, an unknown
+  icon, a full queue — "balloon b7 refused: the desktop already holds 8
+  balloons") or the library's (a process that is not a window named no user
+  and no desktop; `user` with a window id; no window of that entry open).
+
+### Rights
+
+A window has what it needs already: every window policy of the shell grants
+`process.send` (`chicago.shell.security:view_state` does). A background
+service attaches `chicago.shell.security:notify` to its entry:
+
+```yaml
+security:
+  policies: [chicago.shell.security:notify]
+```
+
+It grants `process.send` and `process.registry`, and nothing else — no
+registry entries, no database, no spawning: the compositor opens the message
+window, under the person. What the runtime checks, measured on the build this
+module runs on:
+
+- `process.send` — the one that matters: checked on the pid of every desktop a
+  question (`desktop.list`) or a notification goes to. Without it no desktop
+  can be asked, and the call answers `nil, "no desktop could be asked: …"`
+  with the refusal — not "nobody to show it to", which would pass a missing
+  right off as an absent person.
+- `process.registry` — names the lookup of the desktops' names. This runtime
+  checks nothing on a lookup (`registryLookup` in the process module), and
+  the policy grants it so a runtime that starts checking does not break every
+  caller.
+- Reading the process context (a window's own desktop) checks nothing;
+  `process.context` is the right to spawn with a context, which the library
+  never does.
+
+`test/src/notify_test.lua` runs a caller that is not a window under three
+scopes: this policy alone (reached), `process.send` alone (reached) and
+everything but `process.send` (refused, with the reason).
+
+### The commands under it
+
+The library is a thin layer over the base's commands (the base's README, next
+to `desktop.tray`), which a window can send itself through `window_api`
+(`api.balloon`, `api.flash`, `api.notice`): `desktop.balloon`,
+`desktop.flash`, `desktop.notice`, and `desktop.open` of the message entry with
+JSON args `{title, text, icon?, button?, bell?}` — the compositor carries a
+window's args only as a string. `desktop.list` reports `balloon`,
+`balloon_queue` and `flashing`.
+
+### The bell
+
+`bell = true` (a balloon, a message) asks for the terminal bell once. **It does
+not ring:** the runtime's terminal surface writes frames only — rows, a
+cursor, images — and has no bell. The request is carried to the theme and to
+`desktop.list`, so a runtime that learns to ring finds it in place.
+
+### How the shell draws them
+
+- The balloon in cells: box-drawing lines in black on the pale yellow, the
+  picture a letter on its own colour (`i` on blue, `!` on yellow, `×` on red),
+  the title bold, ✕ at the end of the title line, the tail `◥` or `◤` on the
+  row above the taskbar at the anchor's column (`chrome.balloon`). In pixels:
+  the body is one opaque placement laid over the windows like a menu panel
+  (`top`), the tail a two-cell `overlay`, transparent but for its triangle,
+  its point at the middle of the anchor's cell; the 16-px pictures are the
+  pack's `info`, `warning` and `error` ([icons.md](icons.md)) or `image`.
+  Both themes place it with `chrome.balloon_place` and turn it into hits with
+  `chrome.balloon_hits`: the × first, then the body and the tail.
+- The flash: the lit taskbar button in the selection colour (a white caption
+  on navy), the lit title in the active colours. A swap repaints the taskbar
+  and that one title — two rasters in pixels, two rows in cells.
+- `test/src/balloon_test.lua` writes `test/shots/balloon-clock.png`,
+  `balloon-tray.png`, `flash-plain.png` and `flash-lit.png`.
+
 ## Open: a window record sized in pixels
 
 A window entry names its size in cells (`meta.width`, `meta.height`), and one

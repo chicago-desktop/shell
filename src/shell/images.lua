@@ -89,6 +89,9 @@ images.NAMES = {
     "regedit", "regedit_string", "regedit_binary",
     "key",
     "appwizard", "taskmgr", "console", "user", "display_properties", "notepad", "dialup",
+    -- The notification pictures (balloon tips and message windows): original
+    -- pixel art drawn by tools/notice_icons.py, not Microsoft's.
+    "info", "warning", "error",
 }
 
 -- pack_of(name) -> pack entry id, file | nil

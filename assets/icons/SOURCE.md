@@ -78,3 +78,13 @@ scaling, except where noted.
   artwork as above; this icon is not in the Windows 95 `shell32.dll`
   (w95_1…w95_72); What it shows: a key with the Windows flag — the icon of the
   "Welcome to Windows" dialog (`chicago.shell.logon`).
+
+## The notification pictures — original art
+
+Not from any Microsoft set: drawn by `tools/notice_icons.py` (2026-09-16),
+pixel art in the 16-colour palette, both sizes drawn on their own grid, none
+scaled — under the module's MIT license, unlike everything above.
+
+- File: info; Source: tools/notice_icons.py; What it shows: a blue disc with a white "i" — an information balloon or message
+- File: warning; Source: tools/notice_icons.py; What it shows: a yellow triangle with a black "!" — a warning
+- File: error; Source: tools/notice_icons.py; What it shows: a red disc with a white cross — an error

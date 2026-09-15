@@ -119,6 +119,16 @@ widgets.styles = {
     select    = tty.style():bold():foreground(color.select_fg):background(color.select_bg),
     alert     = tty.style():bold():foreground(color.alert):background(color.face),
     farewell  = tty.style():bold():foreground(color.farewell_text):background(color.farewell_bg),
+    -- The balloon tip: pale yellow with black text, a black frame, the
+    -- notification pictures as a letter on their own colour.
+    tooltip         = tty.style():foreground(color.tooltip_text):background(color.tooltip_bg),
+    tooltip_bold    = tty.style():bold():foreground(color.tooltip_text):background(color.tooltip_bg),
+    tooltip_frame   = tty.style():foreground(color.frame):background(color.tooltip_bg),
+    balloon_info    = tty.style():bold():foreground(color.info_text):background(color.info_bg),
+    balloon_warning = tty.style():bold():foreground(color.warning_text):background(color.warning_bg),
+    balloon_error   = tty.style():bold():foreground(color.error_text):background(color.error_bg),
+    -- The tail stands on the desktop: pale yellow on the desktop colour.
+    balloon_tail    = tty.style():foreground(color.tooltip_bg):background(color.desktop),
 }
 -- The desktop color is changed by a person ("Display Properties"), and the
 -- styles taken from the palette at load time must be re-taken: otherwise the
@@ -130,6 +140,7 @@ function widgets.use_desktop(hex: any)
     widgets.styles.desktop = tty.style():background(color.desktop)
     widgets.styles.desktop_text = tty.style():bold():foreground(color.desktop_text):background(color.desktop)
     widgets.styles.desktop_broken = tty.style():bold():foreground(color.desktop_broken):background(color.desktop)
+    widgets.styles.balloon_tail = tty.style():foreground(color.tooltip_bg):background(color.desktop)
 end
 
 

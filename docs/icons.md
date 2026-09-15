@@ -145,6 +145,22 @@ not decoded, wrong size), subsequent ones refer to it.
 
 The file name is the icon name; there are no two lists.
 
+## The notification pictures
+
+`info`, `warning` and `error`, at 32 and 16, are **original pixel art**, not
+Microsoft's: a blue disc with a white "i", a yellow triangle with a black
+"!", a red disc with a white cross — the Windows 95 16-colour palette, hard
+edges, each size drawn on its own grid and never scaled. `tools/notice_icons.py`
+draws them into `assets/icons/16` and `assets/icons/32`; they are in
+`images.NAMES` like the rest, so `images_test` reads them at both sizes, and
+`SOURCE.md` lists them apart from the Microsoft set.
+
+They are what a balloon tip draws for its `icon` and what the message window
+shows (`ui.message`'s `image`) — see [sdk.md](sdk.md), "Notifications". In
+cells the same three are a letter on its own colour: `i` on blue, `!` on
+yellow, `×` on red (`glyphs.balloon`; the palette's `info_*`, `warning_*` and
+`error_*`).
+
 ## The directory is declared by the module, not by the application
 
 `icon_files` is an `fs.directory` with `base: module` and `directory: ./assets/icons`:

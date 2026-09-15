@@ -681,8 +681,10 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
     local inside = chrome.content_colors(window) and color.console_bg
         or ((window.window_type == "dialog" or window.content == "pixels") and color.face or color.field)
     local buttons = chrome_pixels.title_buttons(window)
+    -- A flashing window's lit phase shows the active title (FlashWindow).
+    local active = focused or window.flash_lit == true
     local key = table.concat({tostring(window.title), tostring(window.window_type), tostring(window.entry), tostring(window.image),
-        focused and "1" or "0", window.maximized and "1" or "0",
+        active and "1" or "0", window.maximized and "1" or "0",
         window.resizable == false and "fixed" or "free"}, "\30")
     local head_id = id .. ":head"
     local head, dirty = store.take(head_id, w, head_rows, cell, key)
@@ -701,7 +703,7 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
         head:rect(width, 1, 1, height, color.frame)
         local title_top, title_h = TITLE_TOP, title_height()
         head:rect(FRAME + 1, title_top, width - FRAME * 2, title_h,
-            focused and color.title_active_bg or color.title_idle_bg)
+            active and color.title_active_bg or color.title_idle_bg)
         -- Reserve actual title-button rectangles before clipping text.
         local text_right = #buttons > 0 and buttons[1].rect.x - 4 or width - FRAME - TITLE_MARGIN
         local caption_x = FRAME + 5
@@ -714,7 +716,7 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
         if bold then
             local caption = pixels.ellipsize(bold, window.title, text_right - caption_x)
             head:text(caption_x, title_top + (title_h - whole(bold:height())) // 2, caption,
-                {font = bold, color = focused and color.title_active_fg or color.title_idle_fg})
+                {font = bold, color = active and color.title_active_fg or color.title_idle_fg})
         end
         for _, button in ipairs(buttons) do
             local rect = button.rect
@@ -823,6 +825,7 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     for _, window in ipairs(state.windows or {}) do
         key[#key + 1] = tostring(window.id) .. ":" .. tostring(window.title)
             .. ":" .. tostring(window.image) .. ":" .. tostring(window.minimized)
+            .. ":" .. tostring(window.flash_lit == true)
     end
     -- Tray captions are measured with the face they are drawn with; the
     -- layout gets whole cells, so a hit never shares a cell with the clock.
@@ -868,12 +871,16 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
             local shift = pressed and 1 or 0
             pixels.button(bar, left, button_y, span * cell.w - 2, button_h,
                 {id = window.id, label = "", font = face, pressed = pressed}, cell)
+            -- A flashing window's lit phase: the selection colour inside the
+            -- button's edges, the caption white (FlashWindow).
+            local lit = window.flash_lit == true
+            if lit then bar:rect(left + 2, button_y + 2, span * cell.w - 6, button_h - 4, color.select_bg) end
             pixels.icon(bar, left + 6 + shift, button_y + (button_h - 16) // 2 + shift,
                 {kind = "window", image = window.image}, 16)
             if face then
                 bar:text(left + 28 + shift, button_y + (button_h - 15) // 2 + shift,
                     pixels.ellipsize(face, window.title, span * cell.w - 36),
-                    {font = face, color = color.face_text})
+                    {font = face, color = lit and color.select_fg or color.face_text})
             end
         end
         hits.bars[#hits.bars + 1] = {row = top, bottom_row = rows > 1 and h or nil,
@@ -933,6 +940,123 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
         end
     end
     out[#out + 1] = {id = "bars", raster = bar, x = 1, y = top, cols = w, rows = rows}
+    -- The layout goes back to `paint`: the balloon's tail points into it.
+    return plan
+end
+
+-- ─── balloon tip ─────────────────────────────────────────────────────────
+--
+-- The balloon by the notification area (`state.balloon`), placed by the cell
+-- theme's `balloon_place` and hit by its `balloon_hits`: two placements over
+-- everything but the menu, both `top`, so the windows and the taskbar under
+-- them are cut away like under a menu panel. The body is an opaque box — pale
+-- yellow, a one-pixel black frame, the 16-px picture and the bold title, ×
+-- at the top right, the text wrapped by measured width. The tail is an
+-- `overlay` two cells wide on the row above the taskbar: transparent but for
+-- its triangle, so the desktop or the window text under it stays, its point
+-- at the middle of the anchor's cell and its flat top joined to the body
+-- through a gap in the body's bottom edge.
+local BALLOON_PX = 320        -- the box's width at most
+local BALLOON_PAD = 6         -- inside the frame
+local BALLOON_ICON = 16
+local BALLOON_GAP = 6         -- the picture to the title, the title to the ×
+local BALLOON_CLOSE = 12      -- the ×'s square
+local BALLOON_TITLE = 16      -- the title line
+local BALLOON_LINE = 15       -- a text line
+local BALLOON_TEXT_GAP = 4    -- the title line to the text
+local BALLOON_TAIL = 14       -- the tail's flat top
+
+local function paint_balloon(cell: any, view: any, fonts: any, plan: any, out: any, hits: any)
+    local balloon: any = view.balloon
+    local face: any = type(fonts) == "table" and fonts.face or nil
+    if not face then return end
+    local bold: any = fonts.bold or face
+    local cw, ch = whole(cell.w), whole(cell.h)
+    local title = tostring(balloon.title or "")
+    local text = tostring(balloon.text or "")
+    local picture: any = type(balloon.image) == "string" and balloon.image ~= "" and balloon.image
+        or (type(balloon.icon) == "string" and balloon.icon ~= "" and balloon.icon or nil)
+
+    -- The width the title line wants, and the text on one line: the box is
+    -- as wide as the wider, BALLOON_PX at most, and the text wraps inside.
+    local lead = picture and BALLOON_ICON + BALLOON_GAP or 0
+    local room = BALLOON_PX - 2 - BALLOON_PAD * 2
+    local wanted = lead + whole(bold:measure(title)) + BALLOON_GAP + BALLOON_CLOSE
+    local inner = math.min(room, math.max(wanted, whole(face:measure(text))))
+    local lines = pixels.wrap(face, text, inner, chrome.BALLOON_LINES)
+    local px_w = inner + BALLOON_PAD * 2 + 2
+    local px_h = 2 + BALLOON_PAD * 2 + BALLOON_TITLE + (#lines > 0 and BALLOON_TEXT_GAP + #lines * BALLOON_LINE or 0)
+    local bar_top = whole(view.height) - taskbar_rows() + 1
+    local anchor = chrome.balloon_anchor(plan, view.tray, balloon.anchor, view.width)
+    local box: any = chrome.balloon_place(view.width, view.top, bar_top, anchor,
+        (px_w + cw - 1) // cw, (px_h + ch - 1) // ch)
+    if not box then return end
+
+    -- The tail: two cells, the anchor's cell and its neighbour inside the box.
+    local right = box.tail.right == true
+    local tail_col = right and box.tail.x - 1 or box.tail.x
+    local apex = right and (cw + cw // 2) or (cw // 2 + 1)
+    local spread = math.max(2, math.min(BALLOON_TAIL, cw + cw // 2 - 2))
+    -- Where the tail's top meets the body's bottom edge, in the body's pixels.
+    local joint = (tail_col - box.x) * cw
+    local joint_from = right and joint + apex - spread or joint + apex
+    local joint_to = right and joint + apex or joint + apex + spread
+
+    local width, height = box.cols * cw, box.rows * ch
+    local key = table.concat({title, text, tostring(picture), tostring(box.cols), tostring(box.rows),
+        tostring(joint_from), tostring(joint_to), tostring(fonts)}, "\30")
+    local body, dirty = store.take("balloon", box.cols, box.rows, cell, key)
+    local close_x, close_y = width - BALLOON_PAD - BALLOON_CLOSE, 2 + BALLOON_PAD
+    if dirty then
+        body:fill(color.tooltip_bg)
+        body:rect(1, 1, width, 1, color.frame)
+        body:rect(1, height, width, 1, color.frame)
+        body:rect(1, 1, 1, height, color.frame)
+        body:rect(width, 1, 1, height, color.frame)
+        -- The joint: the bottom edge open over the tail's top.
+        local open_from = math.max(2, whole(joint_from) + 1)
+        local open_to = math.min(whole(width) - 1, whole(joint_to) - 1)
+        if open_to >= open_from then body:rect(open_from, height, open_to - open_from + 1, 1, color.tooltip_bg) end
+        local left, top = 2 + BALLOON_PAD, 2 + BALLOON_PAD
+        local caption_x = left
+        if picture then
+            pixels.icon(body, left, top + (BALLOON_TITLE - BALLOON_ICON) // 2, {image = picture}, BALLOON_ICON)
+            caption_x = left + BALLOON_ICON + BALLOON_GAP
+        end
+        local caption = pixels.ellipsize(bold, title, close_x - BALLOON_GAP - caption_x)
+        body:text(caption_x, top + (BALLOON_TITLE - whole(bold:height())) // 2, caption,
+            {font = bold, color = color.tooltip_text})
+        pixels.mark_close(body, close_x, close_y, BALLOON_CLOSE, color.tooltip_text)
+        for index, line in ipairs(lines) do
+            body:text(left, top + BALLOON_TITLE + BALLOON_TEXT_GAP + (index - 1) * BALLOON_LINE, line,
+                {font = face, color = color.tooltip_text})
+        end
+    end
+    out[#out + 1] = {id = "balloon", raster = body, x = box.x, y = box.y, cols = box.cols, rows = box.rows, top = true}
+
+    local tail, tail_dirty = store.take("balloon:tail", 2, 1, cell,
+        table.concat({right and "r" or "l", tostring(apex), tostring(spread)}, "\30"))
+    if tail_dirty then
+        tail:fill("#00000000")
+        for py = 1, ch do
+            -- The triangle narrows from `spread` at the top to its point at the bottom.
+            local left_over = spread - (spread * (py - 1)) // math.max(1, ch - 1)
+            local from = right and apex - left_over or apex
+            local to = right and apex or apex + left_over
+            tail:rect(from, py, to - from + 1, 1, color.tooltip_bg)
+            tail:rect(from, py, 1, 1, color.frame)
+            tail:rect(to, py, 1, 1, color.frame)
+        end
+    end
+    out[#out + 1] = {id = "balloon:tail", raster = tail, x = tail_col, y = box.tail.y, cols = 2, rows = 1,
+        top = true, overlay = true}
+
+    -- The ×'s hit: the cells its square touches, to the box's right edge.
+    local close = {row = box.y + (close_y - 1) // ch, bottom_row = box.y + (close_y + BALLOON_CLOSE - 2) // ch,
+        from = box.x + (close_x - 1) // cw, to = box.x + box.cols - 1}
+    for _, hit in ipairs(chrome.balloon_hits(box, close, tail_col, tail_col + 1)) do
+        hits.bars[#hits.bars + 1] = hit
+    end
 end
 
 -- ─── Start menu ──────────────────────────────────────────────────────────
@@ -1296,7 +1420,11 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
 
     -- A bare desktop has no taskbar: this is how the logon screen is drawn,
     -- where there is no Start yet, because there is no user yet either.
-    if not view.bare then paint_bars(cell, view, fonts, out, hits) end
+    local plan: any = nil
+    if not view.bare then plan = paint_bars(cell, view, fonts, out, hits) end
+
+    -- The balloon tip over the windows and beside the taskbar, under the menu.
+    if plan ~= nil and type(view.balloon) == "table" then paint_balloon(cell, view, fonts, plan, out, hits) end
 
     -- The menu over everything: on screen it is over everything too, and the
     -- list order is the painting order.

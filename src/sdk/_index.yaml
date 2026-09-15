@@ -90,6 +90,16 @@ entries:
       geometry: chicago.tui_desktop.desktop:geometry
       text: chicago.tui_desktop.desktop:text
 
+  # The four notifications for modules — balloon, flash, message, notice.
+  # A caller that is not a window attaches chicago.shell.security:notify.
+  - name: notify
+    kind: library.lua
+    meta: {comment: "Notifications from modules — a balloon tip, a flashing taskbar button, a message window and the notice line, on the desktops a person has open; no offline delivery. See docs/sdk.md."}
+    source: file://notify.lua
+    modules: [process, json]
+    imports:
+      desktop: chicago.tui_desktop.desktop:window_api
+
   - name: format
     kind: library.lua
     meta: {comment: "Time, names and refusal text for windows: RFC3339 and SQLite datetime parsing, local formatting from the clock's offset, the name a person is shown by, a refusal's wording by its error kind; pure. See docs/sdk.md."}

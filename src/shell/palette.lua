@@ -77,6 +77,19 @@ palette.exact = {
     -- Failure. Maroon, not red: red on gray glares and reads as "on fire",
     -- although the message merely names the reason.
     alert = "#800000",
+
+    -- Tooltips and balloon tips: pale yellow with black text and a black
+    -- frame, as in the original.
+    tooltip_bg = "#ffffe1",
+    tooltip_text = "#000000",
+    -- The notification pictures in cells: one letter on its own colour, the
+    -- colours of the pixel pictures (assets/icons, info, warning, error).
+    info_bg = "#0000ff",
+    info_text = "#ffffff",
+    warning_bg = "#ffff00",
+    warning_text = "#000000",
+    error_bg = "#ff0000",
+    error_text = "#ffffff",
 }
 
 palette.basic = {
@@ -107,6 +120,15 @@ palette.basic = {
     select_fg = "15",
 
     alert = "1",
+
+    tooltip_bg = "230",
+    tooltip_text = "0",
+    info_bg = "12",
+    info_text = "15",
+    warning_bg = "11",
+    warning_text = "0",
+    error_bg = "9",
+    error_text = "15",
 }
 
 -- The default set.

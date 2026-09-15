@@ -211,6 +211,34 @@ entries:
       resources: "*"
       effect: allow
 
+  # chicago.shell.security:notify
+  #
+  # What a caller of chicago.shell.sdk:notify needs — a background service
+  # with no window of its own attaches this policy to its entry, the way a
+  # view window carries view_state. The library finds the shell's desktops by
+  # name, asks each whose it is (desktop.list) and sends it the notification,
+  # waiting for the answer on its own reply topic.
+  #
+  # Measured on the runtime build this module runs on. `process.send` is the
+  # one action the runtime checks here — on the pid of every desktop a
+  # question or a notification goes to; without it the call answers "no
+  # desktop could be asked" (notify_test, the no_send scope). Looking a name
+  # up checks nothing (process/module.go, registryLookup), and reading the
+  # process context checks nothing either; `process.registry` stays to name
+  # the lookup, so a runtime that starts checking it does not turn every
+  # caller into a refusal. No registry, no database, no spawning — the
+  # compositor opens the message window, not the caller.
+  - name: notify
+    kind: security.policy
+    meta:
+      comment: Permissions to send the shell's notifications — find the desktops by name, ask whose they are and send them a balloon, a flash, a notice or a message window; nothing else.
+    policy:
+      actions:
+        - process.registry
+        - process.send
+      resources: "*"
+      effect: allow
+
   - name: shell_endpoint_access
     kind: security.policy
     meta:
