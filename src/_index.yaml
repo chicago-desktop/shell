@@ -33,12 +33,13 @@ entries:
   # The shell is an add-on over the base, not a copy of it. From here come
   # the compositor, the window host, PTY windows, the command channel and the
   # workshop.
-  - version: "*"
+  # Resolved from GitHub by tag (v0.2.0 is the first); the lock still names it chicago/tui-desktop.
+  - version: ">=0.2.0"
     name: dep.chicago.tui_desktop
     kind: ns.dependency
     meta:
       comment: The desktop base — compositor, windows and command channel. The shell calls its compositor with its own theme.
-    component: chicago/tui-desktop
+    component: github.com/chicago-desktop/tui-desktop
 
   # ─── What the module asks of the application ─────────────────────────
   # The database is named ONCE, here, and for every migration: a migration

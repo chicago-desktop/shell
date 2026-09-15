@@ -783,10 +783,19 @@ cd test && $WIPPY run --host chicago.shell:terminal chicago
 ### The base is taken from a working copy
 
 Modules are resolved from their GitHub repositories by tag (v0.2.0 is the
-first); while that runtime feature is being built, `chicago/tui-desktop` is connected
-by a replacement in `.wippy.yaml` — at the module root and in `test/`. **Condition for removal:** as
-soon as the base resolves by tag, remove both replacements; otherwise the module builds only
-on a machine where the needed directory lies next to it.
+first). The shell declares the base that way —
+`component: github.com/chicago-desktop/tui-desktop`, `version: ">=0.2.0"` —
+and the lock still names it `chicago/tui-desktop`. For development the base is
+taken from the neighboring working copy by a replacement in `.wippy.yaml`, at
+the module root and in `test/`; remove both to build against the tagged base.
+A module that depends on the shell names it the same way:
+
+```yaml
+- name: dep.chicago.shell
+  kind: ns.dependency
+  version: ">=0.2.1"
+  component: github.com/chicago-desktop/shell
+```
 
 ## "My Computer": drives are registry entries
 
