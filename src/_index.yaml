@@ -34,7 +34,9 @@ entries:
   # the compositor, the window host, PTY windows, the command channel and the
   # workshop.
   # Resolved from GitHub by tag (v0.2.0 is the first); the lock still names it chicago/tui-desktop.
-  - version: ">=0.2.0"
+  # 0.2.1 brings the balloon, flash and notice commands and state that the
+  # themes draw and chicago.shell.sdk:notify sends.
+  - version: ">=0.2.1"
     name: dep.chicago.tui_desktop
     kind: ns.dependency
     meta:
