@@ -56,7 +56,7 @@ def wrapped(folder: str, name: str) -> str:
     # "core" is the base's desktop libraries, taken from the neighbouring
     # working copy — the same rule as the pixel probe's build.py.
     if folder == "core":
-        path = SRC.parent.parent / "kickside-module" / "src" / "desktop" / f"{name}.lua"
+        path = SRC.parent.parent / "tui-desktop" / "src" / "desktop" / f"{name}.lua"
     source = path.read_text(encoding="utf-8")
     return "(function()\n" + source + "\nend)()"
 

@@ -51,7 +51,7 @@ MODULES = (
 def wrapped(folder: str, name: str) -> str:
     path = SRC / folder / f"{name}.lua"
     if folder == "core":
-        path = SRC.parent.parent / "kickside-module" / "src" / "desktop" / f"{name}.lua"
+        path = SRC.parent.parent / "tui-desktop" / "src" / "desktop" / f"{name}.lua"
     source = path.read_text(encoding="utf-8")
     return "(function()\n" + source + "\nend)()"
 
