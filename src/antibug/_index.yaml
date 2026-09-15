@@ -140,6 +140,9 @@ entries:
     meta:
       type: tui_desktop.window
       title: AntiBug
+      # Runs builds and test suites on the server through its runner's broad
+      # policy: only for a logged-on person whose scope grants windows.admin.
+      requires: windows.admin
       # There is no antivirus picture in shell32; the magnifier of Find is
       # the closest — a scanner looks for something.
       image: find

@@ -48,6 +48,25 @@ local function main(args: any)
     if type(plan.env) == "table" then
         for key, value in pairs(plan.env) do env[tostring(key)] = tostring(value) end
     end
+    -- A Go module's packages are the first scan's denominator: `go list`
+    -- counts them before the tests start — the test stream announces a
+    -- package only when it starts. A list that fails leaves it unknown.
+    if plan.count then
+        local lister = executor:exec(tostring(plan.count), {work_dir = tostring(plan.work_dir), env = env})
+        if lister and lister:start() then
+            local listed = ""
+            local stream = lister:stdout_stream()
+            while stream do
+                local chunk = stream:read()
+                if chunk == nil then break end
+                listed = listed .. chunk
+            end
+            local code = lister:wait()
+            local known = 0
+            for _ in string.gmatch(listed, "[^\n]+") do known = known + 1 end
+            if tonumber(code) == 0 and known > 0 then send("antibug:progress", {known = known}) end
+        end
+    end
     local child, child_err = executor:exec(tostring(plan.cmd), {work_dir = tostring(plan.work_dir), env = env})
     if not child then
         executor:release()

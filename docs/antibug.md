@@ -57,6 +57,14 @@ output into case events for the window as they come, and kills the child on
 `Stop`. The window never execs. A target that cannot start is one finding with
 the reason; a bad exit with no failed case is one finding too.
 
+Every child runs under `nice -n 19`: a module's suite or a Go build takes every
+core, and on the live shell a scan of the runtime (a full build of it, 19385
+build-cache files in ten minutes) left OK and × unanswered. `Stop` kills the
+child itself; a Go build's compile and test children finish on their own, at
+that priority. A scan redraws at most every 200 ms: every case is an event, a
+suite sends hundreds a second, and a frame per event made the window publish
+its whole tree to the compositor as often; the end of a scan is drawn at once.
+
 The wippy runner has no machine-readable mode, so its text is parsed: the
 progress line (`  ⠋ <suite> (i/n) <entry>`) names the entry, `    o <case>
 <time>` / `    x <case>` / `    - <case> (skipped)` are the cases, and the

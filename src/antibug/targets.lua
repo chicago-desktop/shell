@@ -29,6 +29,11 @@ local targets = {}
 targets.TYPE = "windows.antibug_target"
 targets.DEFAULT_WIPPY = "wippy"
 targets.DEFAULT_HOST = "wippy.terminal:host"
+-- Every child runs at the lowest priority. A module's suite or a Go build
+-- takes every core, and the shell the person is using must stay responsive:
+-- on the live shell (2026-09-14) a scan of the runtime wrote 19385 build-cache
+-- files in ten minutes while OK and × went unanswered.
+targets.NICE = "nice -n 19 "
 -- How many output lines of a failed Go test become its `Infected by`.
 targets.TAIL = 12
 
@@ -97,11 +102,13 @@ function targets.command(target: any): (any, any)
         env[key] = value
     end
     if target.kind == "go" then
-        return {cmd = "go test -json ./...", work_dir = target.dir, env = env}, nil
+        return {cmd = targets.NICE .. "go test -json ./...", count = targets.NICE .. "go list ./...",
+            work_dir = target.dir, env = env}, nil
     end
     local binary = text_of(target.wippy) ~= "" and target.wippy or targets.DEFAULT_WIPPY
     local host = text_of(target.host) ~= "" and target.host or targets.DEFAULT_HOST
-    return {cmd = "\"" .. binary .. "\" test --host \"" .. host .. "\"", work_dir = target.dir .. "/test", env = env}, nil
+    return {cmd = targets.NICE .. "\"" .. binary .. "\" test --host \"" .. host .. "\"",
+        work_dir = target.dir .. "/test", env = env}, nil
 end
 
 -- plain(text) -> the text without ANSI escapes.

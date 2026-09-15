@@ -4,7 +4,8 @@
 -- cannot be filtered to one entry from the CLI; go.jsonl — `go test -json` of
 -- a scratch module with a pass, a failure, a skip, subtests and a package that
 -- does not build), the declarations and their commands, the target's state
--- machine in the scan model and in the window, and a live scan of a Go target
+-- machine in the scan model and in the window, the window's redraws under a
+-- burst of events, and a live scan of a Go target
 -- (test/fixtures/antibug/gomod) through the real runner, target process and exec.
 local test = require("test")
 local fs = require("fs")
@@ -65,6 +66,49 @@ local function message(kind: string, data: any): any
     return {type = kind, data = data}
 end
 
+local function timer_of(context: any, kind: string): any
+    for _, pending in ipairs(context.timers) do
+        if type(pending.tag) == "table" and pending.tag.kind == kind then return pending end
+    end
+    return nil
+end
+
+local function timers_of(context: any, kind: string): integer
+    local total = 0
+    for _, pending in ipairs(context.timers) do
+        if type(pending.tag) == "table" and pending.tag.kind == kind then total = total + 1 end
+    end
+    return total
+end
+
+-- A window on a stand-in world with one target whose runner answers with a
+-- child pid; the test fires the answer and the events itself.
+local function target_window(): (any, any, any)
+    local seen: any = {launched = {}, stopped = {}, inbox = channel.new(8)}
+    local command: any = {ch = channel.new(1)}
+    function command:response(): any return self.ch end
+    function command:result(): (any, any) return {child = "<pid 42>"}, nil end
+    seen.command = command
+    window.deps.sys = {
+        find = function(): (any, any) return {}, nil end,
+        find_targets = function(): (any, any) return {declared("app:mod", {title = "Module", kind = "wippy", dir = "/m"})}, nil end,
+        listen = function(): any return seen.inbox end,
+        launch = function(id: string): (any, any) error("not a test entry") end,
+        launch_target = function(id: string): (any, any)
+            seen.launched[#seen.launched + 1] = id
+            return command, nil
+        end,
+        stop = function(child: any): boolean seen.stopped[#seen.stopped + 1] = child; return true end,
+        now = function(): number return 0 end,
+    }
+    local context = app.context({width = 62, height = 19})
+    local model = window.init(nil, context)
+    app.dispatch(window, model, context, {type = "change", id = "target", value = "t:app:mod"})
+    app.dispatch(window, model, context, {type = "activate", id = "scan_now"})
+    app.dispatch(window, model, context, {type = "channel", channel = command.ch, value = true, ok = true})
+    return model, context, seen
+end
+
 local function define_tests()
     test.describe("AntiBug targets: the parsers", function()
         test.it("the wippy runner's text: every case of a real run, the counts its own summary prints, the failures' text", function()
@@ -107,7 +151,7 @@ local function define_tests()
             test.eq(first(events, "test:case:start", "TestFails").suite, "example.com/antibugfix")
         end)
 
-        test.it("the declarations: a kind and a directory or a reason; commands without a shell", function()
+        test.it("the declarations: a kind and a directory or a reason; commands without a shell, at the lowest priority", function()
             local list = targets.entries({
                 declared("app:shell", {title = "Shell", kind = "wippy", dir = "/w/shell", order = 2}),
                 declared("app:runtime", {title = "Runtime", kind = "go", dir = "/w/runtime", order = 1}),
@@ -121,13 +165,15 @@ local function define_tests()
             test.eq(list[3].problem, "unknown kind 'make' (wippy or go)")
             test.eq(list[4].problem, "a quote or a line break in the declaration")
             local go = targets.command(list[1])
-            test.eq(go.cmd, "go test -json ./...")
+            test.eq(go.cmd, "nice -n 19 go test -json ./...", "a child never competes with the shell")
+            test.eq(go.count, "nice -n 19 go list ./...", "the packages are counted first")
             test.eq(go.work_dir, "/w/runtime")
             local wippy = targets.command(list[2])
-            test.eq(wippy.cmd, "\"wippy\" test --host \"wippy.terminal:host\"", "the defaults")
+            test.eq(wippy.cmd, "nice -n 19 \"wippy\" test --host \"wippy.terminal:host\"", "the defaults")
+            test.is_nil(wippy.count, "the runner announces its own entry count")
             test.eq(wippy.work_dir, "/w/shell/test")
             local own = targets.command({kind = "wippy", dir = "/m", wippy = "/r/dist/wippy-linux-amd64", host = "app:host"})
-            test.eq(own.cmd, "\"/r/dist/wippy-linux-amd64\" test --host \"app:host\"")
+            test.eq(own.cmd, "nice -n 19 \"/r/dist/wippy-linux-amd64\" test --host \"app:host\"")
             local none, why = targets.command(list[3])
             test.is_nil(none)
             test.eq(why, "unknown kind 'make' (wippy or go)")
@@ -234,41 +280,44 @@ local function define_tests()
 
     test.describe("AntiBug targets: the window", function()
         test.it("runs a target through the runner, and Stop asks its process to kill the child", function()
-            local seen: any = {launched = {}, stopped = {}}
-            local inbox = channel.new(8)
-            local command: any = {ch = channel.new(1)}
-            function command:response(): any return self.ch end
-            function command:result(): (any, any) return {child = "<pid 42>"}, nil end
-            window.deps.sys = {
-                find = function(): (any, any) return {}, nil end,
-                find_targets = function(): (any, any) return {declared("app:mod", {title = "Module", kind = "wippy", dir = "/m"})}, nil end,
-                listen = function(): any return inbox end,
-                launch = function(id: string): (any, any) error("not a test entry") end,
-                launch_target = function(id: string): (any, any)
-                    seen.launched[#seen.launched + 1] = id
-                    return command, nil
-                end,
-                stop = function(child: any): boolean seen.stopped[#seen.stopped + 1] = child; return true end,
-                now = function(): number return 0 end,
-            }
-            local context = app.context({width = 62, height = 19})
-            local model = window.init(nil, context)
-            app.dispatch(window, model, context, {type = "change", id = "target", value = "t:app:mod"})
-            app.dispatch(window, model, context, {type = "activate", id = "scan_now"})
+            local model, context, seen = target_window()
             test.eq(seen.launched[1], "app:mod")
-            test.eq(#context.timers, 0, "a target has no timeout")
-            app.dispatch(window, model, context, {type = "channel", channel = command.ch, value = true, ok = true})
-            test.eq(#context.timers, 0, "and no grace: it waits for the exit")
-            app.dispatch(window, model, context, {type = "channel", channel = inbox, ok = true,
+            test.is_nil(timer_of(context, "timeout"), "a target has no timeout")
+            test.is_nil(timer_of(context, "grace"), "and no grace: it waits for the exit")
+            app.dispatch(window, model, context, {type = "channel", channel = seen.inbox, ok = true,
                 value = message("test:case:fail", {ref_id = "app:mod", suite = "a", test = "b", error = "boom"})})
             app.dispatch(window, model, context, {type = "activate", id = "stop"})
             test.eq(seen.stopped[1], "<pid 42>", "Stop goes to the target's process")
-            test.eq(context.timers[1].tag.kind, "stopwait")
+            local waiting = timer_of(context, "stopwait")
+            test.not_nil(waiting, "the process gets a few seconds to say it stopped")
             -- The process never answered: the wait ends the scan as stopped.
-            app.dispatch(window, model, context, {type = "timer", tag = context.timers[1].tag})
+            app.dispatch(window, model, context, {type = "timer", tag = waiting.tag})
             test.eq(model.scan.phase, "stopped")
             test.eq(model.sheet and model.sheet.kind, "box")
             test.eq(model.scan.box.lines[1], "Scan stopped.")
+            window.deps.sys = REAL_SYS
+        end)
+
+        test.it("a burst of events is drawn once: they owe one frame, a timer draws it; the end is drawn at once", function()
+            local model, context, seen = target_window()
+            local drawn = 0
+            for index = 1, 50 do
+                local redraw = app.dispatch(window, model, context, {type = "channel", channel = seen.inbox, ok = true,
+                    value = message("test:case:pass", {ref_id = "app:mod", suite = "a", test = "case " .. index})})
+                if redraw then drawn = drawn + 1 end
+            end
+            test.eq(drawn, 0, "no frame per event")
+            test.eq(model.scan.counts.passed, 50, "every event counted")
+            test.eq(timers_of(context, "frame"), 1, "one frame owed for the burst")
+            test.is_true(app.dispatch(window, model, context, {type = "timer", tag = timer_of(context, "frame").tag}),
+                "the frame timer draws")
+            test.is_false(model.frame_owed)
+            app.dispatch(window, model, context, {type = "channel", channel = seen.inbox, ok = true,
+                value = message("test:case:pass", {ref_id = "app:mod", suite = "a", test = "late"})})
+            test.is_true(model.frame_owed, "the next event owes the next frame")
+            test.is_true(app.dispatch(window, model, context, {type = "channel", channel = seen.inbox, ok = true,
+                value = message("antibug:exit", {ref_id = "app:mod", code = 0})}), "the end of the scan is drawn at once")
+            test.eq(model.sheet and model.sheet.kind, "box")
             window.deps.sys = REAL_SYS
         end)
 
@@ -278,7 +327,8 @@ local function define_tests()
             local model = window.init(nil, context)
             app.dispatch(window, model, context, {type = "change", id = "target", value = "t:app:antibug_go_target"})
             app.dispatch(window, model, context, {type = "activate", id = "scan_now"})
-            test.not_nil(scan.current(model.scan), "the scan started")
+            local current = scan.current(model.scan)
+            test.not_nil(current, "the scan started")
             local deadline = time.after("25s")
             while scan.scanning(model.scan) do
                 local cases: any = {deadline:case_receive()}
@@ -290,6 +340,7 @@ local function define_tests()
             end
             local log = scan.log_text(model.scan)
             test.is_false(scan.scanning(model.scan), "the target ended within 25 s: " .. log)
+            test.eq(current.known, 1, "go list counted the module's one package: " .. log)
             test.eq(model.scan.counts.passed, 1, log)
             test.eq(model.scan.counts.infected, 1, log)
             test.eq(model.scan.counts.skipped, 1, log)

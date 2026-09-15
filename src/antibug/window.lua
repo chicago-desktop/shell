@@ -302,13 +302,33 @@ local function sheet_update(model: any, action: any, context: any): boolean
     return false
 end
 
+-- How often a scan redraws. Every case is an event, and a module's suite
+-- sends hundreds a second: a frame per event made the window publish its
+-- whole tree to the compositor as often (seen on the live shell, 2026-09-14,
+-- with the shell unresponsive). An event marks the frame owed; one timer
+-- draws it.
+local FRAME_DELAY = "200ms"
+
+-- owe(model, context) -> false: the change is drawn by the frame timer.
+local function owe(model: any, context: any): boolean
+    if not model.frame_owed then
+        model.frame_owed = true
+        context.after(FRAME_DELAY, {kind = "frame"})
+    end
+    return false
+end
+
 local function channel_update(model: any, action: any, context: any): boolean
     if action.channel == model.inbox then
         local changed = scan.event(model.scan, action.value)
         -- The runner answered first and `test:complete` came within the
-        -- grace; a target's process said it exited.
-        if changed and scan.settled(model.scan) then advance(model, context) end
-        return changed
+        -- grace; a target's process said it exited. The end is drawn now.
+        if changed and scan.settled(model.scan) then
+            advance(model, context)
+            return true
+        end
+        if changed then return owe(model, context) end
+        return false
     end
     if model.response ~= nil and action.channel == model.response then
         context.unwatch(model.response)
@@ -335,6 +355,11 @@ end
 
 local function timer_update(model: any, action: any, context: any): boolean
     local tag: any = action.tag
+    -- The owed frame: whatever the events changed is drawn now, once.
+    if type(tag) == "table" and tag.kind == "frame" then
+        model.frame_owed = false
+        return true
+    end
     local current: any = scan.current(model.scan)
     -- A timer of an item that already finished: nothing to do.
     if type(tag) ~= "table" or not current or tag.seq ~= current.seq then return false end
