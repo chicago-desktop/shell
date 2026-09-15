@@ -35,10 +35,7 @@ local repo = require("repo")
 
 local sources = {}
 
--- The entry kinds the shell considers a drive. There are two of them, and
--- both are real: `fs.directory` is a directory on disk, `fs.embed` is files
--- frozen into the module at build time. We do not invent a third kind: a
--- drive that is not in the registry must not be drawn.
+-- Registry filesystem kinds exposed as folders on C: (Wippy).
 sources.DRIVE_KINDS = model.DRIVE_KINDS
 
 -- The cap on a single directory read. A directory with ten thousand files
@@ -154,9 +151,15 @@ function sources.list(path, context: any)
     local where = model.parse(path)
 
     if where.view == "root" then
+        local disks, err = registry.find({[".kind"] = "registry.entry", ["meta.type"] = "chicago.drive"})
+        if err or type(disks) ~= "table" then return nil, "disks not read: " .. tostring(err or "invalid registry response") end
+        return {objects = model.root(disks), title = "My Computer"}, nil
+    end
+
+    if where.view == "wippy" then
         local records, err = sources.drives()
         if err or not records then return nil, err or "drives not read" end
-        return {objects = model.root(records), title = "My Computer"}, nil
+        return {objects = model.wippy(records), title = model.WIPPY_TITLE}, nil
     end
 
     if where.view == "programs" then

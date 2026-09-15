@@ -799,29 +799,26 @@ A module that depends on the shell names it the same way:
   component: github.com/chicago-desktop/shell
 ```
 
-## "My Computer": drives are registry entries
+## "My Computer": disks and filesystem folders
 
-The window `chicago.shell.explorer:window` is an ordinary registry program
-(`meta.type: tui_desktop.window`), and the shell finds it with the same
-`registry.find` as everything else. The first-start furniture leads to it.
+My Computer shows **C: (Wippy)**. Opening it lists the registry's
+`fs.directory` and `fs.embed` resources as folders, alongside Control Panel.
+New filesystem resources appear automatically when the disk is refreshed.
+C: is the logical Wippy resource collection, not the host's filesystem root.
 
-**The shell does not create drives — it shows them.** A drive here is an
-`fs.directory` or `fs.embed` entry, and almost every installed module
-brings some: on the test stand there are sixty-eight of them. Hence both rules at once.
+Existing `drive/<entry>/<path>` addresses remain valid for viewers and saved
+shortcuts. Up from a filesystem root or Control Panel goes to C:; Up from C:
+goes to My Computer. The address display prefixes resource paths with `C:\`.
+File reads still use the declared FS resource under the window's permissions;
+a refused read shows its reason. File dialogs retain their filesystem API.
 
-- A drive declared by an installed module appears **by itself**, without an edit in
-  the shell. A drive table of our own would mean it does not appear until someone
-  writes it in by hand.
-- A drive that is not in the registry **will not be there**. A drawn `C:` is an object
-  that does not exist, and the first question would be why it does not
-  open.
-- Contents are read by the `fs` module under the window's own permissions. A drive
-  that is declared but inaccessible answers with a **reason**, not with emptiness.
+### Module-provided disks
 
-The root of "My Computer" holds the file systems and, after them, the
-`Control Panel` folder — the catalog's `Settings` programs. Programs, registry
-entries of other kinds and service folders do not get there. The search uses
-the top-level `.kind` field; `kind` without the dot does not filter by entry kind.
+A module exposes a disk with a `registry.entry` whose `meta.type` is
+`chicago.drive`, `meta.title` is its label and `meta.image` its icon.
+`data.entry` names the window opened on activation; optional `data.args`
+are passed through. Explorer discovers these alongside C: on refresh.
+The provider owns mounting and the contents of its drive window.
 
 ### Caption, counter and scrollbar — three places where it is easy to lie
 

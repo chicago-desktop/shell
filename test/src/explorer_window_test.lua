@@ -31,6 +31,7 @@ local RECORDS = {{id = "app:docs", kind = "fs.directory"}, {id = "app:other", ki
 
 local function listing(path: any): any
     if path == "" then return {objects = model.root(RECORDS), title = "My Computer"} end
+    if path == model.WIPPY then return {objects = model.wippy(RECORDS), title = model.WIPPY_TITLE} end
     if path == "drive/app:docs" then
         return {objects = model.files({
             {name = "readme.txt", type = "file", size = 2048, modified = 804850200},
@@ -180,7 +181,7 @@ local function define_tests()
             test.eq(state.path, "")
             test.eq(definition.title(state), "My Computer")
             test.eq(definition.image(state), "my_computer", "the title bar's picture")
-            test.eq(titles(state), "docs,other,Control Panel", "the drives, then the Control Panel, as My Computer listed them")
+            test.eq(titles(state), "C: (Wippy)", "My Computer lists logical disks")
             test.eq(#context.watched, 1, "the compositor's reply channel is watched")
             test.eq(#state.drives, 2)
             state = start("drive/app:docs")
@@ -321,7 +322,7 @@ local function define_tests()
             local state, log, context = start(nil)
             act(state, context, menu("file_properties"))
             test.eq(last(log).spec.entry, definition.SYSPROPS, "nothing selected at the root")
-            state.selection = {["app:docs"] = true}
+            state.selection = {[model.WIPPY] = true}
             act(state, context, {type = "key", key_type = "enter", key = "enter", alt = true, action = "press"})
             test.eq(#log.calls, 2)
             test.eq(last(log).spec.entry, definition.SYSPROPS, "Alt+Enter on a drive")
@@ -332,12 +333,12 @@ local function define_tests()
             test.eq(state.sheet.spec.title, "readme.txt")
             test.is_true(lines:find("Type: Text Document", 1, true) ~= nil, lines)
             test.is_true(lines:find("Size: 2KB", 1, true) ~= nil, lines)
-            test.is_true(lines:find("Location: app:docs", 1, true) ~= nil, lines)
+            test.is_true(lines:find("Location: C:\\app:docs", 1, true) ~= nil, lines)
             finish()
         end)
 
         test.it("opening a folder asks what is open, then focuses that window or opens one with the path", function()
-            local state, log, context, replies = start(nil)
+            local state, log, context, replies = start(model.WIPPY)
             act(state, context, {type = "activate", id = "objects", value = object_of(state, "docs")})
             test.eq(last(log).topic, "desktop.list", "first it asks what is open")
             act(state, context, listed(replies, {{id = "w7", entry = EXPLORER, args = "drive/app:docs"},
@@ -351,9 +352,9 @@ local function define_tests()
             test.eq(opened.spec.entry, EXPLORER)
             test.eq(opened.spec.args, "drive/app:docs")
             test.eq(opened.spec.title, "docs")
-            test.eq(opened.spec.image, "drive")
-            test.eq(state.path, "", "this window stays where it is")
-            state, log, context = start(nil, {no_replies = true})
+            test.eq(opened.spec.image, "folder_open")
+            test.eq(state.path, model.WIPPY, "this window stays where it is")
+            state, log, context = start(model.WIPPY, {no_replies = true})
             act(state, context, {type = "activate", id = "objects", value = object_of(state, "Control Panel")})
             test.eq(last(log).topic, "desktop.open", "without a reply channel it opens straight away")
             test.eq(last(log).spec.args, "control")
@@ -362,10 +363,13 @@ local function define_tests()
 
         test.it("the single-window mode navigates in place and asks the compositor nothing", function()
             local state, log, context = start(nil, {browse = "single"})
+            act(state, context, {type = "activate", id = "objects", value = object_of(state, model.WIPPY_TITLE)})
+            test.eq(state.path, model.WIPPY)
+            test.eq(titles(state), "Control Panel,docs,other")
             act(state, context, {type = "activate", id = "objects", value = object_of(state, "docs")})
             test.eq(state.path, "drive/app:docs")
             test.eq(definition.title(state), "docs", "the caption follows the folder")
-            test.eq(definition.image(state), "drive", "and so does the title bar's picture")
+            test.eq(definition.image(state), "folder_open", "and so does the title bar's picture")
             act(state, context, {type = "activate", id = "objects", value = object_of(state, "letters")})
             test.eq(state.path, "drive/app:docs/letters")
             test.eq(definition.image(state), "folder_open", "a folder inside the drive")
@@ -385,7 +389,9 @@ local function define_tests()
             test.eq(state.path, "drive/app:docs", "single: in place")
             act(state, context, menu("view_toolbar"))
             act(state, context, {type = "activate", id = "tb_up"})
-            test.eq(state.path, "", "Up One Level is the same step")
+            test.eq(state.path, model.WIPPY, "Up from an FS root opens C:")
+            act(state, context, {type = "activate", id = "tb_up"})
+            test.eq(state.path, "", "Up from C: opens My Computer")
             test.is_false(act(state, context, {type = "key", key_type = "backspace", key = "backspace", action = "press"}))
             test.eq(#log.calls, 0)
             finish()
@@ -463,7 +469,7 @@ local function define_tests()
             local tree = definition.view(state, context)
             local values = {}
             for _, option in ipairs(node_of(tree, "tb_places").options) do values[#values + 1] = (option :: any).value end
-            test.eq(table.concat(values, "|"), "|drive/app:docs|drive/app:other", "the way here, then the drives")
+            test.eq(table.concat(values, "|"), "|wippy|drive/app:docs|drive/app:other", "the way here, then the drives")
             test.is_true(node_of(tree, "tb_large").pressed == true)
             for _, id in ipairs({"tb_cut", "tb_copy", "tb_paste", "tb_undo", "tb_delete"}) do
                 test.is_true(node_of(tree, id).disabled == true, id)
@@ -479,7 +485,7 @@ local function define_tests()
         end)
 
         test.it("Options: the two browse modes as radio buttons; OK stores the choice, Cancel does not", function()
-            local state, log, context = start(nil)
+            local state, log, context = start(model.WIPPY)
             act(state, context, menu("view_options"))
             local tree = definition.view(state, context)
             test.is_true(node_of(tree, "browse_separate").checked == true)
@@ -512,7 +518,7 @@ local function define_tests()
         end)
 
         test.it("the four views lay out at 48×16 and 72×22 in cells and pixels without overlaps", function()
-            for _, path in ipairs({"", "drive/app:docs", "control"}) do
+            for _, path in ipairs({"", model.WIPPY, "drive/app:docs", "control"}) do
                 local state, _, context = start(path)
                 for _, toolbar in ipairs({false, true}) do
                     state.toolbar = toolbar
@@ -581,13 +587,13 @@ local function define_tests()
             while time.now():unix_nano() < deadline do
                 local snap: any = view:snapshot(-1)
                 shown = snap and table.concat(snap.rows or {}, "\n") or ""
-                if shown:find("Panel", 1, true) and shown:find("object(s)", 1, true) then break end
+                if shown:find("Wippy", 1, true) and shown:find("object(s)", 1, true) then break end
                 channel.select({time.after("50ms"):case_receive()})
             end
             test.is_true(shown:find("File", 1, true) ~= nil and shown:find("Help", 1, true) ~= nil, "the menu bar:\n" .. shown)
-            -- The caption wraps under its icon: "Control" over "Panel".
-            test.is_true(shown:find("Control", 1, true) ~= nil and shown:find("Panel", 1, true) ~= nil,
-                "the root's Control Panel:\n" .. shown)
+            -- The logical disk is visible in the real cell renderer.
+            test.is_true(shown:find("C:", 1, true) ~= nil and shown:find("Wippy", 1, true) ~= nil,
+                "the root's Wippy disk:\n" .. shown)
             test.is_true(shown:find("object(s)", 1, true) ~= nil, "the status bar:\n" .. shown)
             view:send({type = "close"})
             view:close()

@@ -605,6 +605,7 @@ local function main(spec)
                 interaction = ui.interaction(), ui = explorer.view(state, {width = cols, height = rows})}}, cols, rows)
         end
         shot("mycomputer", folder("", model.root(drives)), 46, 14)
+        shot("wippy-disk", folder(model.WIPPY, model.wippy(drives)), 46, 14)
         local programs = {{entry = "chicago.shell.viewers:notepad", title = "Notepad", image = "notepad",
             file_image = "text_document", file_type = "Text Document", opens = {"txt", "md", "lua", "yaml"}}}
         local stamp = 1789300200

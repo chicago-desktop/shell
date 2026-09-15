@@ -89,12 +89,16 @@ local function places(state: any): any
             out[#out + 1] = {value = place.path, label = string.rep("  ", depth - 1) .. model.folder_title(place.path)}
         end
     end
+    if not seen[model.WIPPY] then
+        seen[model.WIPPY] = true
+        out[#out + 1] = {value = model.WIPPY, label = "  " .. model.WIPPY_TITLE}
+    end
     for _, entry in ipairs(state.drives) do
         local drive: any = entry
         local path = "drive/" .. tostring(drive.id)
         if not seen[path] then
             seen[path] = true
-            out[#out + 1] = {value = path, label = "  " .. tostring(drive.title)}
+            out[#out + 1] = {value = path, label = "    " .. tostring(drive.title)}
         end
     end
     return out
@@ -199,7 +203,7 @@ local function properties(state: any): boolean
     local chosen = selected_objects(state)
     local where: any = model.parse(state.path)
     if #chosen == 0 then
-        if where.view == "root" or (where.view == "drive" and not where.sub) then
+        if where.view == "root" or where.view == "wippy" then
             return perform(state, {action = "open_window", entry = definition.SYSPROPS})
         end
         local parent = model.parent(state.path)

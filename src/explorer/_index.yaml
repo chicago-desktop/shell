@@ -3,12 +3,9 @@ namespace: chicago.shell.explorer
 
 # "My Computer" — a window that shows the running system itself.
 #
-# Drives come from the registry. `fs.directory` and `fs.embed` entries are
-# brought by almost every installed module, and there is no need to create
-# them — only to show them. Hence both rules at once. A drive declared by an
-# installed module appears by itself, with no edit in the shell. A drive that
-# is not in the registry will not be here — a painted C: would be an object
-# that does not exist, and the first question would be why it does not open.
+# My Computer shows C: (Wippy), which contains registry filesystem folders,
+# and disks declared by other modules with meta.type chicago.drive.
+# Providers own their drive windows; filesystem reads stay permission-bound.
 #
 # The window does not read other modules' tables. Runs, bridge jobs and
 # content-machine beats belong to modules the shell does not depend on; were

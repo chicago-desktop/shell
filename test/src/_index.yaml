@@ -1089,3 +1089,13 @@ entries:
       app: chicago.shell.sdk:app
       palette: chicago.shell.theme:palette
       pixels: chicago.shell.theme:pixels
+
+  - name: disk_probe
+    kind: registry.entry
+    meta:
+      type: chicago.drive
+      title: Test Disk (T:)
+      image: drive
+    data:
+      entry: chicago.shell.explorer:window
+      args: wippy

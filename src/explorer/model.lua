@@ -1,31 +1,9 @@
 -- What "My Computer" shows.
 --
--- Drives are the `fs.*` entries of the registry, and there is no need to
--- create them: almost every installed module brings its own filesystem, and
--- on the running system there are dozens of them. The window SHOWS them.
--- Hence both rules at once: a drive declared by an installed module appears
--- by itself, with no edit in the shell; and a drive that is not in the
--- registry will not be here — a painted `C:` would be an object that does
--- not exist, and the first question would be why it does not open.
---
--- The root shows the drives and one folder, `Control Panel` — the catalog's
--- `Settings` programs (FR-008 §5). For desktop folders opened directly and
--- for service paths separate source models remain, reachable by path but not
--- listed at the root (the original had no such folders in My Computer); the
--- shell reads them for other purposes:
---
---   Programs       — the registry catalog, the same one that fills the "Start" menu
---   Desktop        — our own layout, desktop shortcuts and folders
---   Open Windows   — what is on screen right now, held by the base's compositor
---
--- What is deliberately NOT here: runs, bridge jobs, content-machine beats.
--- Reading other modules' tables directly would mean taking a dependency on
--- the schemas of modules the shell does not depend on — and breaking on
--- their first migration, silently and not in our own code. A module that
--- wants to show its own data declares a window as an entry with
--- `meta.type: tui_desktop.window`, and it appears in "Programs" by itself.
--- This is the same principle the whole module stands on: the registry
--- declares.
+-- My Computer lists logical disks. C: (Wippy) contains the registry's
+-- filesystems as folders and the Control Panel. Filesystem entry IDs remain
+-- the stable internal addresses used by file viewers and saved shortcuts.
+-- Programs, Desktop and Open Windows remain reachable by their own paths.
 --
 -- The split into a pure assembly and reading the sources is the same as in
 -- the catalog: a rule that can be checked only against a live database gets
@@ -38,6 +16,8 @@ local files = require("files")
 local model = {}
 
 model.ROOT = ""
+model.WIPPY = "wippy"
+model.WIPPY_TITLE = "C: (Wippy)"
 
 -- Filesystem kinds supported by the installed runtime. Discovery and object
 -- construction share this list, so non-filesystem registry entries stay out.
@@ -76,6 +56,7 @@ model.SORT_KEYS = {"name", "type", "size", "date"}
 -- diverge, "Up" would lead somewhere other than where a double click leads.
 --
 --   ""                    the root of "My Computer"
+--   "wippy"               C: (Wippy), the filesystem collection
 --   "programs"            the program catalog
 --   "desktop"             the desktop, top level
 --   "desktop/<id>"        a desktop folder
@@ -90,6 +71,7 @@ function model.parse(path: any)
     local text = type(path) == "string" and path or ""
 
     if text == model.ROOT then return {view = "root"} end
+    if text == model.WIPPY then return {view = "wippy"} end
     if text == "programs" then return {view = "programs"} end
     if text == "desktop" then return {view = "desktop"} end
     if text == "windows" then return {view = "windows"} end
@@ -115,20 +97,18 @@ end
 -- By the same parsing as `parse`: an "Up" button that computes the path by
 -- its own formula will drift apart from the double click, and they will
 -- drift apart silently.
--- address(path) -> the address string as the original would show it: `My Computer`,
--- `My Computer\Programs`, `app:app_fs\src\app`. A drive is named by its
--- registry entry — it has no other name, and an invented letter would
--- promise something that does not exist.
+-- address(path) -> the display address; internal filesystem IDs stay stable.
 function model.address(path: any): string
     local where: any = model.parse(path)
     if where.view == "root" then return "My Computer" end
+    if where.view == "wippy" then return model.WIPPY_TITLE end
     if where.view == "programs" then return "My Computer\\Programs" end
     if where.view == "desktop" then return "My Computer\\Desktop" end
     if where.view == "desktop_folder" then return "My Computer\\Desktop\\" .. tostring(where.id) end
     if where.view == "windows" then return "My Computer\\Open Windows" end
-    if where.view == "control" then return "My Computer\\" .. model.CONTROL_TITLE end
+    if where.view == "control" then return "C:\\" .. model.CONTROL_TITLE end
     if where.view == "drive" then
-        local text = tostring(where.id)
+        local text = "C:\\" .. tostring(where.id)
         if where.sub then text = text .. "\\" .. tostring(where.sub):gsub("/", "\\") end
         return text
     end
@@ -161,9 +141,10 @@ function model.parent(path: any)
 
     if where.view == "root" then return nil end
     if where.view == "desktop_folder" then return "desktop" end
+    if where.view == "control" then return model.WIPPY end
 
     if where.view == "drive" then
-        if not where.sub then return model.ROOT end
+        if not where.sub then return model.WIPPY end
         local up = string.match(tostring(where.sub), "^(.+)/[^/]+$")
         if up then return "drive/" .. tostring(where.id) .. "/" .. up end
         return "drive/" .. tostring(where.id)
@@ -359,11 +340,37 @@ function model.control_folder(): any
     })
 end
 
--- My Computer: the filesystem entries and, after them, the Control Panel.
--- Other shell objects are reached through their own menu or desktop folder.
-function model.root(records: any)
+-- Keep drives() as the filesystem descriptor API used by file dialogs.
+-- Explorer presents these same resources as folders inside the Wippy disk.
+function model.wippy(records: any)
     local out = model.drives(records)
+    for _, item in ipairs(out) do
+        item.kind = "folder"
+        item.icon = model.DIR_ICON
+        item.image = "folder"
+        item.type_name = "File Folder"
+    end
     out[#out + 1] = model.control_folder()
+    return out
+end
+
+-- A logical disk backed by the registry filesystem collection.
+function model.root(records: any)
+    local out = {object({
+        id = model.WIPPY, kind = "drive", title = model.WIPPY_TITLE,
+        icon = model.DRIVE_ICON, image = "drive", detail = "Wippy filesystems",
+        type_name = "Local Disk", open = {action = "folder", path = model.WIPPY},
+    })}
+    for _, record in ipairs(type(records) == "table" and records or {}) do
+        local meta, data = record.meta or {}, record.data or {}
+        if meta.type == "chicago.drive" and type(data.entry) == "string" and data.entry ~= "" then
+            out[#out + 1] = object({
+                id = record.id, kind = "drive", title = tostring(meta.title or record.id),
+                icon = model.DRIVE_ICON, image = meta.image or "drive", detail = tostring(meta.comment or meta.title or record.id),
+                type_name = "Removable Disk", open = {action = "open_window", entry = data.entry, args = data.args},
+            })
+        end
+    end
     return out
 end
 
@@ -511,6 +518,7 @@ end
 function model.folder_title(path: any): string
     local where: any = model.parse(path)
     if where.view == "root" then return "My Computer" end
+    if where.view == "wippy" then return model.WIPPY_TITLE end
     if where.view == "control" then return model.CONTROL_TITLE end
     if where.view == "programs" then return "Programs" end
     if where.view == "desktop" then return "Desktop" end
@@ -529,7 +537,7 @@ function model.folder_image(path: any): string
     local where: any = model.parse(path)
     if where.view == "root" then return "my_computer" end
     if where.view == "control" then return model.CONTROL_IMAGE end
-    if where.view == "drive" and not where.sub then return "drive" end
+    if where.view == "wippy" then return "drive" end
     return "folder_open"
 end
 

@@ -20,10 +20,27 @@ end
 
 local function define_tests()
     test.describe("chicago.shell explorer", function()
-        test.it("leaves only the Control Panel at the root when there are no filesystems", function()
+        test.it("discovers module-provided drives without exposing ordinary FS entries", function()
+            local root = model.root({
+                {id = "demo:disk", kind = "registry.entry", meta = {type = "chicago.drive", title = "A:"}, data = {entry = "demo:window"}},
+                {id = "demo:bad", meta = {type = "chicago.drive"}, data = {}},
+                {id = "demo:fs", kind = "fs.directory"},
+            })
+            test.eq(#root, 2)
+            test.eq(root[2].open.entry, "demo:window")
+            test.eq(root[2].open.action, "open_window")
+            test.eq(root[2].kind, "drive")
+        end)
+
+        test.it("shows the Wippy disk even when it has no filesystem resources", function()
             local root = model.root({})
             test.eq(#root, 1)
-            test.eq(root[1].id, model.CONTROL)
+            test.eq(root[1].id, model.WIPPY)
+            test.eq(root[1].open.path, model.WIPPY)
+            test.eq(model.parse(model.WIPPY).view, "wippy")
+            test.eq(model.parent(model.WIPPY), model.ROOT)
+            test.eq(model.folder_title(model.WIPPY), "C: (Wippy)")
+            test.eq(model.folder_image(model.WIPPY), "drive")
         end)
 
         test.it("makes a drive of every fs entry without creating anything itself", function()
@@ -63,11 +80,13 @@ local function define_tests()
                 "there is no point in lengthening an unambiguous name")
         end)
 
-        test.it("has the drives and the Control Panel at the root, without the shell's pseudo-folders", function()
-            local root = model.root({{id = "app:probe", kind = "fs.directory"}})
+        test.it("shows filesystem folders and Control Panel inside Wippy", function()
+            local root = model.wippy({{id = "app:probe", kind = "fs.directory"}})
             test.eq(#root, 2)
             test.eq(root[1].id, "app:probe")
-            test.eq(root[1].kind, "drive")
+            test.eq(root[1].kind, "folder")
+            test.eq(root[1].image, "folder")
+            test.eq(root[1].type_name, "File Folder")
             local control = root[2]
             test.eq(control.id, model.CONTROL, "the Control Panel comes after the drives")
             test.eq(control.kind, "folder")
@@ -93,15 +112,15 @@ local function define_tests()
             test.eq(model.parse("something else").view, "unknown",
                 "a silent fallback to the root would turn a typo into a navigation")
             test.eq(model.parse("control").view, "control")
-            test.eq(model.address("control"), "My Computer\\Control Panel")
+            test.eq(model.address("control"), "C:\\Control Panel")
         end)
 
         test.it("goes one level up, not straight to the root", function()
             test.is_nil(model.parent(model.ROOT), "there is nowhere above the root")
             test.eq(model.parent("programs"), model.ROOT)
-            test.eq(model.parent("control"), model.ROOT)
+            test.eq(model.parent("control"), model.WIPPY)
             test.eq(model.parent("desktop/f1"), "desktop")
-            test.eq(model.parent("drive/app:fs"), model.ROOT)
+            test.eq(model.parent("drive/app:fs"), model.WIPPY)
             test.eq(model.parent("drive/app:fs/ui"), "drive/app:fs")
             test.eq(model.parent("drive/app:fs/ui/dist"), "drive/app:fs/ui")
         end)
@@ -124,7 +143,7 @@ local function define_tests()
         end)
 
         test.it("does not turn registry processes and data into drives", function()
-            local root = model.root({
+            local root = model.wippy({
                 {id = "app:files", kind = "fs.directory"},
                 {id = "app:embedded", kind = "fs.embed"},
                 {id = "app:program", kind = "process.lua"},
@@ -257,7 +276,7 @@ local function define_tests()
             test.eq(model.folder_title("drive/app:fs/ui/dist"), "dist")
             test.eq(model.folder_image(""), "my_computer")
             test.eq(model.folder_image("control"), "control_panel")
-            test.eq(model.folder_image("drive/app:fs"), "drive")
+            test.eq(model.folder_image("drive/app:fs"), "folder_open")
             test.eq(model.folder_image("drive/app:fs/ui"), "folder_open")
         end)
 
