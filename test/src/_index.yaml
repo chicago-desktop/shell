@@ -20,7 +20,7 @@ entries:
     kind: function.lua
     meta:
       type: test
-      comment: Task Manager, AntiBug, Add/Remove Programs and the Registry Editor name windows.admin in meta.requires, so the compositor opens them only for an administrator.
+      comment: Task Manager and the Registry Editor name windows.admin in meta.requires, so the compositor opens them only for an administrator.
       group: Windows Shell
       suite: windows_shell
     source: file://admin_windows_test.lua
