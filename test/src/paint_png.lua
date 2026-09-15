@@ -27,15 +27,10 @@ local rasters = require("rasters")
 local chrome = require("chrome")
 local chrome_pixels = require("chrome_pixels")
 local ui = require("ui")
-local run_window = require("run_window")
 local explorer_window = require("explorer_window")
-local datetime_window = require("datetime_window")
 local sysprops_window = require("sysprops_window")
 local display_window = require("display_window")
-local taskman_window = require("taskman_window")
 local sdk_render = require("sdk_render")
-local reg_model = require("reg_model")
-local regedit = require("regedit_window")
 local widget_scene = require("widget_scene")
 
 -- Cell size. This command has NO terminal — it writes files, it does not
@@ -447,43 +442,6 @@ local function main(spec)
         say("catalog → menu and desktop: menu-icons.png")
     end
 
-    -- Fixture metadata mirrors the declarations; the dialog uses its live renderer.
-    local function run_shot()
-        -- The signed-in user — as the first row of "Start", as on the live
-        -- running system.
-        chrome.use_user({id = "u1", name = "butschster"})
-        chrome_pixels.use_fonts(font, bold)
-        chrome_pixels.use_cell_size(cell.w, cell.h)
-        local found = catalog.build({
-            {id = "windows.shell.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10, in_menu = false}},
-            {id = "windows.shell.calc:window", meta = {title = "Calculator", image = "calculator", group = "Accessories", order = 20}},
-            {id = "windows.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "console", group = "Accessories"}},
-            {id = "windows.shell.run:window", meta = {title = "Run…", image = "run", order = 900}},
-        })
-        local items = found.programs
-        local state: any = {width = 100, height = 32, top = 1,
-            bottom = 32 - chrome_pixels.layout(100, 32).bottom,
-            items = {{id = "computer", kind = "shortcut", entry = "windows.shell.explorer:window",
-                title = "My Computer", x = 8, y = 2}},
-            -- The title is the one the window names itself (`definition.title`):
-            -- "Run" without the ellipsis, the ellipsis stays with the menu item.
-            windows = {{id = "run", entry = "windows.shell.run:window", image = "run",
-                title = run_window.definition.title, window_type = "dialog", content = "pixels", resizable = false,
-                render = "windows.shell.sdk:render", x = 30, y = 7, w = 50, h = 10,
-                content_state = {sdk = 1, revision = 1, interaction = ui.interaction(),
-                    ui = run_window.definition.view({text = "claude --resume", pending = false}, {width = 48, height = 7})}}},
-            focused_id = "run", clock = "12:00",
-            menu = {items = catalog.menu_items(items), open = {"Accessories"}, cursor = 1}}
-        local painted = chrome_pixels.paint(state, cell.w, cell.h)
-        local canvas = gfx.raster(state.width * cell.w, state.height * cell.h)
-        canvas:fill(color_desktop)
-        for _, placement in ipairs(painted.placements) do
-            canvas:blit(placement.raster, (placement.x - 1) * cell.w + 1, (placement.y - 1) * cell.h + 1)
-        end
-        store_shots:writefile("run-bash.png", assert(canvas:encode("png")))
-    end
-    run_shot()
-
     -- Desktop widgets (FR-006 §10): three in the right column and a window
     -- over part of the middle one — the scene desktop_widgets_test checks.
     do
@@ -496,45 +454,6 @@ local function main(spec)
     end
 
     -- Sample data goes through the same Task Manager renderer as live windows.
-    do
-        local MB = 1024 * 1024
-        local state: any = {tab = 3, selected = 0, offset = 0, heap_history = {}, goroutine_history = {},
-            snapshot = {taken = 1788858300, goroutines = 428, cpu_count = 8, max_procs = 8,
-                pid = "24680", hostname = "wippy-workstation", node_id = "local", node_role = "standalone",
-                memory = {alloc = 286 * MB, heap_in_use = 312 * MB, heap_sys = 384 * MB, heap_released = 46 * MB, num_gc = 128},
-                processes = {}, hosts = {{id = "app:processes", processes = 64}, {id = "wippy:processes", processes = 12}}, members = {{id = "local"}}},
-            windows = {{id = "w1", title = "My Computer", ready = true, image = "my_computer"},
-                {id = "w2", title = "Notepad — notes.txt", ready = true, image = "text_document"},
-                {id = "w3", title = "Bash", ready = true, image = "program"},
-                {id = "w4", title = "Task Manager", ready = true, image = "system"}}}
-        for index = 1, 150 do
-            state.goroutine_history[index] = math.floor(360 + math.sin(index / 8) * 24 + math.sin(index / 3) * 14 + index / 3)
-            state.heap_history[index] = (230 + (index % 45) * 1.8) * MB
-        end
-        for index = 1, 76 do
-            state.snapshot.processes[index] = {pid = "local:process-" .. string.format("%04d", index),
-                source = index == 1 and "windows.shell:shell" or "app.workers:worker_" .. string.format("%02d", index),
-                state = index % 4 == 0 and "running" or "waiting", steps = index * 147, started = 1788850100}
-        end
-        local names = {"applications", "processes", "performance", "node"}
-        for tab = 1, 4 do
-            state.tab, state.selected_id = tab, tab == 1 and "w2" or (tab == 2 and "local:process-0002" or nil)
-            local client = {width = 76, height = 24}
-            local scene = {width = 110, height = 36, top = 1, bottom = 34, items = {}, clock = "12:00",
-                focused_id = "taskman", windows = {{id = "taskman", entry = "windows.shell.taskman:window",
-                    title = "Task Manager", image = "system", window_type = "app", content = "pixels",
-                    render = "windows.shell.sdk:render", state_revision = tab, x = 17, y = 4, w = 78, h = 27,
-                    content_state = {sdk = 1, revision = tab, interaction = ui.interaction(),
-                        ui = taskman_window.definition.view(state, client)}}}}
-            local rendered = chrome_pixels.paint(scene, cell.w, cell.h)
-            local canvas = gfx.raster(scene.width * cell.w, scene.height * cell.h)
-            canvas:fill(color_desktop)
-            for _, placement in ipairs(rendered.placements) do
-                canvas:blit(placement.raster, (placement.x - 1) * cell.w + 1, (placement.y - 1) * cell.h + 1)
-            end
-            store_shots:writefile("taskman-" .. names[tab] .. ".png", assert(canvas:encode("png")))
-        end
-    end
 
     -- Real shell chrome with a sample of the cell text layer represented in PNG.
     do
@@ -642,10 +561,6 @@ local function main(spec)
             say(string.format("%s: %d placements → %s.png", name, #placed, name))
         end
     end
-    view_shot("datetime", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
-        interaction = ui.interaction(), ui = datetime_window.definition.view({tab = 1, clock = {
-            year = 2026, month = 9, day = 8, hour = 21, minute = 47, second = 23,
-            first_weekday = 1, days = 30, zone = "UTC+04:00"}}, {width = 42, height = 20})}}, 42, 20)
     -- "System Properties", three tabs on one snapshot state.
     do
         local snap: any = {hostname = "kickside", pid = "964748", cwd = "/home/butschster/repos/wippy/kickside",
@@ -742,28 +657,6 @@ local function main(spec)
                 say("FAILURE: the farewell screen was not drawn")
             end
         end
-    end
-    do
-        -- Registry viewer: a tree with expanded branches and an entry with fields.
-        local sample = {
-            {id = "app:db", kind = "db.sql.sqlite", meta = {comment = "Stand database"}, data = {file = ".wippy/app.db"}},
-            {id = "app:api", kind = "http.router", meta = {}, data = {prefix = "/api/v1"}},
-            {id = "app.desktop:window_calc", kind = "process.lua", meta = {type = "tui_desktop.window", title = "Calculator"}, data = {}},
-            {id = "windows.shell.theme:chrome", kind = "library.lua", meta = {comment = "Cell theme"}, data = {source = "file://chrome.lua", modules = {"tty"}}},
-            {id = "windows.shell.theme:pixels", kind = "library.lua", meta = {comment = "Pixel primitives"}, data = {source = "file://pixels.lua"}},
-            {id = "windows.shell.theme:palette", kind = "library.lua", meta = {}, data = {}},
-            {id = "windows.shell:shell", kind = "process.lua", meta = {title = "Windows 95 shell"}, data = {method = "main", modules = {"gfx", "tty"}}},
-            {id = "windows.shell:terminal", kind = "terminal.host", meta = {}, data = {hide_logs = true}},
-            {id = "wippy.security:process", kind = "security.group", meta = {}, data = {}},
-        }
-        local session = regedit.session(sample)
-        for _, key in ipairs({"", "windows", "windows.shell", "windows.shell.theme"}) do
-            session.expanded[key] = true
-        end
-        session.rows = reg_model.flatten(session.root, session.expanded)
-        session.selected = "windows.shell.theme:chrome"
-        view_shot("regedit", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
-            interaction = ui.interaction(), ui = regedit.definition.view(session, {width = 78, height = 22})}}, 78, 22)
     end
 
     for _, scene in ipairs(SCENES) do

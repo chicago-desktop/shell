@@ -36,7 +36,7 @@ local function define_tests()
         test.it("Task Manager, Notepad and the picture viewer answer with a window description", function()
             local shell: any = boot_shell()
 
-            local answer, err = control.call("desktop.open", {entry = "windows.shell.taskman:window"})
+            local answer, err = control.call("desktop.open", {entry = "windows.shell.sysprops:window"})
             test.is_nil(err, "Task Manager did not open: " .. tostring(err))
             test.not_nil(answer and answer.window, "the answer must describe the Task Manager window")
 

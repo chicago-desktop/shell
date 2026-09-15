@@ -128,24 +128,22 @@ Menu folders are given by the path in `group`, not by a separate entry: a folder
 programs is meaningless, and one declared separately drifts apart from its
 contents when a module is removed.
 
-### SDK windows: "Date/Time", registry, task manager, "Run…"
+### SDK windows
 
-Four shell programs are built on the window SDK (`windows.shell.sdk:app`,
+The shell's own windows are built on the window SDK (`windows.shell.sdk:app`,
 [docs/sdk.md](docs/sdk.md)): the application gives a component tree and changes
 the model on actions, while the layout, hits, scrolling and both renderers
 are provided by the SDK. They have no paints of their own, no state provider, no
 second geometry for the mouse; in pixel mode they are drawn by the shared
 `windows.shell.sdk:render`, in text mode by the same components in cells.
-A renderer of its own remains with the image viewer; "My Computer" and the folder
-windows are on the SDK (FR-008).
-
-- Window: Date/Time; Entry: `windows.shell.datetime:window`; What's inside: tabs, a month calendar with today's date, an analog clock, digital time, the time zone; **read-only** — there is nothing to adjust, "OK" and "Cancel" close it, "Apply" is disabled for good
-- Window: Registry Editor; Entry: `windows.shell.regedit:window`; What's inside: regedit: on the left a tree of namespaces split by dots and of the entries inside them, on the right `kind`, `meta.*` and `data.*` of the selected entry, at the bottom the path `Registry\a\b\name`. The [+] box, Enter and → expand, ← collapses or goes to the parent, the wheel and the scrollbar scroll; F5 rereads. **Read-only** (FR-004 §3.4): the `regedit_state` policy has `registry.find` but not `registry.apply`. A window on the shell SDK (the `tree` component)
-- Window: Task Manager; Entry: `windows.shell.taskman:window`; What's inside: open applications, Wippy processes, performance and the node on four tabs, refreshed every second; opened from Start → Settings → Task Manager. Details: [docs/taskman.md](docs/taskman.md)
-- Window: Run…; Entry: `windows.shell.run:window`; What's inside: a command field; Enter or "OK" starts the command in its own Bash window, which is the base's terminal window; opened from Start → Run…. Details: [docs/run.md](docs/run.md)
-
-"Date/Time" has `resizable: false`; the registry editor can be resized. The taskbar clock opens "Date/Time": the host
-declares this with a `windows.taskbar_clock` entry (below).
+What stays in the shell is what the theme and the desktop are wired to:
+"My Computer" and the folder windows (FR-008), System Properties, Display
+Properties, Notepad and the file dialog; a renderer of its own remains with
+the image viewer. "Date/Time" (opened by the taskbar clock through the
+host's `windows.taskbar_clock` entry, below), the Registry Editor, Task
+Manager and "Run…" are modules of their own — `windows/datetime`,
+`windows/regedit`, `windows/taskman`, `windows/run` — like the Calculator,
+AntiBug, Network Neighborhood and Add/Remove Programs before them.
 
 **How the theme finds `render`.** `require` can only load declared `imports`,
 not an arbitrary id from the registry, so the compositor cannot call `render`
@@ -173,15 +171,13 @@ the same as for the theme: the same frame once more moves not a single version
 (`views_test`).
 
 Window screenshots are written by `paint-png` (`test/shots/datetime.png`,
-`test/shots/calc.png`, `test/shots/regedit.png`, `test/shots/taskman-*.png`,
-`test/shots/run-bash.png`) — the clock hands, the month grid and the caption colors cannot be
-seen otherwise. All five SDK windows also work in cells: the analog clock there
-turns into a digital one, the rest is drawn by the same components.
+the folder and dialog shots) — the caption colors and the frames cannot be
+seen otherwise. The SDK windows also work in cells, drawn by the same components.
 
 ### What lies where in "Start"
 
-The menu root is the "Programs" folder, the "Settings" folder, "Run…" and
-"Shut Down". "My Computer" is not shown in the menu (`in_menu: false`
+The menu root is the "Programs" folder, the "Settings" folder, "Run…" (the
+`windows/run` module) and "Shut Down". "My Computer" is not shown in the menu (`in_menu: false`
 on the explorer entry, owner's decision 2026-09-09): it is opened from the desktop,
 and a shortcut to a hidden program works. Above
 all this, if the shell was brought up with logon, is the name of the logged-on user with
@@ -205,8 +201,9 @@ someone else's logon. The folder
 of a program is named by `meta.group`, the separator under a line by `meta.separator_after`,
 the place in the folder by `meta.order`; a folder stands where its earliest
 program is (which is why "Programs" is above "Settings", and not alphabetically). In
-"Settings" live "Registry Editor" and "Task Manager" — what configures
-and shows the system itself; everything else is in "Programs". A program without
+"Settings" live Display Properties, System Properties and the settings
+modules (Registry Editor, Task Manager …) — what configures and shows the
+system itself; everything else is in "Programs". A program without
 `group` also goes into "Programs" (`catalog.DEFAULT_GROUP`) — that is how
 windows built by the workshop over HTTP, which have nowhere to declare a folder, get there.
 Only an explicit `group: ""` puts a program at the root; that is how "Run…" is declared.
@@ -218,7 +215,7 @@ that cannot be opened by itself (the image viewer — only through a file from
 the explorer) is not shown in the menu, `in_menu: false`;
 a window of any other module declares `group: Programs/<Module>` — "Programs/
 Content Machine", "Programs/Bridge". What configures or shows the
-system itself (Registry Editor, Task Manager) goes into "Settings". A workshop window names
+system itself (Registry Editor, Task Manager, both modules now) goes into "Settings". A workshop window names
 its folder with the `group` field in `POST /tui-desktop/apps`; without it, it goes into "Programs"
 without a module, and that is visible in the menu at once.
 
@@ -232,9 +229,11 @@ draws the selected line; in pixels the panel is redrawn because
 ### Programs that became modules of their own (2026-09-15)
 
 The Calculator, AntiBug, Network Neighborhood and Add/Remove Programs left
-this module: they are `windows/calculator`, `windows/antibug`,
-`windows/network` and `windows/appwiz` in the Hub (repositories
-wippy-windows/{calculator,antibug,network,appwiz}). Each is a plain window
+this module with 0.1.1, "Date/Time", the Registry Editor, Task Manager and
+"Run…" with 0.1.2: they are `windows/calculator`, `windows/antibug`,
+`windows/network`, `windows/appwiz`, `windows/datetime`, `windows/regedit`,
+`windows/taskman` and `windows/run` in the Hub (repositories
+wippy-windows/<name>). Each is a plain window
 module on the SDK; an application that wants them declares the dependency.
 The `windows.antibug_target` and `WINDOWS_DEPS_FS` conventions moved with
 them and are described in their READMEs.
@@ -381,12 +380,14 @@ are apart. Another person's icon reads as "no such shortcut".
 
 ### Windows only an administrator opens
 
-Task Manager and the Registry Editor run under their entries' broad
-policies — ending any process, reading the whole registry — whoever logged
-on (AntiBug and Add/Remove Programs, modules of their own now, do the same). Each names `requires: windows.admin`, and the base's compositor asks
-the logged-on person's scope before opening it (the base README, `meta.requires`).
-An application grants `windows.admin` to its administrators; a group whose
-policy allows `*` has it already.
+A window that runs under a broad policy — ending any process, reading the
+whole registry, editing the application's dependencies, building on the
+server — names `requires: windows.admin` in its entry, and the base's
+compositor asks the logged-on person's scope before opening it (the base
+README, `meta.requires`). Task Manager, the Registry Editor, AntiBug and
+Add/Remove Programs, modules of their own now, all do; an entry without the
+field opens for everyone, silently. An application grants `windows.admin`
+to its administrators; a group whose policy allows `*` has it already.
 
 ### What stands on the desktop at first start
 

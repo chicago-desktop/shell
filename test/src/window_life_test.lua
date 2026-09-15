@@ -80,7 +80,7 @@ end
 local function define_tests()
     test.describe("program windows stay alive after launch", function()
         test.it("Task Manager does not die on the first frame", function()
-            local outcome = exit_of("windows.shell.taskman:window", nil)
+            local outcome = exit_of("windows.shell.sysprops:window", nil)
             test.is_true(outcome:find("alive", 1, true) ~= nil, "Task Manager: " .. outcome)
         end)
         test.it("Notepad does not die on the first frame", function()

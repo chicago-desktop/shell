@@ -16,19 +16,6 @@ entries:
     kind: ns.definition
     meta: { title: Windows Shell Test Harness }
 
-  - name: admin_windows_test
-    kind: function.lua
-    meta:
-      type: test
-      comment: Task Manager and the Registry Editor name windows.admin in meta.requires, so the compositor opens them only for an administrator.
-      group: Windows Shell
-      suite: windows_shell
-    source: file://admin_windows_test.lua
-    modules: [registry]
-    imports:
-      test: wippy.test:test
-    method: run
-
   - name: storage_test
     kind: function.lua
     meta:
@@ -267,15 +254,10 @@ entries:
       rasters: windows.shell.theme:rasters
       ui: windows.shell.sdk:ui
       explorer_window: windows.shell.explorer:window
-      run_window: windows.shell.run:window
-      datetime_window: windows.shell.datetime:window
       sdk_render: windows.shell.sdk:render
-      taskman_window: windows.shell.taskman:window
       sysprops_window: windows.shell.sysprops:window
       sysprops_model: windows.shell.sysprops:model
       display_window: windows.shell.display:window
-      reg_model: windows.shell.regedit:model
-      regedit_window: windows.shell.regedit:window
       images: windows.shell.theme:images
       catalog: windows.shell.programs:catalog
       desktop_view: windows.shell.programs:desktop_view
@@ -458,10 +440,7 @@ entries:
       widgets: windows.shell.theme:widgets
       chrome: windows.shell.theme:chrome
       chrome_pixels: windows.shell.theme:chrome_pixels
-      datetime_window: windows.shell.datetime:window
       ui: windows.shell.sdk:ui
-      reg_model: windows.shell.regedit:model
-      regedit_window: windows.shell.regedit:window
     method: run
 
   - name: environment_test
@@ -514,23 +493,6 @@ entries:
       sysprops_window: windows.shell.sysprops:window
     method: run
 
-  - name: taskman_test
-    kind: function.lua
-    meta:
-      type: test
-      comment: Task Manager — history no longer than the ceiling, a graph in block characters bottom-up and right-to-left, memory and time formats, tab layout and hits.
-      group: Windows Shell
-      suite: windows_shell
-    source: file://taskman_test.lua
-    modules: [fs, gfx, channel, process, tty, time]
-    imports:
-      test: wippy.test:test
-      model: windows.shell.taskman:model
-      ui: windows.shell.sdk:ui
-      taskman_window: windows.shell.taskman:window
-      rasters: windows.shell.theme:rasters
-    method: run
-
   - name: programs_live_test
     kind: function.lua
     meta:
@@ -557,46 +519,6 @@ entries:
     imports:
       test: wippy.test:test
     method: run
-
-  - name: run_test
-    kind: function.lua
-    meta:
-      type: test
-      group: Windows Shell
-      suite: windows_shell
-      comment: The "Run" window — input, geometry, menu and a real Bash under a PTY.
-    source: file://run_test.lua
-    method: run
-    modules: [process, channel, time, tty, fs, gfx]
-    imports:
-      test: wippy.test:test
-      model: windows.shell.run:model
-      ui: windows.shell.sdk:ui
-      run_window: windows.shell.run:window
-
-  - name: run_composer
-    kind: process.lua
-    meta:
-      comment: The real compositor and the shell menu on the test viewport.
-    source: file://run_composer.lua
-    method: main
-    modules: [process, fs, gfx]
-    imports:
-      library: windows.tui_desktop.desktop:library
-      chrome: windows.shell.theme:chrome_pixels
-      cell_chrome: windows.shell.theme:chrome
-      catalog: windows.shell.programs:catalog
-
-  - name: taskman_composer
-    kind: process.lua
-    meta:
-      comment: A live pixel compositor with observation of the Task Manager state.
-    source: file://taskman_composer.lua
-    method: main
-    modules: [process, fs, gfx]
-    imports:
-      library: windows.tui_desktop.desktop:library
-      chrome: windows.shell.theme:chrome_pixels
 
   - name: sdk_demo
     kind: process.lua

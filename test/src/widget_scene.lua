@@ -51,7 +51,7 @@ function scene.state(options: any?): any
                     gadget.stat{caption = "Feels like +19", value = "+21", unit = " °C", image = "clock", icon = "☼"},
                     gadget.lines{lines = {"Samara", "Partly cloudy"}},
                 }, revision),
-            widget("g2", {entry = "app.monitor:memory", title = "Memory", opens = "windows.shell.taskman:window",
+            widget("g2", {entry = "app.monitor:memory", title = "Memory", opens = "windows.shell.sysprops:window",
                 w = 20, h = 8},
                 gadget.stack{
                     gadget.meter{caption = "Heap", value = 312, ceiling = 500, unit = " MB"},
