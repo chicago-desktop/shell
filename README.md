@@ -14,7 +14,7 @@ that is filled from the registry, and desktop icons that the user moves around.
 
 There is not a single line of window mechanics of its own here. Window hosting, programs under
 a PTY, the command channel and the workshop stay in
-[butschster/tui-desktop](https://github.com/wippy-projects/tui-desktop); the shell
+[butschster/tui-desktop](https://github.com/wippy-windows/tui-desktop); the shell
 calls its compositor with its own theme. A copy of the compositor would drift from
 the original on the very first edit, and that would be discovered a week later on the live
 test stand.
@@ -598,7 +598,7 @@ It is worth remembering WHERE they came from, because the mistake repeats
 itself: the probe could not send mouse events, and a check had no other way to
 open a window. **A limitation of the tool leaked into the interface.** The tool
 is fixed — the base's
-[`tools/tui-probe.py`](https://github.com/wippy-projects/tui-desktop/blob/main/tools/tui-probe.py)
+[`tools/tui-probe.py`](https://github.com/wippy-windows/tui-desktop/blob/main/tools/tui-probe.py)
 sends real SGR 1006 mouse events — and the digits are gone. The rule for the
 future: when something cannot be checked with the mouse, the probe gets fixed;
 no visible button is added for the sake of a check.

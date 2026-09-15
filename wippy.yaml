@@ -2,7 +2,7 @@ organization: butschster
 module: windows
 description: A Windows 95-style shell for the terminal desktop — a teal desktop, a taskbar with the "Start" button and a clock, a program menu built from the registry, and a shortcut layout that the user moves around.
 license: MIT
-repository: https://github.com/wippy-projects/windows
+repository: https://github.com/wippy-windows/windows
 homepage: https://wippy.ai
 keywords:
   - kickside
