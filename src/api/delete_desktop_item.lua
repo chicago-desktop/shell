@@ -1,4 +1,4 @@
--- DELETE /windows/desktop/{id} — remove a desktop shortcut or folder.
+-- DELETE /chicago/desktop/{id} — remove a desktop shortcut or folder.
 --
 -- The answer says whether the row EXISTED: "deleted something nonexistent"
 -- and "deleted" are different answers, otherwise a typo in the identifier

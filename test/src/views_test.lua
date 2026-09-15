@@ -78,7 +78,7 @@ local function assert_disjoint(buttons: any)
 end
 
 local function define_tests()
-    test.describe("windows.shell farewell screen", function()
+    test.describe("chicago.shell farewell screen", function()
         test.it("after \"Shut Down\" — a black screen with the caption in the middle", function()
             -- The compositor holds this frame for FAREWELL_HOLD seconds; a
             -- frame without the caption would read as a hung terminal, not as
@@ -109,7 +109,7 @@ local function define_tests()
         end)
     end)
 
-    test.describe("windows.shell fixed size", function()
+    test.describe("chicago.shell fixed size", function()
         test.it("a window with resizable false has no \"maximize\" button", function()
             local set = chrome.buttons_for({window_type = "app", resizable = false})
             test.eq(#set, 2)

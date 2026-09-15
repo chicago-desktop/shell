@@ -77,7 +77,7 @@ local function monitor(): any
 end
 
 local function define_tests()
-    test.describe("windows.shell.sdk gadget kit", function()
+    test.describe("chicago.shell.sdk gadget kit", function()
         test.it("every builder gives a plain, passive tree ui.problem accepts", function()
             local built: any = {
                 stat = gadget.stat{caption = "Heap", value = 38, unit = " MB"},

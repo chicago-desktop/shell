@@ -55,7 +55,7 @@ end
 -- string.
 --
 -- This function used to parse it, and parsed it a SECOND time: the catalog
--- (`windows.shell.programs:catalog`) had already done that, with
+-- (`chicago.shell.programs:catalog`) had already done that, with
 -- clipping by depth and by spaces, and put a table here. It was never a
 -- string, so `type(item.group) == "string"` never fired once — the path came
 -- out empty, the folder was not created, the program lay on the top level.

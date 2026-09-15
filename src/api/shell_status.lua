@@ -1,4 +1,4 @@
--- GET /windows/status — whether the shell is alive and how its workshop
+-- GET /chicago/status — whether the shell is alive and how its workshop
 -- windows are doing.
 --
 -- The only place where a person can see restore_report. The terminal host

@@ -1,4 +1,4 @@
--- PATCH /windows/desktop/{id} — move or rename.
+-- PATCH /chicago/desktop/{id} — move or rename.
 --
 -- Only layout fields change: place, name, folder. `entry` and `kind` are
 -- immutable on purpose — changing a shortcut's entry means swapping the

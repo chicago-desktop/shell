@@ -7,7 +7,7 @@ below follows from those two facts.
 ## The frame path
 
 1. **The compositor rebuilds the canvas** after every state change
-   (`windows.tui_desktop.desktop:library`, `draw`). In cells the theme
+   (`chicago.tui_desktop.desktop:library`, `draw`). In cells the theme
    paints `fill`, `window`, `bars` and `menu`; in pixels `chrome.paint` returns
    placements and `pixels.frame` blanks the cells under them.
 2. **The runtime surface diffs and sends** (`service/terminal/surface.go`,
@@ -64,7 +64,7 @@ released runtime does not have it yet.
   identity (`Placement.Serial`), not by version alone.
 - **The menu is on top by subtraction, not by order.** Sixel has no z-order and
   the surface resends only damaged placements, so a window under an open menu,
-  resent on its tick, would paint over the menu. `windows.shell.theme:placements`
+  resent on its tick, would paint over the menu. `chicago.shell.theme:placements`
   cuts every other picture by the menu panels and by higher windows; a crop is a
   placement of its own, keyed by its source's version.
 - **Pattern and wallpaper are strips.** One placement per desktop row under the
@@ -80,7 +80,7 @@ released runtime does not have it yet.
 `trigger` (`start`, `tick`, `hover`, `pty:<window>`, `command:<topic>`,
 `key`, `mouse`, `resize`), `bytes_written`, `placements_sent`, and `window` —
 avg/p95/max of the last 200 frames with the trigger of the worst one. Over
-HTTP it is `GET /windows/status` (this module) and `GET /tui-desktop/windows`
+HTTP it is `GET /chicago/status` (this module) and `GET /tui-desktop/windows`
 (the base); `?frame_samples=1` adds the raw frames for splitting a run into
 phases. The pixel probe prints what a keystroke resends
 ([tools/pixelprobe](../tools/pixelprobe/README.md)).

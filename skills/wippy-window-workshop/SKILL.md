@@ -1,6 +1,6 @@
 ---
 name: wippy-window-workshop
-description: Build a window for the Wippy Windows 95 shell in the running runtime through the WindowsWorkshop MCP tool (or the HTTP workshop) — no files, no restart. Use when an agent connected over MCP must add, iterate, inspect or remove a shell window live. For windows that belong in module sources use wippy-window-app instead.
+description: Build a window for the Wippy Windows 95 shell in the running runtime through the ChicagoWorkshop MCP tool (or the HTTP workshop) — no files, no restart. Use when an agent connected over MCP must add, iterate, inspect or remove a shell window live. For windows that belong in module sources use wippy-window-app instead.
 ---
 
 # Building shell windows through MCP
@@ -17,7 +17,7 @@ building a window in the running runtime — the workshop endpoint
 
 ## Tool
 
-`WindowsWorkshop` (kickside MCP, trait `app.workshop:trait`). One tool, `action`
+`ChicagoWorkshop` (kickside MCP, trait `app.workshop:trait`). One tool, `action`
 selects what happens. Every answer is `{success, ...}`; a failure names the field
 or the reason in `error`.
 
@@ -50,8 +50,8 @@ Open and inspect through the desktop command channel of the base README.
 2. Write `source` as an SDK application (template below). `init`, `view`,
    `update`, optional `interval` and `dispose`. Keep `view` pure: no I/O, no
    callbacks in the tree.
-3. `build` with `imports = {app = "windows.shell.sdk:app"}`,
-   `pixel_render = "windows.shell.sdk:render"`, a `group` folder
+3. `build` with `imports = {app = "chicago.shell.sdk:app"}`,
+   `pixel_render = "chicago.shell.sdk:render"`, a `group` folder
    (`Programs/<module>` style), an `image` (icon catalog or image pack, see
    "Pictures"), and `open = true`.
 4. Read the answer: `live` must be true; `error` names the field that failed.
@@ -108,8 +108,8 @@ return {main = main, definition = definition}
 ```json
 {"action": "build", "name": "probe_list", "title": "Probe", "width": 60, "height": 20,
  "group": "Programs/Workshop", "image": "program",
- "imports": {"app": "windows.shell.sdk:app"},
- "pixel_render": "windows.shell.sdk:render", "open": true}
+ "imports": {"app": "chicago.shell.sdk:app"},
+ "pixel_render": "chicago.shell.sdk:render", "open": true}
 ```
 
 ## Rules the workshop enforces
@@ -125,7 +125,7 @@ return {main = main, definition = definition}
 - `imports` may name any `library.lua` of the registry; a dead id or a
   non-library is refused by field name. Alias `desktop` is reserved for the
   desktop library (`desktop.open`, `desktop.close`, `desktop.list`).
-- `pixel_render` must be a library the theme registers (`windows.shell.sdk:render`
+- `pixel_render` must be a library the theme registers (`chicago.shell.sdk:render`
   for SDK windows). Without it the window is cell-only.
 - Rights: the window runs under the actor of the logged-on user (Windows logon)
   plus `app_window_scope` (process context, `db.get`, send to the compositor).
@@ -140,7 +140,7 @@ return {main = main, definition = definition}
 
 The workshop carries source, not files. A window's pictures live in an image
 pack — an `fs.*` entry of a module or the application with
-`meta.type: windows.images`, pictures as `<size>/<file>.png` — and are named
+`meta.type: chicago.images`, pictures as `<size>/<file>.png` — and are named
 `<pack entry>/<file>` wherever a name is taken: the `build` `image`, an SDK
 `image`, `button.image` (a picture instead of the caption) and `ui.message`'s
 `image`. The contract is `docs/icons.md`, "Image packs of other modules".
@@ -179,7 +179,7 @@ duplicated `id`, a runtime call outside the whitelist, Lua's late `local`
   code the compositor runs. Copy the module's `test/` app into a scratch
   folder (absolute replacements, the shared `test/` stays untouched), register
   the window source as a `library.lua` with the build's imports plus
-  `desktop: windows.tui_desktop.desktop:window_api`, and write a command
+  `desktop: chicago.tui_desktop.desktop:window_api`, and write a command
   that builds `app.context({width, height, native = true})`, drives
   `definition.init/update` through `app.dispatch` with the actions the SDK
   would send, and paints each state with `chrome_pixels.paint` exactly as

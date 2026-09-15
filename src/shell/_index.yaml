@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: windows.shell.theme
+namespace: chicago.shell.theme
 
 # The look of the shell and nothing more.
 #
@@ -25,21 +25,21 @@ namespace: windows.shell.theme
 # have no colons on purpose.
 
 entries:
-  # windows.shell.theme:palette
+  # chicago.shell.theme:palette
   - name: palette
     kind: library.lua
     meta:
       comment: The palette in exact Windows 95 colors, and the same names as basic ANSI indices as a fallback.
     source: file://palette.lua
 
-  # windows.shell.theme:glyphs
+  # chicago.shell.theme:glyphs
   - name: glyphs
     kind: library.lua
     meta:
       comment: The shell's pseudographics — bevel edges, buttons, scroll bar, icons. Every character is exactly one cell wide.
     source: file://glyphs.lua
 
-  # windows.shell.theme:widgets
+  # chicago.shell.theme:widgets
   #
   # Primitives that do not know about the screen. Both the theme and the
   # window import them.
@@ -51,12 +51,12 @@ entries:
     modules:
       - tty
     imports:
-      text: windows.tui_desktop.desktop:text
-      scroll: windows.tui_desktop.desktop:scroll
-      glyphs: windows.shell.theme:glyphs
-      palette: windows.shell.theme:palette
+      text: chicago.tui_desktop.desktop:text
+      scroll: chicago.tui_desktop.desktop:scroll
+      glyphs: chicago.shell.theme:glyphs
+      palette: chicago.shell.theme:palette
 
-  # windows.shell.theme:icons
+  # chicago.shell.theme:icons
   #
   # Two parties draw the icon — the desktop through the compositor and the
   # "My Computer" window by itself.
@@ -68,11 +68,11 @@ entries:
     modules:
       - tty
     imports:
-      geometry: windows.tui_desktop.desktop:geometry
-      glyphs: windows.shell.theme:glyphs
-      palette: windows.shell.theme:palette
+      geometry: chicago.tui_desktop.desktop:geometry
+      glyphs: chicago.shell.theme:glyphs
+      palette: chicago.shell.theme:palette
 
-  # windows.shell.theme:pixels
+  # chicago.shell.theme:pixels
   #
   # The pixel twin of the primitives. It creates no rasters — the raster comes
   # from outside, from whoever keeps it between frames; a primitive that
@@ -86,12 +86,12 @@ entries:
     modules:
       - gfx
     imports:
-      text: windows.tui_desktop.desktop:text
-      geometry: windows.tui_desktop.desktop:geometry
-      palette: windows.shell.theme:palette
-      images: windows.shell.theme:images
+      text: chicago.tui_desktop.desktop:text
+      geometry: chicago.tui_desktop.desktop:geometry
+      palette: chicago.shell.theme:palette
+      images: chicago.shell.theme:images
 
-  # windows.shell.theme:rasters
+  # chicago.shell.theme:rasters
   #
   # Rasters outlive the frame, and this is not an optimization. A theme that
   # creates a raster in the draw function draws the CORRECT screen and resends
@@ -103,11 +103,11 @@ entries:
       comment: A store of rasters between frames — hands out a raster by name and state key and says whether it needs drawing into; whatever the frame did not name leaves the screen.
     source: file://rasters.lua
     imports:
-      geometry: windows.tui_desktop.desktop:geometry
+      geometry: chicago.tui_desktop.desktop:geometry
     modules:
       - gfx
 
-  # windows.shell.theme:chrome_pixels
+  # chicago.shell.theme:chrome_pixels
   #
   # The pixel theme. A separate entry by the same rule as the explorer's pixel
   # backend: an entry that declared `gfx` does not load at all on a runtime
@@ -120,29 +120,29 @@ entries:
     modules:
       - gfx
     imports:
-      menu_layout: windows.shell.theme:menu_layout
-      placements: windows.shell.theme:placements
-      geometry: windows.tui_desktop.desktop:geometry
+      menu_layout: chicago.shell.theme:menu_layout
+      placements: chicago.shell.theme:placements
+      geometry: chicago.tui_desktop.desktop:geometry
       # The set of title bar buttons is taken from the cell theme: one table
       # for both modes. A second list would diverge from the first, and a
       # dialog would end up with three buttons in pixels and two in cells.
-      chrome: windows.shell.theme:chrome
-      icons: windows.shell.theme:icons
-      palette: windows.shell.theme:palette
-      pixels: windows.shell.theme:pixels
+      chrome: chicago.shell.theme:chrome
+      icons: chicago.shell.theme:icons
+      palette: chicago.shell.theme:palette
+      pixels: chicago.shell.theme:pixels
       # The wallpaper picture, read by name like an icon.
-      images: windows.shell.theme:images
-      rasters: windows.shell.theme:rasters
-      widgets: windows.shell.theme:widgets
+      images: chicago.shell.theme:images
+      rasters: chicago.shell.theme:rasters
+      widgets: chicago.shell.theme:widgets
       # View windows. The compositor cannot load a library by an id from the
       # window's entry — require knows only imports — so every render is
       # imported here statically and named in the theme's VIEWS.
-      picture_render: windows.shell.viewers:picture_render
-      sdk_render: windows.shell.sdk:render
+      picture_render: chicago.shell.viewers:picture_render
+      sdk_render: chicago.shell.sdk:render
       # Desktop widgets — the layout and the hits both themes share.
-      gadgets: windows.shell.theme:gadgets
+      gadgets: chicago.shell.theme:gadgets
 
-  # windows.shell.theme:chrome
+  # chicago.shell.theme:chrome
   #
   # The theme per the base's contract. Only what knows about the whole screen
   # stays here.
@@ -154,14 +154,14 @@ entries:
     modules:
       - tty
     imports:
-      menu_layout: windows.shell.theme:menu_layout
-      glyphs: windows.shell.theme:glyphs
-      icons: windows.shell.theme:icons
-      palette: windows.shell.theme:palette
-      widgets: windows.shell.theme:widgets
-      gadgets: windows.shell.theme:gadgets
+      menu_layout: chicago.shell.theme:menu_layout
+      glyphs: chicago.shell.theme:glyphs
+      icons: chicago.shell.theme:icons
+      palette: chicago.shell.theme:palette
+      widgets: chicago.shell.theme:widgets
+      gadgets: chicago.shell.theme:gadgets
 
-  # windows.shell.theme:gadgets
+  # chicago.shell.theme:gadgets
   #
   # Desktop widgets (FR-006) — where they stand and what is pressed, one
   # table for both themes, like the icons' desktop_spot. Imports the SDK's
@@ -173,11 +173,11 @@ entries:
       comment: Desktop widgets for both themes — the column at the right edge, the hit of a widget row, the tree a widget's body shows and the widget drawn in cells.
     source: file://gadgets.lua
     imports:
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
-      widgets: windows.shell.theme:widgets
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      widgets: chicago.shell.theme:widgets
 
-  # windows.shell.theme:icon_files
+  # chicago.shell.theme:icon_files
   #
   # The real Windows 95 icons — PNG 32×32 and 16×16 in assets/icons, see
   # SOURCE.md in the same place. The folder is declared by the module
@@ -193,7 +193,7 @@ entries:
     directory: ./assets/icons
     auto_init: false
 
-  # windows.shell.theme:images
+  # chicago.shell.theme:images
   #
   # Raster icons: name → file → decoded raster, with a per-process cache.
   # The cache is mandatory, not desirable: an icon decoded anew every frame
@@ -212,22 +212,22 @@ entries:
       - registry
       - time
 
-  # windows.shell.theme:menu_layout
+  # chicago.shell.theme:menu_layout
   - name: menu_layout
     kind: library.lua
     meta:
       comment: The Start menu cascade layout for both themes — the folder tree from meta.group, the panels, their rows and the hit map; no painting, the banner arrives as a parameter.
     source: file://menu_layout.lua
     imports:
-      glyphs: windows.shell.theme:glyphs
-      icons: windows.shell.theme:icons
-      widgets: windows.shell.theme:widgets
+      glyphs: chicago.shell.theme:glyphs
+      icons: chicago.shell.theme:icons
+      widgets: chicago.shell.theme:widgets
 
-  # windows.shell.theme:placements
+  # chicago.shell.theme:placements
   - name: placements
     kind: library.lua
     meta:
       comment: Pure rectangle geometry of the pixel theme placements — higher windows and the menu cut lower pictures, plus the crop id and key rule.
     source: file://placements.lua
     imports:
-      geometry: windows.tui_desktop.desktop:geometry
+      geometry: chicago.tui_desktop.desktop:geometry

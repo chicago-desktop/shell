@@ -18,7 +18,7 @@ concurrency:
 # pretend to be green. It needs a local runtime build with the `gfx` module —
 # the release wippy does not have it, and a module that declares `gfx` does
 # not load at all under the release runtime — and the base next door:
-# `.wippy.yaml` replaces `windows/tui-desktop` with the working copy
+# `.wippy.yaml` replaces `chicago/tui-desktop` with the working copy
 # `../kickside-module`. The runner has neither. A green run here means
 # "identity, links, docs and late locals are in order", not "the suites
 # passed".

@@ -384,11 +384,11 @@ local function define_tests()
     test.describe("desktop widgets: the entries and the runner", function()
         test.it("reads widget entries: the defaults, a declared size as declared, by order then id", function()
             local list = catalog.widget_list({
-                {id = "app:b", meta = {type = "windows.widget", title = "B", order = 20, width = 30, height = 8, opens = "app:x"}},
-                {id = "app:a", meta = {type = "windows.widget"}},
-                {id = "app:c", meta = {type = "windows.widget", order = 20, width = "wide"}},
-                {meta = {type = "windows.widget", title = "No id"}},
-                {id = "app:d", meta = {type = "windows.widget", title = "", opens = ""}},
+                {id = "app:b", meta = {type = "chicago.widget", title = "B", order = 20, width = 30, height = 8, opens = "app:x"}},
+                {id = "app:a", meta = {type = "chicago.widget"}},
+                {id = "app:c", meta = {type = "chicago.widget", order = 20, width = "wide"}},
+                {meta = {type = "chicago.widget", title = "No id"}},
+                {id = "app:d", meta = {type = "chicago.widget", title = "", opens = ""}},
             })
             local out = {}
             for _, item in ipairs(list) do

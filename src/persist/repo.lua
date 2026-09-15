@@ -20,9 +20,9 @@ local registry = require("registry")
 local time = require("time")
 local uuid = require("uuid")
 
-local ITEMS = "windows_shell_desktop_items"
-local SETTINGS = "windows_shell_settings"
-local SEEDED = "windows_shell_desktop_seeded"
+local ITEMS = "chicago_shell_desktop_items"
+local SETTINGS = "chicago_shell_settings"
+local SEEDED = "chicago_shell_desktop_seeded"
 
 local repo = {}
 
@@ -35,18 +35,18 @@ repo.SHARED = ""
 -- The mark, among the offered ones, that a person inherited the shared
 -- layout. It lives with the marks because they are never deleted: a person
 -- who removed every inherited icon must not get them back.
-repo.INHERITED = "windows.shell:inherited-shared-layout"
+repo.INHERITED = "chicago.shell:inherited-shared-layout"
 
 -- The database is named ONCE: by the module's `target_db` requirement, which
 -- writes `meta.target_db` into every migration (src/_index.yaml). A migration
 -- cannot read the environment, so the second name that lived here
--- (WINDOWS_DB_ID) could only diverge from it: the tables created in
+-- (CHICAGO_DB_ID) could only diverge from it: the tables created in
 -- one database, the layout written to another. The repository reads the name
 -- back from the migration that creates its first table.
 --
 -- No default: an unreadable entry is the reason on every call, not "the
 -- application did not override anything".
-repo.MIGRATION = "windows.shell.migrations:01_create_desktop_items"
+repo.MIGRATION = "chicago.shell.migrations:01_create_desktop_items"
 
 local function target_db(): (any, any)
     local entry, err = registry.get(repo.MIGRATION)

@@ -1,35 +1,35 @@
 version: "1.0"
-namespace: windows.shell.display
+namespace: chicago.shell.display
 
 # "Display Properties" is the Windows 95 Display Properties: the desktop
 # color and information about the screen. It opens from the "Properties"
 # item on a right click on the empty desktop and from "Start → Settings".
 
 entries:
-  # windows.shell.display:model
+  # chicago.shell.display:model
   - name: model
     kind: library.lua
     meta:
       comment: The pure model of "Display Properties" — desktop colors, color format check, resolution and palette captions.
     source: file://model.lua
     imports:
-      geometry: windows.tui_desktop.desktop:geometry
+      geometry: chicago.tui_desktop.desktop:geometry
 
-  # windows.shell.display:patterns
+  # chicago.shell.display:patterns
   - name: patterns
     kind: library.lua
     meta:
       comment: The Windows 95 desktop patterns — 8×8 monochrome tiles as bit rows, the list of Display Properties, lookup by name.
     source: file://patterns.lua
 
-  # windows.shell.display:wallpapers
+  # chicago.shell.display:wallpapers
   - name: wallpapers
     kind: library.lua
     meta:
       comment: The shell's own wallpapers — names, files and the way each is meant to be shown (tile or center).
     source: file://wallpapers.lua
 
-  # windows.shell.display:wallpaper_files
+  # chicago.shell.display:wallpaper_files
   #
   # The wallpapers as PNG, drawn by tools/wallpapers.py: the shell's own
   # pixel art, MIT, shipped with the module (unlike assets/icons).
@@ -44,7 +44,7 @@ entries:
   # Permissions: read and write a setting in the shell database (`db.get` on
   # the resource), ask and nudge the compositor. The database name comes from
   # the migration entry, read by the repository under
-  # windows.shell.security:layout_target — no environment.
+  # chicago.shell.security:layout_target — no environment.
   - name: window_scope
     kind: security.policy
     meta:
@@ -58,7 +58,7 @@ entries:
       resources: "*"
       effect: allow
 
-  # windows.shell.display:window
+  # chicago.shell.display:window
   - name: window
     kind: process.lua
     meta:
@@ -75,8 +75,8 @@ entries:
       # same record is a smaller dialog (a 336×304 px page frame).
       width: 46
       height: 24
-      pixel_render: windows.shell.sdk:render
-      pixel_state: windows.shell.display:window
+      pixel_render: chicago.shell.sdk:render
+      pixel_state: chicago.shell.display:window
       comment: Display Properties — the desktop pattern and color with a preview, applied through the shell settings; resolution and palette are read-only; a window on the shell SDK.
     source: file://window.lua
     method: main
@@ -85,12 +85,12 @@ entries:
       - time
       - uuid
     security:
-      policies: [windows.shell.display:window_scope, windows.shell.security:layout_target]
+      policies: [chicago.shell.display:window_scope, chicago.shell.security:layout_target]
     imports:
-      geometry: windows.tui_desktop.desktop:geometry
-      app: windows.shell.sdk:app
-      desktop: windows.tui_desktop.desktop:window_api
-      repo: windows.shell.persist:repo
-      model: windows.shell.display:model
-      patterns: windows.shell.display:patterns
-      wallpapers: windows.shell.display:wallpapers
+      geometry: chicago.tui_desktop.desktop:geometry
+      app: chicago.shell.sdk:app
+      desktop: chicago.tui_desktop.desktop:window_api
+      repo: chicago.shell.persist:repo
+      model: chicago.shell.display:model
+      patterns: chicago.shell.display:patterns
+      wallpapers: chicago.shell.display:wallpapers

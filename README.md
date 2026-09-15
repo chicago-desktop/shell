@@ -1,4 +1,4 @@
-# windows/shell — a Windows 95-style shell for the terminal desktop
+# chicago/shell — a Windows 95-style shell for the terminal desktop
 
 New window applications: [SDK](docs/sdk.md),
 [skill for agents](skills/wippy-window-app/SKILL.md),
@@ -14,7 +14,7 @@ that is filled from the registry, and desktop icons that the user moves around.
 
 There is not a single line of window mechanics of its own here. Window hosting, programs under
 a PTY, the command channel and the workshop stay in
-[windows/tui-desktop](https://github.com/wippy-windows/tui-desktop); the shell
+[chicago/tui-desktop](https://github.com/chicago-desktop/tui-desktop); the shell
 calls its compositor with its own theme. A copy of the compositor would drift from
 the original on the very first edit, and that would be discovered a week later on the live
 test stand.
@@ -30,16 +30,16 @@ found`); details are in [docs/traps.md](docs/traps.md#with-the-release-runtime-t
 WIPPY=~/repos/wippy/runtime/dist/wippy-linux-amd64   # build with gfx
 
 # in cells — works in any terminal
-$WIPPY run --host windows.shell:terminal windows
+$WIPPY run --host chicago.shell:terminal chicago
 
 # in pixels — one-pixel edges, real icons and captions
-WINDOWS_PIXELS=1 $WIPPY run --host windows.shell:terminal windows
+CHICAGO_PIXELS=1 $WIPPY run --host chicago.shell:terminal chicago
 ```
 
 Pixel mode needs two things, and without either of them the shell comes up **in
 cells and states the reason in the log**: a terminal with sixel or kitty that answered
 the cell-size query, and a TrueType font directory (`app:system_fonts`,
-overridden by `WINDOWS_FONTS`). Look in the log for the line
+overridden by `CHICAGO_FONTS`). Look in the log for the line
 `pixel mode` — it is written before any attempt.
 
 **Almost everything can be checked without occupying the test stand**:
@@ -77,8 +77,8 @@ its own host because it needs `hide_logs`, and from that moment autodetection
 refuses to choose. This is the price of a second shell, not a defect.
 
 ```bash
-$WIPPY run  --host windows.shell:terminal       windows   # this shell
-$WIPPY run  --host windows.tui_desktop:terminal   desktop   # the base's shell
+$WIPPY run  --host chicago.shell:terminal         chicago   # this shell
+$WIPPY run  --host chicago.tui_desktop:terminal   desktop   # the base's shell
 $WIPPY run  --host wippy.terminal:host               register-webhook
 $WIPPY test --host wippy.terminal:host
 ```
@@ -130,19 +130,19 @@ contents when a module is removed.
 
 ### SDK windows
 
-The shell's own windows are built on the window SDK (`windows.shell.sdk:app`,
+The shell's own windows are built on the window SDK (`chicago.shell.sdk:app`,
 [docs/sdk.md](docs/sdk.md)): the application gives a component tree and changes
 the model on actions, while the layout, hits, scrolling and both renderers
 are provided by the SDK. They have no paints of their own, no state provider, no
 second geometry for the mouse; in pixel mode they are drawn by the shared
-`windows.shell.sdk:render`, in text mode by the same components in cells.
+`chicago.shell.sdk:render`, in text mode by the same components in cells.
 What stays in the shell is what the theme and the desktop are wired to:
 "My Computer" and the folder windows (FR-008), System Properties, Display
 Properties, Notepad and the file dialog; a renderer of its own remains with
 the image viewer. "Date/Time" (opened by the taskbar clock through the
-host's `windows.taskbar_clock` entry, below), the Registry Editor, Task
-Manager and "Run…" are modules of their own — `windows/datetime`,
-`windows/regedit`, `windows/taskman`, `windows/run` — like the Calculator,
+host's `chicago.taskbar_clock` entry, below), the Registry Editor, Task
+Manager and "Run…" are modules of their own — `chicago/datetime`,
+`chicago/regedit`, `chicago/taskman`, `chicago/run` — like the Calculator,
 AntiBug, Network Neighborhood and Add/Remove Programs before them.
 
 **How the theme finds `render`.** `require` can only load declared `imports`,
@@ -177,13 +177,13 @@ seen otherwise. The SDK windows also work in cells, drawn by the same components
 ### What lies where in "Start"
 
 The menu root is the "Programs" folder, the "Settings" folder, "Run…" (the
-`windows/run` module) and "Shut Down". "My Computer" is not shown in the menu (`in_menu: false`
+`chicago/run` module) and "Shut Down". "My Computer" is not shown in the menu (`in_menu: false`
 on the explorer entry, owner's decision 2026-09-09): it is opened from the desktop,
 and a shortcut to a hidden program works. Above
 all this, if the shell was brought up with logon, is the name of the logged-on user with
 the `user` icon and a rule under it (since 2026-09-09). By default the line cannot be
 selected: it has no hit and no number, the cursor steps over it. When the application
-names a profile window in `WINDOWS_PROFILE_ENTRY` (read without a default;
+names a profile window in `CHICAGO_PROFILE_ENTRY` (read without a default;
 the shell's `shell_env` policy grants it by name), the line opens it: the shell appends a
 profile item to the menu catalog (`chrome.profile_item` — the entry, the user's name as
 the title, `image = "user"`, `args = {user_id}`), the layout puts it behind the line instead
@@ -191,7 +191,7 @@ of listing it as a program, and the line takes slot 1 and a hit — the cursor l
 when Start opens, a click and Enter open it through the compositor's ordinary
 `items[hit.index]` path, so the base needs no change. The name is set by `chrome.use_user`
 from the logon result; both themes read the same `chrome.session`. When the application
-names a function in `WINDOWS_USER_FUNC` (read without a default; `{user_id}` →
+names a function in `CHICAGO_USER_FUNC` (read without a default; `{user_id}` →
 `{success, name}`, called through `funcs`), the name is read again on every
 `desktop.refresh` — the profile window sends one after a rename — and `chrome.rename_user`
 keeps the id and the entry and replaces the name, so the row repaints. Unset keeps the
@@ -222,7 +222,7 @@ without a module, and that is visible in the menu at once.
 **Mouse hover drives the menu**: the line under the pointer is highlighted, the folder
 under it expands, a deeper submenu goes away — the last two with a delay
 of 300 ms, as in Windows, so that a diagonal path into a submenu does not close it.
-The mechanics are in the base (`windows/tui-desktop`, `hover_menu`), the theme only
+The mechanics are in the base (`chicago/tui-desktop`, `hover_menu`), the theme only
 draws the selected line; in pixels the panel is redrawn because
 `selected` is part of its raster key.
 
@@ -230,12 +230,12 @@ draws the selected line; in pixels the panel is redrawn because
 
 The Calculator, AntiBug, Network Neighborhood and Add/Remove Programs left
 this module with 0.1.1, "Date/Time", the Registry Editor, Task Manager and
-"Run…" with 0.1.2: they are `windows/calculator`, `windows/antibug`,
-`windows/network`, `windows/appwiz`, `windows/datetime`, `windows/regedit`,
-`windows/taskman` and `windows/run` in the Hub (repositories
-wippy-windows/<name>). Each is a plain window
+"Run…" with 0.1.2: they are `chicago/calculator`, `chicago/antibug`,
+`chicago/network`, `chicago/appwiz`, `chicago/datetime`, `chicago/regedit`,
+`chicago/taskman` and `chicago/run` in the Hub (repositories
+chicago-desktop/<name>). Each is a plain window
 module on the SDK; an application that wants them declares the dependency.
-The `windows.antibug_target` and `WINDOWS_DEPS_FS` conventions moved with
+The `chicago.antibug_target` and `CHICAGO_DEPS_FS` conventions moved with
 them and are described in their READMEs.
 
 ### System Properties
@@ -243,7 +243,7 @@ them and are described in their READMEs.
 A right click on a desktop icon opens a context menu at the pointer:
 "Open" (in bold — the same as a double click) and "Properties", if the program's entry
 declared `meta.properties` — the identifier of the properties window. For
-"My Computer" this is `windows.shell.sysprops:window`, "System
+"My Computer" this is `chicago.shell.sysprops:window`, "System
 Properties", like System Properties in Windows 95: three tabs on the SDK.
 
 - **General** — the runtime node and role, the number of Lua modules, the host, PID and directory,
@@ -275,10 +275,10 @@ Display Properties in four tabs, laid out by the Windows 95 dialog's measured
 pixels (the numbers are in `src/display/window.lua`).
 
 - **Background** — the desktop pattern: the twenty Windows 95 8×8 tiles
-  (`windows.shell.display:patterns`, the original bits) in a list, and a monitor
+  (`chicago.shell.display:patterns`, the original bits) in a list, and a monitor
   preview (the SDK `monitor` component, which draws the pattern and the wallpaper
   too). The Wallpaper group lists the shell's own wallpapers
-  (`windows.shell.display:wallpapers`: pictures drawn by `tools/wallpapers.py`
+  (`chicago.shell.display:wallpapers`: pictures drawn by `tools/wallpapers.py`
   into `assets/wallpaper`, MIT, shipped with the module) with "Display: Tile / Center"
   radio buttons; a wallpaper comes with the way it is meant to be shown. "Browse…"
   is disabled: there is no file dialog yet. The preview draws a wallpaper at 1:1 —
@@ -291,7 +291,7 @@ pixels (the numbers are in `src/display/window.lua`).
   is forced by the runtime.
 
 "Apply" and "OK" write the choice into the shell's settings
-(`windows_shell_settings`, keys `desktop_color`, `desktop_pattern`,
+(`chicago_shell_settings`, keys `desktop_color`, `desktop_pattern`,
 `desktop_wallpaper` and `wallpaper_mode`) and ask the compositor to reread the desktop
 (`desktop.refresh`); it repaints through `chrome.use_desktop`, `chrome.use_pattern` and
 `chrome.use_wallpaper` — one point each. An icon raster carries
@@ -329,7 +329,7 @@ The window for the clock on the right is declared by the application. Example:
 - name: taskbar_clock
   kind: registry.entry
   meta:
-    type: windows.taskbar_clock
+    type: chicago.taskbar_clock
   data:
     entry: app:clock_window
 ```
@@ -354,7 +354,7 @@ are different statements, and substituting one for the other is not allowed.
 
 **A program with `desktop: true` gets a shortcut exactly once, ever.**
 The mark that the program has already been offered lives in a separate table
-`windows_shell_desktop_seeded` and is never deleted — including when
+`chicago_shell_desktop_seeded` and is never deleted — including when
 the shortcut itself is deleted. Without this, deleting an icon would not work at all: it
 would come back on every start, and a person would decide that deletion is broken.
 
@@ -382,11 +382,11 @@ are apart. Another person's icon reads as "no such shortcut".
 
 A window that runs under a broad policy — ending any process, reading the
 whole registry, editing the application's dependencies, building on the
-server — names `requires: windows.admin` in its entry, and the base's
+server — names `requires: chicago.admin` in its entry, and the base's
 compositor asks the logged-on person's scope before opening it (the base
 README, `meta.requires`). Task Manager, the Registry Editor, AntiBug and
 Add/Remove Programs, modules of their own now, all do; an entry without the
-field opens for everyone, silently. An application grants `windows.admin`
+field opens for everyone, silently. An application grants `chicago.admin`
 to its administrators; a group whose policy allows `*` has it already.
 
 ### What stands on the desktop at first start
@@ -400,7 +400,7 @@ and it is not created again.
 Only what has something behind it is created. A "Recycle Bin" is deliberately
 absent: an icon that does nothing looks like a working part of the system, and the
 first thing people will ask about it is why it does not work. "Network
-Neighborhood" is not furniture: it is a program (`windows.network:window`, a
+Neighborhood" is not furniture: it is a program (`chicago.network:window`, a
 module of its own) that asks for its own shortcut with `desktop: true`, so it reaches the desktop the
 way any program shortcut does, by the rule below.
 
@@ -486,7 +486,7 @@ A runtime build with PTY geometry updates is required. If the terminal or SSH
 does not pass pixels through the PTY, the answer to the initial query remains: after
 changing the terminal font in such an environment the shell has to be restarted.
 
-**It is switched on explicitly, by the variable `WINDOWS_PIXELS=1`**, not by the presence of
+**It is switched on explicitly, by the variable `CHICAGO_PIXELS=1`**, not by the presence of
 graphics: a terminal that can do sixel is no reason to draw the interface differently
 from what a person asked for.
 
@@ -495,7 +495,7 @@ the log: no graphics, the terminal did not report the cell size, no font was fou
 Pixel mode that silently failed to turn on looks like "somehow the old way",
 and a person goes looking for a breakage where there is none.
 
-The font arrives **as bytes** through `fs` (the directory is `WINDOWS_FONTS`,
+The font arrives **as bytes** through `fs` (the directory is `CHICAGO_FONTS`,
 by default `app:system_fonts`), not by a path inside `gfx`: reading a file is
 governed by the process's permissions, and a module that opens paths by itself would be a road
 around them. Bold is a separate file, not an option.
@@ -567,7 +567,7 @@ old grid remains.
 
 "My Computer" and every folder window are an SDK application
 ([FR-008](docs/rfcs/008-folder-windows.md)): `meta.pixel_render:
-windows.shell.sdk:render`, and the window entry is its own `pixel_state`.
+chicago.shell.sdk:render`, and the window entry is its own `pixel_state`.
 The shared SDK renderer draws the tree in pixels, the SDK's cells renderer in
 cells; there is no explorer renderer of its own any more. `paint-png` saves
 `shots/mycomputer.png`, `shots/folder-details.png` and `shots/folder-context.png`.
@@ -597,7 +597,7 @@ It is worth remembering WHERE they came from, because the mistake repeats
 itself: the probe could not send mouse events, and a check had no other way to
 open a window. **A limitation of the tool leaked into the interface.** The tool
 is fixed — the base's
-[`tools/tui-probe.py`](https://github.com/wippy-windows/tui-desktop/blob/main/tools/tui-probe.py)
+[`tools/tui-probe.py`](https://github.com/chicago-desktop/tui-desktop/blob/main/tools/tui-probe.py)
 sends real SGR 1006 mouse events — and the digits are gone. The rule for the
 future: when something cannot be checked with the mouse, the probe gets fixed;
 no visible button is added for the sake of a check.
@@ -643,7 +643,7 @@ knows about the screen as a whole.
 ## How a window talks to the compositor
 
 With two things, and both come from the base's library
-`windows.tui_desktop.desktop:window_api`. The window has no protocol of its own.
+`chicago.tui_desktop.desktop:window_api`. The window has no protocol of its own.
 
 **The compositor's name arrives in the process context**, and the library reads it.
 A constant of its own would work only under this shell: under any other the window
@@ -680,7 +680,7 @@ It was believed that the mechanics could not be checked without a real terminal.
 **the shell's screen does not have to be a terminal.** `tty.viewport` is created right in
 the test function, `view:grant()` gives it to the spawned process — by the same
 mechanism the compositor hands screens to its windows — and inside runs
-the real `windows.shell:shell` entry, not a copy of it for the test.
+the real `chicago.shell:shell` entry, not a copy of it for the test.
 
 The price of this misconception has already been paid: the `desktop.refresh` command, which the layout
 handlers send **after every edit**, was never executed in the base. It
@@ -701,17 +701,17 @@ test that "sometimes passes".
 All of them are behind the application's authenticated router (`app:api` by default),
 so the full path on the test stand looks like `/api/v1/windows/...`.
 
-- `GET /windows/programs` — the catalog from the registry: programs, menu folders,
+- `GET /chicago/programs` — the catalog from the registry: programs, menu folders,
   order.
-- `GET /windows/desktop` — desktop shortcuts and folders; a shortcut to a vanished entry
+- `GET /chicago/desktop` — desktop shortcuts and folders; a shortcut to a vanished entry
   is marked `broken`.
-- `POST /windows/desktop` — create a shortcut or folder: `kind`, `entry`, `title`,
+- `POST /chicago/desktop` — create a shortcut or folder: `kind`, `entry`, `title`,
   `x`, `y`, `parent_id`.
-- `PATCH /windows/desktop/{id}` — move or rename. `entry` and
+- `PATCH /chicago/desktop/{id}` — move or rename. `entry` and
   `kind` do not change: substituting the entry under the same icon means launching something other than
   what is seen. `parent_id: null` moves an icon out of a folder onto the desktop.
-- `DELETE /windows/desktop/{id}` — remove a shortcut or folder.
-- `GET /windows/status` — whether the shell is alive, its windows and the restore report
+- `DELETE /chicago/desktop/{id}` — remove a shortcut or folder.
+- `GET /chicago/status` — whether the shell is alive, its windows and the restore report
   for workshop windows.
 
 **There is no handler for creating a program and there will not be one.** Programs appear
@@ -746,7 +746,7 @@ The menu must show the reason as text.
 
 The same goes for the restore report of workshop windows. The terminal host's log
 is silenced deliberately, so a refusal told only in the log is told to
-no one: `GET /windows/status` is the only place where a person will see it.
+no one: `GET /chicago/status` is the only place where a person will see it.
 
 ## Development
 
@@ -777,19 +777,19 @@ Tests live in `test/` and bring the module up as a separate application. The she
 can be launched from there by hand:
 
 ```bash
-cd test && $WIPPY run --host windows.shell:terminal windows
+cd test && $WIPPY run --host chicago.shell:terminal chicago
 ```
 
 ### The base is taken from a working copy
 
-`windows/tui-desktop` is not yet published to the Hub, so it is connected
+`chicago/tui-desktop` is not yet published to the Hub, so it is connected
 by a replacement in `.wippy.yaml` — at the module root and in `test/`. **Condition for removal:** as
 soon as the base is published, remove both replacements; otherwise the module builds only
 on a machine where the needed directory lies next to it.
 
 ## "My Computer": drives are registry entries
 
-The window `windows.shell.explorer:window` is an ordinary registry program
+The window `chicago.shell.explorer:window` is an ordinary registry program
 (`meta.type: tui_desktop.window`), and the shell finds it with the same
 `registry.find` as everything else. The first-start furniture leads to it.
 
@@ -858,7 +858,7 @@ the compositor, through `definition.deps`, so its tests swap them for stand-ins.
 
 ### Window permissions: read and ask, but not spawn
 
-The policy `windows.shell.security:explorer_window` grants `registry.find`,
+The policy `chicago.shell.security:explorer_window` grants `registry.find`,
 `db.get`, `fs.get`, `process.send` and `process.registry`. **`spawn` and `exec`
 are not there** — a window with the right to spawn processes will sooner or later launch something other than
 what a file was opened with. It can open a neighboring window only by asking

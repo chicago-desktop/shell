@@ -1,4 +1,4 @@
--- POST /windows/desktop — create a desktop shortcut or folder.
+-- POST /chicago/desktop — create a desktop shortcut or folder.
 --
 -- A shortcut to an entry that is not in the registry is NOT rejected here: a
 -- broken shortcut is a legitimate state (the program was removed, the icon

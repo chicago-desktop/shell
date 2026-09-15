@@ -167,7 +167,7 @@ local function define_tests()
     end)
 
     -- The logged-on user's name, read again on `desktop.refresh` through the
-    -- application's function (WINDOWS_USER_FUNC). The call is a
+    -- application's function (CHICAGO_USER_FUNC). The call is a
     -- stand-in that records what it was asked.
     test.describe("The logged-on user's name, read again", function()
         test.it("takes the name only from a success, and tells a permission denial apart", function()
@@ -178,7 +178,7 @@ local function define_tests()
                     return answer, err
                 end
             end
-            test.eq(provider.USER_FUNC_ENV, "WINDOWS_USER_FUNC")
+            test.eq(provider.USER_FUNC_ENV, "CHICAGO_USER_FUNC")
             local name, why, denied = provider.display_name("app.desktop:user_name", "u1",
                 answering({success = true, user_id = "u1", name = "Pavel B."}, nil))
             test.eq(name, "Pavel B.")

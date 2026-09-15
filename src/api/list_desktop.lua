@@ -1,4 +1,4 @@
--- GET /windows/desktop — desktop shortcuts and folders.
+-- GET /chicago/desktop — desktop shortcuts and folders.
 --
 -- A shortcut stores a reference to a registry entry, so the name and icon
 -- here are taken from the catalog, not from the row: the program was

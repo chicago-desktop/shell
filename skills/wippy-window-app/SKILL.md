@@ -1,13 +1,13 @@
 ---
 name: wippy-window-app
-description: Add or repair a window application in the Wippy Windows shell. Use for registry registration, declarative window UI, client resize, scrolling, mouse input, lifecycle, and cell/pixel renderer integration in windows/shell and windows/tui-desktop. Keeps agents on the same SDK contract.
+description: Add or repair a window application in the Wippy Windows shell. Use for registry registration, declarative window UI, client resize, scrolling, mouse input, lifecycle, and cell/pixel renderer integration in chicago/shell and chicago/tui-desktop. Keeps agents on the same SDK contract.
 ---
 
 # Wippy window application
 
 Use the installed module's [canonical SDK documentation](../../docs/sdk.md).
 Resolve this skill's symlink before following relative paths. The documentation
-and this skill are versioned together in `windows/shell`; do not copy their
+and this skill are versioned together in `chicago/shell`; do not copy their
 contracts into per-app notes. See [the existing-window audit](../../docs/sdk-audit-2026-09-08.md)
 when repairing an older custom window.
 
@@ -17,14 +17,14 @@ when repairing an older custom window.
    replacement/lock. Read its AGENTS.md. Inspect uncommitted changes before editing:
    multiple agents work these modules. Editing a published package's working copy
    does not update the running app unless it is replaced.
-2. Default to `windows.shell.sdk:app` and a plain-data component tree. Scaffold:
+2. Default to `chicago.shell.sdk:app` and a plain-data component tree. Scaffold:
    `python3 <resolved-skill>/scripts/new_window.py --namespace my.documents --title Documents --output <module>/src/documents`.
    The generator refuses to overwrite files. Read the resulting declaration and
    change its icon, model and actions for the actual product. It writes no
    `group`, so the window lands in the default `Programs` folder; a module's
    window adds `group: Programs/<Module>`. The interface is English.
 3. Declare one `process.lua` with `meta.type: tui_desktop.window`, exact title,
-   dimensions, group and icon. Use `pixel_render: windows.shell.sdk:render`
+   dimensions, group and icon. Use `pixel_render: chicago.shell.sdk:render`
    and `pixel_state` pointing to this same process. Keep a single `main` wrapper
    passing arguments to `app.run`. Do not add an app-specific import to the theme.
    The icon is a name from the shell's catalog or from the module's own image

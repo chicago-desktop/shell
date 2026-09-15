@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: windows.shell.programs
+namespace: chicago.shell.programs
 
 # The program catalog and its only link to the layout.
 #
@@ -9,7 +9,7 @@ namespace: windows.shell.programs
 # that the catalog knows nothing about the layout and must not know.
 
 entries:
-  # windows.shell.programs:catalog
+  # chicago.shell.programs:catalog
   - name: catalog
     kind: library.lua
     meta:
@@ -23,9 +23,9 @@ entries:
       # readings of the same meta drift apart silently, and one and the same
       # window would look like a dialog from "Start" and like an ordinary
       # window from the desktop.
-      programs_meta: windows.tui_desktop.desktop:programs
+      programs_meta: chicago.tui_desktop.desktop:programs
 
-  # windows.shell.programs:defaults
+  # chicago.shell.programs:defaults
   - name: defaults
     kind: library.lua
     meta:
@@ -34,9 +34,9 @@ entries:
     modules:
       - registry
     imports:
-      catalog: windows.shell.programs:catalog
+      catalog: chicago.shell.programs:catalog
 
-  # windows.shell.programs:seed
+  # chicago.shell.programs:seed
   - name: seed
     kind: library.lua
     meta:
@@ -47,9 +47,9 @@ entries:
       - time
       - uuid
     imports:
-      repo: windows.shell.persist:repo
+      repo: chicago.shell.persist:repo
 
-  # windows.shell.programs:desktop_view
+  # chicago.shell.programs:desktop_view
   - name: desktop_view
     kind: library.lua
     meta:
@@ -58,21 +58,21 @@ entries:
     modules:
       - registry
     imports:
-      catalog: windows.shell.programs:catalog
+      catalog: chicago.shell.programs:catalog
 
-  # windows.shell.programs:base_images
+  # chicago.shell.programs:base_images
   #
   # Icons for the BASE's windows. The base knows no icons of its own — it has
   # no icon pack — and naming them in its entries would tie a public module to
   # names from this private one. So the shell declares them on its side with
   # the same entry type the application uses for workshop windows
-  # (`windows.program_images`); a program's own `meta.image`, if present,
+  # (`chicago.program_images`); a program's own `meta.image`, if present,
   # still takes precedence.
   - name: base_images
     kind: registry.entry
     meta:
-      type: windows.program_images
+      type: chicago.program_images
       comment: Icons for the tui-desktop base windows — the Bash window gets the console.
     data:
       images:
-        "windows.tui_desktop.desktop:window_pty": console
+        "chicago.tui_desktop.desktop:window_pty": console

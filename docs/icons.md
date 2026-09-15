@@ -13,8 +13,8 @@ resources". What follows from that is in the section on the license.
 
 - What: Icon files, 32×32 and 16×16, RGBA PNG; Where: `assets/icons/32/`, `assets/icons/16/`
 - What: Where they were taken from, which number means what, how to rebuild; Where: `assets/icons/SOURCE.md`
-- What: The filesystem through which they are read; Where: entry `windows.shell.theme:icon_files` (`src/shell/_index.yaml`)
-- What: Library: name → file → raster; Where: `src/shell/images.lua`, entry `windows.shell.theme:images`
+- What: The filesystem through which they are read; Where: entry `chicago.shell.theme:icon_files` (`src/shell/_index.yaml`)
+- What: Library: name → file → raster; Where: `src/shell/images.lua`, entry `chicago.shell.theme:images`
 - What: Check that every icon is readable and has its size; Where: `test/src/images_test.lua`
 
 The source is <https://github.com/trapd00r/win95-winxp_icons>, the `icons/`
@@ -37,8 +37,8 @@ A program's file icon is its `meta.image`, unless the entry named
 
 The Bash window is an entry of THE BASE, and it deliberately has no `meta.image`
 of its own: the icon names are a package of this shell, and the public module
-does not know them. Its icon is named by `windows.shell.programs:base_images`
-— an entry of the same type `windows.program_images` with which the application
+does not know them. Its icon is named by `chicago.shell.programs:base_images`
+— an entry of the same type `chicago.program_images` with which the application
 assigns icons to workshop windows. A program's own `meta.image`, if present, takes precedence.
 
 ## How to use it
@@ -81,7 +81,7 @@ the folder in the explorer will one day turn out to be different folders:
 - `item.kind`: `drive`; icon: `drive`
 - `item.kind`: `program`, `window`; icon: `program`
 - `item.kind`: `item`, `file`; icon: `document`
-- `item.kind`: an item with `entry = windows.shell.explorer:window`; icon: `my_computer`
+- `item.kind`: an item with `entry = chicago.shell.explorer:window`; icon: `my_computer`
 - `item.kind`: `shortcut` to anything else; icon: `program` + overlay `shortcut_overlay`
 - `item.kind`: `broken = true`; icon: no icon → the caller draws with primitives
 
@@ -95,16 +95,16 @@ is named.
 ## Workshop window icons
 
 Windows built in the workshop currently have no image field in storage.
-The test stand can declare an entry `kind: registry.entry`, `meta.type: windows.program_images` for them:
+The test stand can declare an entry `kind: registry.entry`, `meta.type: chicago.program_images` for them:
 
 ```yaml
 - name: window_images
   kind: registry.entry
   meta:
-    type: windows.program_images
+    type: chicago.program_images
   data:
     images:
-      "windows.tui_desktop.apps:clock": clock
+      "chicago.tui_desktop.apps:clock": clock
 ```
 
 This is the styling of specific programs of the test stand, so the entry lives in the application.
@@ -118,7 +118,7 @@ The catalog applies the styling before passing the data to the desktop and the m
 **The file arrives as bytes through `fs`, not as a path inside `gfx`.** The same decision
 as for the font: reading a file is governed by the process's permissions, and a module that
 opens paths itself would be a road around them. So the actor that draws must
-have `fs.get` on `windows.shell.theme:icon_files`. The shell and the explorer
+have `fs.get` on `chicago.shell.theme:icon_files`. The shell and the explorer
 window today have `fs.get` on `*`, so it works — but the audit of 2026-09-08
 disputes exactly that `*` on the window; when it is narrowed, this entry must be named
 explicitly.
@@ -173,7 +173,7 @@ primitives (section below). The same caveat is in LICENSE and README.
 ## What is connected and what remains
 
 `pixels.icon` first calls `images.icon`, on refusal draws with primitives and
-writes the reason to the `windows.icons` log once. A broken shortcut stays
+writes the reason to the `chicago.icons` log once. A broken shortcut stays
 noticeable: it is drawn as a primitive with a red cross.
 
 The real icons are connected to the desktop, the root items of "Start" (32 px),
@@ -200,14 +200,14 @@ The pack above is the shell's own, and its list is fixed in `images.NAMES`.
 Pictures of other modules and of the application do not go into it: they come
 in their own pack, found at run time.
 
-A pack is any `fs.*` entry that declares `meta.type: windows.images`, with the
+A pack is any `fs.*` entry that declares `meta.type: chicago.images`, with the
 pictures lying as `<size>/<file>.png`:
 
 ```yaml
 - name: images
   kind: fs.directory
   meta:
-    type: windows.images
+    type: chicago.images
   directory: ./src/app/workshop/images
 ```
 

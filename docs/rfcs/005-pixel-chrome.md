@@ -250,8 +250,8 @@ application repository): the registry states, the shell executes.
 meta:
   type: tui_desktop.window
   window_content: pixels                        # cells (default) | pixels
-  render: windows.shell.explorer:render    # pure drawing library
-  state:  windows.shell.explorer:state     # provider process, its own actor
+  render: chicago.shell.explorer:render    # pure drawing library
+  state:  chicago.shell.explorer:state     # provider process, its own actor
 ```
 
 - `cells` (default) — what is inside: the process writes into its viewport;

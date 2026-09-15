@@ -1,7 +1,7 @@
 -- Notepad as in Windows 95 (FR-007 §6): an SDK application.
 --
 -- The shared renderer draws the tree this process publishes (`pixel_render:
--- windows.shell.sdk:render`, and this same entry is its state provider);
+-- chicago.shell.sdk:render`, and this same entry is its state provider);
 -- in cells the SDK draws it into the window's own viewport. The model —
 -- menus, sheets, the clipboard, the gate — is `notepad_model`, pure; here are
 -- only the five functions it reads the world through:

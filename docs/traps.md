@@ -31,7 +31,7 @@ does; the cause and the failing test are in
 ## The folder path is parsed by the CATALOG, and only by it
 
 `meta.group` is a string like `System Tools/Network`; it is turned into a list of segments by
-`windows.shell.programs:catalog`, and the depth cut is there too
+`chicago.shell.programs:catalog`, and the depth cut is there too
 (`catalog.MAX_DEPTH`). The theme receives the path **already parsed** and knows nothing
 about the slash.
 
@@ -173,8 +173,8 @@ with `Invalid` and a message starting `permission denied`, and `Invalid` alone
 also means "empty host identifier". So a refusal from `system.*` is recognised
 by the kind AND the start of the message.
 
-Both rules live in one place each — `windows.shell.config:environment`
-(`read`, `read_or`) and `windows.shell.config:system` (`facts.denied`,
+Both rules live in one place each — `chicago.shell.config:environment`
+(`read`, `read_or`) and `chicago.shell.config:system` (`facts.denied`,
 `facts.reason`) — and windows call them instead of reading `env` or `system`
 themselves. Three windows each had their own `snapshot()` and each turned a
 refusal into a value: zero memory, "unnamed" node, "(none)" leader.
@@ -216,13 +216,13 @@ that one of them draws emptiness.
 
 ## With the release runtime the module no longer loads
 
-The entries `windows.shell.theme:pixels` and `…:rasters` declare the `gfx` module,
+The entries `chicago.shell.theme:pixels` and `…:rasters` declare the `gfx` module,
 and it is **not in the release runtime**. `wippy` from PATH (0.3.40a) does not load the module
 AT ALL — not "without pixels", but entirely, together with the shell in cells:
 
 ```
-unresolved dependencies after retry: windows.shell.theme:pixels …
-node with ID {windows.shell.theme pixels …} not found
+unresolved dependencies after retry: chicago.shell.theme:pixels …
+node with ID {chicago.shell.theme pixels …} not found
 ```
 
 The cause cannot be guessed from this message, so it is written down here. A
@@ -269,5 +269,5 @@ there is no `t[0]`, so the common `table.concat(t, "", 1, 0)` does return "" and
 hides the trap. It surfaced in the editor's model: the tail after a caret at a
 line's end is exactly such a range, and typing "abc" gave "abca". No error, a
 letter too many. Join a range of runes through a helper that returns "" when
-`from > to` (`slice` in `windows.shell.sdk:editor`); the tripwire that
+`from > to` (`slice` in `chicago.shell.sdk:editor`); the tripwire that
 fails once the VM is fixed is in `test/src/editor_model_test.lua`.

@@ -2,7 +2,7 @@
 --
 -- There is not a single line of window mechanics of its own here. Window
 -- hosting, PTY, the command channel and the workshop stay in
--- windows/tui-desktop; from here come the look (the theme), the catalog
+-- chicago/tui-desktop; from here come the look (the theme), the catalog
 -- with menu folders and the desktop layout.
 --
 -- A copy of the compositor instead of a call would diverge from the original
@@ -27,7 +27,7 @@ local wallpapers = require("wallpapers")
 local logon_screen = require("logon_screen")
 local logon_provider = require("logon_provider")
 
-local SERVICE_NAME = "windows.shell.desktop"
+local SERVICE_NAME = "chicago.shell.desktop"
 
 -- Font of the pixel theme. It arrives as BYTES through `fs`, not as a path
 -- inside `gfx`: file reads are governed by the process's permissions, and a
@@ -37,7 +37,7 @@ local SERVICE_NAME = "windows.shell.desktop"
 --
 -- Bold is a SEPARATE file, not an option: in Windows 95 the title bar is set
 -- in it, and synthesizing it by smearing pixels means ceasing to look alike.
--- The environment is read by `windows.shell.config:environment` — which
+-- The environment is read by `chicago.shell.config:environment` — which
 -- also holds both traps that make "the variable is not set" sometimes a lie:
 -- `env.get` does not see the process environment, and `get_all` keeps silent
 -- about a permission denial.
@@ -49,7 +49,7 @@ end
 -- Via `read_or`, not `read(...) or …`: the default is substituted, but a
 -- permission denial is named in the log instead of passing for "the person
 -- did not override it".
-local FONTS = environment.read_or("WINDOWS_FONTS", "app:system_fonts")
+local FONTS = environment.read_or("CHICAGO_FONTS", "app:system_fonts")
 local FONT_FACE = "LiberationSans-Regular.ttf"
 local FONT_BOLD = "LiberationSans-Bold.ttf"
 -- The fixed-pitch face of the multi-line editor (FR-007 §4), from the same
@@ -64,7 +64,7 @@ local FONT_SIZE = 13
 -- Answers with a second value saying WHERE it was taken from, so that "did
 -- not ask" and "asked, but it could not be read" do not look the same.
 local function wants_pixels(): (boolean, string)
-    local asked, source = environment.read("WINDOWS_PIXELS")
+    local asked, source = environment.read("CHICAGO_PIXELS")
     if asked == "1" or asked == "true" or asked == "yes" then return true, source end
     if asked ~= nil then return false, "set to \"" .. tostring(asked) .. "\"" end
     return false, source
@@ -121,7 +121,7 @@ local function load_fonts(log, cell_h: any)
 end
 
 local function main()
-    local log = logger:named("windows.shell")
+    local log = logger:named("chicago.shell")
 
     -- The catalog is read when the menu is opened, not at startup: a window
     -- built by the workshop while the shell is running gets into the menu
@@ -246,7 +246,7 @@ local function main()
     -- The logged-on user's name, the same way: the profile window can rename
     -- the account, and Start must not keep showing the name from logon. The
     -- application names a function ({user_id} → {name}) in
-    -- WINDOWS_USER_FUNC; `read`, not `read_or`: there is no
+    -- CHICAGO_USER_FUNC; `read`, not `read_or`: there is no
     -- default, and unset keeps the name as it was at logon. A refusal or a
     -- failure keeps the old name and says why in the log.
     local user_func, user_func_source, user_func_denied = environment.read(logon_provider.USER_FUNC_ENV)
@@ -288,7 +288,7 @@ local function main()
         return view.join(items or {}, found), nil
     end
 
-    -- Desktop widgets (FR-006): the registry's `windows.widget` entries,
+    -- Desktop widgets (FR-006): the registry's `chicago.widget` entries,
     -- read when the compositor asks — at desktop start and on
     -- `desktop.refresh` — so a widget added to the registry appears without
     -- a restart. The base spawns and stops them and does not read the
@@ -354,7 +354,7 @@ local function main()
         -- statements, and the person can fix the second. So the source goes
         -- to the screen together with the outcome: a permission denial looks
         -- like an unset variable exactly until it is called by its name.
-        pixel_note = "pixels off: WINDOWS_PIXELS " .. tostring(source)
+        pixel_note = "pixels off: CHICAGO_PIXELS " .. tostring(source)
     end
 
     if asked then
@@ -411,7 +411,7 @@ local function main()
     -- Start opens it with `args.user_id`. `read`, not `read_or`: there is no
     -- default profile, and unset leaves the row a caption, as before. A
     -- permission denial is not "unset", and it is named in the log.
-    local profile_entry, profile_source, profile_denied = environment.read("WINDOWS_PROFILE_ENTRY")
+    local profile_entry, profile_source, profile_denied = environment.read("CHICAGO_PROFILE_ENTRY")
     if profile_denied then log:warn("profile row not enabled", {reason = tostring(profile_source)}) end
 
     local logon: any = nil
@@ -479,12 +479,12 @@ local function main()
         move_desktop_item = move_desktop_item,
         -- "Properties" on a right-click on the empty desktop is "Display
         -- Properties".
-        desktop_properties = "windows.shell.display:window",
+        desktop_properties = "chicago.shell.display:window",
         -- Windows built by the base's workshop are returned to the registry
         -- at startup. The shell often comes up alone, and without restoring
         -- them its menu would show a catalog without them, without explaining
         -- where they went. A restore failure goes into restore_report and is
-        -- visible in GET /windows/status.
+        -- visible in GET /chicago/status.
         restore = true,
         logon = logon,
     })

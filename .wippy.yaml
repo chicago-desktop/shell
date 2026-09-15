@@ -1,10 +1,10 @@
 version: "1.0"
 
-# windows/tui-desktop is not published to the Hub yet, so the base is taken
+# chicago/tui-desktop is not published to the Hub yet, so the base is taken
 # from the neighboring working copy. Removal condition: as soon as the base is
 # published, remove this replacement and keep resolution by the version from
 # wippy.lock — otherwise the module builds only on a machine that has the
 # required directory right next to it.
 workspace:
   replacements:
-    windows/tui-desktop: ../kickside-module
+    chicago/tui-desktop: ../kickside-module

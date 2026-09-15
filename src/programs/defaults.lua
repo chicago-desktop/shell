@@ -12,7 +12,7 @@
 -- itself — `desktop: true` in its own entry.
 --
 -- The mark that the furniture has already been offered lives in the same
--- table `windows_shell_desktop_seeded` as the programs' marks, so an
+-- table `chicago_shell_desktop_seeded` as the programs' marks, so an
 -- icon the person threw away does not come back — on any later startup.
 -- Keys here start with "!", which cannot appear in a registry entry
 -- identifier (that is always `namespace:name`): so a furniture key is
@@ -26,11 +26,11 @@ local defaults = {}
 -- what the stand consists of: drives from the registry, catalog programs,
 -- the desktop and open windows.
 --
--- This used to be `windows.tui_desktop.apps:commander` — a window built by
+-- This used to be `chicago.tui_desktop.apps:commander` — a window built by
 -- the base's workshop. A shortcut to it would leave together with someone
 -- else's workshop, and "My Computer" would stop being created SILENTLY: a
 -- missing program is skipped here, not marked.
-local MY_COMPUTER = "windows.shell.explorer:window"
+local MY_COMPUTER = "chicago.shell.explorer:window"
 
 defaults.ITEMS = {
     {

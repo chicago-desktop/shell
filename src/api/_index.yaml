@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: windows.shell.api
+namespace: chicago.shell.api
 
 # Shell endpoints: the program catalog for reading, and the desktop layout
 # for reading and writing.
@@ -11,7 +11,7 @@ namespace: windows.shell.api
 # the registry, and the two would diverge on the first module removal.
 
 entries:
-  # windows.shell.api:control
+  # chicago.shell.api:control
   #
   # The compositor rereads the layout on command, not every frame, so an
   # endpoint that changed a row is obliged to nudge it. Otherwise the icon
@@ -28,13 +28,13 @@ entries:
     imports:
       # The rule of desktop names (name, name.2, …): one shell per terminal.ssh
       # connection, and a refresh has to reach every one.
-      desktop: windows.tui_desktop.desktop:window_api
+      desktop: chicago.tui_desktop.desktop:window_api
 
-  # windows.shell.api:list_programs
+  # chicago.shell.api:list_programs
   - name: list_programs
     kind: function.lua
     meta:
-      comment: GET /windows/programs — the catalog from the registry, menu folders and order. A registry failure is returned as a failure, not as an empty list.
+      comment: GET /chicago/programs — the catalog from the registry, menu folders and order. A registry failure is returned as a failure, not as an empty list.
     source: file://list_programs.lua
     method: handler
     modules:
@@ -42,9 +42,9 @@ entries:
       - security
       - registry
     imports:
-      catalog: windows.shell.programs:catalog
+      catalog: chicago.shell.programs:catalog
     security:
-      policies: [windows.shell.security:shell_storage]
+      policies: [chicago.shell.security:shell_storage]
 
   - name: list_programs.endpoint
     kind: http.endpoint
@@ -53,13 +53,13 @@ entries:
       router: app:api
     method: GET
     func: list_programs
-    path: /windows/programs
+    path: /chicago/programs
 
-  # windows.shell.api:list_desktop
+  # chicago.shell.api:list_desktop
   - name: list_desktop
     kind: function.lua
     meta:
-      comment: GET /windows/desktop — desktop shortcuts and folders; a shortcut to a vanished entry is marked broken, not removed.
+      comment: GET /chicago/desktop — desktop shortcuts and folders; a shortcut to a vanished entry is marked broken, not removed.
     source: file://list_desktop.lua
     method: handler
     modules:
@@ -70,11 +70,11 @@ entries:
       - time
       - uuid
     imports:
-      repo: windows.shell.persist:repo
-      catalog: windows.shell.programs:catalog
-      view: windows.shell.programs:desktop_view
+      repo: chicago.shell.persist:repo
+      catalog: chicago.shell.programs:catalog
+      view: chicago.shell.programs:desktop_view
     security:
-      policies: [windows.shell.security:shell_storage]
+      policies: [chicago.shell.security:shell_storage]
 
   - name: list_desktop.endpoint
     kind: http.endpoint
@@ -83,9 +83,9 @@ entries:
       router: app:api
     method: GET
     func: list_desktop
-    path: /windows/desktop
+    path: /chicago/desktop
 
-  # windows.shell.api:desktop_body
+  # chicago.shell.api:desktop_body
   #
   # The body of desktop POST and PATCH — parsing and validation in one place,
   # without HTTP or the database, so that every refusal is checked by a test
@@ -98,13 +98,13 @@ entries:
     modules:
       - json
     imports:
-      repo: windows.shell.persist:repo
+      repo: chicago.shell.persist:repo
 
-  # windows.shell.api:create_desktop_item
+  # chicago.shell.api:create_desktop_item
   - name: create_desktop_item
     kind: function.lua
     meta:
-      comment: POST /windows/desktop — create a desktop shortcut or folder.
+      comment: POST /chicago/desktop — create a desktop shortcut or folder.
     source: file://create_desktop_item.lua
     method: handler
     modules:
@@ -118,12 +118,12 @@ entries:
       - channel
       - process
     imports:
-      repo: windows.shell.persist:repo
-      catalog: windows.shell.programs:catalog
-      control: windows.shell.api:control
-      desktop_body: windows.shell.api:desktop_body
+      repo: chicago.shell.persist:repo
+      catalog: chicago.shell.programs:catalog
+      control: chicago.shell.api:control
+      desktop_body: chicago.shell.api:desktop_body
     security:
-      policies: [windows.shell.security:shell_storage]
+      policies: [chicago.shell.security:shell_storage]
 
   - name: create_desktop_item.endpoint
     kind: http.endpoint
@@ -132,13 +132,13 @@ entries:
       router: app:api
     method: POST
     func: create_desktop_item
-    path: /windows/desktop
+    path: /chicago/desktop
 
-  # windows.shell.api:update_desktop_item
+  # chicago.shell.api:update_desktop_item
   - name: update_desktop_item
     kind: function.lua
     meta:
-      comment: PATCH /windows/desktop/{id} — move or rename; entry and kind do not change.
+      comment: PATCH /chicago/desktop/{id} — move or rename; entry and kind do not change.
     source: file://update_desktop_item.lua
     method: handler
     modules:
@@ -151,11 +151,11 @@ entries:
       - channel
       - process
     imports:
-      repo: windows.shell.persist:repo
-      control: windows.shell.api:control
-      desktop_body: windows.shell.api:desktop_body
+      repo: chicago.shell.persist:repo
+      control: chicago.shell.api:control
+      desktop_body: chicago.shell.api:desktop_body
     security:
-      policies: [windows.shell.security:shell_storage]
+      policies: [chicago.shell.security:shell_storage]
 
   - name: update_desktop_item.endpoint
     kind: http.endpoint
@@ -164,13 +164,13 @@ entries:
       router: app:api
     method: PATCH
     func: update_desktop_item
-    path: /windows/desktop/{id}
+    path: /chicago/desktop/{id}
 
-  # windows.shell.api:delete_desktop_item
+  # chicago.shell.api:delete_desktop_item
   - name: delete_desktop_item
     kind: function.lua
     meta:
-      comment: DELETE /windows/desktop/{id} — remove a shortcut or folder; the answer says whether the row existed.
+      comment: DELETE /chicago/desktop/{id} — remove a shortcut or folder; the answer says whether the row existed.
     source: file://delete_desktop_item.lua
     method: handler
     modules:
@@ -182,10 +182,10 @@ entries:
       - channel
       - process
     imports:
-      repo: windows.shell.persist:repo
-      control: windows.shell.api:control
+      repo: chicago.shell.persist:repo
+      control: chicago.shell.api:control
     security:
-      policies: [windows.shell.security:shell_storage]
+      policies: [chicago.shell.security:shell_storage]
 
   - name: delete_desktop_item.endpoint
     kind: http.endpoint
@@ -194,9 +194,9 @@ entries:
       router: app:api
     method: DELETE
     func: delete_desktop_item
-    path: /windows/desktop/{id}
+    path: /chicago/desktop/{id}
 
-  # windows.shell.api:shell_status
+  # chicago.shell.api:shell_status
   #
   # The restore report for workshop windows is visible only here: the
   # terminal host log is muted, and a failure told to the log is told to
@@ -204,7 +204,7 @@ entries:
   - name: shell_status
     kind: function.lua
     meta:
-      comment: GET /windows/status — whether the shell is alive, its windows, and the restore report for workshop windows.
+      comment: GET /chicago/status — whether the shell is alive, its windows, and the restore report for workshop windows.
     source: file://shell_status.lua
     method: handler
     modules:
@@ -214,9 +214,9 @@ entries:
       - process
       - time
     imports:
-      control: windows.shell.api:control
+      control: chicago.shell.api:control
     security:
-      policies: [windows.shell.security:shell_storage]
+      policies: [chicago.shell.security:shell_storage]
 
   - name: shell_status.endpoint
     kind: http.endpoint
@@ -225,4 +225,4 @@ entries:
       router: app:api
     method: GET
     func: shell_status
-    path: /windows/status
+    path: /chicago/status

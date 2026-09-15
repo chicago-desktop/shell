@@ -251,7 +251,7 @@ end
 
 -- Host-owned decoration for runtime-created windows which have no image field
 -- in their persistence schema. Keys are exact entry IDs, never display titles.
-catalog.IMAGES_TYPE = "windows.program_images"
+catalog.IMAGES_TYPE = "chicago.program_images"
 function catalog.assign_images(programs: any, declarations: any): (any, any)
     local chosen: any = {}
     for _, record in ipairs(declarations or {}) do
@@ -274,7 +274,7 @@ function catalog.assign_images(programs: any, declarations: any): (any, any)
 end
 
 -- The host names the clock window; the theme never guesses an entry ID.
-catalog.CLOCK_TYPE = "windows.taskbar_clock"
+catalog.CLOCK_TYPE = "chicago.taskbar_clock"
 function catalog.taskbar_clock(): (any, any)
     local found, err = registry.find({[".kind"] = "registry.entry", ["meta.type"] = catalog.CLOCK_TYPE})
     if err then return nil, "taskbar clock not read: " .. tostring(err) end
@@ -289,11 +289,11 @@ function catalog.taskbar_clock(): (any, any)
 end
 
 -- Desktop widgets (FR-006 §3): registry entries with `meta.type =
--- "windows.widget"`, each a state provider the compositor spawns under the
+-- "chicago.widget"`, each a state provider the compositor spawns under the
 -- logged-on user. The shell reads them and hands the list to the base
 -- (`options.widgets`), as it hands over the desktop items: the base does not
 -- read the registry itself.
-catalog.WIDGET_TYPE = "windows.widget"
+catalog.WIDGET_TYPE = "chicago.widget"
 -- The defaults of an entry that names no size or order. The limits
 -- (10..40 × 2..16) are the base's to check and to name: a size clamped here
 -- would be a tree laid out for another widget.

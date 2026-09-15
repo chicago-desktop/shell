@@ -2,7 +2,7 @@
 --
 -- The one place where a layout row meets a registry entry. It is used both
 -- by the shell (to draw the icon and know what to open) and by the
--- `GET /windows/desktop` handler. Were these two joins to diverge, the
+-- `GET /chicago/desktop` handler. Were these two joins to diverge, the
 -- screen and the handler's answer would show different desktops, and there
 -- would be nothing to explain the discrepancy by.
 --

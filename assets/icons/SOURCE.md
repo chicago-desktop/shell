@@ -77,4 +77,4 @@ scaling, except where noted.
   <https://win98icons.alexmeub.com/> — the Windows 98 set, the same Microsoft
   artwork as above; this icon is not in the Windows 95 `shell32.dll`
   (w95_1…w95_72); What it shows: a key with the Windows flag — the icon of the
-  "Welcome to Windows" dialog (`windows.shell.logon`).
+  "Welcome to Windows" dialog (`chicago.shell.logon`).

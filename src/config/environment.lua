@@ -5,7 +5,7 @@
 --
 -- THE FIRST. `env.get` sees ONLY the file store. For a variable from the
 -- process environment it answers "environment variable not found" — that is,
--- `WINDOWS_PIXELS=1 wippy run …` does not work without `get_all`.
+-- `CHICAGO_PIXELS=1 wippy run …` does not work without `get_all`.
 -- The process environment is returned by `env.get_all`.
 --
 -- THE SECOND, and it is quieter. A declared module without a granted
@@ -76,7 +76,7 @@ function environment.read_or(name: string, default: string, from: any?): (string
     local value, source, denied = environment.read(name, from)
     if value ~= nil then return tostring(value), source, false end
     if denied then
-        logger:named("windows.environment"):warn("policy denies env.get for " .. name .. ", using default",
+        logger:named("chicago.environment"):warn("policy denies env.get for " .. name .. ", using default",
             {name = name, default = tostring(default)})
     end
     return default, source, denied

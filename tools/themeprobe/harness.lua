@@ -2,7 +2,7 @@
 -- the canvas as text. It checks exactly what cannot be seen in the code —
 -- where the cells landed and whether the hits matched the drawing.
 --
--- Written together with the windows/shell theme to check it without
+-- Written together with the chicago/shell theme to check it without
 -- bringing up the stand: there is one stand for everyone, and a frame that is
 -- off by a cell is visible only in a rendered frame. The caveat about
 -- character width is in the README next to it, and it must travel together
@@ -382,7 +382,7 @@ scene(96, 24, {
 scene(96, 14, {
     title = "registry refusal is named by its reason",
     state = {clock = "21:47", menu_open = true},
-    menu = {items = {}, failure = "registry.find: permission denied for actor windows.shell.theme:shell"},
+    menu = {items = {}, failure = "registry.find: permission denied for actor chicago.shell.theme:shell"},
 })
 
 scene(96, 12, {
@@ -419,7 +419,7 @@ scene(60, 14, {
 
 scene(60, 12, {
     title = "desktop layout could not be read",
-    desk = {top = 1, bottom = 11, failure = "db: no such table: windows_shell_desktop_items"},
+    desk = {top = 1, bottom = 11, failure = "db: no such table: chicago_shell_desktop_items"},
     state = {clock = "21:47"},
 })
 
@@ -593,7 +593,7 @@ window_scene(64, 20, "My Computer: drives from the registry and shell folders", 
         {id = "wippy.facade:public_files", kind = "fs.directory"},
         {id = "keeper:ui_static_fs", kind = "fs.embed"},
         {id = "vlad.doom:ui_static_fs", kind = "fs.directory"},
-        {id = "windows.shell:previews_fs", kind = "fs.directory"},
+        {id = "chicago.shell:previews_fs", kind = "fs.directory"},
     })),
 })
 

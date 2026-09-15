@@ -26,11 +26,11 @@
 -- are small and grow from nothing except the appearance of new programs.
 
 return require("migration").define(function()
-    migration("Create windows_shell desktop layout tables", function()
+    migration("Create chicago_shell desktop layout tables", function()
         database("postgres", function()
             up(function(db)
                 local _, err = db:execute([[
-                    CREATE TABLE windows_shell_desktop_items (
+                    CREATE TABLE chicago_shell_desktop_items (
                         id TEXT PRIMARY KEY,
                         kind TEXT NOT NULL,
                         entry TEXT,
@@ -42,32 +42,32 @@ return require("migration").define(function()
                         updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
                     );
                 ]])
-                if err then error("Failed to create windows_shell_desktop_items: " .. err) end
+                if err then error("Failed to create chicago_shell_desktop_items: " .. err) end
 
                 local _, ierr = db:execute([[
-                    CREATE INDEX windows_shell_desktop_items_parent_idx
-                        ON windows_shell_desktop_items (parent_id);
+                    CREATE INDEX chicago_shell_desktop_items_parent_idx
+                        ON chicago_shell_desktop_items (parent_id);
                 ]])
-                if ierr then error("Failed to index windows_shell_desktop_items: " .. ierr) end
+                if ierr then error("Failed to index chicago_shell_desktop_items: " .. ierr) end
 
                 local _, serr = db:execute([[
-                    CREATE TABLE windows_shell_desktop_seeded (
+                    CREATE TABLE chicago_shell_desktop_seeded (
                         entry TEXT PRIMARY KEY,
                         seeded_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
                     );
                 ]])
-                if serr then error("Failed to create windows_shell_desktop_seeded: " .. serr) end
+                if serr then error("Failed to create chicago_shell_desktop_seeded: " .. serr) end
             end)
             down(function(db)
-                db:execute("DROP TABLE windows_shell_desktop_seeded")
-                db:execute("DROP TABLE windows_shell_desktop_items")
+                db:execute("DROP TABLE chicago_shell_desktop_seeded")
+                db:execute("DROP TABLE chicago_shell_desktop_items")
             end)
         end)
 
         database("sqlite", function()
             up(function(db)
                 local _, err = db:execute([[
-                    CREATE TABLE windows_shell_desktop_items (
+                    CREATE TABLE chicago_shell_desktop_items (
                         id TEXT PRIMARY KEY,
                         kind TEXT NOT NULL,
                         entry TEXT,
@@ -79,25 +79,25 @@ return require("migration").define(function()
                         updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                     )
                 ]])
-                if err then error("Failed to create windows_shell_desktop_items: " .. err) end
+                if err then error("Failed to create chicago_shell_desktop_items: " .. err) end
 
                 local _, ierr = db:execute([[
-                    CREATE INDEX windows_shell_desktop_items_parent_idx
-                        ON windows_shell_desktop_items (parent_id)
+                    CREATE INDEX chicago_shell_desktop_items_parent_idx
+                        ON chicago_shell_desktop_items (parent_id)
                 ]])
-                if ierr then error("Failed to index windows_shell_desktop_items: " .. ierr) end
+                if ierr then error("Failed to index chicago_shell_desktop_items: " .. ierr) end
 
                 local _, serr = db:execute([[
-                    CREATE TABLE windows_shell_desktop_seeded (
+                    CREATE TABLE chicago_shell_desktop_seeded (
                         entry TEXT PRIMARY KEY,
                         seeded_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                     )
                 ]])
-                if serr then error("Failed to create windows_shell_desktop_seeded: " .. serr) end
+                if serr then error("Failed to create chicago_shell_desktop_seeded: " .. serr) end
             end)
             down(function(db)
-                db:execute("DROP TABLE windows_shell_desktop_seeded")
-                db:execute("DROP TABLE windows_shell_desktop_items")
+                db:execute("DROP TABLE chicago_shell_desktop_seeded")
+                db:execute("DROP TABLE chicago_shell_desktop_items")
             end)
         end)
     end)

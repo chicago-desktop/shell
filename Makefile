@@ -1,5 +1,5 @@
-# windows/shell — initialize, verify, and publish a standalone Kickside module.
-MODULE := windows
+# chicago/shell — initialize, verify, and publish a standalone Kickside module.
+MODULE := shell
 TYPE   := plugin
 VIS    := public
 

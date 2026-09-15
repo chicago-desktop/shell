@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: windows.shell.security
+namespace: chicago.shell.security
 
 # Permissions are split in two rather than merged into one "anything goes":
 # the shell needs to spawn windows and run programs, the layout endpoints
@@ -7,7 +7,7 @@ namespace: windows.shell.security
 # spawn processes will sooner or later do it as the wrong one.
 
 entries:
-  # windows.shell.security:shell_runtime
+  # chicago.shell.security:shell_runtime
   #
   # The shell's own permissions. The list repeats the base compositor's
   # permissions: the shell IS the compositor, called with its own theme, and
@@ -19,7 +19,7 @@ entries:
   # group from changing the registry, and a restorer service would silently
   # do nothing. A shell brought up on its own without this permission would
   # show a menu without the workshop windows and would not explain why they
-  # are missing. The restore failure is visible in GET /windows/status.
+  # are missing. The restore failure is visible in GET /chicago/status.
   #
   # The environment is NOT here: it is granted by name in shell_env.
   - name: shell_runtime
@@ -38,7 +38,7 @@ entries:
         - process.registry
         - process.registry.register
         - process.registry.unregister
-        # Logon (windows.shell.logon): windows are spawned under the
+        # Logon (chicago.shell.logon): windows are spawned under the
         # actor of the logged-on user — substituting a child's identity
         # requires a separate permission; the application's logon function
         # is called through funcs; the session token is turned into an actor
@@ -70,16 +70,16 @@ entries:
       resources: "*"
       effect: allow
 
-  # windows.shell.security:shell_env
+  # chicago.shell.security:shell_env
   #
   # The environment the shell reads, BY NAME. `env.get` is checked per
   # variable name, and under neighbouring names lie tokens: opening the whole
   # environment for five strings is not the same as opening five strings.
   #
   # Who reads what, under the shell's actor:
-  #   windows.lua                        WINDOWS_PIXELS, WINDOWS_FONTS,
-  #                                      WINDOWS_PROFILE_ENTRY, WINDOWS_USER_FUNC
-  #   logon/provider.lua                 WINDOWS_LOGON_FUNC, WINDOWS_TOKEN_STORE
+  #   windows.lua                        CHICAGO_PIXELS, CHICAGO_FONTS,
+  #                                      CHICAGO_PROFILE_ENTRY, CHICAGO_USER_FUNC
+  #   logon/provider.lua                 CHICAGO_LOGON_FUNC, CHICAGO_TOKEN_STORE
   #   the base's persist/repo.lua, loaded
   #   by its compositor library          TUI_DESKTOP_DB_ID
   #
@@ -97,16 +97,16 @@ entries:
       actions:
         - env.get
       resources:
-        - WINDOWS_PIXELS
-        - WINDOWS_FONTS
-        - WINDOWS_LOGON_FUNC
-        - WINDOWS_TOKEN_STORE
-        - WINDOWS_PROFILE_ENTRY
-        - WINDOWS_USER_FUNC
+        - CHICAGO_PIXELS
+        - CHICAGO_FONTS
+        - CHICAGO_LOGON_FUNC
+        - CHICAGO_TOKEN_STORE
+        - CHICAGO_PROFILE_ENTRY
+        - CHICAGO_USER_FUNC
         - TUI_DESKTOP_DB_ID
       effect: allow
 
-  # windows.shell.security:layout_target
+  # chicago.shell.security:layout_target
   #
   # The layout database is named by the `target_db` requirement in the
   # migration entries, and the repository reads it back with registry.get
@@ -120,10 +120,10 @@ entries:
       actions:
         - registry.get
       resources:
-        - windows.shell.migrations:01_create_desktop_items
+        - chicago.shell.migrations:01_create_desktop_items
       effect: allow
 
-  # windows.shell.security:shell_storage
+  # chicago.shell.security:shell_storage
   #
   # Permissions of the layout endpoints: read the catalog and read-write
   # their own rows. There is no process spawning and no program running here
@@ -154,7 +154,7 @@ entries:
       resources: "*"
       effect: allow
 
-  # windows.shell.security:explorer_window
+  # chicago.shell.security:explorer_window
   #
   # Permissions of the "My Computer" window. It can NOT spawn processes or run
   # programs — there is neither `spawn` nor `exec` here, and that is the main
@@ -192,7 +192,7 @@ entries:
       resources: "*"
       effect: allow
 
-  # windows.shell.security:shell_endpoint_access
+  # chicago.shell.security:shell_endpoint_access
   # State provider of a view window (FR-005 §4b): its own narrow actor,
   # separate from the compositor. It needs to read the context, find the
   # compositor by name and send it the state — and nothing more: no registry,
@@ -218,15 +218,15 @@ entries:
     groups: []
     policy:
       resources:
-        - windows.shell.api:*
+        - chicago.shell.api:*
       actions: access
       effect: allow
 
-  # windows.shell.security:user_security_scope
+  # chicago.shell.security:user_security_scope
   - name: user_security_scope
     kind: ns.requirement
     meta:
       comment: The application security group that is given access to the shell endpoints.
     targets:
-      - entry: windows.shell.security:shell_endpoint_access
+      - entry: chicago.shell.security:shell_endpoint_access
         path: ".groups +="

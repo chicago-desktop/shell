@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: windows.shell.sysprops
+namespace: chicago.shell.sysprops
 
 # "System Properties" is the properties window of "My Computer", like System
 # Properties in Windows 95. It opens from the "Properties" item of the icon's
@@ -7,14 +7,14 @@ namespace: windows.shell.sysprops
 # Settings".
 
 entries:
-  # windows.shell.sysprops:model
+  # chicago.shell.sysprops:model
   - name: model
     kind: library.lua
     meta:
       comment: The pure model of "System Properties" — the stand's device tree from a runtime snapshot and registry entries, visible rows, captions.
     source: file://model.lua
     imports:
-      geometry: windows.tui_desktop.desktop:geometry
+      geometry: chicago.tui_desktop.desktop:geometry
 
   # Permissions: read the runtime and the registry, ask the compositor and
   # publish state to it. The window can neither write to the registry nor
@@ -34,7 +34,7 @@ entries:
       resources: "*"
       effect: allow
 
-  # windows.shell.sysprops:window
+  # chicago.shell.sysprops:window
   - name: window
     kind: process.lua
     meta:
@@ -48,8 +48,8 @@ entries:
       resizable: false
       width: 60
       height: 24
-      pixel_render: windows.shell.sdk:render
-      pixel_state: windows.shell.sysprops:window
+      pixel_render: chicago.shell.sdk:render
+      pixel_state: chicago.shell.sysprops:window
       comment: System Properties — the runtime node and modules, hosts, file systems, databases and HTTP from the registry, memory and goroutines; a window on the shell SDK, read-only.
     source: file://window.lua
     method: main
@@ -57,10 +57,10 @@ entries:
       - system
       - registry
     security:
-      policies: [windows.shell.sysprops:window_scope]
+      policies: [chicago.shell.sysprops:window_scope]
     imports:
-      geometry: windows.tui_desktop.desktop:geometry
-      app: windows.shell.sdk:app
-      model: windows.shell.sysprops:model
-      charts: windows.shell.sdk:charts
-      facts: windows.shell.config:system
+      geometry: chicago.tui_desktop.desktop:geometry
+      app: chicago.shell.sdk:app
+      model: chicago.shell.sysprops:model
+      charts: chicago.shell.sdk:charts
+      facts: chicago.shell.config:system

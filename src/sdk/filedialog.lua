@@ -1,4 +1,4 @@
--- windows.shell.sdk:filedialog — the Windows 95 common file dialog,
+-- chicago.shell.sdk:filedialog — the Windows 95 common file dialog,
 -- Open and Save As, as a sheet inside the window (FR-007 §5).
 --
 -- Pure, like the rest of the SDK: `sheet` builds the tree from the dialog's

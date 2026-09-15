@@ -6,7 +6,7 @@
 -- visible only in the screenshot, and a person or an agent looks at it with
 -- Read.
 --
--- Draws with THE SAME `windows.shell.theme:pixels` that will ship to the
+-- Draws with THE SAME `chicago.shell.theme:pixels` that will ship to the
 -- running system. A private copy of the painting for the sake of a
 -- screenshot would be checking the copy.
 --
@@ -264,15 +264,15 @@ local function main(spec)
 
     -- Fixed public labels reproduce the menu used to report unreadable text.
     local font_menu = catalog.build({
-        {id = "windows.shell.explorer:window", meta = {title = "My Computer", image = "my_computer", group = "", order = 10}},
-        {id = "windows.shell.calc:window", meta = {title = "Calculator", image = "calculator", order = 20}},
-        {id = "windows.shell.datetime:window", meta = {title = "Date & Time", image = "clock", order = 30}},
-        {id = "windows.shell.viewers:notepad", meta = {title = "Notepad", image = "text_document", order = 40}},
+        {id = "chicago.shell.explorer:window", meta = {title = "My Computer", image = "my_computer", group = "", order = 10}},
+        {id = "chicago.shell.calc:window", meta = {title = "Calculator", image = "calculator", order = 20}},
+        {id = "chicago.shell.datetime:window", meta = {title = "Date & Time", image = "clock", order = 30}},
+        {id = "chicago.shell.viewers:notepad", meta = {title = "Notepad", image = "text_document", order = 40}},
         {id = "example:bridge", meta = {title = "Jobs", group = "Programs/Bridge", order = 50}},
         {id = "example:content", meta = {title = "Articles", group = "Programs/Content machine", order = 60}},
-        {id = "windows.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "program", order = 70}},
+        {id = "chicago.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "program", order = 70}},
         {id = "example:settings", meta = {title = "Properties", group = "Settings", order = 80}},
-        {id = "windows.shell.run:window", meta = {title = "Run…", image = "run", group = "", order = 900}},
+        {id = "chicago.shell.run:window", meta = {title = "Run…", image = "run", group = "", order = 900}},
     })
     chrome_pixels.use_fonts(font, bold)
     chrome_pixels.use_cell_size(cell.w, cell.h)
@@ -322,7 +322,7 @@ local function main(spec)
             },
             focused_id = "w2",
             items = {
-                {id = "s1", kind = "shortcut", entry = "windows.shell.explorer:window",
+                {id = "s1", kind = "shortcut", entry = "chicago.shell.explorer:window",
                  title = "My Computer", x = 2, y = 1},
                 {id = "f1", kind = "folder", title = "Programs", x = 2, y = 5},
                 {id = "s2", kind = "shortcut", entry = "app:bin", image = "recycle_bin", title = "Recycle Bin", x = 2, y = 9},
@@ -350,8 +350,8 @@ local function main(spec)
             -- icon, "Open" in bold, "Properties" past the separator line.
             state.selected = "s1"
             state.menu = {anchor = {x = 6, y = 2}, cursor = 2, open = {}, items = {
-                {label = "Open", bold = true, entry = "windows.shell.explorer:window", title = "My Computer"},
-                {label = "Properties", entry = "windows.shell.sysprops:window", separator_before = true},
+                {label = "Open", bold = true, entry = "chicago.shell.explorer:window", title = "My Computer"},
+                {label = "Properties", entry = "chicago.shell.sysprops:window", separator_before = true},
             }}
         elseif notice == "over" then
             -- A window under the open "Start": its raster is cut by the menu
@@ -368,7 +368,7 @@ local function main(spec)
             -- reason is visible in full.
             state.items, state.selected, state.menu = {}, nil, nil
             state.windows = {state.windows[2]}
-            state.failure = "database is locked: SELECT id, x, y, image FROM windows_shell_desktop"
+            state.failure = "database is locked: SELECT id, x, y, image FROM chicago_shell_desktop"
                 .. " ORDER BY position; retry after the shell restarts"
             state.notice = "could not open: app:gone — entry not found"
         elseif notice then
@@ -408,26 +408,26 @@ local function main(spec)
         chrome_pixels.use_fonts(font, bold)
         chrome_pixels.use_cell_size(cell.w, cell.h)
         local records = {
-            {id = "windows.shell.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10, in_menu = false}},
+            {id = "chicago.shell.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10, in_menu = false}},
             {id = "app.desktop:window_calc", meta = {title = "Calculator", image = "calculator", group = "Accessories"}},
-            {id = "windows.tui_desktop.apps:commander", meta = {title = "Stand Explorer"}},
-            {id = "windows.tui_desktop.apps:dataflows", meta = {title = "Runs"}},
-            {id = "windows.tui_desktop.apps:bridge_runs", meta = {title = "Job runs"}},
-            {id = "windows.tui_desktop.apps:bridge_jobs", meta = {title = "Bridge jobs"}},
-            {id = "windows.tui_desktop.apps:dataflow_detail", meta = {title = "Run nodes"}},
-            {id = "windows.tui_desktop.apps:clock", meta = {title = "Clock"}},
+            {id = "chicago.tui_desktop.apps:commander", meta = {title = "Stand Explorer"}},
+            {id = "chicago.tui_desktop.apps:dataflows", meta = {title = "Runs"}},
+            {id = "chicago.tui_desktop.apps:bridge_runs", meta = {title = "Job runs"}},
+            {id = "chicago.tui_desktop.apps:bridge_jobs", meta = {title = "Bridge jobs"}},
+            {id = "chicago.tui_desktop.apps:dataflow_detail", meta = {title = "Run nodes"}},
+            {id = "chicago.tui_desktop.apps:clock", meta = {title = "Clock"}},
         }
         local built = catalog.build(records)
         assert(catalog.assign_images(built.programs, {{data = {images = {
-            ["windows.tui_desktop.apps:commander"] = "network_neighborhood",
-            ["windows.tui_desktop.apps:dataflows"] = "run",
-            ["windows.tui_desktop.apps:bridge_runs"] = "documents_stack",
-            ["windows.tui_desktop.apps:bridge_jobs"] = "system",
-            ["windows.tui_desktop.apps:dataflow_detail"] = "program_settings",
-            ["windows.tui_desktop.apps:clock"] = "clock",
+            ["chicago.tui_desktop.apps:commander"] = "network_neighborhood",
+            ["chicago.tui_desktop.apps:dataflows"] = "run",
+            ["chicago.tui_desktop.apps:bridge_runs"] = "documents_stack",
+            ["chicago.tui_desktop.apps:bridge_jobs"] = "system",
+            ["chicago.tui_desktop.apps:dataflow_detail"] = "program_settings",
+            ["chicago.tui_desktop.apps:clock"] = "clock",
         }}}}))
         local items = desktop_view.join({
-            {id = "computer", kind = "shortcut", entry = "windows.shell.explorer:window", title = "My Computer", x = 2, y = 1},
+            {id = "computer", kind = "shortcut", entry = "chicago.shell.explorer:window", title = "My Computer", x = 2, y = 1},
         }, built)
         local state = {width = 100, height = 36, top = 1, bottom = 36 - chrome_pixels.layout(100, 36).bottom,
             items = items, windows = {}, clock = "12:00",
@@ -458,7 +458,7 @@ local function main(spec)
     -- Real shell chrome with a sample of the cell text layer represented in PNG.
     do
         local mono = assert(load_font("LiberationMono-Regular.ttf", 14))
-        local window = {id = "bash", entry = "windows.tui_desktop.desktop:window_pty",
+        local window = {id = "bash", entry = "chicago.tui_desktop.desktop:window_pty",
             title = "Bash", image = "program", window_type = "app", x = 16, y = 6, w = 72, h = 20}
         local state = {width = 100, height = 32, top = 1, bottom = 30, items = {},
             windows = {window}, focused_id = "bash", clock = "12:00"}
@@ -589,7 +589,7 @@ local function main(spec)
     do
         local explorer = explorer_window.definition
         local drives = {}
-        for _, name in ipairs({"app:app_fs", "app:data_dir", "app:system_fonts", "windows.shell:assets",
+        for _, name in ipairs({"app:app_fs", "app:data_dir", "app:system_fonts", "chicago.shell:assets",
             "keeper:ui_static_fs", "vlad.doom:ui_static_fs"}) do
             drives[#drives + 1] = {id = name, kind = name:find("ui_static", 1, true) and "fs.embed" or "fs.directory"}
         end
@@ -605,7 +605,7 @@ local function main(spec)
                 interaction = ui.interaction(), ui = explorer.view(state, {width = cols, height = rows})}}, cols, rows)
         end
         shot("mycomputer", folder("", model.root(drives)), 46, 14)
-        local programs = {{entry = "windows.shell.viewers:notepad", title = "Notepad", image = "notepad",
+        local programs = {{entry = "chicago.shell.viewers:notepad", title = "Notepad", image = "notepad",
             file_image = "text_document", file_type = "Text Document", opens = {"txt", "md", "lua", "yaml"}}}
         local stamp = 1789300200
         local files = model.files({

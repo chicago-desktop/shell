@@ -1,14 +1,14 @@
 version: "1.0"
-namespace: windows.shell.persist
+namespace: chicago.shell.persist
 
 # Storage for the desktop layout.
 #
 # There is no program code here: it lives in the base's
-# windows_tui_desktop_windows. Here there is only what the user moves —
+# chicago_tui_desktop_windows. Here there is only what the user moves —
 # where an icon is and what it is called.
 
 entries:
-  # windows.shell.persist:repo
+  # chicago.shell.persist:repo
   - name: repo
     kind: library.lua
     meta:

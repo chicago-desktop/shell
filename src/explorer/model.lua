@@ -53,7 +53,7 @@ model.FILE_ICON = "▫"
 
 -- The folder window itself (FR-008 §3): opening a folder opens this entry with
 -- the folder's path in `args`.
-model.EXPLORER = "windows.shell.explorer:window"
+model.EXPLORER = "chicago.shell.explorer:window"
 
 -- The Control Panel: a folder at the root holding the catalog's `Settings`
 -- programs. Its picture is the pack's `control_panel`.

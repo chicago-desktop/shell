@@ -1,4 +1,4 @@
--- GET /windows/programs — the program catalog from the registry.
+-- GET /chicago/programs — the program catalog from the registry.
 --
 -- There is no endpoint to CREATE a program next to it, and there will not be
 -- one: programs appear by installing a module or by building a window

@@ -81,7 +81,7 @@ local function files(selected: any): any
 end
 
 local function define_tests()
-    test.describe("windows.shell.sdk Small Icons", function()
+    test.describe("chicago.shell.sdk Small Icons", function()
         test.it("lays small icons out in 15-cell columns one row high and walks them as the large grid", function()
             test.eq(listed({[ui.icon_grid(true).w] = true, [ui.icon_grid(true).h + 100] = true}), "101,15")
             test.eq(ui.icon_grid().w, 12, "the large grid is unchanged")
@@ -121,7 +121,7 @@ local function define_tests()
         end)
     end)
 
-    test.describe("windows.shell.sdk multi-selection", function()
+    test.describe("chicago.shell.sdk multi-selection", function()
         test.it("icons: a click selects one, Ctrl toggles, Shift takes the range in view order, Ctrl+A all", function()
             local state = ui.interaction()
             local set: any = {}
@@ -215,7 +215,7 @@ local function define_tests()
         end)
     end)
 
-    test.describe("windows.shell.sdk tree pointer", function()
+    test.describe("chicago.shell.sdk tree pointer", function()
         test.it("a click on a tree row is a select with pointer, a key is one without", function()
             local tree = {kind = "tree", id = "keys", selected = 1, rows = {
                 {id = "hkcu", label = "HKEY_CURRENT_USER", depth = 0, has_children = true, kind = "folder", trail = {}},
@@ -233,7 +233,7 @@ local function define_tests()
         end)
     end)
 
-    test.describe("windows.shell.sdk table cell pictures", function()
+    test.describe("chicago.shell.sdk table cell pictures", function()
         local function pictured(image: any): any
             local first: any = image and {text = "MMMMMM", image = image, icon = glyphs.icons.folder, kind = "folder"} or "MMMMMM"
             return {kind = "table", id = "files", columns = {{title = "Name", weight = 1}},

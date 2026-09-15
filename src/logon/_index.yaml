@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: windows.shell.logon
+namespace: chicago.shell.logon
 
 # Logon — "Welcome to Windows" before the first desktop frame.
 #
@@ -7,13 +7,13 @@ namespace: windows.shell.logon
 # a dialog on the same terminal and returns the user identity under which the
 # compositor spawns every window. The shell does not know who checks the
 # password: the application names a function through the environment
-# (WINDOWS_LOGON_FUNC), and that function answers with a session
-# token, while the token store (WINDOWS_TOKEN_STORE) turns the
+# (CHICAGO_LOGON_FUNC), and that function answers with a session
+# token, while the token store (CHICAGO_TOKEN_STORE) turns the
 # token back into an actor and a scope. Without these two names the shell
 # comes up without logon, as before: windows under its own actor.
 
 entries:
-  # windows.shell.logon:screen
+  # chicago.shell.logon:screen
   #
   # The dialog itself: an SDK component tree inside the theme's dialog window,
   # both frame modes. It has no renderer of its own — the frame is drawn by
@@ -27,13 +27,13 @@ entries:
     modules:
       - channel
     imports:
-      chrome: windows.shell.theme:chrome
-      chrome_pixels: windows.shell.theme:chrome_pixels
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
-      input: windows.tui_desktop.desktop:input
+      chrome: chicago.shell.theme:chrome
+      chrome_pixels: chicago.shell.theme:chrome_pixels
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      input: chicago.tui_desktop.desktop:input
 
-  # windows.shell.logon:provider
+  # chicago.shell.logon:provider
   #
   # Identity from login and password. The library gets ITS OWN modules, but
   # the permissions belong to the shell process: funcs.call on the logon
@@ -48,4 +48,4 @@ entries:
       - funcs
       - security
     imports:
-      environment: windows.shell.config:environment
+      environment: chicago.shell.config:environment

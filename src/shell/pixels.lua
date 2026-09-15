@@ -572,7 +572,7 @@ function pixels.icon(raster, x: any, y: any, item: any, size: any)
         rect(4, 16, 25, 4, "#ffff00")
         rect(3, 20, 25, 6, "#ffff00")
         rect(2, 26, 25, 2, "#c0c000")
-    elseif item.entry == "windows.shell.explorer:window" then
+    elseif item.entry == "chicago.shell.explorer:window" then
         rect(4, 0, 24, 22, "#000000")
         rect(5, 1, 22, 20, "#c0c0c0")
         rect(5, 1, 22, 1, "#ffffff")
@@ -621,7 +621,7 @@ function pixels.icon(raster, x: any, y: any, item: any, size: any)
             end
         end
     end
-    if kind == "shortcut" and item.entry ~= "windows.shell.explorer:window" then
+    if kind == "shortcut" and item.entry ~= "chicago.shell.explorer:window" then
         rect(0, 23, 10, 9, "#000000")
         rect(1, 24, 8, 7, "#ffffff")
         rect(3, 26, 4, 2, "#000000")

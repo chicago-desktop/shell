@@ -122,7 +122,7 @@ local function pictured_cells(rows: any, cols: integer, count: integer, font: an
 end
 
 local function define_tests()
-    test.describe("windows.shell.sdk editor component", function()
+    test.describe("chicago.shell.sdk editor component", function()
         test.it("lays out a horizontal bar only without wrap, a vertical bar always", function()
             local state = ui.interaction()
             local plain_plan = ui.plan(doc("hello"), 20, 6, state).by_id.doc

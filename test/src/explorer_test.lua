@@ -19,7 +19,7 @@ local function by_id(objects, id)
 end
 
 local function define_tests()
-    test.describe("windows.shell explorer", function()
+    test.describe("chicago.shell explorer", function()
         test.it("leaves only the Control Panel at the root when there are no filesystems", function()
             local root = model.root({})
             test.eq(#root, 1)

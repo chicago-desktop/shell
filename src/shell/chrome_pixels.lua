@@ -89,8 +89,8 @@ local unit: any = UNSET
 -- (whoever took a raster from it, that one's placement survives the frame
 -- without a store of its own).
 local VIEWS: any = {
-    ["windows.shell.sdk:render"] = sdk_render,
-    ["windows.shell.viewers:picture_render"] = picture_render,
+    ["chicago.shell.sdk:render"] = sdk_render,
+    ["chicago.shell.viewers:picture_render"] = picture_render,
 }
 function chrome_pixels.forget(id)
     picture_render.forget(id)
@@ -1146,7 +1146,7 @@ end
 -- parsed by guesswork.
 -- Which parts of each picture are visible — higher windows and the menu cut
 -- lower pictures — is pure rectangle geometry and lives in
--- `windows.shell.theme:placements` (subtract, the layers, the crop id and
+-- `chicago.shell.theme:placements` (subtract, the layers, the crop id and
 -- key rule). Here only the rasters: a cropped piece is its own placement, cut
 -- from the source raster once per source version (the store's key).
 local function visible_placements(list: any, windows: any, menus: any, cell: any): any

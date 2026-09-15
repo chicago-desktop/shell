@@ -37,14 +37,14 @@ entries:
       height: 23
       window_type: app
       resizable: true
-      pixel_render: windows.shell.sdk:render
+      pixel_render: chicago.shell.sdk:render
       pixel_state: {args.namespace}:window
     source: file://window.lua
     method: main
     imports:
-      app: windows.shell.sdk:app
+      app: chicago.shell.sdk:app
     security:
-      policies: [windows.shell.security:view_state]
+      policies: [chicago.shell.security:view_state]
 '''
     target.mkdir(parents=True, exist_ok=True)
     (target / 'window.lua').write_text(source.read_text(), encoding='utf-8')

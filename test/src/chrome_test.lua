@@ -93,13 +93,13 @@ local function define_tests()
 
     test.describe("Bash window colors", function()
         test.it("applies terminal defaults by entry identity in both themes", function()
-            local bash = {entry = "windows.tui_desktop.desktop:window_pty", title = "top"}
+            local bash = {entry = "chicago.tui_desktop.desktop:window_pty", title = "top"}
             local defaults = chrome.content_colors(bash)
             test.eq(defaults.background, "#000000")
             test.eq(defaults.foreground, "#c0c0c0")
             test.eq(chrome_pixels.content_colors(bash), defaults)
-            test.is_nil(chrome.content_colors({entry = "windows.shell.explorer:window", title = "Bash"}))
-            test.is_nil(chrome.content_colors({entry = "windows.shell.run:window"}))
+            test.is_nil(chrome.content_colors({entry = "chicago.shell.explorer:window", title = "Bash"}))
+            test.is_nil(chrome.content_colors({entry = "chicago.shell.run:window"}))
         end)
 
         test.it("fills blank PTY rows and passes defaults through to ANSI parsing", function()
@@ -111,7 +111,7 @@ local function define_tests()
                     received = defaults
                 end,
             }
-            local window = {entry = "windows.tui_desktop.desktop:window_pty", title = "Bash",
+            local window = {entry = "chicago.tui_desktop.desktop:window_pty", title = "Bash",
                 x = 1, y = 1, w = 40, h = 8, rows = body}
             chrome.window(canvas, window, true)
             test.eq(received.background, "#000000")
@@ -224,7 +224,7 @@ local function define_tests()
         end)
     end)
 
-    test.describe("windows.shell title buttons", function()
+    test.describe("chicago.shell title buttons", function()
         test.it("pixel buttons have separate cells and perform the declared action", function()
             for _, size in ipairs({{10, 20}, {8, 16}}) do
                 chrome_pixels.use_cell_size(size[1], size[2])
@@ -1302,7 +1302,7 @@ local function define_tests()
             -- Two lines, not three: on the third, at the wrap limit, a
             -- different font would put an ellipsis instead of the last word,
             -- and the case would turn red for the wrong reason.
-            local reason = "database is locked: SELECT id, x, y, image FROM windows_shell_desktop"
+            local reason = "database is locked: SELECT id, x, y, image FROM chicago_shell_desktop"
                 .. " ORDER BY position, table "
             test.is_true(face:measure(reason .. "alpha") > 48 * 10,
                 "the scene must be wider than the plate, otherwise there is nothing to wrap")
@@ -1485,7 +1485,7 @@ local function define_tests()
             use_fonts()
             -- `children` not as a list: `ui.plan` throws inside the view library.
             local window = {id = "v", x = 5, y = 3, w = 30, h = 10, title = "View", content = "pixels",
-                render = "windows.shell.sdk:render",
+                render = "chicago.shell.sdk:render",
                 content_state = {sdk = 1, revision = 1, ui = {kind = "column", children = 42}}}
             local ok, painted = pcall(chrome_pixels.paint, {width = 80, height = 24, bottom = 22, clock = "12:00",
                 items = {}, windows = {window}, focused_id = "v"}, 10, 20)
@@ -1549,7 +1549,7 @@ local function define_tests()
                 windows = {
                     {id = "cells", x = 2, y = 3, w = 40, h = 16, title = "Bash", window_type = "app"},
                     {id = "sdk", x = 6, y = 8, w = 44, h = 12, title = "Task Manager", window_type = "app",
-                        content = "pixels", render = "windows.shell.sdk:render", state_revision = 1,
+                        content = "pixels", render = "chicago.shell.sdk:render", state_revision = 1,
                         content_state = {sdk = 1, revision = 1, ui = {kind = "label", text = "tick 1"}}},
                 },
                 focused_id = "sdk",

@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: windows.shell.sdk
+namespace: chicago.shell.sdk
 
 entries:
   - name: ui
@@ -7,33 +7,33 @@ entries:
     meta: {comment: "Window SDK ui. See docs/sdk.md."}
     source: file://ui.lua
     imports:
-      text: windows.tui_desktop.desktop:text
-      geometry: windows.tui_desktop.desktop:geometry
-      editor: windows.shell.sdk:editor
-      scroll: windows.tui_desktop.desktop:scroll
-      input: windows.tui_desktop.desktop:input
+      text: chicago.tui_desktop.desktop:text
+      geometry: chicago.tui_desktop.desktop:geometry
+      editor: chicago.shell.sdk:editor
+      scroll: chicago.tui_desktop.desktop:scroll
+      input: chicago.tui_desktop.desktop:input
 
   - name: charts
     kind: library.lua
     meta: {comment: "Window SDK charts: block-glyph graph and round ceilings. See docs/sdk.md."}
     source: file://charts.lua
     imports:
-      geometry: windows.tui_desktop.desktop:geometry
+      geometry: chicago.tui_desktop.desktop:geometry
 
   - name: gadget
     kind: library.lua
     meta: {comment: "Window SDK gadget kit. Plain trees for desktop widgets (stat, meter, history, lines, stack). See docs/sdk.md."}
     source: file://gadget.lua
     imports:
-      charts: windows.shell.sdk:charts
-      text: windows.tui_desktop.desktop:text
+      charts: chicago.shell.sdk:charts
+      text: chicago.tui_desktop.desktop:text
 
   - name: filedialog
     kind: library.lua
     meta: {comment: "Window SDK file dialog. The Windows 95 Open / Save As sheet, pure: the application reads the places it asks for. See docs/sdk.md."}
     source: file://filedialog.lua
     imports:
-      files: windows.shell.viewers:files
+      files: chicago.shell.viewers:files
 
   - name: cells
     kind: library.lua
@@ -41,15 +41,15 @@ entries:
     source: file://cells.lua
     modules: [tty]
     imports:
-      text: windows.tui_desktop.desktop:text
-      ui: windows.shell.sdk:ui
-      charts: windows.shell.sdk:charts
-      geometry: windows.tui_desktop.desktop:geometry
-      editor: windows.shell.sdk:editor
-      widgets: windows.shell.theme:widgets
-      icons: windows.shell.theme:icons
-      palette: windows.shell.theme:palette
-      glyphs: windows.shell.theme:glyphs
+      text: chicago.tui_desktop.desktop:text
+      ui: chicago.shell.sdk:ui
+      charts: chicago.shell.sdk:charts
+      geometry: chicago.tui_desktop.desktop:geometry
+      editor: chicago.shell.sdk:editor
+      widgets: chicago.shell.theme:widgets
+      icons: chicago.shell.theme:icons
+      palette: chicago.shell.theme:palette
+      glyphs: chicago.shell.theme:glyphs
 
   - name: render
     kind: library.lua
@@ -57,15 +57,15 @@ entries:
     source: file://render.lua
     modules: [gfx]
     imports:
-      text: windows.tui_desktop.desktop:text
-      ui: windows.shell.sdk:ui
-      charts: windows.shell.sdk:charts
-      geometry: windows.tui_desktop.desktop:geometry
-      editor: windows.shell.sdk:editor
-      pixels: windows.shell.theme:pixels
-      images: windows.shell.theme:images
-      palette: windows.shell.theme:palette
-      widgets: windows.shell.theme:widgets
+      text: chicago.tui_desktop.desktop:text
+      ui: chicago.shell.sdk:ui
+      charts: chicago.shell.sdk:charts
+      geometry: chicago.tui_desktop.desktop:geometry
+      editor: chicago.shell.sdk:editor
+      pixels: chicago.shell.theme:pixels
+      images: chicago.shell.theme:images
+      palette: chicago.shell.theme:palette
+      widgets: chicago.shell.theme:widgets
 
   - name: app
     kind: library.lua
@@ -73,16 +73,16 @@ entries:
     source: file://app.lua
     modules: [channel, tty, time]
     imports:
-      desktop: windows.tui_desktop.desktop:window_api
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
-      widgets: windows.shell.theme:widgets
-      editor: windows.shell.sdk:editor
+      desktop: chicago.tui_desktop.desktop:window_api
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      widgets: chicago.shell.theme:widgets
+      editor: chicago.shell.sdk:editor
 
   - name: editor
     kind: library.lua
     meta: {comment: "UTF-8 input editing for SDK controls: the single-line field and the multi-line editor's document (keys, selection, one-level undo, find, word wrap). See docs/sdk.md."}
     source: file://editor.lua
     imports:
-      geometry: windows.tui_desktop.desktop:geometry
-      text: windows.tui_desktop.desktop:text
+      geometry: chicago.tui_desktop.desktop:geometry
+      text: chicago.tui_desktop.desktop:text

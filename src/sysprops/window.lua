@@ -20,7 +20,7 @@ local whole = geometry.whole
 
 local definition: any = {interval = "2s"}
 
--- A value or a reason for every field: `windows.shell.config:system`.
+-- A value or a reason for every field: `chicago.shell.config:system`.
 -- Previously the second value of `system.*` was discarded, and the reason
 -- "hosts not read" was written into a field nobody read: the screen showed
 -- "(none)".

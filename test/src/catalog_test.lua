@@ -20,7 +20,7 @@ local function record(id, meta)
 end
 
 local function define_tests()
-    test.describe("windows.shell catalog", function()
+    test.describe("chicago.shell catalog", function()
     test.it("reads the host's exact clock entry", function()
         local entry, err = catalog.taskbar_clock()
         test.is_nil(err)
@@ -74,7 +74,7 @@ local function define_tests()
             test.eq(catalog.find(menu, probe.entry).image, probe.image)
             local joined = view.join({{id = "probe", kind = "shortcut", entry = probe.entry}}, found)
             test.eq(joined[1].image, probe.image)
-            local computer = catalog.find(found.programs, "windows.shell.explorer:window")
+            local computer = catalog.find(found.programs, "chicago.shell.explorer:window")
             test.eq(computer.image, "my_computer")
         end)
 

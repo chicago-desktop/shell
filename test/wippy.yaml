@@ -1,3 +1,3 @@
-organization: windows
+organization: chicago
 module: shell-harness
-description: Standalone runnable harness that boots windows/shell and runs its co-located *_test.lua suites.
+description: Standalone runnable harness that boots chicago/shell and runs its co-located *_test.lua suites.

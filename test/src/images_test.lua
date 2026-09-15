@@ -163,10 +163,10 @@ local function define_tests()
             test.eq(name, "program")
             test.eq(overlay, "shortcut_overlay")
 
-            name = images.name_for({kind = "shortcut", entry = "windows.shell.explorer:window"})
+            name = images.name_for({kind = "shortcut", entry = "chicago.shell.explorer:window"})
             test.eq(name, "my_computer")
             for _, kind in ipairs({"program", "window"}) do
-                name = images.name_for({kind = kind, entry = "windows.shell.explorer:window"})
+                name = images.name_for({kind = kind, entry = "chicago.shell.explorer:window"})
                 test.eq(name, "my_computer")
             end
 

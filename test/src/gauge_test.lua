@@ -43,7 +43,7 @@ local function bar(value: any, ceiling: any): any
 end
 
 local function define_tests()
-    test.describe("windows.shell.sdk gauge orientation", function()
+    test.describe("chicago.shell.sdk gauge orientation", function()
         test.it("lays a gauge out in either orientation and refuses any other", function()
             for _, orient in ipairs({"vertical", "horizontal", false}) do
                 local tree: any = {kind = "gauge", value = 1, ceiling = 2}

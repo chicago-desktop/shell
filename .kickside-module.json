@@ -2,12 +2,12 @@
   "templateVersion": 1,
   "initialized": true,
   "identity": {
-    "organization": "windows",
+    "organization": "chicago",
     "module": "shell",
-    "namespace": "windows.shell",
-    "tag": "windows-shell",
-    "route": "windows",
+    "namespace": "chicago.shell",
+    "tag": "chicago-shell",
+    "route": "chicago",
     "title": "Windows Shell",
-    "githubOwner": "wippy-windows"
+    "githubOwner": "chicago-desktop"
   }
 }

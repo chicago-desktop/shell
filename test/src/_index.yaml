@@ -1,14 +1,14 @@
 version: "1.0"
 namespace: app
 
-# Standalone harness for windows/shell. Provides the host resources the
+# Standalone harness for chicago/shell. Provides the host resources the
 # boot needs (app:db, app:processes, gateway + api router, env storage, a
 # permissive actor scope) and wires them through wippy/bootloader so the
 # co-located *_test.lua suites run in isolation. The router exists only so the
 # endpoint entries resolve; the suites call the libraries directly.
 #
 # The shell can also be brought up from here by hand, without the application:
-#   cd test && wippy run --host windows.shell:terminal windows
+#   cd test && wippy run --host chicago.shell:terminal chicago
 # Harness-only; excluded from publish via the module wippy.yaml.
 
 entries:
@@ -22,16 +22,16 @@ entries:
       type: test
       comment: The layout survives the round "created — read — moved — deleted", a broken shortcut stays and is marked, a deleted shortcut does not come back.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://storage_test.lua
     modules: [sql, env, json, time, uuid, registry]
     imports:
       test: wippy.test:test
-      repo: windows.shell.persist:repo
-      catalog: windows.shell.programs:catalog
-      seed: windows.shell.programs:seed
-      view: windows.shell.programs:desktop_view
-      desktop_body: windows.shell.api:desktop_body
+      repo: chicago.shell.persist:repo
+      catalog: chicago.shell.programs:catalog
+      seed: chicago.shell.programs:seed
+      view: chicago.shell.programs:desktop_view
+      desktop_body: chicago.shell.api:desktop_body
     method: run
 
   - name: catalog_test
@@ -40,15 +40,15 @@ entries:
       type: test
       comment: The catalog builds menu folders from meta.group, tells an empty catalog and an unreadable registry apart by different values, hides from the menu what asked to be hidden, does not create a folder without content, and names an unknown window type without hiding the program.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://catalog_test.lua
     modules: [registry]
     imports:
       test: wippy.test:test
-      catalog: windows.shell.programs:catalog
-      view: windows.shell.programs:desktop_view
-      chrome: windows.shell.theme:chrome
-      model: windows.shell.explorer:model
+      catalog: chicago.shell.programs:catalog
+      view: chicago.shell.programs:desktop_view
+      chrome: chicago.shell.theme:chrome
+      model: chicago.shell.explorer:model
     method: run
 
   - name: defaults_test
@@ -57,15 +57,15 @@ entries:
       type: test
       comment: Desk furniture is created once, furniture that was thrown away does not come back, a shortcut to a missing program is skipped rather than created broken.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://defaults_test.lua
     modules: [sql, env, json, time, uuid, registry, tty]
     imports:
       test: wippy.test:test
-      repo: windows.shell.persist:repo
-      defaults: windows.shell.programs:defaults
-      seed: windows.shell.programs:seed
-      chrome: windows.shell.theme:chrome
+      repo: chicago.shell.persist:repo
+      defaults: chicago.shell.programs:defaults
+      seed: chicago.shell.programs:seed
+      chrome: chicago.shell.theme:chrome
     method: run
 
   - name: explorer_test
@@ -74,12 +74,12 @@ entries:
       type: test
       comment: The "My Computer" window shows the stand itself, makes a drive of every fs entry, reads the path the same way for a click and for the "Up" button, describes a double click as an intent, and nowhere substitutes the word "empty" for "not read".
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://explorer_test.lua
     modules: [registry]
     imports:
       test: wippy.test:test
-      model: windows.shell.explorer:model
+      model: chicago.shell.explorer:model
     method: run
 
   - name: sources_test
@@ -88,14 +88,14 @@ entries:
       type: test
       comment: Drives come from the live registry, not from a table of our own; drive content is read by the fs module; a closed drive answers with a reason, not with emptiness; the top level of the desktop and the desktop folder do not show the same thing twice.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://sources_test.lua
     modules: [fs, registry, sql, env, time, uuid, tty, process, channel]
     imports:
       test: wippy.test:test
-      model: windows.shell.explorer:model
-      repo: windows.shell.persist:repo
-      sources: windows.shell.explorer:sources
+      model: chicago.shell.explorer:model
+      repo: chicago.shell.persist:repo
+      sources: chicago.shell.explorer:sources
     method: run
 
   - name: explorer_window_test
@@ -104,17 +104,17 @@ entries:
       type: test
       comment: The folder window on the SDK (FR-008) — every menu item through update, open or focus, Backspace in both browse modes, the toggles, the context menus, the Options sheet, the four views laid out at 48×16 and 72×22 in both modes, List as column-filled icons with test/shots/folder-list.png, and the window alive in a viewport.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://explorer_window_test.lua
     modules: [tty, process, channel, time, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: windows.shell.sdk:ui
-      app: windows.shell.sdk:app
-      render: windows.shell.sdk:render
-      rasters: windows.shell.theme:rasters
-      model: windows.shell.explorer:model
-      explorer_window: windows.shell.explorer:window
+      ui: chicago.shell.sdk:ui
+      app: chicago.shell.sdk:app
+      render: chicago.shell.sdk:render
+      rasters: chicago.shell.theme:rasters
+      model: chicago.shell.explorer:model
+      explorer_window: chicago.shell.explorer:window
     method: run
 
   - name: chrome_test
@@ -123,19 +123,19 @@ entries:
       type: test
       comment: Title buttons — each window type has its own set, an unknown type counts as an ordinary window, exactly what is drawn is what gets pressed; the fill is called in both themes, and the styles live in one table, not in two similar ones; the pixel desktop names the reason for an unreadable layout, and the taskbar shows the status line.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://chrome_test.lua
     modules: [tty, gfx, registry, fs]
     imports:
       test: wippy.test:test
-      catalog: windows.shell.programs:catalog
-      chrome: windows.shell.theme:chrome
-      chrome_pixels: windows.shell.theme:chrome_pixels
-      widgets: windows.shell.theme:widgets
-      pixels: windows.shell.theme:pixels
-      desktop_pixels: windows.tui_desktop.desktop:pixels
-      menu_layout: windows.shell.theme:menu_layout
-      placements: windows.shell.theme:placements
+      catalog: chicago.shell.programs:catalog
+      chrome: chicago.shell.theme:chrome
+      chrome_pixels: chicago.shell.theme:chrome_pixels
+      widgets: chicago.shell.theme:widgets
+      pixels: chicago.shell.theme:pixels
+      desktop_pixels: chicago.tui_desktop.desktop:pixels
+      menu_layout: chicago.shell.theme:menu_layout
+      placements: chicago.shell.theme:placements
     method: run
 
   - name: images_test
@@ -144,12 +144,12 @@ entries:
       type: test
       comment: Windows 95 icon pack — every name decodes at 32 and 16, the raster is cached, an unknown name and a foreign size refuse with a reason, the shortcut overlay lands in the raster.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://images_test.lua
     modules: [gfx, registry, fs]
     imports:
       test: wippy.test:test
-      images: windows.shell.theme:images
+      images: chicago.shell.theme:images
     method: run
 
   - name: shell_test
@@ -158,13 +158,13 @@ entries:
       type: test
       comment: The shell comes up on the test viewport and rereads the layout on the endpoint's command; a shell that was shut down is distinguished from a failure.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://shell_test.lua
     modules: [channel, process, registry, sql, env, time, tty, uuid]
     imports:
       test: wippy.test:test
-      control: windows.shell.api:control
-      repo: windows.shell.persist:repo
+      control: chicago.shell.api:control
+      repo: chicago.shell.persist:repo
     method: run
 
   - name: glyphs_test
@@ -173,13 +173,13 @@ entries:
       type: test
       comment: Every glyph in the set takes exactly one cell, and both palette sets carry the same names — otherwise some detail gets painted "however it turns out".
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://glyphs_test.lua
     modules: [tty]
     imports:
       test: wippy.test:test
-      glyphs: windows.shell.theme:glyphs
-      palette: windows.shell.theme:palette
+      glyphs: chicago.shell.theme:glyphs
+      palette: chicago.shell.theme:palette
     method: run
 
   - name: wiring_test
@@ -188,13 +188,13 @@ entries:
       type: test
       comment: The host, the shell process, the explorer window, the endpoints and the policies exist and reference each other; the terminal host log is silenced, the layout endpoints and the window have no right to spawn processes, there is no program-creation endpoint, and the desk furniture points at existing entries.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://wiring_test.lua
     modules: [registry]
     imports:
       test: wippy.test:test
-      defaults: windows.shell.programs:defaults
-      repo: windows.shell.persist:repo
+      defaults: chicago.shell.programs:defaults
+      repo: chicago.shell.persist:repo
     method: run
 
   # A program WITH A GROUP. Added on purpose: the harness had not a single
@@ -248,20 +248,20 @@ entries:
     security:
       policies: [app:probe_scope]
     imports:
-      chrome: windows.shell.theme:chrome
-      chrome_pixels: windows.shell.theme:chrome_pixels
-      pixels: windows.shell.theme:pixels
-      rasters: windows.shell.theme:rasters
-      ui: windows.shell.sdk:ui
-      explorer_window: windows.shell.explorer:window
-      sdk_render: windows.shell.sdk:render
-      sysprops_window: windows.shell.sysprops:window
-      sysprops_model: windows.shell.sysprops:model
-      display_window: windows.shell.display:window
-      images: windows.shell.theme:images
-      catalog: windows.shell.programs:catalog
-      desktop_view: windows.shell.programs:desktop_view
-      model: windows.shell.explorer:model
+      chrome: chicago.shell.theme:chrome
+      chrome_pixels: chicago.shell.theme:chrome_pixels
+      pixels: chicago.shell.theme:pixels
+      rasters: chicago.shell.theme:rasters
+      ui: chicago.shell.sdk:ui
+      explorer_window: chicago.shell.explorer:window
+      sdk_render: chicago.shell.sdk:render
+      sysprops_window: chicago.shell.sysprops:window
+      sysprops_model: chicago.shell.sysprops:model
+      display_window: chicago.shell.display:window
+      images: chicago.shell.theme:images
+      catalog: chicago.shell.programs:catalog
+      desktop_view: chicago.shell.programs:desktop_view
+      model: chicago.shell.explorer:model
       widget_scene: app:widget_scene
 
   # The probe's permissions are named, not taken from the harness's general
@@ -283,11 +283,11 @@ entries:
   # directory next to it is read-only — the application must not try to create
   # it or change its permissions.
   # app:test_images — an image pack declared the way any module declares one:
-  # an fs entry with meta.type windows.images, pictures as <size>/<file>.png.
+  # an fs entry with meta.type chicago.images, pictures as <size>/<file>.png.
   - name: test_images
     kind: fs.directory
     meta:
-      type: windows.images
+      type: chicago.images
       comment: A test image pack — how another module brings pictures to the shell.
     base: project
     directory: ./fixtures/images
@@ -352,17 +352,17 @@ entries:
   # The harness tests the module, so it depends on it. The replacement in
   # .wippy.yaml substitutes the working copy from ../ here, so the source and
   # the co-located tests load directly, without publishing.
-  - name: windows_harness.dep.module
+  - name: chicago_harness.dep.module
     version: "*"
     kind: ns.dependency
     meta:
       comment: The module under test; its source is replaced with ../ in .wippy.yaml.
-    component: "windows/shell"
+    component: "chicago/shell"
     parameters:
-      - name: windows.shell:api_router
+      - name: chicago.shell:api_router
         value: app:api
 
-  - name: windows_harness.dep.migration
+  - name: chicago_harness.dep.migration
     version: "*"
     kind: ns.dependency
     meta:
@@ -372,14 +372,14 @@ entries:
       - name: wippy.migration:app_db
         value: app:db
 
-  - name: windows_harness.dep.security
+  - name: chicago_harness.dep.security
     version: "*"
     kind: ns.dependency
     meta:
       comment: Platform security groups (wippy.security:process) that give host-managed services their policy scope under strict mode.
     component: "wippy/security"
 
-  - name: windows_harness.dep.bootloader
+  - name: chicago_harness.dep.bootloader
     version: "*"
     kind: ns.dependency
     meta:
@@ -394,7 +394,7 @@ entries:
   - name: window_images
     kind: registry.entry
     meta:
-      type: windows.program_images
+      type: chicago.program_images
       comment: A window icon without its own meta.image — checks reading the declaration from the registry.
     data:
       images:
@@ -403,7 +403,7 @@ entries:
   - name: taskbar_clock
     kind: registry.entry
     meta:
-      type: windows.taskbar_clock
+      type: chicago.taskbar_clock
       comment: Clock binding fixture.
     data:
       entry: app:grouped_probe
@@ -414,14 +414,14 @@ entries:
       type: test
       comment: Viewers — the window argument is built and parsed in one shape, a type registry from meta.opens with conflicts settled by name, a picture frame exactly the size of the window, and the same raster when nothing changed.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://viewers_test.lua
     modules: [gfx, base64]
     imports:
       test: wippy.test:test
-      files: windows.shell.viewers:files
-      associations: windows.shell.viewers:associations
-      picture_render: windows.shell.viewers:picture_render
+      files: chicago.shell.viewers:files
+      associations: chicago.shell.viewers:associations
+      picture_render: chicago.shell.viewers:picture_render
     method: run
 
   - name: views_test
@@ -430,17 +430,17 @@ entries:
       type: test
       comment: View windows — the month grid, buttons in cells without shared cells, a second resends only the clock; a fixed window has no "maximize".
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://views_test.lua
     modules: [gfx, tty, registry, fs]
     imports:
       test: wippy.test:test
-      rasters: windows.shell.theme:rasters
-      pixels: windows.shell.theme:pixels
-      widgets: windows.shell.theme:widgets
-      chrome: windows.shell.theme:chrome
-      chrome_pixels: windows.shell.theme:chrome_pixels
-      ui: windows.shell.sdk:ui
+      rasters: chicago.shell.theme:rasters
+      pixels: chicago.shell.theme:pixels
+      widgets: chicago.shell.theme:widgets
+      chrome: chicago.shell.theme:chrome
+      chrome_pixels: chicago.shell.theme:chrome_pixels
+      ui: chicago.shell.sdk:ui
     method: run
 
   - name: environment_test
@@ -449,11 +449,11 @@ entries:
       type: test
       comment: Environment reading — a permission refusal is distinguishable from "not set", the default does not hide it, the process environment takes precedence over the file storage.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://environment_test.lua
     imports:
       test: wippy.test:test
-      environment: windows.shell.config:environment
+      environment: chicago.shell.config:environment
     method: run
 
   - name: display_test
@@ -462,19 +462,19 @@ entries:
       type: test
       comment: Display properties — the color shape and the resolution label, four tabs without overlaps in cells and at 8×16 and 10×20, the Windows 95 metrics, choosing a color and a pattern and applying through a substituted entry, OK after a successful write; the theme repaints the desktop through a single point.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://display_test.lua
     modules: [sql, env, time, uuid, tty]
     imports:
       test: wippy.test:test
-      model: windows.shell.display:model
-      ui: windows.shell.sdk:ui
-      render: windows.shell.sdk:render
-      display_window: windows.shell.display:window
-      chrome: windows.shell.theme:chrome
-      chrome_pixels: windows.shell.theme:chrome_pixels
-      widgets: windows.shell.theme:widgets
-      palette: windows.shell.theme:palette
+      model: chicago.shell.display:model
+      ui: chicago.shell.sdk:ui
+      render: chicago.shell.sdk:render
+      display_window: chicago.shell.display:window
+      chrome: chicago.shell.theme:chrome
+      chrome_pixels: chicago.shell.theme:chrome_pixels
+      widgets: chicago.shell.theme:widgets
+      palette: chicago.shell.theme:palette
     method: run
 
   - name: sysprops_test
@@ -483,14 +483,14 @@ entries:
       type: test
       comment: System Properties — the device tree by kind prefix, empty groups with a mark, the layout of three tabs without overlaps, expanding and selecting, OK closes.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://sysprops_test.lua
     modules: [system, registry]
     imports:
       test: wippy.test:test
-      model: windows.shell.sysprops:model
-      ui: windows.shell.sdk:ui
-      sysprops_window: windows.shell.sysprops:window
+      model: chicago.shell.sysprops:model
+      ui: chicago.shell.sdk:ui
+      sysprops_window: chicago.shell.sysprops:window
     method: run
 
   - name: programs_live_test
@@ -499,12 +499,12 @@ entries:
       type: test
       comment: New programs — Task Manager, Notepad, picture viewer — are opened by the live shell and answer with a window description; a failure names the reason that the stand hides in the log.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://programs_live_test.lua
     modules: [channel, process, registry, sql, env, time, tty, uuid]
     imports:
       test: wippy.test:test
-      control: windows.shell.api:control
+      control: chicago.shell.api:control
     method: run
 
   - name: window_life_test
@@ -513,7 +513,7 @@ entries:
       type: test
       comment: Program windows (Task Manager, Notepad) stay alive after launch — the exit event is read as text, because the stand hides it in the log.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://window_life_test.lua
     modules: [channel, process, time, tty]
     imports:
@@ -529,15 +529,15 @@ entries:
       group: [SDK, Examples]
       width: 62
       height: 23
-      pixel_render: windows.shell.sdk:render
+      pixel_render: chicago.shell.sdk:render
       pixel_state: app:sdk_demo
     source: file://sdk_demo.lua
     method: main
     modules: [time]
     imports:
-      app: windows.shell.sdk:app
+      app: chicago.shell.sdk:app
     security:
-      policies: [windows.shell.security:view_state]
+      policies: [chicago.shell.security:view_state]
 
   - name: sdk_fixture
     kind: library.lua
@@ -545,98 +545,98 @@ entries:
     source: file://sdk_demo.lua
     modules: [time]
     imports:
-      app: windows.shell.sdk:app
+      app: chicago.shell.sdk:app
 
   - name: sdk_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: Declarative discovery, shared geometry, scrolling, editing, pixels and live lifecycle.
     source: file://sdk_test.lua
     method: run
     modules: [process, channel, time, tty, fs, gfx, registry]
     imports:
-      chrome: windows.shell.theme:chrome_pixels
+      chrome: chicago.shell.theme:chrome_pixels
       test: wippy.test:test
-      ui: windows.shell.sdk:ui
-      editor: windows.shell.sdk:editor
-      cells: windows.shell.sdk:cells
-      scroll: windows.tui_desktop.desktop:scroll
-      input: windows.tui_desktop.desktop:input
-      geometry: windows.tui_desktop.desktop:geometry
-      render: windows.shell.sdk:render
-      pixels: windows.shell.theme:pixels
-      rasters: windows.shell.theme:rasters
-      shell_icons: windows.shell.theme:icons
+      ui: chicago.shell.sdk:ui
+      editor: chicago.shell.sdk:editor
+      cells: chicago.shell.sdk:cells
+      scroll: chicago.tui_desktop.desktop:scroll
+      input: chicago.tui_desktop.desktop:input
+      geometry: chicago.tui_desktop.desktop:geometry
+      render: chicago.shell.sdk:render
+      pixels: chicago.shell.theme:pixels
+      rasters: chicago.shell.theme:rasters
+      shell_icons: chicago.shell.theme:icons
       fixture: app:sdk_fixture
-      catalog: windows.shell.programs:catalog
-      app: windows.shell.sdk:app
-      widgets: windows.shell.theme:widgets
+      catalog: chicago.shell.programs:catalog
+      app: chicago.shell.sdk:app
+      widgets: chicago.shell.theme:widgets
 
   - name: workshop_sdk_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: A window on the SDK built by the workshop — checks the description, applying it to the registry, starting the process.
     source: file://workshop_sdk_test.lua
     method: run
     modules: [channel, process, registry, time, tty]
     imports:
       test: wippy.test:test
-      apps: windows.tui_desktop.persist:apps
+      apps: chicago.tui_desktop.persist:apps
 
   - name: filedialog_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: The Windows 95 Open / Save As sheet — layout at 44×16 in both modes, every action of update, a PNG shot.
     source: file://filedialog_test.lua
     method: run
     modules: [fs, gfx, registry]
     imports:
       test: wippy.test:test
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
-      render: windows.shell.sdk:render
-      rasters: windows.shell.theme:rasters
-      filedialog: windows.shell.sdk:filedialog
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      render: chicago.shell.sdk:render
+      rasters: chicago.shell.theme:rasters
+      filedialog: chicago.shell.sdk:filedialog
 
   - name: list_reveal_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: SDK list — reveal scrolls to a row once per value.
     source: file://list_reveal_test.lua
     method: run
     imports:
       test: wippy.test:test
-      ui: windows.shell.sdk:ui
+      ui: chicago.shell.sdk:ui
 
   - name: logon_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: Logon screen — password mask, Enter order, refusal and retry, cancel, the frame in cells and in pixels; the logged-on user's name read again through the application's function.
     source: file://logon_test.lua
     method: run
     modules: [channel, tty, fs, gfx]
     imports:
       test: wippy.test:test
-      screen: windows.shell.logon:screen
-      provider: windows.shell.logon:provider
-      chrome_pixels: windows.shell.theme:chrome_pixels
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
+      screen: chicago.shell.logon:screen
+      provider: chicago.shell.logon:provider
+      chrome_pixels: chicago.shell.theme:chrome_pixels
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
 
   - name: sdk_composer
     kind: process.lua
@@ -646,10 +646,10 @@ entries:
     method: main
     modules: [process, fs, gfx]
     imports:
-      library: windows.tui_desktop.desktop:library
-      chrome: windows.shell.theme:chrome_pixels
-      cell_chrome: windows.shell.theme:chrome
-      catalog: windows.shell.programs:catalog
+      library: chicago.tui_desktop.desktop:library
+      chrome: chicago.shell.theme:chrome_pixels
+      cell_chrome: chicago.shell.theme:chrome
+      catalog: chicago.shell.programs:catalog
 
   - name: sdk_focus_test
     kind: function.lua
@@ -657,13 +657,13 @@ entries:
       type: test
       comment: A window that loses the keyboard drops its armed button and captured drag, so a later release does not press a button pressed before the focus change; gaining focus releases nothing.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://sdk_focus_test.lua
     modules: [tty]
     imports:
       test: wippy.test:test
-      app: windows.shell.sdk:app
-      ui: windows.shell.sdk:ui
+      app: chicago.shell.sdk:app
+      ui: chicago.shell.sdk:ui
     method: run
 
   - name: gadget_test
@@ -672,15 +672,15 @@ entries:
       type: test
       comment: The desktop widget kit — every builder is a plain passive tree ui.problem accepts at the rows the kit promises, and the weather and monitor widgets lay out inside a widget's panel without overlaps in cells and at two pixel cells.
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
     source: file://gadget_test.lua
     method: run
     imports:
       test: wippy.test:test
-      gadget: windows.shell.sdk:gadget
-      gadgets: windows.shell.theme:gadgets
-      ui: windows.shell.sdk:ui
-      charts: windows.shell.sdk:charts
+      gadget: chicago.shell.sdk:gadget
+      gadgets: chicago.shell.theme:gadgets
+      ui: chicago.shell.sdk:ui
+      charts: chicago.shell.sdk:charts
 
   - name: gauge_test
     kind: function.lua
@@ -688,18 +688,18 @@ entries:
       type: test
       comment: The gauge's orientation — vertical stays Task Manager's LED meter, horizontal is a Windows 95 progress bar in pixels and in cells, filled by one rule.
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
     source: file://gauge_test.lua
     method: run
     modules: [tty, gfx]
     imports:
       test: wippy.test:test
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
-      render: windows.shell.sdk:render
-      rasters: windows.shell.theme:rasters
-      palette: windows.shell.theme:palette
-      glyphs: windows.shell.theme:glyphs
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      render: chicago.shell.sdk:render
+      rasters: chicago.shell.theme:rasters
+      palette: chicago.shell.theme:palette
+      glyphs: chicago.shell.theme:glyphs
 
   - name: desktop_widgets_test
     kind: function.lua
@@ -707,34 +707,34 @@ entries:
       type: test
       comment: Desktop widgets in the shell — the right-edge column and its second column, one hit table for both themes, the panel in cells, a placement per row in pixels cut by windows, a changed number re-sending only its rows, the catalog's widget entries and the SDK runner driving a widget.
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
     source: file://desktop_widgets_test.lua
     method: run
     modules: [tty, gfx, fs, process, channel, time, registry]
     imports:
       test: wippy.test:test
-      text: windows.tui_desktop.desktop:text
-      glyphs: windows.shell.theme:glyphs
-      palette: windows.shell.theme:palette
-      ui: windows.shell.sdk:ui
-      gadget: windows.shell.sdk:gadget
-      gadgets: windows.shell.theme:gadgets
-      chrome: windows.shell.theme:chrome
-      chrome_pixels: windows.shell.theme:chrome_pixels
-      sdk_render: windows.shell.sdk:render
-      catalog: windows.shell.programs:catalog
-      app: windows.shell.sdk:app
-      desktop: windows.tui_desktop.desktop:window_api
+      text: chicago.tui_desktop.desktop:text
+      glyphs: chicago.shell.theme:glyphs
+      palette: chicago.shell.theme:palette
+      ui: chicago.shell.sdk:ui
+      gadget: chicago.shell.sdk:gadget
+      gadgets: chicago.shell.theme:gadgets
+      chrome: chicago.shell.theme:chrome
+      chrome_pixels: chicago.shell.theme:chrome_pixels
+      sdk_render: chicago.shell.sdk:render
+      catalog: chicago.shell.programs:catalog
+      app: chicago.shell.sdk:app
+      desktop: chicago.tui_desktop.desktop:window_api
       fixture: app:widget_fixture
       scene: app:widget_scene
 
-  # A desktop widget (FR-006) — a real `windows.widget` entry for the catalog
+  # A desktop widget (FR-006) — a real `chicago.widget` entry for the catalog
   # to read from the registry, on the SDK runner. Nothing in the harness
   # spawns it.
   - name: widget_probe
     kind: process.lua
     meta:
-      type: windows.widget
+      type: chicago.widget
       title: Probe widget
       width: 22
       height: 7
@@ -745,10 +745,10 @@ entries:
     method: main
     modules: [time]
     imports:
-      app: windows.shell.sdk:app
-      gadget: windows.shell.sdk:gadget
+      app: chicago.shell.sdk:app
+      gadget: chicago.shell.sdk:gadget
     security:
-      policies: [windows.shell.security:view_state]
+      policies: [chicago.shell.security:view_state]
 
   - name: widget_fixture
     kind: library.lua
@@ -757,8 +757,8 @@ entries:
     source: file://widget_probe.lua
     modules: [time]
     imports:
-      app: windows.shell.sdk:app
-      gadget: windows.shell.sdk:gadget
+      app: chicago.shell.sdk:app
+      gadget: chicago.shell.sdk:gadget
 
   - name: widget_scene
     kind: library.lua
@@ -767,171 +767,171 @@ entries:
     source: file://widget_scene.lua
     modules: [gfx]
     imports:
-      gadget: windows.shell.sdk:gadget
+      gadget: chicago.shell.sdk:gadget
 
   - name: menu_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: Menu rows as Windows 95 draws them — the shortcut column, the checkmark, the bullet, one level of submenus and F10 — in the plan, in cells, in pixels, by keys and by the pointer.
     source: file://menu_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
-      render: windows.shell.sdk:render
-      rasters: windows.shell.theme:rasters
-      palette: windows.shell.theme:palette
-      glyphs: windows.shell.theme:glyphs
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      render: chicago.shell.sdk:render
+      rasters: chicago.shell.theme:rasters
+      palette: chicago.shell.theme:palette
+      glyphs: chicago.shell.theme:glyphs
 
   - name: selection_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: Small Icons, the multi-selection set of icons and tables with the Ctrl and Shift rules, and a picture in a table cell, in the plan and both renderers.
     source: file://selection_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
-      render: windows.shell.sdk:render
-      rasters: windows.shell.theme:rasters
-      palette: windows.shell.theme:palette
-      glyphs: windows.shell.theme:glyphs
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      render: chicago.shell.sdk:render
+      rasters: chicago.shell.theme:rasters
+      palette: chicago.shell.theme:palette
+      glyphs: chicago.shell.theme:glyphs
 
   - name: sdk_close_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: A close the window may refuse — update answering false to the close action keeps the SDK loop running; anything else, a self-close or a failure ends it.
     source: file://sdk_close_test.lua
     method: run
     modules: [process, channel, time, tty]
     imports:
       test: wippy.test:test
-      app: windows.shell.sdk:app
-      desktop: windows.tui_desktop.desktop:window_api
+      app: chicago.shell.sdk:app
+      desktop: chicago.tui_desktop.desktop:window_api
 
   - name: table_kind_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: A table cell's picture from its kind in both renderers (images.name_for, icons.glyph), and the title and picture a native SDK frame publishes (app.frame_meta).
     source: file://table_kind_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
-      render: windows.shell.sdk:render
-      rasters: windows.shell.theme:rasters
-      glyphs: windows.shell.theme:glyphs
-      app: windows.shell.sdk:app
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      render: chicago.shell.sdk:render
+      rasters: chicago.shell.theme:rasters
+      glyphs: chicago.shell.theme:glyphs
+      app: chicago.shell.sdk:app
 
   - name: editor_model_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: The multi-line editor's document model, pure — lines, caret and selection, the keys, one-level undo, find up and down with and without case, and the display rows of word wrap.
     source: file://editor_model_test.lua
     method: run
     imports:
       test: wippy.test:test
-      editor: windows.shell.sdk:editor
+      editor: chicago.shell.sdk:editor
 
   - name: editor_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: The multi-line editor component — the bars in the plan, the keys and the pointer through ui.event, the band and the caret in pixels in the fixed-pitch columns, the exact rows in cells, the document through context.editor, and test/shots/editor.png.
     source: file://editor_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
-      render: windows.shell.sdk:render
-      rasters: windows.shell.theme:rasters
-      palette: windows.shell.theme:palette
-      editor: windows.shell.sdk:editor
-      app: windows.shell.sdk:app
-      chrome_pixels: windows.shell.theme:chrome_pixels
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      render: chicago.shell.sdk:render
+      rasters: chicago.shell.theme:rasters
+      palette: chicago.shell.theme:palette
+      editor: chicago.shell.sdk:editor
+      app: chicago.shell.sdk:app
+      chrome_pixels: chicago.shell.theme:chrome_pixels
 
   - name: context_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: The context menu — a right press on a list, a table and icons is context with the entry and the cell, and a menu with popup floats there, chosen, dismissed, flipped and drawn as a menu's list.
     source: file://context_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
-      render: windows.shell.sdk:render
-      rasters: windows.shell.theme:rasters
-      palette: windows.shell.theme:palette
-      glyphs: windows.shell.theme:glyphs
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      render: chicago.shell.sdk:render
+      rasters: chicago.shell.theme:rasters
+      palette: chicago.shell.theme:palette
+      glyphs: chicago.shell.theme:glyphs
 
   - name: list_view_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: windows_shell
+      suite: chicago_shell
       comment: The List view — icons with small and flow = columns fill a column top to bottom, then the next; the plan at two sizes with a partial last column, scrolling by columns (wheel, bar, reveal), the keys, Ctrl/Shift and context, the cells and pixel drawing with probes, and a selection move repainting two rows.
     source: file://list_view_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
-      render: windows.shell.sdk:render
-      rasters: windows.shell.theme:rasters
-      palette: windows.shell.theme:palette
-      glyphs: windows.shell.theme:glyphs
-      pixels: windows.shell.theme:pixels
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      render: chicago.shell.sdk:render
+      rasters: chicago.shell.theme:rasters
+      palette: chicago.shell.theme:palette
+      glyphs: chicago.shell.theme:glyphs
+      pixels: chicago.shell.theme:pixels
 
   - name: notepad_test
     kind: function.lua
     meta:
       type: test
       group: Windows Shell
-      suite: windows_shell
+      suite: chicago_shell
       comment: Notepad as in Windows 95 — every menu item through update with a stand-in of the window's drives, the save-changes gate with each answer, Find and F3, the 64 KB refusal over a stand-in fs handle, the title after Save As, and test/shots/notepad.png.
     source: file://notepad_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: windows.shell.sdk:ui
-      cells: windows.shell.sdk:cells
-      render: windows.shell.sdk:render
-      rasters: windows.shell.theme:rasters
-      editor: windows.shell.sdk:editor
-      app: windows.shell.sdk:app
-      notepad: windows.shell.viewers:notepad_model
-      filedialog: windows.shell.sdk:filedialog
-      files: windows.shell.viewers:files
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      render: chicago.shell.sdk:render
+      rasters: chicago.shell.theme:rasters
+      editor: chicago.shell.sdk:editor
+      app: chicago.shell.sdk:app
+      notepad: chicago.shell.viewers:notepad_model
+      filedialog: chicago.shell.sdk:filedialog
+      files: chicago.shell.viewers:files

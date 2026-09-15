@@ -26,14 +26,14 @@ local errors = require("errors")
 
 local provider = {}
 
-provider.FUNC_ENV = "WINDOWS_LOGON_FUNC"
-provider.STORE_ENV = "WINDOWS_TOKEN_STORE"
+provider.FUNC_ENV = "CHICAGO_LOGON_FUNC"
+provider.STORE_ENV = "CHICAGO_TOKEN_STORE"
 -- The application's function that answers the logged-on user's current
 -- display name, {user_id} → {name}. Read without a default: unset keeps the
 -- name as it was at logon.
-provider.USER_FUNC_ENV = "WINDOWS_USER_FUNC"
+provider.USER_FUNC_ENV = "CHICAGO_USER_FUNC"
 
--- Reading the environment is shared (`windows.shell.config:environment`);
+-- Reading the environment is shared (`chicago.shell.config:environment`);
 -- here there are only the words of refusal for the logon screen.
 local function read(name): (any, any)
     local value, _, denied = environment.read(name)

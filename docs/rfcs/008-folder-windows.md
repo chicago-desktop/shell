@@ -63,7 +63,7 @@ context menu, a custom renderer registered in the theme (`explorer:render`,
 `explorer:render_pixels`, `chrome_pixels.VIEWS`).
 
 After: the window is an **SDK application** (`pixel_render:
-windows.shell.sdk:render`), the custom renderer and its registration
+chicago.shell.sdk:render`), the custom renderer and its registration
 are removed, the theme's `VIEWS` shrinks to the SDK and the picture viewer.
 The reading side stays: `explorer:model` (paths, objects, drives, replies)
 and `explorer:sources` (registry, `fs`) are kept and extended; only the
@@ -73,7 +73,7 @@ address row and the history are gone.
 ## 3. Windows and navigation
 
 - **Open** of a folder object sends `desktop.open{entry =
-  "windows.shell.explorer:window", title = <folder name>, image =
+  "chicago.shell.explorer:window", title = <folder name>, image =
   <folder's icon>, args = <path>}`. `main(service, window_id, args, …)`
   reads the path from `args` (today it ignores them and starts at the root).
   The base's `describe(window)` must report `args`, so that `desktop.list`
@@ -91,7 +91,7 @@ address row and the history are gone.
 - **The mode** is `View → Options…`: a sheet with the two radio buttons of
   Windows 95 (`Browse folders using a separate window for each folder`,
   default, and `Browse folders by using a single window that changes as you
-  open each folder`), OK / Cancel; stored in `windows_shell_settings`
+  open each folder`), OK / Cancel; stored in `chicago_shell_settings`
   under `explorer_browse` (`separate` | `single`) through the persist repo
   the explorer already reaches for the desktop layout. New windows read it
   at start.

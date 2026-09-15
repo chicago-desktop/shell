@@ -24,7 +24,7 @@ local desktop = require("desktop")
 
 local control = {}
 
-control.SERVICE_NAME = "windows.shell.desktop"
+control.SERVICE_NAME = "chicago.shell.desktop"
 
 local REPLY_TOPIC = "desktop.reply"
 -- Shorter than the base's: the shell is on the same machine, and a handler
@@ -97,7 +97,7 @@ end
 function control.call(topic, body)
     local first = control.desktops()[1]
     if not first then
-        return nil, "the shell is not running: run `wippy run --host windows.shell:terminal windows`", false
+        return nil, "the shell is not running: run `wippy run --host chicago.shell:terminal chicago`", false
     end
     local answer, err = ask(tostring(first.pid), topic, body)
     return answer, err, true

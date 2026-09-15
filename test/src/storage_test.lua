@@ -13,14 +13,14 @@ local view = require("view")
 local sql = require("sql")
 local desktop_body = require("desktop_body")
 
-local GHOST = "windows.shell.test:ghost"
+local GHOST = "chicago.shell.test:ghost"
 
 local function define_tests()
-    test.describe("windows.shell layout", function()
+    test.describe("chicago.shell layout", function()
         test.it("survives the round created — read — moved — deleted", function()
             local item, cerr = repo.create({
                 kind = repo.KIND_SHORTCUT,
-                entry = "windows.shell.test:probe",
+                entry = "chicago.shell.test:probe",
                 title = "Probe",
                 x = 2, y = 3,
             })
@@ -34,7 +34,7 @@ local function define_tests()
             test.is_nil(gerr)
             test.not_nil(read, "the shortcut must read back")
             test.eq(read.title, "Probe")
-            test.eq(read.entry, "windows.shell.test:probe")
+            test.eq(read.entry, "chicago.shell.test:probe")
 
             local moved, uerr = repo.update(item.id, {x = 5, y = 1, title = "Renamed"})
             test.is_nil(uerr)
@@ -69,7 +69,7 @@ local function define_tests()
             local folder = repo.create({kind = repo.KIND_FOLDER, title = "Folder", x = 0, y = 0})
             local inside = repo.create({
                 kind = repo.KIND_SHORTCUT,
-                entry = "windows.shell.test:inside",
+                entry = "chicago.shell.test:inside",
                 title = "Inside",
                 parent_id = folder.id,
             })
@@ -112,10 +112,10 @@ local function define_tests()
         end)
     end)
 
-    test.describe("windows.shell desktop seeding", function()
+    test.describe("chicago.shell desktop seeding", function()
         test.it("puts a program with desktop true on the desktop once and does not bring back a deleted shortcut", function()
             local program = {
-                entry = "windows.shell.test:seeded",
+                entry = "chicago.shell.test:seeded",
                 title = "Auto icon",
                 desktop = true,
             }
@@ -146,7 +146,7 @@ local function define_tests()
 
         test.it("does not touch a program without desktop true", function()
             local created, err = seed.ensure({
-                {entry = "windows.shell.test:quiet", title = "Quiet"},
+                {entry = "chicago.shell.test:quiet", title = "Quiet"},
             })
             test.is_nil(err)
             test.eq(#created, 0, "a shortcut is created only at the program's request")
@@ -162,7 +162,7 @@ local function define_tests()
             -- PLACE, and the icon would become placed in the top-left corner,
             -- that is, inviolable for the compositor.
             local created, err = seed.ensure({
-                {entry = "windows.shell.test:unplaced", title = "No place", desktop = true},
+                {entry = "chicago.shell.test:unplaced", title = "No place", desktop = true},
             })
             test.is_nil(err)
             test.eq(#created, 1)
@@ -182,7 +182,7 @@ local function define_tests()
             -- icon went past the edge. So it is in real Windows 95 too — an
             -- icon that went past the edge does not come back by itself.
             local created = seed.ensure({
-                {entry = "windows.shell.test:tobeplaced", title = "To be placed", desktop = true},
+                {entry = "chicago.shell.test:tobeplaced", title = "To be placed", desktop = true},
             })
             local id = created[1].id
             test.is_nil(repo.get(id).x, "until a place is named, it is empty")
@@ -202,11 +202,11 @@ local function define_tests()
             -- PostgreSQL at the end. Without an explicit rule the icon layout
             -- would depend on which database the stand runs on.
             local placed = repo.create({
-                kind = repo.KIND_SHORTCUT, entry = "windows.shell.test:order_placed",
+                kind = repo.KIND_SHORTCUT, entry = "chicago.shell.test:order_placed",
                 title = "Placed", x = 30, y = 5,
             })
             local unplaced = repo.create({
-                kind = repo.KIND_SHORTCUT, entry = "windows.shell.test:order_unplaced",
+                kind = repo.KIND_SHORTCUT, entry = "chicago.shell.test:order_unplaced",
                 title = "No place",
             })
 
@@ -226,7 +226,7 @@ local function define_tests()
         end)
     end)
 
-    -- The desktop POST and PATCH body (windows.shell.api:desktop_body):
+    -- The desktop POST and PATCH body (chicago.shell.api:desktop_body):
     -- what the handlers accepted and the desktop then did not draw.
     test.describe("desktop request bodies", function()
         test.it("broken JSON and a non-object are a failure with a reason, not an empty successful PATCH", function()
@@ -266,7 +266,7 @@ local function define_tests()
             local ok = desktop_body.update('{"x": 10000, "y": "7"}')
             test.eq(ok.x, 10000)
             test.eq(ok.y, 7)
-            local item = repo.create({kind = repo.KIND_SHORTCUT, entry = "windows.shell.test:inf",
+            local item = repo.create({kind = repo.KIND_SHORTCUT, entry = "chicago.shell.test:inf",
                 title = "Inf", x = math.huge, y = 3})
             test.is_nil(item.x, "infinity becomes no place, not a zero")
             repo.delete(item.id)
@@ -307,7 +307,7 @@ local function define_tests()
 
         test.it("a full PATCH passes validation and reaches the database", function()
             local folder = repo.create({kind = repo.KIND_FOLDER, title = "Box"})
-            local item = repo.create({kind = repo.KIND_SHORTCUT, entry = "windows.shell.test:full_patch", title = "Before"})
+            local item = repo.create({kind = repo.KIND_SHORTCUT, entry = "chicago.shell.test:full_patch", title = "Before"})
             local patch, why = desktop_body.update(string.format(
                 '{"title": "After", "x": 12, "y": 3, "parent_id": "%s"}', folder.id))
             test.not_nil(patch, tostring(why))
@@ -328,7 +328,7 @@ local function define_tests()
     -- and ON CONFLICT, gave a key error, an extra icon or half a table.
     test.describe("persistence under a second writer", function()
         test.it("offering one icon twice gives one shortcut and not a single error", function()
-            local key = "windows.shell.test:offer_twice"
+            local key = "chicago.shell.test:offer_twice"
             local first, ferr = repo.offer(key, {kind = repo.KIND_SHORTCUT, entry = key, title = "Once"})
             test.is_nil(ferr, tostring(ferr))
             test.not_nil(first)
@@ -364,29 +364,29 @@ local function define_tests()
             local kind = db:type()
             if kind ~= "sqlite" then db:release(); return end
             local function count(): any
-                local rows = assert(db:query("SELECT COUNT(*) AS n FROM windows_shell_desktop_items", {}))
+                local rows = assert(db:query("SELECT COUNT(*) AS n FROM chicago_shell_desktop_items", {}))
                 return tonumber(rows[1].n)
             end
             local marker = repo.create({kind = repo.KIND_FOLDER, title = "Survives the rollback"})
             local before = count()
             local tx = assert(db:begin())
             local _, cerr = tx:execute([[
-                CREATE TABLE windows_shell_desktop_items_new (
+                CREATE TABLE chicago_shell_desktop_items_new (
                     id TEXT PRIMARY KEY, kind TEXT NOT NULL, entry TEXT, parent_id TEXT,
                     title TEXT NOT NULL, x INTEGER, y INTEGER,
                     created_at TEXT NOT NULL, updated_at TEXT NOT NULL)
             ]], {})
             test.is_nil(cerr, tostring(cerr))
-            local _, ierr = tx:execute("INSERT INTO windows_shell_desktop_items_new SELECT id, kind, entry, parent_id, title, x, y, created_at, updated_at FROM windows_shell_desktop_items", {})
+            local _, ierr = tx:execute("INSERT INTO chicago_shell_desktop_items_new SELECT id, kind, entry, parent_id, title, x, y, created_at, updated_at FROM chicago_shell_desktop_items", {})
             test.is_nil(ierr, tostring(ierr))
-            local _, derr = tx:execute("DROP TABLE windows_shell_desktop_items", {})
+            local _, derr = tx:execute("DROP TABLE chicago_shell_desktop_items", {})
             test.is_nil(derr, tostring(derr))
             -- Here the migration would fail before RENAME — and the runner
             -- rolls back.
             tx:rollback()
             test.eq(count(), before, "the original table is intact with all rows")
             local leftovers = assert(db:query(
-                "SELECT name FROM sqlite_master WHERE name = 'windows_shell_desktop_items_new'", {}))
+                "SELECT name FROM sqlite_master WHERE name = 'chicago_shell_desktop_items_new'", {}))
             test.eq(#leftovers, 0, "`_new` did not stay behind")
             db:release()
             repo.delete(marker.id)
@@ -399,7 +399,7 @@ local function define_tests()
     test.describe("layouts of people", function()
         test.it("two people's layouts and settings do not mix, and the shared one stays", function()
             local alice, bob = repo.of("test:alice"), repo.of("test:bob")
-            local mine, cerr = alice.create({kind = repo.KIND_SHORTCUT, entry = "windows.shell.test:alice", title = "Alice's"})
+            local mine, cerr = alice.create({kind = repo.KIND_SHORTCUT, entry = "chicago.shell.test:alice", title = "Alice's"})
             test.is_nil(cerr, tostring(cerr))
             local function has(list: any, id: any): boolean
                 for _, item in ipairs(list or {}) do if item.id == id then return true end end
@@ -424,16 +424,16 @@ local function define_tests()
 
         test.it("a person inherits the shared layout once, folders with their contents, marks and settings", function()
             local folder = assert(repo.create({kind = repo.KIND_FOLDER, title = "Shared folder"}))
-            local inside = assert(repo.create({kind = repo.KIND_SHORTCUT, entry = "windows.shell.test:shared_inside",
+            local inside = assert(repo.create({kind = repo.KIND_SHORTCUT, entry = "chicago.shell.test:shared_inside",
                 title = "Inside", parent_id = folder.id}))
             repo.set_setting("test.inherited", "yes")
-            repo.mark_seeded("windows.shell.test:shared_mark")
+            repo.mark_seeded("chicago.shell.test:shared_mark")
 
             local carol = repo.of("test:carol")
             local copied_folder: any, copied_inside: any = nil, nil
             for _, item in ipairs(carol.list() or {}) do
                 if item.title == "Shared folder" then copied_folder = item end
-                if item.entry == "windows.shell.test:shared_inside" then copied_inside = item end
+                if item.entry == "chicago.shell.test:shared_inside" then copied_inside = item end
             end
             test.not_nil(copied_folder, "the shared folder came along")
             test.not_nil(copied_inside, "and its contents")
@@ -441,7 +441,7 @@ local function define_tests()
             test.eq(copied_inside.parent_id, copied_folder.id, "the contents follow her copy of the folder")
             test.eq(carol.setting("test.inherited"), "yes")
             local marks = carol.seeded() or {}
-            test.is_true(marks["windows.shell.test:shared_mark"] == true, "what was offered stays offered")
+            test.is_true(marks["chicago.shell.test:shared_mark"] == true, "what was offered stays offered")
             test.is_true(marks[repo.INHERITED] == true, "the inheritance is marked, among marks never deleted")
 
             -- A second process of the same person (another desktop) asks the

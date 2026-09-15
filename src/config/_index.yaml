@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: windows.shell.config
+namespace: chicago.shell.config
 
 # What the application told the module through the environment — the names
 # of the database, fonts, logon function, declarations folder.
@@ -8,7 +8,7 @@ namespace: windows.shell.config
 # four copies, and one of them discarded the permission denial.
 
 entries:
-  # windows.shell.config:environment
+  # chicago.shell.config:environment
   #
   # The library declares ITS OWN modules, the permissions belong to the
   # process that calls it. The env.get action must be in its policy, granted
@@ -23,7 +23,7 @@ entries:
       - env
       - logger
 
-  # windows.shell.config:system
+  # chicago.shell.config:system
   #
   # Runtime figures for "Task Manager", "System Properties" and "Network
   # Neighborhood" — a value or a reason for each field. The permissions belong

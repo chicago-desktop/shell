@@ -6,37 +6,37 @@
 -- The value is text; whoever writes it checks its form, and so does whoever
 -- reads it: a string from the database is no proof that it is correct.
 return require("migration").define(function()
-    migration("Create windows_shell settings table", function()
+    migration("Create chicago_shell settings table", function()
         database("postgres", function()
             up(function(db)
                 local _, err = db:execute([[
-                    CREATE TABLE windows_shell_settings (
+                    CREATE TABLE chicago_shell_settings (
                         key TEXT PRIMARY KEY,
                         value TEXT NOT NULL,
                         updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
                     );
                 ]])
-                if err then error("Failed to create windows_shell_settings: " .. err) end
+                if err then error("Failed to create chicago_shell_settings: " .. err) end
             end)
             down(function(db)
-                local _, err = db:execute("DROP TABLE IF EXISTS windows_shell_settings;")
-                if err then error("Failed to drop windows_shell_settings: " .. err) end
+                local _, err = db:execute("DROP TABLE IF EXISTS chicago_shell_settings;")
+                if err then error("Failed to drop chicago_shell_settings: " .. err) end
             end)
         end)
         database("sqlite", function()
             up(function(db)
                 local _, err = db:execute([[
-                    CREATE TABLE windows_shell_settings (
+                    CREATE TABLE chicago_shell_settings (
                         key TEXT PRIMARY KEY,
                         value TEXT NOT NULL,
                         updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                     );
                 ]])
-                if err then error("Failed to create windows_shell_settings: " .. err) end
+                if err then error("Failed to create chicago_shell_settings: " .. err) end
             end)
             down(function(db)
-                local _, err = db:execute("DROP TABLE IF EXISTS windows_shell_settings;")
-                if err then error("Failed to drop windows_shell_settings: " .. err) end
+                local _, err = db:execute("DROP TABLE IF EXISTS chicago_shell_settings;")
+                if err then error("Failed to drop chicago_shell_settings: " .. err) end
             end)
         end)
     end)

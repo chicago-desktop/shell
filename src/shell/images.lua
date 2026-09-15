@@ -2,7 +2,7 @@
 --
 -- A 32×32 icon is a thousand pixels, and it cannot be drawn with primitives:
 -- the silhouette is recognizable, the details are missing. Here the icons
--- arrive as PNG files from the folder `windows.shell.theme:icon_files`
+-- arrive as PNG files from the folder `chicago.shell.theme:icon_files`
 -- (assets/icons, see SOURCE.md in the same place), are decoded through
 -- `gfx.image` and laid onto the theme's raster through `blit`.
 --
@@ -19,7 +19,7 @@
 --     "for some reason did not draw" gets looked for in the drawing, not in a
 --     typo.
 --   * **Pictures of other modules come in their own packs**, not in this
---     one: an `fs.*` entry that declares `meta.type: windows.images`, and a
+--     one: an `fs.*` entry that declares `meta.type: chicago.images`, and a
 --     picture named `<entry id>/<file>` (see `images.PACK_TYPE`). The shell
 --     does not list them — it finds the pack in the registry when a picture
 --     is asked for.
@@ -39,19 +39,19 @@ local gfx = require("gfx")
 local registry = require("registry")
 local time = require("time")
 local logger = require("logger")
-local log = logger:named("windows.icons")
+local log = logger:named("chicago.icons")
 
 local images = {}
 
 -- The registry entry with the icons' filesystem. The folder is declared in
 -- the module (`base: module`), so the application does not need to set up
 -- anything.
-images.STORE = "windows.shell.theme:icon_files"
+images.STORE = "chicago.shell.theme:icon_files"
 
 -- The wallpapers — original pictures drawn by `tools/wallpapers.py`, in the
 -- display module's folder (assets/wallpaper, original art, MIT). A
 -- wallpaper has no sizes: the theme draws it at 1:1, tiled or centred.
-images.WALLPAPER_STORE = "windows.shell.display:wallpaper_files"
+images.WALLPAPER_STORE = "chicago.shell.display:wallpaper_files"
 
 -- Packs of other modules and of the application: an `fs.*` entry that
 -- declares this meta.type. Its pictures lie as `<size>/<file>.png`, and a
@@ -59,7 +59,7 @@ images.WALLPAPER_STORE = "windows.shell.display:wallpaper_files"
 -- is looked up in the registry when a picture is asked for, not when this
 -- library loads, so a pack applied to the live registry, and a file added to
 -- its folder, are drawn without touching the shell.
-images.PACK_TYPE = "windows.images"
+images.PACK_TYPE = "chicago.images"
 -- How often a pack picture is looked at again: a refused one is asked again,
 -- a read one is compared with its file. The same bytes keep the same raster
 -- (the surface resends nothing); other bytes are decoded into a new one, so a
@@ -103,7 +103,7 @@ for _, name in ipairs(images.NAMES) do known[name] = true end
 
 -- A shortcut to the explorer window is "My Computer", not a program with an
 -- arrow. The same special entry as in `pixels.icon`.
-local EXPLORER = "windows.shell.explorer:window"
+local EXPLORER = "chicago.shell.explorer:window"
 
 -- Item kind → icon name. One table for all the places where an icon is
 -- needed (the desktop, the "Start" menu, the explorer list): each has its

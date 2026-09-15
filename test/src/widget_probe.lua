@@ -1,5 +1,5 @@
 -- A desktop widget on the SDK (FR-006): the entry the harness declares with
--- `meta.type: windows.widget`, so the catalog reads a real registry record,
+-- `meta.type: chicago.widget`, so the catalog reads a real registry record,
 -- and the definition the runner test drives. A widget is an SDK application
 -- with an `interval` and no input: `init`, `view`, and `update` for the tick.
 local app = require("app")

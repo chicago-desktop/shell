@@ -19,7 +19,7 @@ local function boot_shell()
     local grant = view:grant()
     test.not_nil(grant, "the viewport grant was not issued")
     local pid, err = process.with_options({terminal = grant})
-        :spawn_monitored("windows.shell:shell", "app:processes", "test")
+        :spawn_monitored("chicago.shell:shell", "app:processes", "test")
     test.is_nil(err)
     test.not_nil(pid, "the shell did not start")
     local deadline = time.now():unix_nano() + 15000000000
@@ -36,17 +36,17 @@ local function define_tests()
         test.it("Task Manager, Notepad and the picture viewer answer with a window description", function()
             local shell: any = boot_shell()
 
-            local answer, err = control.call("desktop.open", {entry = "windows.shell.sysprops:window"})
+            local answer, err = control.call("desktop.open", {entry = "chicago.shell.sysprops:window"})
             test.is_nil(err, "Task Manager did not open: " .. tostring(err))
             test.not_nil(answer and answer.window, "the answer must describe the Task Manager window")
 
-            local args = '{"drive":"windows.shell.theme:icon_files","path":"/SOURCE.md"}'
-            answer, err = control.call("desktop.open", {entry = "windows.shell.viewers:notepad", args = args})
+            local args = '{"drive":"chicago.shell.theme:icon_files","path":"/SOURCE.md"}'
+            answer, err = control.call("desktop.open", {entry = "chicago.shell.viewers:notepad", args = args})
             test.is_nil(err, "Notepad did not open: " .. tostring(err))
             test.not_nil(answer and answer.window, "the answer must describe the Notepad window")
 
-            local png = '{"drive":"windows.shell.theme:icon_files","path":"/32/my_computer.png"}'
-            answer, err = control.call("desktop.open", {entry = "windows.shell.viewers:picture", args = png})
+            local png = '{"drive":"chicago.shell.theme:icon_files","path":"/32/my_computer.png"}'
+            answer, err = control.call("desktop.open", {entry = "chicago.shell.viewers:picture", args = png})
             test.is_nil(err, "the picture viewer did not open: " .. tostring(err))
             test.not_nil(answer and answer.window, "the answer must describe the viewer window")
             test.eq(answer.window.content, "pixels", "a picture is a view window")

@@ -397,7 +397,7 @@ local function define_tests()
             local present = false
             for _, item in ipairs(found.programs) do if item.entry == "app:sdk_demo" then present = true end end
             test.is_true(present)
-            test.not_nil(registry.get("windows.shell.sdk:render"))
+            test.not_nil(registry.get("chicago.shell.sdk:render"))
         end)
         test.it("reuses an unchanged raster and exports the real SDK controls", function()
             local font_files = assert(fs.get("app:system_fonts"))
@@ -461,7 +461,7 @@ local function define_tests()
             local scene = {width = 90, height = 30, top = 1, bottom = 28, items = {}, clock = "12:00",
                 focused_id = "sdk-demo", windows = {{id = "sdk-demo", entry = "app:sdk_demo",
                     title = "SDK Example", image = "program", window_type = "app", content = "pixels",
-                    render = "windows.shell.sdk:render", content_state = state, state_revision = 1,
+                    render = "chicago.shell.sdk:render", content_state = state, state_revision = 1,
                     x = 15, y = 4, w = context.width + inset.left + inset.right,
                     h = context.height + inset.top + inset.bottom}}}
             local painted = chrome.paint(scene, 8, 18)

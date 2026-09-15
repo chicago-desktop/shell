@@ -56,7 +56,7 @@ local function with_menu(x: integer, y: integer): any
 end
 
 local function define_tests()
-    test.describe("windows.shell.sdk context", function()
+    test.describe("chicago.shell.sdk context", function()
         test.it("a right press on a list, a table and icons is context with the entry and the cell", function()
             local state = ui.interaction()
             local plan = ui.plan({kind = "column", children = {{kind = "button", id = "ok", size = 1, text = "OK"},
