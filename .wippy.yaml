@@ -6,4 +6,4 @@ version: "1.0"
 # tagged base — the replacement needs that directory right next to this one.
 workspace:
   replacements:
-    chicago/tui-desktop: ../kickside-module
+    chicago/tui-desktop: ../tui-desktop

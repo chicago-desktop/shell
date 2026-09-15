@@ -3,7 +3,7 @@
 # `check` and `late-locals` need only node and python. `lint` and `test` need
 # a runtime WITH the `gfx` module: the released wippy does not load this
 # module at all (it answers "node with ID {gfx :gfx} not found"), and the base
-# `chicago/tui-desktop` is a replacement pointing at `../kickside-module`.
+# `chicago/tui-desktop` is a replacement pointing at `../tui-desktop`.
 # Pass such a build with -Wippy or $env:WIPPY. There is no UI here, so the
 # template's build/dev/typecheck targets are gone.
 param(

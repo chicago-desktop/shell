@@ -10,7 +10,7 @@ workspace:
     # The base is not in the Hub yet — it is taken from the neighboring working
     # copy. Remove together with the replacement in the root .wippy.yaml once
     # the base is published.
-    chicago/tui-desktop: ../../kickside-module
+    chicago/tui-desktop: ../../tui-desktop
 override:
   "chicago.tui_desktop:exec:default_env.HOME": "${env:HOME}"
   "chicago.tui_desktop:exec:default_env.PATH": "${env:PATH}"

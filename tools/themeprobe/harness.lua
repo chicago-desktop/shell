@@ -209,7 +209,7 @@ modules.json = {
 
 -- The base's pure libraries that `widgets` needs: text measuring, and the
 -- scroll arithmetic, which itself needs geometry. build.py takes "core/" from
--- ../kickside-module/src/desktop.
+-- ../tui-desktop/src/desktop.
 modules.geometry = dofile(BASE .. "core/geometry.lua")
 modules.text = dofile(BASE .. "core/text.lua")
 modules.scroll = dofile(BASE .. "core/scroll.lua")

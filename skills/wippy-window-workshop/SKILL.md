@@ -11,7 +11,7 @@ restarts (the compositor restores stored windows on boot), and can be replaced
 by building again under the same name.
 
 Canonical contracts: the [window SDK](../../docs/sdk.md) for the component tree
-and the base module README (`../kickside-module/README.md`, the section on
+and the base module README (`../tui-desktop/README.md`, the section on
 building a window in the running runtime — the workshop endpoint
 `POST /api/v1/tui-desktop/apps`) for the storage and registry mechanics.
 

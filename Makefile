@@ -43,7 +43,7 @@ lint:
 # overridden with a single variable:
 #
 #   make test WIPPY=wippy
-WIPPY ?= /home/butschster/repos/wippy/runtime/dist/wippy-linux-amd64
+WIPPY ?= $(CURDIR)/../runtime/dist/wippy-linux-amd64
 
 TEST_HOST := wippy.terminal:host
 test:

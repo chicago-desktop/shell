@@ -195,7 +195,7 @@ the program asked for focus reports (mode 1004): bash gets nothing. The SDK
 drops what was armed or captured on `focused = false` (`app.focus`) and redraws
 only when something was held; an application's `update` does not see the event.
 
-The base side is in `kickside-module`'s working copy until its commit; checked
+The base side is in the base's working copy (`../tui-desktop`) until its commit; checked
 by `window_focus_test` there and `sdk_focus_test` here.
 
 ## The character set does NOT move into pixels
@@ -226,7 +226,7 @@ node with ID {chicago.shell.theme pixels …} not found
 ```
 
 The cause cannot be guessed from this message, so it is written down here. A
-local runtime build is required — `~/repos/wippy/runtime/dist/wippy-linux-amd64`;
+local runtime build is required — `~/repos/wippy/chicago-desktop/runtime/dist/wippy-linux-amd64`;
 in the `Makefile` it is substituted through the `WIPPY` variable, and is overridden with one
 line: `make test WIPPY=wippy`.
 
