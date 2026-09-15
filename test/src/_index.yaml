@@ -967,3 +967,125 @@ entries:
       notepad: chicago.shell.viewers:notepad_model
       filedialog: chicago.shell.sdk:filedialog
       files: chicago.shell.viewers:files
+
+  # ─── Startup windows (chicago.startup) ───────────────────────────────
+  # Read by startup_test through the real registry — the order (10, 20, 30,
+  # a tie at 50 broken by the id, the default 100), a window entry that does
+  # not exist, and a `when` that says yes to one user only, says no, or fails.
+  # The windows are app:sdk_demo, which stays open; the args tell them apart.
+  - name: startup_first
+    kind: registry.entry
+    meta:
+      type: chicago.startup
+      order: 10
+      comment: Opens first, and only for the user u-startup.
+    data:
+      entry: app:sdk_demo
+      args: first
+      when: app:startup_when_user
+
+  - name: startup_error
+    kind: registry.entry
+    meta:
+      type: chicago.startup
+      order: 20
+      comment: Its when function fails, so it never opens.
+    data:
+      entry: app:sdk_demo
+      args: error
+      when: app:startup_when_error
+
+  - name: startup_missing
+    kind: registry.entry
+    meta:
+      type: chicago.startup
+      order: 30
+      comment: Names a window entry that does not exist.
+    data:
+      entry: app:no_such_window
+
+  - name: startup_later
+    kind: registry.entry
+    meta:
+      type: chicago.startup
+      order: 50
+      comment: The same order as startup_also, after it by the entry id.
+    data:
+      entry: app:sdk_demo
+      args: later
+
+  - name: startup_also
+    kind: registry.entry
+    meta:
+      type: chicago.startup
+      order: 50
+      comment: The same order as startup_later, before it by the entry id.
+    data:
+      entry: app:sdk_demo
+      args: also
+
+  - name: startup_default
+    kind: registry.entry
+    meta:
+      type: chicago.startup
+      comment: No order (100) and a when function that says no.
+    data:
+      entry: app:sdk_demo
+      args: default
+      when: app:startup_when_no
+
+  - name: startup_when_user
+    kind: function.lua
+    meta:
+      comment: Shows a startup window to the user u-startup only.
+    source: file://startup_when.lua
+    method: user
+
+  - name: startup_when_no
+    kind: function.lua
+    meta:
+      comment: Never shows a startup window.
+    source: file://startup_when.lua
+    method: no
+
+  - name: startup_when_error
+    kind: function.lua
+    meta:
+      comment: Fails on purpose.
+    source: file://startup_when.lua
+    method: fail
+
+  - name: startup_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows Shell
+      suite: chicago_shell
+      comment: Startup windows — meta.order with ties by id and the default 100, a missing window and a when that fails or says no skipped with the reason, the user id reaching the when function, no logon no windows, the startup process asking a stand-in desktop in order, and the real compositor opening what it asks for.
+    source: file://startup_test.lua
+    method: run
+    modules: [channel, process, registry, time, tty]
+    imports:
+      test: wippy.test:test
+      startup: chicago.shell.programs:startup
+
+  - name: picture_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: chicago_shell
+      comment: The picture component — a pack's pictures folder read at any size beside its square sizes and reread when replaced, the natural height measured by the window and laid out in both plans, 1 to 1 and cut to its rect in pixels, the bold text for a missing picture and in cells, and its rows repainted when the file changes.
+    source: file://picture_test.lua
+    method: run
+    modules: [fs, gfx, registry]
+    imports:
+      test: wippy.test:test
+      images: chicago.shell.theme:images
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+      render: chicago.shell.sdk:render
+      rasters: chicago.shell.theme:rasters
+      app: chicago.shell.sdk:app
+      palette: chicago.shell.theme:palette
+      pixels: chicago.shell.theme:pixels

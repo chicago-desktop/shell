@@ -201,7 +201,8 @@ Pictures of other modules and of the application do not go into it: they come
 in their own pack, found at run time.
 
 A pack is any `fs.*` entry that declares `meta.type: chicago.images`, with the
-pictures lying as `<size>/<file>.png`:
+icons lying as `<size>/<file>.png` and pictures of any size as
+`pictures/<file>.png`:
 
 ```yaml
 - name: images
@@ -230,6 +231,13 @@ wherever a name is taken: `meta.image` of a program, the `image` of an SDK
   filesystem.
 - **The sizes are the folders the author drew**, up to 256; the picture must be
   exactly the size asked for. There is no scaling here either.
+- **`pictures/` holds pictures of any width and height**, beside the size
+  folders: `pictures/<file>.png` is what the SDK's `picture` component draws
+  ([sdk.md](sdk.md), "Pictures") — a 360×40 heading, a 180×120 illustration —
+  named `<entry id>/<file>` like the rest (`images.picture`). It is not a size:
+  an icon, a button or a title never reads it, and a picture never reads a size
+  folder. It is read, looked at again and kept by the same rules, so a file
+  replaced there is a new raster without a restart.
 - **Reading a pack takes `registry.get` as well as `fs.get`.** The compositor
   holds both already (the icon folder, the program catalog), so a pack needs no
   permission of its own. Any other process that paints pictures — a PNG probe,

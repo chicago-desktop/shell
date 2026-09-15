@@ -160,3 +160,4 @@ entries:
       logon_provider: chicago.shell.logon:provider
       environment: chicago.shell.config:environment
       font_set: chicago.shell.theme:font_set
+      startup: chicago.shell.programs:startup

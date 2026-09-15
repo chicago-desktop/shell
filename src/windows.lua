@@ -26,6 +26,7 @@ local patterns = require("patterns")
 local wallpapers = require("wallpapers")
 local logon_screen = require("logon_screen")
 local logon_provider = require("logon_provider")
+local startup = require("startup")
 
 local SERVICE_NAME = "chicago.shell.desktop"
 
@@ -383,6 +384,17 @@ local function main()
                 local context: any = type(identity.context) == "table" and identity.context or {}
                 chrome.use_user({id = context.user_id, name = context.user_name,
                     entry = profile_entry ~= nil and tostring(profile_entry) or nil})
+                -- Startup windows (`chicago.startup`), once per desktop, right
+                -- after this logon: a process of their own asks the
+                -- compositor for them once its loop runs, and they open under
+                -- this person (programs/startup.lua says why not from here).
+                -- A failure is a line in the log, never a refused logon.
+                local helper, startup_error = startup.begin(identity)
+                if startup_error then
+                    log:warn("startup windows not opened", {reason = tostring(startup_error)})
+                elseif helper then
+                    log:info("startup windows requested", {process = tostring(helper)})
+                end
             end
             return identity, why
         end

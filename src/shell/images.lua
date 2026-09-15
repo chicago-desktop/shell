@@ -67,6 +67,10 @@ images.PACK_TYPE = "chicago.images"
 images.PACK_RECHECK_SECONDS = 5
 -- A pack's sizes are the folders its author drew; the largest one read.
 images.PACK_MAX_SIZE = 256
+-- A pack's pictures of any width and height — a heading, an illustration —
+-- lie in this folder beside the numeric size folders and are read by
+-- `images.picture`. It is not a size: `get` never reads it.
+images.PICTURES = "pictures"
 
 -- The sizes the pack is built in. There are no other files in the folder,
 -- and asking for another size is the caller's mistake, not a reason to
@@ -198,6 +202,49 @@ local function fail(key: string, pack: any, why: string): (any, any)
     return nil, why
 end
 
+-- from_pack(key, pack, path, px, noun) -> raster or nil, reason
+--
+-- One file of a pack, by the pack rules: looked at again every
+-- `PACK_RECHECK_SECONDS`, the same bytes keep the same raster, other bytes are
+-- decoded into a new one, and a refusal is remembered with a retry. `px`
+-- demands a square of that side (an icon of a size folder); nil takes any
+-- width and height (a picture of `pictures/`). Icons and pictures share this
+-- one reading: two copies of the recheck would drift apart on the rare path.
+local function from_pack(key: string, pack: string, path: string, px: any, noun: string): (any, any)
+    local cached: any = cache[key]
+    if type(cached) == "table" and time.now():unix() < cached.check_at then
+        -- A pack file, read or refused, until it is looked at again.
+        if cached.raster then return cached.raster, nil end
+        return nil, cached.why
+    end
+    local opened, why = open_pack(pack)
+    if not opened then return fail(key, pack, tostring(why)) end
+    local where = " from " .. pack
+    local data, read_err = opened:readfile(path)
+    if read_err or not data then
+        return fail(key, pack, noun .. " " .. path .. " not read" .. where .. ": " .. tostring(read_err))
+    end
+    -- A file that has not changed keeps its raster.
+    if type(cached) == "table" and cached.raster and cached.bytes == data then
+        cached.check_at = time.now():unix() + images.PACK_RECHECK_SECONDS
+        return cached.raster, nil
+    end
+    -- `opened` is typed as any, and readfile returns any; the linter is right
+    -- that a string has to be named a string rather than guessed.
+    local raster, decode_err = gfx.image(data :: string)
+    if not raster then
+        return fail(key, pack, noun .. " " .. path .. where .. " not decoded: " .. tostring(decode_err))
+    end
+    if px ~= nil then
+        local w, h = raster:size()
+        if w ~= px or h ~= px then
+            return fail(key, pack, string.format("%s %s%s is %dx%d, expected %dx%d", noun, path, where, w, h, px, px))
+        end
+    end
+    cache[key] = {raster = raster, bytes = data, check_at = time.now():unix() + images.PACK_RECHECK_SECONDS}
+    return raster, nil
+end
+
 -- get(name, size) -> raster or nil, reason
 --
 -- The raster is shared by all callers and must not change: `blit` reads from
@@ -222,54 +269,51 @@ function images.get(name: any, size: any): (any, any)
     end
 
     local key = tostring(name) .. "@" .. tostring(px)
+    if pack then
+        local found, why = from_pack(key, tostring(pack), tostring(px) .. "/" .. tostring(file) .. ".png", px, "icon")
+        return found, why
+    end
+
     local cached: any = cache[key]
     if cached == false then return nil, "icon " .. key .. " not read (see the first failure)" end
-    if type(cached) == "table" then
-        -- A pack picture, read or refused, until it is looked at again.
-        if time.now():unix() < cached.check_at then
-            if cached.raster then return cached.raster, nil end
-            return nil, cached.why
-        end
-    elseif cached ~= nil then
-        return cached, nil
-    end
+    if cached ~= nil then return cached, nil end
 
-    local opened: any, why: any = nil, nil
-    if pack then
-        opened, why = open_pack(tostring(pack))
-        if not opened then return fail(key, pack, tostring(why)) end
-    else
-        opened, why = open_store(images.STORE)
-        if not opened then return nil, why end
-    end
+    local opened, why = open_store(images.STORE)
+    if not opened then return nil, why end
 
-    local path = tostring(px) .. "/" .. tostring(file or name) .. ".png"
-    local where = pack and (" from " .. pack) or ""
+    local path = tostring(px) .. "/" .. tostring(name) .. ".png"
     local data, read_err = opened:readfile(path)
     if read_err or not data then
-        return fail(key, pack, "icon " .. path .. " not read" .. where .. ": " .. tostring(read_err))
+        return fail(key, nil, "icon " .. path .. " not read: " .. tostring(read_err))
     end
-    -- A pack picture whose file has not changed keeps its raster.
-    if pack and type(cached) == "table" and cached.raster and cached.bytes == data then
-        cached.check_at = time.now():unix() + images.PACK_RECHECK_SECONDS
-        return cached.raster, nil
-    end
-    -- `opened` is typed as any, and readfile returns any; the linter is right
-    -- that a string has to be named a string rather than guessed.
     local raster, decode_err = gfx.image(data :: string)
     if not raster then
-        return fail(key, pack, "icon " .. path .. where .. " not decoded: " .. tostring(decode_err))
+        return fail(key, nil, "icon " .. path .. " not decoded: " .. tostring(decode_err))
     end
     local w, h = raster:size()
     if w ~= px or h ~= px then
-        return fail(key, pack, string.format("icon %s%s is %dx%d, expected %dx%d", path, where, w, h, px, px))
+        return fail(key, nil, string.format("icon %s is %dx%d, expected %dx%d", path, w, h, px, px))
     end
-    if pack then
-        cache[key] = {raster = raster, bytes = data, check_at = time.now():unix() + images.PACK_RECHECK_SECONDS}
-    else
-        cache[key] = raster
-    end
+    cache[key] = raster
     return raster, nil
+end
+
+-- picture(name) -> raster or nil, reason
+--
+-- A picture of any width and height from a pack's `pictures/` folder,
+-- `<pack entry>/<file>` → `pictures/<file>.png`: the SDK's `picture`
+-- component (a 360×40 heading, a 180×120 illustration). Not scaled and not
+-- held to a size; read, rechecked and kept by the pack rules, so a file
+-- replaced in the folder is drawn without a restart. Only a pack picture:
+-- the shell's own pack has sizes and nothing else.
+function images.picture(name: any): (any, any)
+    local pack, file = images.pack_of(name)
+    if not pack then
+        return nil, "no such picture: " .. tostring(name) .. " (a picture is named <pack entry>/<file>)"
+    end
+    local found, why = from_pack(tostring(name) .. "@" .. images.PICTURES, tostring(pack),
+        images.PICTURES .. "/" .. tostring(file) .. ".png", nil, "picture")
+    return found, why
 end
 
 -- wallpaper(file) -> raster or nil, reason

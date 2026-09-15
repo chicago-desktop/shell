@@ -223,6 +223,10 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             -- An icon in cells is one character: the font knows nothing about rasters.
             local glyph = tostring(node.icon or "▸")
             put(r.x + math.max(0, (r.w - 1) // 2), r.y + math.max(0, (r.h - 1) // 2), glyph, 1, styles.face)
+        elseif node.kind == "picture" then
+            -- A picture in cells is its text, bold, at the top left of its rect,
+            -- where pixels put the picture: the font knows nothing about rasters.
+            put(r.x, r.y, tostring(node.text or ""), r.w, styles.face_bold)
         elseif node.kind == "spectrum" then
             -- The color spectrum: a cell per hue step on the middle row, the
             -- same sweep as in pixels (`ui.spectrum_color`).

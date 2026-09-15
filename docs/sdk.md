@@ -124,6 +124,11 @@ current data; `update` changes the model on a component's action.
 - `image`: `image` (a name from the icon catalog), `icon` (a character for cells),
   `size_px` (32 by default). A dialog icon: a raster in pixels, a single character
   in cells. Does not take focus, no `id` needed.
+- `picture`: `image` (`<pack entry>/<file>`, a PNG in the pack's `pictures/`
+  folder), `text` (what shows where the picture does not), `size_px` (its height
+  in pixels, optional). A heading or an illustration of any width and height:
+  drawn at 1:1 in pixels, bold `text` in cells. Does not take focus, no `id`
+  needed. See [Pictures](#pictures).
 - `ui.message(spec)` is an in-window sheet — "Help → About", an object's
   "Properties": `title`, `lines`, `image`/`icon`, and `buttons = {{id, text,
   default}, …}` in that order at the right edge (by default one "OK" with the id
@@ -422,6 +427,34 @@ A tree that does not lay out (an unknown `kind`, an interactive view without an
 a fallback tree. The shared renderer in the compositor asks `ui.problem` and shows the
 reason as text in the window rather than throwing: an error caught by `pcall` in go-lua
 breaks the upvalues of the whole stack beneath it, and beneath the renderer lies the compositor's loop.
+
+## Pictures
+
+`{kind = "picture", image = "<pack entry>/<file>", text = "<fallback>", size_px = <height>?}`
+shows `pictures/<file>.png` of an image pack ([icons.md](icons.md), "Image
+packs of other modules"): a 360×40 heading, a 180×120 illustration — any width
+and height, not only a square.
+
+- In pixels it is drawn at 1:1, left-aligned at the top of its rect, never
+  scaled; what does not fit the rect is cut off. While the file is missing or
+  does not decode it is `text` in bold at the same place: a missing picture is
+  never an error and never an empty hole.
+- In cells it is always `text`, bold, at the top left of its rect.
+- Its height down a column is `size_px` when given, else the picture's own
+  height, rounded up to whole cells. Unmeasured — in cells, or with the file
+  missing — it is `size`, else one row. Across a row it takes `size`, else its
+  own width.
+- The own size is measured in the window's process: `app.run` reads the
+  picture before it lays out (`app.measure`), writes `natural_w` / `natural_h`
+  (pixels) into the node, and the numbers reach the compositor with the tree,
+  so the window's hit tests and the drawing use the same rows. The compositor
+  never measures on its own. A window that may not read the pack (it needs
+  `registry.get` and `fs.get` on the pack entry) lays the picture out one row
+  high, and the compositor cuts the picture to that row — give `size_px` not to
+  depend on it. An application does not set `natural_w` / `natural_h` itself.
+- A file replaced in the pack is read again within
+  `images.PACK_RECHECK_SECONDS` (5), as pack icons are; the new raster repaints
+  the picture's rows at the window's next frame.
 
 ## Styling of standard elements
 
@@ -743,6 +776,49 @@ clock's offset in.
 imports:
   format: chicago.shell.sdk:format
 ```
+
+## Startup windows
+
+A window can open by itself when a person logs on — a welcome, a tip of the
+day. A module or the application declares a registry entry:
+
+```yaml
+- name: welcome_startup
+  kind: registry.entry
+  meta:
+    type: chicago.startup             # what makes it a startup window
+    order: 10                         # lower first; default 100; ties by the entry id
+  data:
+    entry: chicago.welcome:window     # the window to open (meta.type tui_desktop.window)
+    args: "tips"                      # optional, a string, the window's args
+    when: chicago.welcome:show        # optional, a function.lua entry
+```
+
+- The shell opens these once per desktop, right after a successful logon — by
+  password or by SSH key — under the logged-on person, in `meta.order`, the
+  way the person would open them (`desktop.open`; each one is raised, so the
+  last is on top). A desktop without logon (the service actor) opens none.
+- `when` is called through `funcs` with `{user_id = <the logged-on user's id>}`,
+  under the function's own actor, as the logon function is. Only the answer
+  `{show = true}` opens the window; an error, a refusal or any other answer
+  means "do not open" and is logged with the reason, never raised. `args` is a
+  string because the compositor carries a window's args only as one.
+- A startup entry that names no window, a window entry that is missing or is
+  not a window, a `when` that says no, and a window the compositor refuses (a
+  `meta.requires` the person lacks) are skipped and logged; the desktop comes
+  up regardless and the others still open.
+- How: the logon wrapper (`src/windows.lua`) calls `startup.begin`
+  (`chicago.shell.programs:startup`), which spawns
+  `chicago.shell.programs:startup_run` with the compositor's pid. That process
+  reads the entries, asks the `when` functions and sends `desktop.open` for
+  each window, waiting for each answer; the compositor handles the commands
+  once its loop runs, after it has taken the identity. The wrapper runs inside
+  the compositor, which cannot send the command to itself: it answers a
+  refusal to the sender, and would refuse its own answer again, for ever. The
+  process runs under the compositor's actor and needs nothing beyond what the
+  catalog and the logon already use (`registry.get`, `registry.find`,
+  `funcs.call`, `process.send`). The log (`chicago.shell.startup`) says what
+  opened and why anything did not.
 
 ## Desktop widgets
 

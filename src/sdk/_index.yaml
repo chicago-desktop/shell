@@ -78,6 +78,9 @@ entries:
       cells: chicago.shell.sdk:cells
       widgets: chicago.shell.theme:widgets
       editor: chicago.shell.sdk:editor
+      # The natural size of a `picture` is measured in the window's own
+      # process (app.measure), with the same pack reader the renderer uses.
+      images: chicago.shell.theme:images
 
   - name: editor
     kind: library.lua

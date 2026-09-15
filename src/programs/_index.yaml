@@ -76,3 +76,50 @@ entries:
     data:
       images:
         "chicago.tui_desktop.desktop:window_pty": console
+
+  # chicago.shell.programs:startup
+  #
+  # Startup windows — `meta.type: chicago.startup` registry entries naming a
+  # window (`data.entry`), its `data.args` and an optional `data.when`
+  # function. Read, checked and opened after a successful logon, never on a
+  # desktop without one (docs/sdk.md, "Startup windows").
+  - name: startup
+    kind: library.lua
+    meta:
+      comment: Startup windows after logon — the chicago.startup entries in meta.order, a when function asked through funcs with the user id, and every skip named in the log.
+    source: file://startup.lua
+    modules:
+      - channel
+      - funcs
+      - logger
+      - process
+      - registry
+      - time
+    imports:
+      catalog: chicago.shell.programs:catalog
+      window_api: chicago.tui_desktop.desktop:window_api
+
+  # chicago.shell.programs:startup_run
+  #
+  # The process the logon wrapper spawns with the compositor's pid and the
+  # user id. The wrapper runs inside the compositor, which cannot send itself
+  # `desktop.open` — its refusal would be answered to itself for ever — so
+  # this asks from outside, as any window does, and ends. It runs under the
+  # compositor's actor (spawned without a substitute), with the permissions
+  # the catalog and the logon already use — registry.get and registry.find,
+  # funcs.call, process.send.
+  - name: startup_run
+    kind: process.lua
+    meta:
+      comment: Opens the logged-on person's startup windows through the compositor, in order, and ends.
+    source: file://startup_run.lua
+    method: main
+    modules:
+      - channel
+      - funcs
+      - logger
+      - process
+      - registry
+      - time
+    imports:
+      startup: chicago.shell.programs:startup

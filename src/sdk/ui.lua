@@ -10,10 +10,11 @@ local containers = {row = true, column = true, split = true}
 local leaves = {label = true, button = true, input = true, list = true, table = true, checkbox = true,
     statusbar = true, tabs = true, menu = true, image = true, field = true,
     group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true, monitor = true,
-    icons = true, select = true, slider = true, spectrum = true, radio = true, text = true, editor = true}
+    icons = true, select = true, slider = true, spectrum = true, radio = true, text = true, editor = true,
+    picture = true}
 -- Only the ones that take no input can live without an `id`.
 local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
-    calendar = true, clock = true, monitor = true, spectrum = true}
+    calendar = true, clock = true, monitor = true, spectrum = true, picture = true}
 -- A node that takes no input: a passive kind, or a table declared `static` —
 -- pairs of "name — value" on a properties sheet, which nobody selects. Such a
 -- table needs no `id`, takes no focus and no clicks, and keeps no scroll offset.
@@ -455,6 +456,29 @@ local function cells_up(plan: any, px: any, fallback: any, horizontal: boolean, 
     local unit = whole(horizontal and cell.w or cell.h)
     return whole(math.max(least, (whole(px) + unit - 1) // unit))
 end
+-- picture_size(plan, node, horizontal) -> the cells a `picture` takes along its
+-- parent's axis, or nil for a flexible one.
+--
+-- Down a column it is the picture's height: `size_px` when given, else its
+-- natural height — `natural_h`, which `app.run` measures in the window's own
+-- process and publishes with the tree, so the compositor lays out exactly the
+-- rows the window hit-tests — rounded UP to whole cells, so the renderer's
+-- rect holds it. Unmeasured (cells, a file that is not there, a window that
+-- may not read the pack) it is its text: `size`, else one row. Across a row it
+-- is `size`, else the natural width in pixels, else it shares the rest.
+local function picture_size(plan: any, node: any, horizontal: boolean): any
+    if horizontal then
+        if node.size ~= nil then return whole(math.max(0, whole(node.size))) end
+        if plan.cell ~= nil and node.natural_w ~= nil then return cells_up(plan, node.natural_w, nil, true, 1) end
+        return nil
+    end
+    if plan.cell ~= nil then
+        local px: any = node.size_px or node.natural_h
+        if px ~= nil then return cells_up(plan, px, nil, false, 1) end
+    end
+    if node.size ~= nil then return whole(math.max(0, whole(node.size))) end
+    return 1
+end
 -- pack(children, rect, node, plan) — the buttons of a right-aligned row, drawn
 -- at their classic size in pixels: `width_px` wide (75 in a dialog),
 -- `pack_px` apart (6 by default), packed from the row's right edge. Each
@@ -592,6 +616,8 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         -- A child's fixed size: `size_px` rounded to cells when the plan draws
         -- in pixels, `size` otherwise; nil for a flexible child.
         local function fixed_size(child: any): any
+            -- A picture's `size_px` is its height, not a length along any axis.
+            if type(child) == "table" and child.kind == "picture" then return picture_size(plan, child, horizontal) end
             if plan.cell ~= nil and child.size_px ~= nil then
                 if child.kind == "image" then return cells_up(plan, child.size_px, child.size, horizontal, 1) end
                 return cells_for(plan, child.size_px, child.size, horizontal, 1)

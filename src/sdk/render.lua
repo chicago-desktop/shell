@@ -476,6 +476,33 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                     pixels.icon(raster, whole(x + (w - side) // 2), whole(y + (h - side) // 2),
                         {kind = node.icon_kind or "program", image = node.image}, side)
                 end
+            elseif node.kind == "picture" then
+                -- A pack's `pictures/<file>.png` at 1:1, left-aligned at the
+                -- rect's top, never scaled, and never past the rect: a larger
+                -- picture is cut to it (gfx blits whole rasters, so the cut is
+                -- a raster of the rect's size). A picture that is not there, or
+                -- does not decode, is its `text` in bold — never a hole.
+                local found: any = type(node.image) == "string" and images.picture(node.image) or nil
+                if found then
+                    local picture = found :: gfx.Raster
+                    local pw, ph = picture:size()
+                    local cut_w, cut_h = whole(math.min(pw, w)), whole(math.min(ph, h))
+                    if cut_w == pw and cut_h == ph then
+                        raster:blit(picture, whole(x), whole(y))
+                    elseif cut_w >= 1 and cut_h >= 1 then
+                        local cut = gfx.raster(cut_w, cut_h)
+                        cut:fill(color.face)
+                        cut:blit(picture, 1, 1)
+                        raster:blit(cut, whole(x), whole(y))
+                    end
+                else
+                    local bold: any = fonts and (fonts.bold or fonts.face) or nil
+                    if bold and w >= 1 and h >= 1 then
+                        local line = whole(math.min(h, cell.h))
+                        raster:text(whole(x), whole(y + math.max(0, (line - 15) // 2)),
+                            pixels.ellipsize(bold, tostring(node.text or ""), whole(w)), {font = bold, color = color.face_text})
+                    end
+                end
             elseif node.kind == "spectrum" then
                 -- The palette's spectrum bar: a sunken box up to 15 px in its
                 -- rows, the hue sweeping left to right (`ui.spectrum_color`).
@@ -1020,6 +1047,9 @@ local function item_sig(item: any, plan: any, interaction: any): string
         id ~= nil and capture ~= nil and capture.id == id and "C" or "",
         (id ~= nil and node.kind ~= "editor") and sig(editors[id]) or "", id ~= nil and sig(menus[id]) or "",
         node.kind == "button" and tostring(plan.focus_on_button) or "",
+        -- A picture's raster by identity: a file replaced in its pack is a new
+        -- raster under the same node, and its rows must be painted again.
+        node.kind == "picture" and tostring((images.picture(node.image))) or "",
     }, ";")
 end
 -- The entry a list-like item draws in one row, and whether it is selected.

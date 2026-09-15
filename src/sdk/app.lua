@@ -33,6 +33,7 @@ local ui = require("ui")
 local cells = require("cells")
 local widgets = require("widgets")
 local editor = require("editor")
+local images = require("images")
 local app = {}
 
 -- The tree shown in place of a crashed application. Without it the window
@@ -236,6 +237,34 @@ function app.frame_meta(definition: any, model: any, context: any): (any, any)
     return read("title"), read("image")
 end
 
+-- measure(tree) — the natural size of every `picture` in the tree, written
+-- into its node as `natural_w` / `natural_h` (pixels), or cleared when the
+-- picture cannot be read here.
+--
+-- A picture without `size_px` is as tall as its file, and the layout needs
+-- that number in TWO processes: the window hit-tests with its own plan, the
+-- compositor draws with another. So the window measures once, before it lays
+-- out, and the numbers travel with the published tree: both plans read the
+-- same field and give the same rows. The compositor never measures on its own
+-- — a window that may not read the pack (it needs `registry.get` and `fs.get`
+-- on it) lays the picture out one row high, and the compositor must agree.
+function app.measure(tree: any)
+    if type(tree) ~= "table" then return end
+    if tree.kind == "picture" then
+        local found: any = type(tree.image) == "string" and images.picture(tree.image) or nil
+        if found then
+            local w, h = found:size()
+            tree.natural_w, tree.natural_h = w, h
+        else
+            tree.natural_w, tree.natural_h = nil, nil
+        end
+        return
+    end
+    if type(tree.children) == "table" then
+        for _, child in ipairs(tree.children) do app.measure(child) end
+    end
+end
+
 function app.main(definition: any): any
     return function(first: any, window_id: any, args: any, viewport: any)
         app.run(definition, first, window_id, args, viewport)
@@ -268,6 +297,12 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
         local tree: any = nil
         if not context.failure then tree = guarded(context, "view", definition.view, model, context) end
         if context.failure then tree = failure_tree(context.failure) end
+        -- Pictures are measured only where they are drawn as pictures: in
+        -- cells they are text, one row.
+        if context.cell ~= nil then
+            local measured = tree
+            guarded(context, "measure", function() app.measure(measured) end)
+        end
         local sizing = {scroll_cols = context.scroll_cols, cell = context.cell}
         local ok, built = pcall(ui.plan, tree, context.width, context.height, interaction, sizing)
         if ok then loop.plan = built
