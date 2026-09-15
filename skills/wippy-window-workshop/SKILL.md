@@ -145,13 +145,13 @@ pack — an `fs.*` entry of a module or the application with
 `image`, `button.image` (a picture instead of the caption) and `ui.message`'s
 `image`. The contract is `docs/icons.md`, "Image packs of other modules".
 
-On the stand the pack for workshop windows is `app.workshop:images`; upload a
-picture into it with `image` and name what it answers. The shell looks at a
+In the Chicago application the pack for workshop windows is
+`app.workshop:images`; upload a picture into it with `image` and name what it
+answers (`app.workshop:images/<file>`). The shell looks at a
 pack picture again every few seconds, so an uploaded picture shows and a
 re-uploaded one replaces the old without a rebuild or a restart. Draw at the
 size it is shown: 16 for a button face or a title, 32 for a menu or dialog
-icon — there is no scaling. Minesweeper takes `app.workshop:images/mine` and
-`…/face_smile`. One pack serves every workshop window; a NEW pack entry is
+icon — there is no scaling. One pack serves every workshop window; a NEW pack entry is
 registry and arrives only with a restart. Keep `text` / `icon` beside every
 picture: cells show them, and pixels show them while the picture is missing.
 

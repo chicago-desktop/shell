@@ -713,6 +713,37 @@ draws 16-px icons today; its clicks carry no `pointer` yet, so a double click
 opens only once they do (Enter and Open work already). When the `icons` view
 gains small icons, the list moves there.
 
+## Time, names and refusals
+
+`chicago.shell.sdk:format` is one rule for each of the three things every
+window that lists the platform's data shows: a stored time, a person's name
+and a refusal. Two windows writing their own copies drift apart; take them
+from here. The library is pure — no IO, no permissions; the window passes the
+clock's offset in.
+
+- `format.parse_time(value) -> unix | nil` — RFC3339 (kickside/cron) or
+  SQLite's `YYYY-MM-DD HH:MM:SS` (kickside/core), UTC unless a zone is
+  given, fractions dropped; nil for anything that is not a timestamp.
+- `format.parse_offset(value) -> seconds` east of UTC, from what
+  `time.now():format("-07:00")` returns; anything unreadable is 0.
+- `format.format_time(unix, offset) -> "2026-09-14 11:00"`, local time.
+- `format.when(value, offset, missing)` — a stored timestamp for a cell: local
+  time, `missing` when there is none, the raw text when it does not parse (a
+  value the window cannot read is shown, not hidden).
+- `format.display_name(user)` — a user row of the users module by its full
+  name, else its e-mail, else its `user_id`.
+- `format.explain(what, err)` — a refusal for the status bar, worded by the
+  error's kind: `list: permission denied — …`, `get: not found — …`,
+  otherwise `list: …`, and `list failed` without an error. A permission
+  refusal must not read as "not found": the fix is a policy, not the data.
+- `format.digits(n)`, `format.two(n)` — a whole number as text, and padded to
+  two digits.
+
+```yaml
+imports:
+  format: chicago.shell.sdk:format
+```
+
 ## Desktop widgets
 
 A widget is a view window without the window
@@ -741,7 +772,7 @@ keyboard, no title buttons and no frame of its own to drag.
     app: chicago.shell.sdk:app
     gadget: chicago.shell.sdk:gadget
   security:
-    policies: [app.monitor:widget_scope]
+    policies: [chicago.taskman:widget_scope]
 ```
 
 The shell reads these entries (`catalog.widgets()`, `meta.order` then the

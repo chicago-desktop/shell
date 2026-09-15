@@ -86,3 +86,8 @@ entries:
     imports:
       geometry: chicago.tui_desktop.desktop:geometry
       text: chicago.tui_desktop.desktop:text
+
+  - name: format
+    kind: library.lua
+    meta: {comment: "Time, names and refusal text for windows: RFC3339 and SQLite datetime parsing, local formatting from the clock's offset, the name a person is shown by, a refusal's wording by its error kind; pure. See docs/sdk.md."}
+    source: file://format.lua

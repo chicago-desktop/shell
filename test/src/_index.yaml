@@ -860,6 +860,19 @@ entries:
       glyphs: chicago.shell.theme:glyphs
       app: chicago.shell.sdk:app
 
+  - name: format_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: chicago_shell
+      comment: SDK format, pure — RFC3339 and SQLite datetime parsing, zone and fraction handling, local time across midnight and the new year, the clock's offset, whole numbers, display names, refusal text by error kind.
+    source: file://format_test.lua
+    method: run
+    imports:
+      test: wippy.test:test
+      format: chicago.shell.sdk:format
+
   - name: editor_model_test
     kind: function.lua
     meta:
