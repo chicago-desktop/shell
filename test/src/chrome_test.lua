@@ -335,6 +335,84 @@ local function define_tests()
             chrome_pixels.use_cell_size(10, 20)
         end)
 
+        test.it("a move or resize drag's outline: dashes in cells, four transparent overlay strips in pixels", function()
+            local function chars(row: any): any
+                local out = {}
+                local plain = tostring(row or ""):gsub("\27%[[%d;:]*m", "")
+                for char in plain:gmatch("[%z\1-\127\194-\244][\128-\191]*") do out[#out + 1] = char end
+                return out
+            end
+            local canvas = tty.canvas(30, 10)
+            -- A frame starts from a cleared canvas, as the compositor's does.
+            canvas:clear(" ")
+            chrome.outline(canvas, {x = 3, y = 2, w = 10, h = 5})
+            local rows: any = canvas:rows()
+            local top, side, bottom = chars(rows[2]), chars(rows[4]), chars(rows[6])
+            -- A row ends at its last written cell: a column past it is blank.
+            local function at(list: any, column: integer): string return list[column] or " " end
+            test.eq(at(top, 3) .. at(top, 12), "┄┄", "cells: dashes across the top, from the rect's first column to its last")
+            test.eq(at(top, 2) .. at(top, 13), "  ", "and not past it")
+            test.eq(at(side, 3) .. at(side, 12), "┆┆", "down both sides")
+            test.eq(at(side, 4), " ", "the inside is left alone")
+            test.eq(at(bottom, 7), "┄", "across the bottom")
+
+            local function probe(raster: any, x: integer, y: integer): string
+                local part = gfx.raster(1, 1)
+                part:blit(raster, 2 - x, 2 - y)
+                return assert(part:encode("png"))
+            end
+            local function swatch(colour: string): string
+                local part = gfx.raster(1, 1)
+                part:fill(colour)
+                return assert(part:encode("png"))
+            end
+            local BLACK, WHITE, CLEAR = swatch("#000000"), swatch("#ffffff"), swatch("#00000000")
+            chrome_pixels.use_cell_size(10, 20)
+            local scene = {width = 80, height = 24, bottom = 23, clock = "12:00", items = {}, focused_id = "w",
+                windows = {{id = "w", x = 5, y = 3, w = 20, h = 8, title = "Moved"}}}
+            local function strips(painted: any): any
+                local found: any = {}
+                for _, item in ipairs(painted.placements) do
+                    if item.id:find("outline:", 1, true) == 1 then found[item.id:sub(9)] = item end
+                end
+                return found
+            end
+            local function place(item: any): string
+                return item and (item.x .. "," .. item.y .. "," .. item.cols .. "," .. item.rows) or "none"
+            end
+            test.is_nil(next(strips(chrome_pixels.paint(scene, 10, 20))), "no outline without a drag")
+            scene.outline = {x = 30, y = 5, w = 12, h = 6}
+            local shown = strips(chrome_pixels.paint(scene, 10, 20))
+            test.eq(place(shown.top), "30,5,12,1")
+            test.eq(place(shown.bottom), "30,10,12,1")
+            test.eq(place(shown.left), "30,6,1,4")
+            test.eq(place(shown.right), "41,6,1,4")
+            test.is_true(shown.top.overlay == true and shown.right.overlay == true, "overlays: the cells under them are not blanked")
+            -- Past the corner cell's side band (x 1..3): dashes of two pixels,
+            -- black at x 5..6, white at 7..8.
+            test.eq(probe(shown.top.raster, 5, 1), BLACK, "a black dash")
+            test.eq(probe(shown.top.raster, 7, 1), WHITE, "the next is white")
+            test.eq(probe(shown.top.raster, 5, 3), BLACK, "three pixels deep")
+            test.eq(probe(shown.top.raster, 5, 4), CLEAR, "transparent under the band")
+            test.eq(probe(shown.bottom.raster, 5, 20), BLACK, "the bottom band lies on the cell's bottom")
+            test.eq(probe(shown.bottom.raster, 5, 17), CLEAR)
+            -- The corners are closed: the top and bottom rows carry the side
+            -- bands down their corner cells (the side strips start a row lower).
+            test.is_true(probe(shown.top.raster, 1, 12) ~= CLEAR, "the top-left corner has its left side")
+            test.is_true(probe(shown.top.raster, 120, 12) ~= CLEAR, "the top-right corner has its right side")
+            test.eq(probe(shown.top.raster, 5, 12), CLEAR, "the corner cell is clear inside")
+            test.is_true(probe(shown.bottom.raster, 1, 5) ~= CLEAR, "the bottom-left corner has its left side")
+            test.is_true(probe(shown.bottom.raster, 120, 5) ~= CLEAR, "the bottom-right corner has its right side")
+            test.eq(probe(shown.right.raster, 10, 1), BLACK, "the right band on the cell's right")
+            test.eq(probe(shown.right.raster, 7, 1), CLEAR)
+            test.eq(probe(shown.left.raster, 1, 1), BLACK)
+            test.eq(probe(shown.left.raster, 4, 1), CLEAR)
+            local raster, version = shown.top.raster, shown.top.raster:version()
+            local again = strips(chrome_pixels.paint(scene, 10, 20))
+            test.is_true(again.top.raster ~= raster or again.top.raster:version() ~= version,
+                "repainted every frame: a window under it resent on its tick must not lie over it")
+        end)
+
         test.it("the taskbar and tall menu items are pressable over their whole drawn height", function()
             for _, cell in ipairs({{10, 20}, {12, 23}, {8, 16}}) do
                 chrome_pixels.use_cell_size(cell[1], cell[2])

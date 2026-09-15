@@ -1161,10 +1161,60 @@ local function visible_placements(list: any, windows: any, menus: any, cell: any
             local raster, dirty = store.take(id, piece.cols, piece.rows, cell, placements.crop_key(source))
             if dirty then raster:blit(source.raster, 1 - dx * cell.w, 1 - dy * cell.h) end
             out[#out + 1] = {id = id, raster = raster, x = piece.x, y = piece.y,
-                cols = piece.cols, rows = piece.rows}
+                cols = piece.cols, rows = piece.rows, overlay = source.overlay}
         end
     end
     return out
+end
+
+-- The outline of a move or resize drag (the compositor's `outline`), as
+-- Windows 95 drew it: a 3-px band of alternating black and white dashes along
+-- the pending rect, over everything. Four overlay placements, transparent but
+-- for the band: the windows and the text under them stay visible, and the
+-- compositor leaves their cells unblanked. They are drawn into on every frame
+-- the outline is up, dirty or not, so their version moves and the surface
+-- resends them after the windows — sixel has no z order, and a window under
+-- an unchanged outline, resent on its tick, would lie over it.
+local OUTLINE_PX = 3
+local OUTLINE_DASH = 2
+
+local function paint_outline(cell: any, rect: any, out: any)
+    local x, y, w, h = whole(rect.x), whole(rect.y), whole(rect.w), whole(rect.h)
+    if w < 2 or h < 2 then return end
+    local cw, ch = whole(cell.w), whole(cell.h)
+    -- band(raster, left, top, length, across) — dashes OUTLINE_PX thick from
+    -- (left, top), `length` pixels along x (across) or down y.
+    local function band(raster: any, left: integer, top: integer, length: integer, across: boolean)
+        for offset = 0, length - 1, OUTLINE_DASH do
+            local tint = (offset // OUTLINE_DASH) % 2 == 0 and color.frame or color.light
+            local dash = whole(math.min(OUTLINE_DASH, length - offset))
+            if across then raster:rect(left + offset, top, dash, OUTLINE_PX, tint)
+            else raster:rect(left, top + offset, OUTLINE_PX, dash, tint) end
+        end
+    end
+    local function strip(name: string, col: integer, row: integer, cols: integer, rows: integer): any
+        local id = "outline:" .. name
+        local raster = store.take(id, cols, rows, cell, "outline")
+        raster:fill("#00000000")
+        out[#out + 1] = {id = id, raster = raster, x = col, y = row, cols = cols, rows = rows, overlay = true}
+        return raster
+    end
+    local width, right = w * cw, w * cw - OUTLINE_PX + 1
+    -- The top and bottom rows carry their corners: the side bands run down
+    -- the whole corner cell there. The side strips start a row lower and end
+    -- a row higher, so without this every corner lacked its side for a cell.
+    local top = strip("top", x, y, w, 1)
+    band(top, 1, 1, width, true)
+    band(top, 1, 1, ch, false)
+    band(top, right, 1, ch, false)
+    local bottom = strip("bottom", x, y + h - 1, w, 1)
+    band(bottom, 1, ch - OUTLINE_PX + 1, width, true)
+    band(bottom, 1, 1, ch, false)
+    band(bottom, right, 1, ch, false)
+    if h > 2 then
+        band(strip("left", x, y + 1, 1, h - 2), 1, 1, (h - 2) * ch, false)
+        band(strip("right", x + w - 1, y + 1, 1, h - 2), cw - OUTLINE_PX + 1, 1, (h - 2) * ch, false)
+    end
 end
 
 function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
@@ -1306,6 +1356,9 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
 
         for _, hit in ipairs(shown.hits) do hits.menu[#hits.menu + 1] = hit end
     end
+
+    -- A move or resize drag's outline, over everything.
+    if type(view.outline) == "table" then paint_outline(cell, view.outline, out) end
 
     -- Placements are declared through the store, so that `sweep` throws away
     -- whatever the frame did not name: a closed menu disappears by absence

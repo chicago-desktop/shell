@@ -93,12 +93,19 @@ glyphs.icons = {
     divider = "─",       -- menu separator
 }
 
+-- The outline a move or resize drag shows until the release: Windows 95
+-- dragged a dotted rectangle, not the window itself.
+glyphs.outline = {
+    across = "┄",
+    down = "┆",
+}
+
 -- The full set as one table, for the width test. The order does not matter;
 -- what matters is that no character is left out of the check: a set you can
 -- forget to add a line to does not check what is drawn.
 function glyphs.all()
     local out = {}
-    for _, group in ipairs({glyphs.bevel, glyphs.shade, glyphs.buttons, glyphs.scrollbar, glyphs.icons}) do
+    for _, group in ipairs({glyphs.bevel, glyphs.shade, glyphs.buttons, glyphs.scrollbar, glyphs.icons, glyphs.outline}) do
         for _, char in pairs(group) do
             out[#out + 1] = char
         end

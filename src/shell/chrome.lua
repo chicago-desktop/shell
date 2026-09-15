@@ -584,6 +584,22 @@ function chrome.window(canvas, window, focused)
     return hits
 end
 
+-- outline(canvas, rect) — the pending rect of a move or resize drag, as
+-- Windows 95 showed it: a dotted frame over everything, the window itself
+-- unmoved until the release. `rect` is in cells, from the compositor.
+function chrome.outline(canvas, rect: any)
+    local x, y, w, h = whole(rect.x), whole(rect.y), whole(rect.w), whole(rect.h)
+    if w < 2 or h < 2 then return end
+    local across = styles.face:render(string.rep(glyphs.outline.across, w))
+    canvas:put(x, y, across, w)
+    canvas:put(x, y + h - 1, across, w)
+    local down = styles.face:render(glyphs.outline.down)
+    for row = y + 1, y + h - 2 do
+        canvas:put(x, row, down, 1)
+        canvas:put(x + w - 1, row, down, 1)
+    end
+end
+
 -- ─── Taskbar ─────────────────────────────────────────────────────────────
 
 -- The taskbar: Start on the left, the buttons of open windows, the clock on

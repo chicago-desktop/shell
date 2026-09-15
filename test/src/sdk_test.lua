@@ -528,6 +528,31 @@ local function define_tests()
                     test.eq(armed.state.interaction.armed.id, "sdk_close")
                     assert(view:send({type = "mouse", action = "release", button = "left", x = fallen.x + close.x, y = fallen.y + close.y}))
                 else
+                    -- The program must have redrawn at the new size before the
+                    -- key: an Esc written into its pty while it still handles
+                    -- the resize (SIGWINCH) is read as the start of a sequence
+                    -- and lost. The compositor's frame used to lend it ~15 ms
+                    -- by accident; it no longer paints in the command's path,
+                    -- so the test waits for the evidence — every row fits the
+                    -- new client (40 − 2 columns) and the label is back.
+                    local redrawn = false
+                    local wait_until = time.now():unix_nano() + 5000000000
+                    local rows_seen: any = {}
+                    while not redrawn and time.now():unix_nano() < wait_until do
+                        local shown = ask(service, replies, "desktop.screen", {id = opened.window.id})
+                        rows_seen = {}
+                        for _, row in ipairs(shown.rows or {}) do
+                            local plain = tostring(row):gsub("\27%[[%d;:]*m", "")
+                            rows_seen[#rows_seen + 1] = plain
+                            if plain:find("registry", 1, true) then redrawn = true end
+                        end
+                        for _, plain in ipairs(rows_seen) do
+                            local _, runes = plain:gsub("[%z\1-\127\194-\244][\128-\191]*", "")
+                            if runes > 40 - 2 then redrawn = false end
+                        end
+                        if not redrawn then channel.select({time.after("50ms"):case_receive()}) end
+                    end
+                    test.is_true(redrawn, "the program redrew at 40×15 before the key: " .. table.concat(rows_seen, "|"))
                     -- A key no component took reaches the application: Esc closes.
                     assert(view:send({type = "key", key = "esc", key_type = "esc", action = "press"}))
                 end
