@@ -69,7 +69,7 @@ scaling, except where noted.
 - File: display_properties; Source: w98_display_properties; What it shows: a monitor with a palette — "Display Properties"
 - File: notepad; Source: w98_notepad; What it shows: a notepad with a pencil — "Notepad"
 - File: user; Source: w98_address_book_user; What it shows: a human head in profile — the logged-in user in "Start". **The `.ico` has only 32×32**; 16×16 is obtained by halving (NEAREST, alpha forced to 0/255), because the pack must provide both sizes, and `gfx` has no scaling.
-- File: dialup; Source: w98_conn_dialup_alt; What it shows: a globe and a telephone — a dial-up connection; the "Connections" window in "Settings" (`app.connections:window` of the stand). Added 2026-09-11. **The `.ico` has only 32×32**; 16×16 is the same halving as for `user` (NEAREST, alpha forced to 0/255).
+- File: dialup; Source: w98_conn_dialup_alt; What it shows: a globe and a telephone — a dial-up connection; the "Connections" window in "Settings" (`chicago.connections:window`, which now carries its own copy). Added 2026-09-11. **The `.ico` has only 32×32**; 16×16 is the same halving as for `user` (NEAREST, alpha forced to 0/255).
 
 ## The logon key
 
