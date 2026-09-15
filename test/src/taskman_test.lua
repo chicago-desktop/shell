@@ -67,7 +67,7 @@ local function define_tests()
             end
             local plan = ui.plan(taskman.definition.view(fixture(2), {width = 76, height = 25}), 76, 25, ui.interaction())
             test.eq(#plan.by_id.procs.node.rows, 80)
-            test.eq(plan.by_id.procs.node.columns[4].align, "right")
+            test.eq(plan.by_id.procs.node.columns[6].align, "right", "Steps, the last column, is right-aligned")
         end)
         test.it("the name — value pairs are static tables: no made-up id, no focus", function()
             local expected: any = {[3] = "pages,refresh", [4] = "hosts,pages,refresh"}
@@ -100,6 +100,91 @@ local function define_tests()
             plan = ui.plan(taskman.definition.view(state, context), 76, 25, ui.interaction())
             test.eq(plan.by_id.procs.node.selected, 0, "a vanished process does not select another row")
             test.eq(taskman.definition.update(state, {type = "key", key_type = "runes", key = "x"}, context), false, "an unrelated key does not redraw")
+        end)
+
+        -- The window's effects, replaced: what it asked to close or end.
+        local function effects(protected: any?): (any, any)
+            local log: any = {closed = {}, ended = {}}
+            local deps: any = {
+                close = function(id: any, opts: any?): (any, any)
+                    log.closed[#log.closed + 1] = tostring(id) .. ((opts and opts.force) and ":force" or "")
+                    return true, nil
+                end,
+                terminate = function(pid: any): (any, any)
+                    log.ended[#log.ended + 1] = tostring(pid)
+                    return true, nil
+                end,
+                protected = function(): any return protected or {} end,
+            }
+            return deps, log
+        end
+        local function texts(node: any, out: any): any
+            if type(node) == "string" then out[#out + 1] = node
+            elseif type(node) == "table" then
+                for _, value in pairs(node) do texts(value, out) end
+            end
+            return out
+        end
+
+        test.it("Processes show each process's actor and how long it runs", function()
+            local rows = model.processes({{pid = "p1", source = "app:a", state = "waiting", steps = 3, actor_id = "user:42", started_at = 1788850100}})
+            test.eq(rows[1].actor, "user:42")
+            local state = fixture(2)
+            state.snapshot.processes[1].actor = "app.chat.presence"
+            local plan = ui.plan(taskman.definition.view(state, {width = 76, height = 25}), 76, 25, ui.interaction())
+            local node = plan.by_id.procs.node
+            local titles = {}
+            for index, column in ipairs(node.columns) do titles[index] = column.title end
+            test.eq(table.concat(titles, ","), "Entry,PID,Actor,Status,Uptime,Steps")
+            test.eq(node.rows[1].cells[3], "app.chat.presence")
+            test.eq(node.rows[1].cells[5], model.uptime(1788858300 - 1788850100), "taken minus started")
+        end)
+
+        test.it("End Task asks the window to close, and ends it on the second press", function()
+            local real = taskman.definition.deps
+            local deps, log = effects()
+            taskman.definition.deps = deps
+            local state = fixture(1)
+            local context = {width = 76, height = 25, close = function() end}
+            local plan = ui.plan(taskman.definition.view(state, context), 76, 25, ui.interaction())
+            test.is_true(plan.by_id.end_task.node.disabled == true, "nothing selected, nothing to end")
+            taskman.definition.update(state, {type = "select", id = "apps", index = 2, value = {id = "two"}}, context)
+            plan = ui.plan(taskman.definition.view(state, context), 76, 25, ui.interaction())
+            test.is_true(plan.by_id.end_task.node.disabled ~= true, "a selected task can be ended")
+            taskman.definition.update(state, {type = "activate", id = "end_task"}, context)
+            test.eq(table.concat(log.closed, "|"), "two", "the first press asks")
+            test.not_nil(tostring(state.notice):find("Asked Notepad", 1, true), tostring(state.notice))
+            taskman.definition.update(state, {type = "activate", id = "end_task"}, context)
+            test.eq(table.concat(log.closed, "|"), "two|two:force", "the second ends it")
+            test.not_nil(tostring(state.notice):find("Ended Notepad", 1, true), tostring(state.notice))
+            taskman.definition.deps = real
+        end)
+
+        test.it("End Process warns first, ends on Yes, and does not offer the shell or itself", function()
+            local real = taskman.definition.deps
+            local deps, log = effects({p1 = "the shell"})
+            taskman.definition.deps = deps
+            local state = fixture(2)
+            local context = {width = 76, height = 25, close = function() end}
+            taskman.definition.update(state, {type = "select", id = "procs", index = 80, value = {id = "p80"}}, context)
+            taskman.definition.update(state, {type = "activate", id = "end_process"}, context)
+            test.not_nil(state.confirm, "a warning first")
+            local sheet = taskman.definition.view(state, context)
+            test.is_nil(ui.problem(sheet))
+            test.not_nil(table.concat(texts(sheet, {}), "\n"):find("WARNING: Terminating a process", 1, true))
+            taskman.definition.update(state, {type = "activate", id = "end_no"}, context)
+            test.is_nil(state.confirm, "No returns to the list")
+            test.eq(#log.ended, 0, "and ends nothing")
+            taskman.definition.update(state, {type = "activate", id = "end_process"}, context)
+            taskman.definition.update(state, {type = "activate", id = "end_yes"}, context)
+            test.eq(table.concat(log.ended, ","), "p80", "Yes ends the process")
+            test.not_nil(tostring(state.notice):find("Ended app:w80", 1, true), tostring(state.notice))
+            taskman.definition.update(state, {type = "select", id = "procs", index = 1, value = {id = "p1"}}, context)
+            taskman.definition.update(state, {type = "activate", id = "end_process"}, context)
+            test.is_nil(state.confirm, "the shell is not offered")
+            test.not_nil(tostring(state.notice):find("the shell", 1, true), tostring(state.notice))
+            test.eq(#log.ended, 1)
+            taskman.definition.deps = real
         end)
         test.it("opens the real native window, handles tabs and refresh, and keeps sampling", function()
             local replies = process.listen("desktop.reply", {message = true})

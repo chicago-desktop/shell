@@ -103,7 +103,7 @@ end
 
 -- ─── Processes ───────────────────────────────────────────────────────────
 
--- processes(list) -> sorted rows {pid, source, state, steps, host, started}
+-- processes(list) -> sorted rows {pid, source, state, steps, host, actor, started}
 --
 -- Sorting by source, then by pid: a list that jumps on every refresh cannot
 -- be read. Sorting by steps would sort by "who is more active", but activity
@@ -118,6 +118,7 @@ function model.processes(list: any): any
             state = tostring(record.state or ""),
             steps = whole(record.steps),
             host = tostring(record.host or ""),
+            actor = tostring(record.actor_id or ""),
             started = model.epoch_seconds(record.started_at),
         }
     end

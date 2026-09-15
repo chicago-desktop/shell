@@ -22,17 +22,20 @@ entries:
       charts: butschster.windows.sdk:charts
 
   # Permissions: read the runtime (`system.read`: hosts, node, cluster), ask
-  # the compositor about open windows and publish its state to it. The window
-  # can neither spawn nor kill other processes: there is no "End Task" here.
+  # the compositor about open windows, publish its state and close a window
+  # (End Task), and terminate a process (End Process, owner's decision
+  # 2026-09-14). End Process warns first, and the shell and the Task Manager
+  # itself are not offered; the window still starts nothing.
   - name: window_scope
     kind: security.policy
     meta:
-      comment: Task Manager permissions — read the runtime state and ask the compositor; start nothing and kill nothing.
+      comment: Task Manager permissions — read the runtime state, ask the compositor, close a window and terminate a process on the person's confirmation.
     policy:
       actions:
         - process.context
         - process.registry
         - process.send
+        - process.terminate
         - system.read
       resources: "*"
       effect: allow
@@ -43,6 +46,9 @@ entries:
     meta:
       type: tui_desktop.window
       title: Task Manager
+      # Ends any runtime process, other people's desktops' among them: only
+      # for windows.admin.
+      requires: windows.admin
       image: taskmgr
       icon: "▥"
       group: Settings
@@ -58,6 +64,7 @@ entries:
     method: main
     modules:
       - os
+      - process
       - system
     security:
       policies: [butschster.windows.taskman:window_scope]
@@ -68,3 +75,4 @@ entries:
       model: butschster.windows.taskman:model
       charts: butschster.windows.sdk:charts
       facts: butschster.windows.config:system
+      ui: butschster.windows.sdk:ui
