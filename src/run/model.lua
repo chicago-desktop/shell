@@ -2,7 +2,7 @@
 -- no launch permissions. The dialog's line editor is no longer its own: it
 -- comes from `sdk:editor`.
 local model = {}
-model.PTY = "butschster.tui_desktop.desktop:window_pty"
+model.PTY = "windows.tui_desktop.desktop:window_pty"
 
 function model.spec(text)
     local command = tostring(text or ""):match("^%s*(.-)%s*$")

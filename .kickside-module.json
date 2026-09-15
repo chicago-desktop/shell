@@ -2,12 +2,12 @@
   "templateVersion": 1,
   "initialized": true,
   "identity": {
-    "organization": "butschster",
-    "module": "windows",
-    "namespace": "butschster.windows",
-    "tag": "butschster-windows",
+    "organization": "windows",
+    "module": "shell",
+    "namespace": "windows.shell",
+    "tag": "windows-shell",
     "route": "windows",
     "title": "Windows Shell",
-    "githubOwner": "wippy-projects"
+    "githubOwner": "wippy-windows"
   }
 }

@@ -1,14 +1,14 @@
 version: "1.0"
 namespace: app
 
-# Standalone harness for butschster/windows. Provides the host resources the
+# Standalone harness for windows/shell. Provides the host resources the
 # boot needs (app:db, app:processes, gateway + api router, env storage, a
 # permissive actor scope) and wires them through wippy/bootloader so the
 # co-located *_test.lua suites run in isolation. The router exists only so the
 # endpoint entries resolve; the suites call the libraries directly.
 #
 # The shell can also be brought up from here by hand, without the application:
-#   cd test && wippy run --host butschster.windows:terminal windows
+#   cd test && wippy run --host windows.shell:terminal windows
 # Harness-only; excluded from publish via the module wippy.yaml.
 
 entries:
@@ -22,7 +22,7 @@ entries:
       type: test
       comment: Task Manager, AntiBug, Add/Remove Programs and the Registry Editor name windows.admin in meta.requires, so the compositor opens them only for an administrator.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://admin_windows_test.lua
     modules: [registry]
     imports:
@@ -35,16 +35,16 @@ entries:
       type: test
       comment: The layout survives the round "created — read — moved — deleted", a broken shortcut stays and is marked, a deleted shortcut does not come back.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://storage_test.lua
     modules: [sql, env, json, time, uuid, registry]
     imports:
       test: wippy.test:test
-      repo: butschster.windows.persist:repo
-      catalog: butschster.windows.programs:catalog
-      seed: butschster.windows.programs:seed
-      view: butschster.windows.programs:desktop_view
-      desktop_body: butschster.windows.api:desktop_body
+      repo: windows.shell.persist:repo
+      catalog: windows.shell.programs:catalog
+      seed: windows.shell.programs:seed
+      view: windows.shell.programs:desktop_view
+      desktop_body: windows.shell.api:desktop_body
     method: run
 
   - name: catalog_test
@@ -53,15 +53,15 @@ entries:
       type: test
       comment: The catalog builds menu folders from meta.group, tells an empty catalog and an unreadable registry apart by different values, hides from the menu what asked to be hidden, does not create a folder without content, and names an unknown window type without hiding the program.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://catalog_test.lua
     modules: [registry]
     imports:
       test: wippy.test:test
-      catalog: butschster.windows.programs:catalog
-      view: butschster.windows.programs:desktop_view
-      chrome: butschster.windows.shell:chrome
-      model: butschster.windows.explorer:model
+      catalog: windows.shell.programs:catalog
+      view: windows.shell.programs:desktop_view
+      chrome: windows.shell.theme:chrome
+      model: windows.shell.explorer:model
     method: run
 
   - name: defaults_test
@@ -70,15 +70,15 @@ entries:
       type: test
       comment: Desk furniture is created once, furniture that was thrown away does not come back, a shortcut to a missing program is skipped rather than created broken.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://defaults_test.lua
     modules: [sql, env, json, time, uuid, registry, tty]
     imports:
       test: wippy.test:test
-      repo: butschster.windows.persist:repo
-      defaults: butschster.windows.programs:defaults
-      seed: butschster.windows.programs:seed
-      chrome: butschster.windows.shell:chrome
+      repo: windows.shell.persist:repo
+      defaults: windows.shell.programs:defaults
+      seed: windows.shell.programs:seed
+      chrome: windows.shell.theme:chrome
     method: run
 
   - name: explorer_test
@@ -87,12 +87,12 @@ entries:
       type: test
       comment: The "My Computer" window shows the stand itself, makes a drive of every fs entry, reads the path the same way for a click and for the "Up" button, describes a double click as an intent, and nowhere substitutes the word "empty" for "not read".
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://explorer_test.lua
     modules: [registry]
     imports:
       test: wippy.test:test
-      model: butschster.windows.explorer:model
+      model: windows.shell.explorer:model
     method: run
 
   - name: sources_test
@@ -101,14 +101,14 @@ entries:
       type: test
       comment: Drives come from the live registry, not from a table of our own; drive content is read by the fs module; a closed drive answers with a reason, not with emptiness; the top level of the desktop and the desktop folder do not show the same thing twice.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://sources_test.lua
     modules: [fs, registry, sql, env, time, uuid, tty, process, channel]
     imports:
       test: wippy.test:test
-      model: butschster.windows.explorer:model
-      repo: butschster.windows.persist:repo
-      sources: butschster.windows.explorer:sources
+      model: windows.shell.explorer:model
+      repo: windows.shell.persist:repo
+      sources: windows.shell.explorer:sources
     method: run
 
   - name: explorer_window_test
@@ -117,17 +117,17 @@ entries:
       type: test
       comment: The folder window on the SDK (FR-008) — every menu item through update, open or focus, Backspace in both browse modes, the toggles, the context menus, the Options sheet, the four views laid out at 48×16 and 72×22 in both modes, List as column-filled icons with test/shots/folder-list.png, and the window alive in a viewport.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://explorer_window_test.lua
     modules: [tty, process, channel, time, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
-      app: butschster.windows.sdk:app
-      render: butschster.windows.sdk:render
-      rasters: butschster.windows.shell:rasters
-      model: butschster.windows.explorer:model
-      explorer_window: butschster.windows.explorer:window
+      ui: windows.shell.sdk:ui
+      app: windows.shell.sdk:app
+      render: windows.shell.sdk:render
+      rasters: windows.shell.theme:rasters
+      model: windows.shell.explorer:model
+      explorer_window: windows.shell.explorer:window
     method: run
 
   - name: chrome_test
@@ -136,19 +136,19 @@ entries:
       type: test
       comment: Title buttons — each window type has its own set, an unknown type counts as an ordinary window, exactly what is drawn is what gets pressed; the fill is called in both themes, and the styles live in one table, not in two similar ones; the pixel desktop names the reason for an unreadable layout, and the taskbar shows the status line.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://chrome_test.lua
     modules: [tty, gfx, registry, fs]
     imports:
       test: wippy.test:test
-      catalog: butschster.windows.programs:catalog
-      chrome: butschster.windows.shell:chrome
-      chrome_pixels: butschster.windows.shell:chrome_pixels
-      widgets: butschster.windows.shell:widgets
-      pixels: butschster.windows.shell:pixels
-      desktop_pixels: butschster.tui_desktop.desktop:pixels
-      menu_layout: butschster.windows.shell:menu_layout
-      placements: butschster.windows.shell:placements
+      catalog: windows.shell.programs:catalog
+      chrome: windows.shell.theme:chrome
+      chrome_pixels: windows.shell.theme:chrome_pixels
+      widgets: windows.shell.theme:widgets
+      pixels: windows.shell.theme:pixels
+      desktop_pixels: windows.tui_desktop.desktop:pixels
+      menu_layout: windows.shell.theme:menu_layout
+      placements: windows.shell.theme:placements
     method: run
 
   - name: images_test
@@ -157,12 +157,12 @@ entries:
       type: test
       comment: Windows 95 icon pack — every name decodes at 32 and 16, the raster is cached, an unknown name and a foreign size refuse with a reason, the shortcut overlay lands in the raster.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://images_test.lua
     modules: [gfx, registry, fs]
     imports:
       test: wippy.test:test
-      images: butschster.windows.shell:images
+      images: windows.shell.theme:images
     method: run
 
   - name: shell_test
@@ -171,13 +171,13 @@ entries:
       type: test
       comment: The shell comes up on the test viewport and rereads the layout on the endpoint's command; a shell that was shut down is distinguished from a failure.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://shell_test.lua
     modules: [channel, process, registry, sql, env, time, tty, uuid]
     imports:
       test: wippy.test:test
-      control: butschster.windows.api:control
-      repo: butschster.windows.persist:repo
+      control: windows.shell.api:control
+      repo: windows.shell.persist:repo
     method: run
 
   - name: glyphs_test
@@ -186,13 +186,13 @@ entries:
       type: test
       comment: Every glyph in the set takes exactly one cell, and both palette sets carry the same names — otherwise some detail gets painted "however it turns out".
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://glyphs_test.lua
     modules: [tty]
     imports:
       test: wippy.test:test
-      glyphs: butschster.windows.shell:glyphs
-      palette: butschster.windows.shell:palette
+      glyphs: windows.shell.theme:glyphs
+      palette: windows.shell.theme:palette
     method: run
 
   - name: wiring_test
@@ -201,13 +201,13 @@ entries:
       type: test
       comment: The host, the shell process, the explorer window, the endpoints and the policies exist and reference each other; the terminal host log is silenced, the layout endpoints and the window have no right to spawn processes, there is no program-creation endpoint, and the desk furniture points at existing entries.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://wiring_test.lua
     modules: [registry]
     imports:
       test: wippy.test:test
-      defaults: butschster.windows.programs:defaults
-      repo: butschster.windows.persist:repo
+      defaults: windows.shell.programs:defaults
+      repo: windows.shell.persist:repo
     method: run
 
   # A program WITH A GROUP. Added on purpose: the harness had not a single
@@ -261,27 +261,27 @@ entries:
     security:
       policies: [app:probe_scope]
     imports:
-      chrome: butschster.windows.shell:chrome
-      chrome_pixels: butschster.windows.shell:chrome_pixels
-      pixels: butschster.windows.shell:pixels
-      rasters: butschster.windows.shell:rasters
-      ui: butschster.windows.sdk:ui
-      explorer_window: butschster.windows.explorer:window
-      run_window: butschster.windows.run:window
-      datetime_window: butschster.windows.datetime:window
-      calc_window: butschster.windows.calc:window
-      sdk_render: butschster.windows.sdk:render
-      taskman_window: butschster.windows.taskman:window
-      sysprops_window: butschster.windows.sysprops:window
-      sysprops_model: butschster.windows.sysprops:model
-      network_window: butschster.windows.network:window
-      display_window: butschster.windows.display:window
-      reg_model: butschster.windows.regedit:model
-      regedit_window: butschster.windows.regedit:window
-      images: butschster.windows.shell:images
-      catalog: butschster.windows.programs:catalog
-      desktop_view: butschster.windows.programs:desktop_view
-      model: butschster.windows.explorer:model
+      chrome: windows.shell.theme:chrome
+      chrome_pixels: windows.shell.theme:chrome_pixels
+      pixels: windows.shell.theme:pixels
+      rasters: windows.shell.theme:rasters
+      ui: windows.shell.sdk:ui
+      explorer_window: windows.shell.explorer:window
+      run_window: windows.shell.run:window
+      datetime_window: windows.shell.datetime:window
+      calc_window: windows.shell.calc:window
+      sdk_render: windows.shell.sdk:render
+      taskman_window: windows.shell.taskman:window
+      sysprops_window: windows.shell.sysprops:window
+      sysprops_model: windows.shell.sysprops:model
+      network_window: windows.shell.network:window
+      display_window: windows.shell.display:window
+      reg_model: windows.shell.regedit:model
+      regedit_window: windows.shell.regedit:window
+      images: windows.shell.theme:images
+      catalog: windows.shell.programs:catalog
+      desktop_view: windows.shell.programs:desktop_view
+      model: windows.shell.explorer:model
       widget_scene: app:widget_scene
 
   # The probe's permissions are named, not taken from the harness's general
@@ -377,9 +377,9 @@ entries:
     kind: ns.dependency
     meta:
       comment: The module under test; its source is replaced with ../ in .wippy.yaml.
-    component: "butschster/windows"
+    component: "windows/shell"
     parameters:
-      - name: butschster.windows:api_router
+      - name: windows.shell:api_router
         value: app:api
 
   - name: windows_harness.dep.migration
@@ -434,14 +434,14 @@ entries:
       type: test
       comment: Viewers — the window argument is built and parsed in one shape, a type registry from meta.opens with conflicts settled by name, a picture frame exactly the size of the window, and the same raster when nothing changed.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://viewers_test.lua
     modules: [gfx, base64]
     imports:
       test: wippy.test:test
-      files: butschster.windows.viewers:files
-      associations: butschster.windows.viewers:associations
-      picture_render: butschster.windows.viewers:picture_render
+      files: windows.shell.viewers:files
+      associations: windows.shell.viewers:associations
+      picture_render: windows.shell.viewers:picture_render
     method: run
 
   - name: views_test
@@ -450,22 +450,22 @@ entries:
       type: test
       comment: View windows — the month grid, buttons in cells without shared cells, a second resends only the clock; the calculator computes like the buttons, memory survives a clear, a press resends the display and one row; a fixed window has no "maximize".
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://views_test.lua
     modules: [gfx, tty, registry, fs]
     imports:
       test: wippy.test:test
-      rasters: butschster.windows.shell:rasters
-      pixels: butschster.windows.shell:pixels
-      widgets: butschster.windows.shell:widgets
-      chrome: butschster.windows.shell:chrome
-      chrome_pixels: butschster.windows.shell:chrome_pixels
-      datetime_window: butschster.windows.datetime:window
-      engine: butschster.windows.calc:engine
-      calc_window: butschster.windows.calc:window
-      ui: butschster.windows.sdk:ui
-      reg_model: butschster.windows.regedit:model
-      regedit_window: butschster.windows.regedit:window
+      rasters: windows.shell.theme:rasters
+      pixels: windows.shell.theme:pixels
+      widgets: windows.shell.theme:widgets
+      chrome: windows.shell.theme:chrome
+      chrome_pixels: windows.shell.theme:chrome_pixels
+      datetime_window: windows.shell.datetime:window
+      engine: windows.shell.calc:engine
+      calc_window: windows.shell.calc:window
+      ui: windows.shell.sdk:ui
+      reg_model: windows.shell.regedit:model
+      regedit_window: windows.shell.regedit:window
     method: run
 
   - name: appwiz_test
@@ -474,12 +474,12 @@ entries:
       type: test
       comment: Add/Remove Programs — merging the declarations with the cache, editing the declarations file as text, the name of a new entry.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://appwiz_test.lua
     modules: [fs]
     imports:
       test: wippy.test:test
-      model: butschster.windows.appwiz:model
+      model: windows.shell.appwiz:model
     method: run
 
   - name: environment_test
@@ -488,11 +488,11 @@ entries:
       type: test
       comment: Environment reading — a permission refusal is distinguishable from "not set", the default does not hide it, the process environment takes precedence over the file storage.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://environment_test.lua
     imports:
       test: wippy.test:test
-      environment: butschster.windows.config:environment
+      environment: windows.shell.config:environment
     method: run
 
   # Where appwiz_test writes the declarations file for real: writing with a
@@ -512,19 +512,19 @@ entries:
       type: test
       comment: Display properties — the color shape and the resolution label, four tabs without overlaps in cells and at 8×16 and 10×20, the Windows 95 metrics, choosing a color and a pattern and applying through a substituted entry, OK after a successful write; the theme repaints the desktop through a single point.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://display_test.lua
     modules: [sql, env, time, uuid, tty]
     imports:
       test: wippy.test:test
-      model: butschster.windows.display:model
-      ui: butschster.windows.sdk:ui
-      render: butschster.windows.sdk:render
-      display_window: butschster.windows.display:window
-      chrome: butschster.windows.shell:chrome
-      chrome_pixels: butschster.windows.shell:chrome_pixels
-      widgets: butschster.windows.shell:widgets
-      palette: butschster.windows.shell:palette
+      model: windows.shell.display:model
+      ui: windows.shell.sdk:ui
+      render: windows.shell.sdk:render
+      display_window: windows.shell.display:window
+      chrome: windows.shell.theme:chrome
+      chrome_pixels: windows.shell.theme:chrome_pixels
+      widgets: windows.shell.theme:widgets
+      palette: windows.shell.theme:palette
     method: run
 
   - name: network_test
@@ -533,16 +533,16 @@ entries:
       type: test
       comment: Network Neighborhood — the local node first, the leader marked, a lone node differs from a membership failure, the window layout without overlaps.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://network_test.lua
     modules: [system]
     imports:
       test: wippy.test:test
-      model: butschster.windows.network:model
-      ui: butschster.windows.sdk:ui
-      network_window: butschster.windows.network:window
-      cells: butschster.windows.sdk:cells
-      facts: butschster.windows.config:system
+      model: windows.shell.network:model
+      ui: windows.shell.sdk:ui
+      network_window: windows.shell.network:window
+      cells: windows.shell.sdk:cells
+      facts: windows.shell.config:system
     method: run
 
   - name: sysprops_test
@@ -551,14 +551,14 @@ entries:
       type: test
       comment: System Properties — the device tree by kind prefix, empty groups with a mark, the layout of three tabs without overlaps, expanding and selecting, OK closes.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://sysprops_test.lua
     modules: [system, registry]
     imports:
       test: wippy.test:test
-      model: butschster.windows.sysprops:model
-      ui: butschster.windows.sdk:ui
-      sysprops_window: butschster.windows.sysprops:window
+      model: windows.shell.sysprops:model
+      ui: windows.shell.sdk:ui
+      sysprops_window: windows.shell.sysprops:window
     method: run
 
   - name: taskman_test
@@ -567,15 +567,15 @@ entries:
       type: test
       comment: Task Manager — history no longer than the ceiling, a graph in block characters bottom-up and right-to-left, memory and time formats, tab layout and hits.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://taskman_test.lua
     modules: [fs, gfx, channel, process, tty, time]
     imports:
       test: wippy.test:test
-      model: butschster.windows.taskman:model
-      ui: butschster.windows.sdk:ui
-      taskman_window: butschster.windows.taskman:window
-      rasters: butschster.windows.shell:rasters
+      model: windows.shell.taskman:model
+      ui: windows.shell.sdk:ui
+      taskman_window: windows.shell.taskman:window
+      rasters: windows.shell.theme:rasters
     method: run
 
   - name: programs_live_test
@@ -584,12 +584,12 @@ entries:
       type: test
       comment: New programs — Task Manager, Notepad, picture viewer — are opened by the live shell and answer with a window description; a failure names the reason that the stand hides in the log.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://programs_live_test.lua
     modules: [channel, process, registry, sql, env, time, tty, uuid]
     imports:
       test: wippy.test:test
-      control: butschster.windows.api:control
+      control: windows.shell.api:control
     method: run
 
   - name: window_life_test
@@ -598,7 +598,7 @@ entries:
       type: test
       comment: Program windows (Task Manager, Notepad) stay alive after launch — the exit event is read as text, because the stand hides it in the log.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://window_life_test.lua
     modules: [channel, process, time, tty]
     imports:
@@ -610,16 +610,16 @@ entries:
     meta:
       type: test
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
       comment: The "Run" window — input, geometry, menu and a real Bash under a PTY.
     source: file://run_test.lua
     method: run
     modules: [process, channel, time, tty, fs, gfx]
     imports:
       test: wippy.test:test
-      model: butschster.windows.run:model
-      ui: butschster.windows.sdk:ui
-      run_window: butschster.windows.run:window
+      model: windows.shell.run:model
+      ui: windows.shell.sdk:ui
+      run_window: windows.shell.run:window
 
   - name: run_composer
     kind: process.lua
@@ -629,10 +629,10 @@ entries:
     method: main
     modules: [process, fs, gfx]
     imports:
-      library: butschster.tui_desktop.desktop:library
-      chrome: butschster.windows.shell:chrome_pixels
-      cell_chrome: butschster.windows.shell:chrome
-      catalog: butschster.windows.programs:catalog
+      library: windows.tui_desktop.desktop:library
+      chrome: windows.shell.theme:chrome_pixels
+      cell_chrome: windows.shell.theme:chrome
+      catalog: windows.shell.programs:catalog
 
   - name: taskman_composer
     kind: process.lua
@@ -642,8 +642,8 @@ entries:
     method: main
     modules: [process, fs, gfx]
     imports:
-      library: butschster.tui_desktop.desktop:library
-      chrome: butschster.windows.shell:chrome_pixels
+      library: windows.tui_desktop.desktop:library
+      chrome: windows.shell.theme:chrome_pixels
 
   - name: sdk_demo
     kind: process.lua
@@ -654,15 +654,15 @@ entries:
       group: [SDK, Examples]
       width: 62
       height: 23
-      pixel_render: butschster.windows.sdk:render
+      pixel_render: windows.shell.sdk:render
       pixel_state: app:sdk_demo
     source: file://sdk_demo.lua
     method: main
     modules: [time]
     imports:
-      app: butschster.windows.sdk:app
+      app: windows.shell.sdk:app
     security:
-      policies: [butschster.windows.security:view_state]
+      policies: [windows.shell.security:view_state]
 
   - name: sdk_fixture
     kind: library.lua
@@ -670,98 +670,98 @@ entries:
     source: file://sdk_demo.lua
     modules: [time]
     imports:
-      app: butschster.windows.sdk:app
+      app: windows.shell.sdk:app
 
   - name: sdk_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: Declarative discovery, shared geometry, scrolling, editing, pixels and live lifecycle.
     source: file://sdk_test.lua
     method: run
     modules: [process, channel, time, tty, fs, gfx, registry]
     imports:
-      chrome: butschster.windows.shell:chrome_pixels
+      chrome: windows.shell.theme:chrome_pixels
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
-      editor: butschster.windows.sdk:editor
-      cells: butschster.windows.sdk:cells
-      scroll: butschster.tui_desktop.desktop:scroll
-      input: butschster.tui_desktop.desktop:input
-      geometry: butschster.tui_desktop.desktop:geometry
-      render: butschster.windows.sdk:render
-      pixels: butschster.windows.shell:pixels
-      rasters: butschster.windows.shell:rasters
-      shell_icons: butschster.windows.shell:icons
+      ui: windows.shell.sdk:ui
+      editor: windows.shell.sdk:editor
+      cells: windows.shell.sdk:cells
+      scroll: windows.tui_desktop.desktop:scroll
+      input: windows.tui_desktop.desktop:input
+      geometry: windows.tui_desktop.desktop:geometry
+      render: windows.shell.sdk:render
+      pixels: windows.shell.theme:pixels
+      rasters: windows.shell.theme:rasters
+      shell_icons: windows.shell.theme:icons
       fixture: app:sdk_fixture
-      catalog: butschster.windows.programs:catalog
-      app: butschster.windows.sdk:app
-      widgets: butschster.windows.shell:widgets
+      catalog: windows.shell.programs:catalog
+      app: windows.shell.sdk:app
+      widgets: windows.shell.theme:widgets
 
   - name: workshop_sdk_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: A window on the SDK built by the workshop — checks the description, applying it to the registry, starting the process.
     source: file://workshop_sdk_test.lua
     method: run
     modules: [channel, process, registry, time, tty]
     imports:
       test: wippy.test:test
-      apps: butschster.tui_desktop.persist:apps
+      apps: windows.tui_desktop.persist:apps
 
   - name: filedialog_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: The Windows 95 Open / Save As sheet — layout at 44×16 in both modes, every action of update, a PNG shot.
     source: file://filedialog_test.lua
     method: run
     modules: [fs, gfx, registry]
     imports:
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
-      cells: butschster.windows.sdk:cells
-      render: butschster.windows.sdk:render
-      rasters: butschster.windows.shell:rasters
-      filedialog: butschster.windows.sdk:filedialog
+      ui: windows.shell.sdk:ui
+      cells: windows.shell.sdk:cells
+      render: windows.shell.sdk:render
+      rasters: windows.shell.theme:rasters
+      filedialog: windows.shell.sdk:filedialog
 
   - name: list_reveal_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: SDK list — reveal scrolls to a row once per value.
     source: file://list_reveal_test.lua
     method: run
     imports:
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
+      ui: windows.shell.sdk:ui
 
   - name: logon_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: Logon screen — password mask, Enter order, refusal and retry, cancel, the frame in cells and in pixels; the logged-on user's name read again through the application's function.
     source: file://logon_test.lua
     method: run
     modules: [channel, tty, fs, gfx]
     imports:
       test: wippy.test:test
-      screen: butschster.windows.logon:screen
-      provider: butschster.windows.logon:provider
-      chrome_pixels: butschster.windows.shell:chrome_pixels
-      ui: butschster.windows.sdk:ui
-      cells: butschster.windows.sdk:cells
+      screen: windows.shell.logon:screen
+      provider: windows.shell.logon:provider
+      chrome_pixels: windows.shell.theme:chrome_pixels
+      ui: windows.shell.sdk:ui
+      cells: windows.shell.sdk:cells
 
   - name: sdk_composer
     kind: process.lua
@@ -771,10 +771,10 @@ entries:
     method: main
     modules: [process, fs, gfx]
     imports:
-      library: butschster.tui_desktop.desktop:library
-      chrome: butschster.windows.shell:chrome_pixels
-      cell_chrome: butschster.windows.shell:chrome
-      catalog: butschster.windows.programs:catalog
+      library: windows.tui_desktop.desktop:library
+      chrome: windows.shell.theme:chrome_pixels
+      cell_chrome: windows.shell.theme:chrome
+      catalog: windows.shell.programs:catalog
 
 
   - name: sdk_focus_test
@@ -783,13 +783,13 @@ entries:
       type: test
       comment: A window that loses the keyboard drops its armed button and captured drag, so a later release does not press a button pressed before the focus change; gaining focus releases nothing.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://sdk_focus_test.lua
     modules: [tty]
     imports:
       test: wippy.test:test
-      app: butschster.windows.sdk:app
-      ui: butschster.windows.sdk:ui
+      app: windows.shell.sdk:app
+      ui: windows.shell.sdk:ui
     method: run
 
   - name: gadget_test
@@ -798,15 +798,15 @@ entries:
       type: test
       comment: The desktop widget kit — every builder is a plain passive tree ui.problem accepts at the rows the kit promises, and the weather and monitor widgets lay out inside a widget's panel without overlaps in cells and at two pixel cells.
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
     source: file://gadget_test.lua
     method: run
     imports:
       test: wippy.test:test
-      gadget: butschster.windows.sdk:gadget
-      gadgets: butschster.windows.shell:gadgets
-      ui: butschster.windows.sdk:ui
-      charts: butschster.windows.sdk:charts
+      gadget: windows.shell.sdk:gadget
+      gadgets: windows.shell.theme:gadgets
+      ui: windows.shell.sdk:ui
+      charts: windows.shell.sdk:charts
 
   - name: gauge_test
     kind: function.lua
@@ -814,18 +814,18 @@ entries:
       type: test
       comment: The gauge's orientation — vertical stays Task Manager's LED meter, horizontal is a Windows 95 progress bar in pixels and in cells, filled by one rule.
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
     source: file://gauge_test.lua
     method: run
     modules: [tty, gfx]
     imports:
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
-      cells: butschster.windows.sdk:cells
-      render: butschster.windows.sdk:render
-      rasters: butschster.windows.shell:rasters
-      palette: butschster.windows.shell:palette
-      glyphs: butschster.windows.shell:glyphs
+      ui: windows.shell.sdk:ui
+      cells: windows.shell.sdk:cells
+      render: windows.shell.sdk:render
+      rasters: windows.shell.theme:rasters
+      palette: windows.shell.theme:palette
+      glyphs: windows.shell.theme:glyphs
 
   - name: desktop_widgets_test
     kind: function.lua
@@ -833,24 +833,24 @@ entries:
       type: test
       comment: Desktop widgets in the shell — the right-edge column and its second column, one hit table for both themes, the panel in cells, a placement per row in pixels cut by windows, a changed number re-sending only its rows, the catalog's widget entries and the SDK runner driving a widget.
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
     source: file://desktop_widgets_test.lua
     method: run
     modules: [tty, gfx, fs, process, channel, time, registry]
     imports:
       test: wippy.test:test
-      text: butschster.tui_desktop.desktop:text
-      glyphs: butschster.windows.shell:glyphs
-      palette: butschster.windows.shell:palette
-      ui: butschster.windows.sdk:ui
-      gadget: butschster.windows.sdk:gadget
-      gadgets: butschster.windows.shell:gadgets
-      chrome: butschster.windows.shell:chrome
-      chrome_pixels: butschster.windows.shell:chrome_pixels
-      sdk_render: butschster.windows.sdk:render
-      catalog: butschster.windows.programs:catalog
-      app: butschster.windows.sdk:app
-      desktop: butschster.tui_desktop.desktop:window_api
+      text: windows.tui_desktop.desktop:text
+      glyphs: windows.shell.theme:glyphs
+      palette: windows.shell.theme:palette
+      ui: windows.shell.sdk:ui
+      gadget: windows.shell.sdk:gadget
+      gadgets: windows.shell.theme:gadgets
+      chrome: windows.shell.theme:chrome
+      chrome_pixels: windows.shell.theme:chrome_pixels
+      sdk_render: windows.shell.sdk:render
+      catalog: windows.shell.programs:catalog
+      app: windows.shell.sdk:app
+      desktop: windows.tui_desktop.desktop:window_api
       fixture: app:widget_fixture
       scene: app:widget_scene
 
@@ -871,10 +871,10 @@ entries:
     method: main
     modules: [time]
     imports:
-      app: butschster.windows.sdk:app
-      gadget: butschster.windows.sdk:gadget
+      app: windows.shell.sdk:app
+      gadget: windows.shell.sdk:gadget
     security:
-      policies: [butschster.windows.security:view_state]
+      policies: [windows.shell.security:view_state]
 
   - name: widget_fixture
     kind: library.lua
@@ -883,8 +883,8 @@ entries:
     source: file://widget_probe.lua
     modules: [time]
     imports:
-      app: butschster.windows.sdk:app
-      gadget: butschster.windows.sdk:gadget
+      app: windows.shell.sdk:app
+      gadget: windows.shell.sdk:gadget
 
   - name: widget_scene
     kind: library.lua
@@ -893,174 +893,174 @@ entries:
     source: file://widget_scene.lua
     modules: [gfx]
     imports:
-      gadget: butschster.windows.sdk:gadget
+      gadget: windows.shell.sdk:gadget
 
   - name: menu_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: Menu rows as Windows 95 draws them — the shortcut column, the checkmark, the bullet, one level of submenus and F10 — in the plan, in cells, in pixels, by keys and by the pointer.
     source: file://menu_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
-      cells: butschster.windows.sdk:cells
-      render: butschster.windows.sdk:render
-      rasters: butschster.windows.shell:rasters
-      palette: butschster.windows.shell:palette
-      glyphs: butschster.windows.shell:glyphs
+      ui: windows.shell.sdk:ui
+      cells: windows.shell.sdk:cells
+      render: windows.shell.sdk:render
+      rasters: windows.shell.theme:rasters
+      palette: windows.shell.theme:palette
+      glyphs: windows.shell.theme:glyphs
 
   - name: selection_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: Small Icons, the multi-selection set of icons and tables with the Ctrl and Shift rules, and a picture in a table cell, in the plan and both renderers.
     source: file://selection_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
-      cells: butschster.windows.sdk:cells
-      render: butschster.windows.sdk:render
-      rasters: butschster.windows.shell:rasters
-      palette: butschster.windows.shell:palette
-      glyphs: butschster.windows.shell:glyphs
+      ui: windows.shell.sdk:ui
+      cells: windows.shell.sdk:cells
+      render: windows.shell.sdk:render
+      rasters: windows.shell.theme:rasters
+      palette: windows.shell.theme:palette
+      glyphs: windows.shell.theme:glyphs
 
   - name: sdk_close_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: A close the window may refuse — update answering false to the close action keeps the SDK loop running; anything else, a self-close or a failure ends it.
     source: file://sdk_close_test.lua
     method: run
     modules: [process, channel, time, tty]
     imports:
       test: wippy.test:test
-      app: butschster.windows.sdk:app
-      desktop: butschster.tui_desktop.desktop:window_api
+      app: windows.shell.sdk:app
+      desktop: windows.tui_desktop.desktop:window_api
 
   - name: table_kind_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: A table cell's picture from its kind in both renderers (images.name_for, icons.glyph), and the title and picture a native SDK frame publishes (app.frame_meta).
     source: file://table_kind_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
-      cells: butschster.windows.sdk:cells
-      render: butschster.windows.sdk:render
-      rasters: butschster.windows.shell:rasters
-      glyphs: butschster.windows.shell:glyphs
-      app: butschster.windows.sdk:app
+      ui: windows.shell.sdk:ui
+      cells: windows.shell.sdk:cells
+      render: windows.shell.sdk:render
+      rasters: windows.shell.theme:rasters
+      glyphs: windows.shell.theme:glyphs
+      app: windows.shell.sdk:app
 
   - name: editor_model_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: The multi-line editor's document model, pure — lines, caret and selection, the keys, one-level undo, find up and down with and without case, and the display rows of word wrap.
     source: file://editor_model_test.lua
     method: run
     imports:
       test: wippy.test:test
-      editor: butschster.windows.sdk:editor
+      editor: windows.shell.sdk:editor
 
   - name: editor_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: The multi-line editor component — the bars in the plan, the keys and the pointer through ui.event, the band and the caret in pixels in the fixed-pitch columns, the exact rows in cells, the document through context.editor, and test/shots/editor.png.
     source: file://editor_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
-      cells: butschster.windows.sdk:cells
-      render: butschster.windows.sdk:render
-      rasters: butschster.windows.shell:rasters
-      palette: butschster.windows.shell:palette
-      editor: butschster.windows.sdk:editor
-      app: butschster.windows.sdk:app
-      chrome_pixels: butschster.windows.shell:chrome_pixels
+      ui: windows.shell.sdk:ui
+      cells: windows.shell.sdk:cells
+      render: windows.shell.sdk:render
+      rasters: windows.shell.theme:rasters
+      palette: windows.shell.theme:palette
+      editor: windows.shell.sdk:editor
+      app: windows.shell.sdk:app
+      chrome_pixels: windows.shell.theme:chrome_pixels
 
   - name: context_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: The context menu — a right press on a list, a table and icons is context with the entry and the cell, and a menu with popup floats there, chosen, dismissed, flipped and drawn as a menu's list.
     source: file://context_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
-      cells: butschster.windows.sdk:cells
-      render: butschster.windows.sdk:render
-      rasters: butschster.windows.shell:rasters
-      palette: butschster.windows.shell:palette
-      glyphs: butschster.windows.shell:glyphs
+      ui: windows.shell.sdk:ui
+      cells: windows.shell.sdk:cells
+      render: windows.shell.sdk:render
+      rasters: windows.shell.theme:rasters
+      palette: windows.shell.theme:palette
+      glyphs: windows.shell.theme:glyphs
 
   - name: list_view_test
     kind: function.lua
     meta:
       type: test
       group: Windows SDK
-      suite: butschster_windows
+      suite: windows_shell
       comment: The List view — icons with small and flow = columns fill a column top to bottom, then the next; the plan at two sizes with a partial last column, scrolling by columns (wheel, bar, reveal), the keys, Ctrl/Shift and context, the cells and pixel drawing with probes, and a selection move repainting two rows.
     source: file://list_view_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
-      cells: butschster.windows.sdk:cells
-      render: butschster.windows.sdk:render
-      rasters: butschster.windows.shell:rasters
-      palette: butschster.windows.shell:palette
-      glyphs: butschster.windows.shell:glyphs
-      pixels: butschster.windows.shell:pixels
+      ui: windows.shell.sdk:ui
+      cells: windows.shell.sdk:cells
+      render: windows.shell.sdk:render
+      rasters: windows.shell.theme:rasters
+      palette: windows.shell.theme:palette
+      glyphs: windows.shell.theme:glyphs
+      pixels: windows.shell.theme:pixels
 
   - name: notepad_test
     kind: function.lua
     meta:
       type: test
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
       comment: Notepad as in Windows 95 — every menu item through update with a stand-in of the window's drives, the save-changes gate with each answer, Find and F3, the 64 KB refusal over a stand-in fs handle, the title after Save As, and test/shots/notepad.png.
     source: file://notepad_test.lua
     method: run
     modules: [tty, gfx, fs]
     imports:
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
-      cells: butschster.windows.sdk:cells
-      render: butschster.windows.sdk:render
-      rasters: butschster.windows.shell:rasters
-      editor: butschster.windows.sdk:editor
-      app: butschster.windows.sdk:app
-      notepad: butschster.windows.viewers:notepad_model
-      filedialog: butschster.windows.sdk:filedialog
-      files: butschster.windows.viewers:files
+      ui: windows.shell.sdk:ui
+      cells: windows.shell.sdk:cells
+      render: windows.shell.sdk:render
+      rasters: windows.shell.theme:rasters
+      editor: windows.shell.sdk:editor
+      app: windows.shell.sdk:app
+      notepad: windows.shell.viewers:notepad_model
+      filedialog: windows.shell.sdk:filedialog
+      files: windows.shell.viewers:files
 
   # ─── AntiBug (FR-009 §3): does a funcs call honour the callee's declared actor? ───
   # A probe with its own `security` block and the same probe without one; the
@@ -1115,7 +1115,7 @@ entries:
     meta:
       type: test
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
       comment: AntiBug FR-009 §3 — a funcs call runs the callee under the actor its entry declares, its declared policies added to the caller's scope; measured as the runner and as a narrow caller, against a probe without a security block.
     source: file://antibug_actor_test.lua
     method: run
@@ -1128,19 +1128,19 @@ entries:
     meta:
       type: test
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
       comment: AntiBug FR-009 §6 — the model on fake events, every menu item and button, the close gate, Save…, the layout in both modes, a live scan of a real harness entry through the real runner, and test/shots/antibug.png and antibug-complete.png.
     source: file://antibug_test.lua
     method: run
     modules: [channel, time, fs, gfx, funcs]
     imports:
       test: wippy.test:test
-      ui: butschster.windows.sdk:ui
-      app: butschster.windows.sdk:app
-      render: butschster.windows.sdk:render
-      rasters: butschster.windows.shell:rasters
-      scan: butschster.windows.antibug:scan
-      antibug_window: butschster.windows.antibug:window
+      ui: windows.shell.sdk:ui
+      app: windows.shell.sdk:app
+      render: windows.shell.sdk:render
+      rasters: windows.shell.theme:rasters
+      scan: windows.shell.antibug:scan
+      antibug_window: windows.shell.antibug:window
 
   # AntiBug FR-009 §4a: output captured from the real tools, and a Go module
   # scanned as a `go` target by the live case.
@@ -1176,14 +1176,14 @@ entries:
     meta:
       type: test
       group: Windows Shell
-      suite: butschster_windows
+      suite: windows_shell
       comment: AntiBug FR-009 §4a — the wippy runner and go test -json parsers on captured output, the declarations and commands, a target's state machine in the model and the window, and a live Go target through the real runner, target process and exec.
     source: file://antibug_targets_test.lua
     method: run
     modules: [channel, time, fs]
     imports:
       test: wippy.test:test
-      app: butschster.windows.sdk:app
-      scan: butschster.windows.antibug:scan
-      targets: butschster.windows.antibug:targets
-      antibug_window: butschster.windows.antibug:window
+      app: windows.shell.sdk:app
+      scan: windows.shell.antibug:scan
+      targets: windows.shell.antibug:targets
+      antibug_window: windows.shell.antibug:window

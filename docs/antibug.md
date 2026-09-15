@@ -24,10 +24,10 @@ a `funcs` call runs the callee under the actor its entry declares, with its
 declared policies added to the caller's scope; an entry without a `security`
 block runs as its caller. So the window keeps a narrow scope — the compositor,
 the registry, the drives, and `funcs.call` on the runner only — and calls
-`butschster.windows.antibug:runner`, which has its own actor and a wide policy,
+`windows.shell.antibug:runner`, which has its own actor and a wide policy,
 like the CLI runner's; a test entry declares no actor and runs under it. The
 runner runs only `meta.type: test` function entries and declared targets. The
-user group's own `funcs.call` does not cover `butschster.windows.*`, so no
+user group's own `funcs.call` does not cover `windows.shell.*`, so no
 other window reaches the runner.
 
 **Test entries.** Sequential: `funcs.async` of the runner, its answer channel
@@ -50,9 +50,9 @@ runner HOME and PATH, which the harness it boots reads through `${env:…}`. `wi
 `<dir>/test`, as `make test` does; `go` runs `go test -json ./...` in `<dir>`.
 The runner builds the command from the registry entry — never from the
 window's arguments — with no shell, and spawns the target process
-(`butschster.windows.antibug:target`) under its own actor on the host of the
+(`windows.shell.antibug:target`) under its own actor on the host of the
 `process_host` requirement; that process runs the child through `exec`
-(`butschster.windows.antibug:exec`, which passes HOME and PATH), parses its
+(`windows.shell.antibug:exec`, which passes HOME and PATH), parses its
 output into case events for the window as they come, and kills the child on
 `Stop`. The window never execs. A target that cannot start is one finding with
 the reason; a bad exit with no failed case is one finding too.

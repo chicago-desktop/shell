@@ -1,4 +1,4 @@
--- butschster.windows.antibug:targets — scan targets beyond the registry
+-- windows.shell.antibug:targets — scan targets beyond the registry
 -- (FR-009 §4a), pure.
 --
 -- A target is a registry entry of the application with `meta.type:

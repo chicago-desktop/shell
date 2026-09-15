@@ -1,9 +1,9 @@
-# butschster/windows on Windows — the same targets as the Makefile.
+# windows/shell on Windows — the same targets as the Makefile.
 #
 # `check` and `late-locals` need only node and python. `lint` and `test` need
 # a runtime WITH the `gfx` module: the released wippy does not load this
 # module at all (it answers "node with ID {gfx :gfx} not found"), and the base
-# `butschster/tui-desktop` is a replacement pointing at `../kickside-module`.
+# `windows/tui-desktop` is a replacement pointing at `../kickside-module`.
 # Pass such a build with -Wippy or $env:WIPPY. There is no UI here, so the
 # template's build/dev/typecheck targets are gone.
 param(

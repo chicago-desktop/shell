@@ -34,7 +34,7 @@ return require("migration").define(function()
             up(function(db)
                 for _, column in ipairs({"x", "y"}) do
                     local _, err = db:execute(
-                        "ALTER TABLE butschster_windows_desktop_items ALTER COLUMN "
+                        "ALTER TABLE windows_shell_desktop_items ALTER COLUMN "
                         .. column .. " DROP NOT NULL")
                     if err then error("Failed to drop NOT NULL on " .. column .. ": " .. err) end
 
@@ -43,16 +43,16 @@ return require("migration").define(function()
                     -- and the "no place named" marker would exist only in
                     -- words.
                     local _, derr = db:execute(
-                        "ALTER TABLE butschster_windows_desktop_items ALTER COLUMN "
+                        "ALTER TABLE windows_shell_desktop_items ALTER COLUMN "
                         .. column .. " DROP DEFAULT")
                     if derr then error("Failed to drop default on " .. column .. ": " .. derr) end
                 end
             end)
             down(function(db)
-                db:execute("UPDATE butschster_windows_desktop_items SET x = 0 WHERE x IS NULL")
-                db:execute("UPDATE butschster_windows_desktop_items SET y = 0 WHERE y IS NULL")
-                db:execute("ALTER TABLE butschster_windows_desktop_items ALTER COLUMN x SET NOT NULL")
-                db:execute("ALTER TABLE butschster_windows_desktop_items ALTER COLUMN y SET NOT NULL")
+                db:execute("UPDATE windows_shell_desktop_items SET x = 0 WHERE x IS NULL")
+                db:execute("UPDATE windows_shell_desktop_items SET y = 0 WHERE y IS NULL")
+                db:execute("ALTER TABLE windows_shell_desktop_items ALTER COLUMN x SET NOT NULL")
+                db:execute("ALTER TABLE windows_shell_desktop_items ALTER COLUMN y SET NOT NULL")
             end)
         end)
 
@@ -62,7 +62,7 @@ return require("migration").define(function()
                 -- rebuilt. The index goes away together with the old table and
                 -- is created anew after the rename.
                 local _, err = db:execute([[
-                    CREATE TABLE butschster_windows_desktop_items_new (
+                    CREATE TABLE windows_shell_desktop_items_new (
                         id TEXT PRIMARY KEY,
                         kind TEXT NOT NULL,
                         entry TEXT,
@@ -77,31 +77,31 @@ return require("migration").define(function()
                 if err then error("Failed to create rebuilt desktop items table: " .. err) end
 
                 local _, cerr = db:execute([[
-                    INSERT INTO butschster_windows_desktop_items_new
+                    INSERT INTO windows_shell_desktop_items_new
                         (id, kind, entry, parent_id, title, x, y, created_at, updated_at)
                     SELECT id, kind, entry, parent_id, title, x, y, created_at, updated_at
-                    FROM butschster_windows_desktop_items
+                    FROM windows_shell_desktop_items
                 ]])
                 if cerr then error("Failed to copy desktop items: " .. cerr) end
 
-                local _, derr = db:execute("DROP TABLE butschster_windows_desktop_items")
+                local _, derr = db:execute("DROP TABLE windows_shell_desktop_items")
                 if derr then error("Failed to drop old desktop items table: " .. derr) end
 
                 local _, rerr = db:execute([[
-                    ALTER TABLE butschster_windows_desktop_items_new
-                        RENAME TO butschster_windows_desktop_items
+                    ALTER TABLE windows_shell_desktop_items_new
+                        RENAME TO windows_shell_desktop_items
                 ]])
                 if rerr then error("Failed to rename rebuilt desktop items table: " .. rerr) end
 
                 local _, ierr = db:execute([[
-                    CREATE INDEX butschster_windows_desktop_items_parent_idx
-                        ON butschster_windows_desktop_items (parent_id)
+                    CREATE INDEX windows_shell_desktop_items_parent_idx
+                        ON windows_shell_desktop_items (parent_id)
                 ]])
                 if ierr then error("Failed to reindex desktop items: " .. ierr) end
             end)
             down(function(db)
-                db:execute("UPDATE butschster_windows_desktop_items SET x = 0 WHERE x IS NULL")
-                db:execute("UPDATE butschster_windows_desktop_items SET y = 0 WHERE y IS NULL")
+                db:execute("UPDATE windows_shell_desktop_items SET x = 0 WHERE x IS NULL")
+                db:execute("UPDATE windows_shell_desktop_items SET y = 0 WHERE y IS NULL")
             end)
         end)
     end)

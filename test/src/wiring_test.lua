@@ -9,28 +9,28 @@ local test = require("test")
 local registry = require("registry")
 local defaults = require("defaults")
 
-local TERMINAL_ID = "butschster.windows:terminal"
-local SHELL_ID = "butschster.windows:shell"
-local CATALOG_ID = "butschster.windows.programs:catalog"
-local SEED_ID = "butschster.windows.programs:seed"
-local VIEW_ID = "butschster.windows.programs:desktop_view"
-local REPO_ID = "butschster.windows.persist:repo"
-local CONTROL_ID = "butschster.windows.api:control"
-local MIGRATION_ID = "butschster.windows.migrations:01_create_desktop_items"
-local RUNTIME_POLICY_ID = "butschster.windows.security:shell_runtime"
-local STORAGE_POLICY_ID = "butschster.windows.security:shell_storage"
-local ACCESS_POLICY_ID = "butschster.windows.security:shell_endpoint_access"
-local EXPLORER_ID = "butschster.windows.explorer:window"
-local EXPLORER_POLICY_ID = "butschster.windows.security:explorer_window"
-local SDK_RENDER_ID = "butschster.windows.sdk:render"
+local TERMINAL_ID = "windows.shell:terminal"
+local SHELL_ID = "windows.shell:shell"
+local CATALOG_ID = "windows.shell.programs:catalog"
+local SEED_ID = "windows.shell.programs:seed"
+local VIEW_ID = "windows.shell.programs:desktop_view"
+local REPO_ID = "windows.shell.persist:repo"
+local CONTROL_ID = "windows.shell.api:control"
+local MIGRATION_ID = "windows.shell.migrations:01_create_desktop_items"
+local RUNTIME_POLICY_ID = "windows.shell.security:shell_runtime"
+local STORAGE_POLICY_ID = "windows.shell.security:shell_storage"
+local ACCESS_POLICY_ID = "windows.shell.security:shell_endpoint_access"
+local EXPLORER_ID = "windows.shell.explorer:window"
+local EXPLORER_POLICY_ID = "windows.shell.security:explorer_window"
+local SDK_RENDER_ID = "windows.shell.sdk:render"
 
 local ENDPOINTS = {
-    {id = "butschster.windows.api:list_programs", method = "GET", path = "/windows/programs"},
-    {id = "butschster.windows.api:list_desktop", method = "GET", path = "/windows/desktop"},
-    {id = "butschster.windows.api:create_desktop_item", method = "POST", path = "/windows/desktop"},
-    {id = "butschster.windows.api:update_desktop_item", method = "PATCH", path = "/windows/desktop/{id}"},
-    {id = "butschster.windows.api:delete_desktop_item", method = "DELETE", path = "/windows/desktop/{id}"},
-    {id = "butschster.windows.api:shell_status", method = "GET", path = "/windows/status"},
+    {id = "windows.shell.api:list_programs", method = "GET", path = "/windows/programs"},
+    {id = "windows.shell.api:list_desktop", method = "GET", path = "/windows/desktop"},
+    {id = "windows.shell.api:create_desktop_item", method = "POST", path = "/windows/desktop"},
+    {id = "windows.shell.api:update_desktop_item", method = "PATCH", path = "/windows/desktop/{id}"},
+    {id = "windows.shell.api:delete_desktop_item", method = "DELETE", path = "/windows/desktop/{id}"},
+    {id = "windows.shell.api:shell_status", method = "GET", path = "/windows/status"},
 }
 
 local function get(id)
@@ -72,7 +72,7 @@ local function has(list, needle)
 end
 
 local function define_tests()
-    test.describe("butschster.windows hosts", function()
+    test.describe("windows.shell hosts", function()
         test.it("silences the log on its own terminal host", function()
             -- Without this a runtime log line throws the frame out of alignment
             -- for good: the surface differ considers itself the only writer.
@@ -87,12 +87,12 @@ local function define_tests()
             -- registry.get on a missing entry answers (nil, "entry not
             -- found"), not (nil, nil): check the entry, not the absence of an
             -- error — otherwise the test fails exactly when everything is right.
-            local workers = registry.get("butschster.windows:workers")
+            local workers = registry.get("windows.shell:workers")
             test.is_nil(workers, "the window host belongs to the base")
         end)
     end)
 
-    test.describe("butschster.windows explorer", function()
+    test.describe("windows.shell explorer", function()
         test.it("declares \"My Computer\" as an ordinary registry program", function()
             -- The shell finds it by the same registry.find as everything else.
             -- A special path for its own window would mean that the shell's
@@ -118,8 +118,8 @@ local function define_tests()
             -- silently miss under any other — and `open` does not wait for an
             -- answer, so a miss would look like success.
             local imports = data_of(get(EXPLORER_ID)).imports or {}
-            test.eq(qualify(imports.desktop, "butschster.windows.explorer"),
-                "butschster.tui_desktop.desktop:window_api")
+            test.eq(qualify(imports.desktop, "windows.shell.explorer"),
+                "windows.tui_desktop.desktop:window_api")
 
             -- The window does not talk to processes itself: the library does it
             -- for the window, and the module is declared on the library. A
@@ -136,9 +136,9 @@ local function define_tests()
             -- FR-008 moved the folder window onto the SDK: the tree is drawn by
             -- the one renderer every SDK window uses.
             local imports = data_of(get(EXPLORER_ID)).imports or {}
-            test.eq(qualify(imports.app, "butschster.windows.explorer"), "butschster.windows.sdk:app")
-            test.eq(qualify(imports.sources, "butschster.windows.explorer"),
-                "butschster.windows.explorer:sources")
+            test.eq(qualify(imports.app, "windows.shell.explorer"), "windows.shell.sdk:app")
+            test.eq(qualify(imports.sources, "windows.shell.explorer"),
+                "windows.shell.explorer:sources")
             test.is_nil(imports.render, "no renderer of its own")
             local meta = meta_of(get(EXPLORER_ID))
             test.eq(meta.pixel_render, SDK_RENDER_ID)
@@ -149,9 +149,9 @@ local function define_tests()
             -- A renderer that nothing uses still loads, still imports the
             -- theme's internals, and is the first thing someone edits by
             -- mistake. registry.get answers (nil, "entry not found").
-            test.is_nil(registry.get("butschster.windows.explorer:render"))
-            test.is_nil(registry.get("butschster.windows.explorer:render_pixels"))
-            test.is_nil(registry.get("butschster.windows.explorer:state"))
+            test.is_nil(registry.get("windows.shell.explorer:render"))
+            test.is_nil(registry.get("windows.shell.explorer:render_pixels"))
+            test.is_nil(registry.get("windows.shell.explorer:state"))
         end)
 
         test.it("does not let the window spawn processes or run programs", function()
@@ -188,7 +188,7 @@ local function define_tests()
         end)
     end)
 
-    test.describe("butschster.windows shell", function()
+    test.describe("windows.shell shell", function()
         test.it("serves the shell as the windows command with its own actor", function()
             local entry = get(SHELL_ID)
             local command = meta_of(entry).command or {}
@@ -206,17 +206,17 @@ local function define_tests()
             -- its own to appear here, it would drift from the original, and
             -- today's findings in the base would not make it into the copy.
             local imports = data_of(get(SHELL_ID)).imports or {}
-            test.eq(qualify(imports.library, "butschster.windows"),
-                "butschster.tui_desktop.desktop:library", "the shell calls the base's compositor")
-            test.eq(qualify(imports.catalog, "butschster.windows"), CATALOG_ID)
-            test.eq(qualify(imports.seed, "butschster.windows"), SEED_ID)
-            test.eq(qualify(imports.view, "butschster.windows"), VIEW_ID)
-            test.eq(qualify(imports.repo, "butschster.windows"), REPO_ID)
+            test.eq(qualify(imports.library, "windows.shell"),
+                "windows.tui_desktop.desktop:library", "the shell calls the base's compositor")
+            test.eq(qualify(imports.catalog, "windows.shell"), CATALOG_ID)
+            test.eq(qualify(imports.seed, "windows.shell"), SEED_ID)
+            test.eq(qualify(imports.view, "windows.shell"), VIEW_ID)
+            test.eq(qualify(imports.repo, "windows.shell"), REPO_ID)
         end)
 
         test.it("declares a dependency on the base", function()
-            local dep = get("butschster.windows:dep.butschster.tui_desktop")
-            test.eq(data_of(dep).component, "butschster/tui-desktop")
+            local dep = get("windows.shell:dep.windows.tui_desktop")
+            test.eq(data_of(dep).component, "windows/tui-desktop")
         end)
 
         test.it("carries the layout migration", function()
@@ -226,13 +226,13 @@ local function define_tests()
         end)
     end)
 
-    test.describe("butschster.windows handles", function()
+    test.describe("windows.shell handles", function()
         test.it("wires each handle to its handler on the application router", function()
             for _, expected in ipairs(ENDPOINTS) do
                 get(expected.id)
                 local endpoint = get(expected.id .. ".endpoint")
                 local data = data_of(endpoint)
-                test.eq(qualify(data.func, "butschster.windows.api"), expected.id)
+                test.eq(qualify(data.func, "windows.shell.api"), expected.id)
                 test.eq(data.method, expected.method)
                 test.eq(data.path, expected.path)
                 test.eq(meta_of(endpoint).router, "app:api")
@@ -261,17 +261,17 @@ local function define_tests()
             -- The compositor re-reads the layout on command, not every frame.
             -- A handle that changed a row and kept quiet looks as if it did not
             -- work: the icon would appear only after a restart.
-            for _, id in ipairs({"butschster.windows.api:create_desktop_item",
-                "butschster.windows.api:update_desktop_item",
-                "butschster.windows.api:delete_desktop_item"}) do
+            for _, id in ipairs({"windows.shell.api:create_desktop_item",
+                "windows.shell.api:update_desktop_item",
+                "windows.shell.api:delete_desktop_item"}) do
                 local imports = data_of(get(id)).imports or {}
-                test.eq(qualify(imports.control, "butschster.windows.api"), CONTROL_ID,
+                test.eq(qualify(imports.control, "windows.shell.api"), CONTROL_ID,
                     id .. " must be able to nudge the shell")
             end
         end)
     end)
 
-    test.describe("butschster.windows policies", function()
+    test.describe("windows.shell policies", function()
         test.it("does not let the layout handles spawn processes", function()
             local actions = actions_of(get(STORAGE_POLICY_ID))
             test.is_true(has(actions, "db.get"), "the handle needs database access as the db.get action")
@@ -296,7 +296,7 @@ local function define_tests()
             local checked = 0
             for _, entry in ipairs(found or {}) do
                 local id = tostring(entry.id)
-                if id:sub(1, #"butschster.windows") == "butschster.windows" and has(actions_of(entry), "env.get") then
+                if id:sub(1, #"windows.shell") == "windows.shell" and has(actions_of(entry), "env.get") then
                     checked = checked + 1
                     local policy = data_of(entry).policy or {}
                     local resources = policy.resources
@@ -319,7 +319,7 @@ local function define_tests()
             local checked = 0
             for _, entry in ipairs(found or {}) do
                 local id = tostring(entry.id)
-                if id:sub(1, #"butschster.windows") == "butschster.windows" then
+                if id:sub(1, #"windows.shell") == "windows.shell" then
                     checked = checked + 1
                     test.is_false(has(actions_of(entry), "registry.entry"),
                         id .. " grants registry.entry, which is not an action")
@@ -333,7 +333,7 @@ local function define_tests()
             -- aims at; a migration it misses creates its table in app:db while
             -- the rest go where the application said. The repository reads
             -- the name back from a migration entry, so it has no second opinion.
-            local requirement = data_of(get("butschster.windows:target_db"))
+            local requirement = data_of(get("windows.shell:target_db"))
             local aimed = {}
             for _, target in ipairs(requirement.targets or {}) do
                 if target.path == ".meta.target_db" then aimed[tostring(target.entry)] = true end
@@ -345,7 +345,7 @@ local function define_tests()
             local checked = 0
             for _, entry in ipairs(found or {}) do
                 local id = tostring(entry.id)
-                if id:sub(1, #"butschster.windows.migrations:") == "butschster.windows.migrations:" then
+                if id:sub(1, #"windows.shell.migrations:") == "windows.shell.migrations:" then
                     checked = checked + 1
                     test.is_true(aimed[id] == true, "the target_db requirement does not aim at " .. id)
                     test.eq(meta_of(entry).target_db, db, id .. " and the repository name different databases")
@@ -372,12 +372,12 @@ local function define_tests()
             local resources = policy.policy and policy.policy.resources
             test.not_nil(resources, "policy must list resources")
             if type(resources) == "string" then resources = {resources} end
-            test.is_true(has(resources, "butschster.windows.api:*"),
-                "policy must cover butschster.windows.api:*")
+            test.is_true(has(resources, "windows.shell.api:*"),
+                "policy must cover windows.shell.api:*")
         end)
     end)
 
-    test.describe("butschster.windows declared modules have rights", function()
+    test.describe("windows.shell declared modules have rights", function()
         test.it("declares no module whose right has not been granted", function()
             -- A DECLARED MODULE WITHOUT A GRANTED RIGHT LOOKS LIKE A MODULE
             -- THAT HAS NOTHING TO SAY.
@@ -403,8 +403,8 @@ local function define_tests()
 
             local checked = 0
             for _, id in ipairs({
-                "butschster.windows:shell",
-                "butschster.windows.explorer:window",
+                "windows.shell:shell",
+                "windows.shell.explorer:window",
             }) do
                 local entry = get(id)
                 local data = data_of(entry)
@@ -412,7 +412,7 @@ local function define_tests()
                 for _, policy in ipairs(data.security and data.security.policies
                         or (meta_of(entry).command and meta_of(entry).command.security
                             and meta_of(entry).command.security.policies) or {}) do
-                    for _, action in ipairs(actions_of(get(qualify(policy, "butschster.windows")))) do
+                    for _, action in ipairs(actions_of(get(qualify(policy, "windows.shell")))) do
                         granted[action] = true
                     end
                 end

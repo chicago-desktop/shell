@@ -1,8 +1,8 @@
 # Wippy window SDK
 
 This is the primary contract for new windows and for fixes to existing ones. The
-window mechanics are provided by `butschster/tui-desktop`, the look and the
-declarative components by `butschster/windows`. Do not copy the loop, layout and
+window mechanics are provided by `windows/tui-desktop`, the look and the
+declarative components by `windows/shell`. Do not copy the loop, layout and
 scrolling from a random application: specialized windows use the lower level.
 
 ## Quick start: entry → menu → window
@@ -26,14 +26,14 @@ entries:
       height: 23
       window_type: app
       resizable: true
-      pixel_render: butschster.windows.sdk:render
+      pixel_render: windows.shell.sdk:render
       pixel_state: my.documents:window
     source: file://window.lua
     method: main
     imports:
-      app: butschster.windows.sdk:app
+      app: windows.shell.sdk:app
     security:
-      policies: [butschster.windows.security:view_state]
+      policies: [windows.shell.security:view_state]
 ```
 
 The catalog looks for a `process.lua` with the exact `meta.type: tui_desktop.window`
@@ -119,7 +119,7 @@ current data; `update` changes the model on a component's action.
   "Display Properties"; in pixels a case with a bevel and a stand, in cells
   a face frame and a colored screen. Does not take focus, no `id` needed.
   `pattern` — eight bit rows of a Windows 95 desktop pattern
-  (`butschster.windows.display:patterns`), set bits black over the screen color;
+  (`windows.shell.display:patterns`), set bits black over the screen color;
   pixels only.
 - `image`: `image` (a name from the icon catalog), `icon` (a character for cells),
   `size_px` (32 by default). A dialog icon: a raster in pixels, a single character
@@ -257,7 +257,7 @@ current data; `update` changes the model on a component's action.
   Notepad ([FR-007 §3](rfcs/007-notepad.md)). `text` is only the first value:
   the document lives in `interaction.editors[id]` (by its `lines`, apart from
   a field's `{cursor, selected}`), and the window reaches it with
-  `context.editor(id)` and the `butschster.windows.sdk:editor` functions —
+  `context.editor(id)` and the `windows.shell.sdk:editor` functions —
   `text`, `set`, `selection`, `selected`, `replace_selection`, `insert`,
   `delete_selection`, `select_all`, `undo` (one level: the second Undo redoes;
   typing in a row is one step), `find(state, needle, {match_case, direction =
@@ -458,7 +458,7 @@ do not copy combinations of `panel` and `bevel` into the application.
 
 ## Lifecycle
 
-`butschster.windows.sdk:app.run(definition, first, id, args, viewport)` hides the
+`windows.shell.sdk:app.run(definition, first, id, args, viewport)` hides the
 difference between the two ways of launching:
 
 - Cells: the compositor creates a `tty.viewport` and calls `main(args)` with a terminal
@@ -541,7 +541,7 @@ as before. So `dispose` is not guaranteed on a crash or a forced stop. Long requ
 
 ## Low-level geometry, input and scrolling
 
-The base's libraries: `butschster.tui_desktop.desktop:geometry`, `:input`, `:scroll`.
+The base's libraries: `windows.tui_desktop.desktop:geometry`, `:input`, `:scroll`.
 
 `geometry.rect(x,y,w,h)` is a rectangle in cells, 1-based coordinates; the right and
 bottom bounds are exclusive. `contains(rect,x,y)` checks a hit;
@@ -620,7 +620,7 @@ renderer can split the client into non-overlapping strips.
 A new specialized library requires an explicit import and registration in
 `chrome_pixels.VIEWS`: `require` does not load an arbitrary ID from metadata.
 This is an extension of the theme, not an ordinary addition of an application. A new
-declarative application only needs the already registered `butschster.windows.sdk:render`.
+declarative application only needs the already registered `windows.shell.sdk:render`.
 
 `pixel_render` + `pixel_state` is an enhancement of an ordinary window in graphics mode;
 on a terminal without graphics the main process in cells remains.
@@ -630,7 +630,7 @@ GNOME Terminal support for an application that has only a pixel view.
 
 ## File dialog
 
-`butschster.windows.sdk:filedialog` is the Windows 95 common dialog, Open and
+`windows.shell.sdk:filedialog` is the Windows 95 common dialog, Open and
 Save As, as a sheet the window returns from `view` while it is open
 ([FR-007 §5](rfcs/007-notepad.md)). 44×16 cells: `Look in:` with the places
 and `Up One Level` on top, the list (folders first, then the files of the
@@ -641,7 +641,7 @@ active type, 16-px icons), `File name:` and `Files of type:` with `Open` /
 The library is pure and holds no permissions. **Reading a folder is the
 application's**: when the sheet needs another place, `update` answers
 `{read = {drive, path}}`, the window reads it with the explorer's
-`butschster.windows.explorer:sources` under its own `fs.get` and
+`windows.shell.explorer:sources` under its own `fs.get` and
 `process.registry`, and hands the objects back with `filedialog.arrive`. A
 folder that could not be read shows its reason where the list was — it is not
 an empty folder.
@@ -669,9 +669,9 @@ an empty folder.
   `filedialog.address(place)` is the explorer path `sources.list` reads.
 
 ```lua
-local filedialog = require("filedialog")        -- butschster.windows.sdk:filedialog
-local sources = require("sources")              -- butschster.windows.explorer:sources
-local drives = require("explorer_model")        -- butschster.windows.explorer:model
+local filedialog = require("filedialog")        -- windows.shell.sdk:filedialog
+local sources = require("sources")              -- windows.shell.explorer:sources
+local drives = require("explorer_model")        -- windows.shell.explorer:model
 
 local function read(model, place)
     local view, err = sources.list(filedialog.address(place))
@@ -733,13 +733,13 @@ keyboard, no title buttons and no frame of its own to drag.
     width: 20                                   # cells; default 20, limits 10..40
     height: 8                                   # cells; default 5, limits 2..16
     order: 20                                   # place in the column, lower first; default 100
-    opens: butschster.windows.taskman:window    # optional: a click opens or raises it
+    opens: windows.shell.taskman:window    # optional: a click opens or raises it
   source: file://memory.lua
   method: main
   modules: [system, time]
   imports:
-    app: butschster.windows.sdk:app
-    gadget: butschster.windows.sdk:gadget
+    app: windows.shell.sdk:app
+    gadget: windows.shell.sdk:gadget
   security:
     policies: [app.monitor:widget_scope]
 ```
@@ -785,7 +785,7 @@ body's last row; a tree `ui.problem` refuses shows the reason in place of the
 body. A refusal of the widget's own — a permission denial — is its text
 (`{kind = "label", alert = true, wrap = true, text = …}`), never a zero.
 
-### The kit — `butschster.windows.sdk:gadget`
+### The kit — `windows.shell.sdk:gadget`
 
 Plain, passive trees for the usual shapes; none needs an `id`:
 
@@ -819,7 +819,7 @@ fit under the previous one opens a second column, one empty column left of the
 first column's widest; a widget that fits in neither is not drawn and has no
 hits. A widget wider than a third of the screen is drawn, and laid out, at a
 third. Icons are drawn over widgets and windows cover them. The layout and the
-hits are `butschster.windows.shell:gadgets`, one table for both themes: one
+hits are `windows.shell.theme:gadgets`, one table for both themes: one
 record per widget row in `hits.desktop`, after the icons' — `{row, from, to,
 widget = id, entry = meta.opens, title}`.
 
@@ -841,7 +841,7 @@ Windows 95 original is 404×448 px. The layout inside already speaks pixels
 (`size_px`, `padding_px`, `width_px`); the record cannot. The fix belongs to the
 base: `meta.width_px` / `meta.height_px`, converted to whole cells by the
 compositor, which is the one that knows the cell. Not started — it is a change
-to `butschster/tui-desktop`, not to this module.
+to `windows/tui-desktop`, not to this module.
 
 ## Checks and adding capabilities
 

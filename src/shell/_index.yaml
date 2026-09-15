@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: butschster.windows.shell
+namespace: windows.shell.theme
 
 # The look of the shell and nothing more.
 #
@@ -25,21 +25,21 @@ namespace: butschster.windows.shell
 # have no colons on purpose.
 
 entries:
-  # butschster.windows.shell:palette
+  # windows.shell.theme:palette
   - name: palette
     kind: library.lua
     meta:
       comment: The palette in exact Windows 95 colors, and the same names as basic ANSI indices as a fallback.
     source: file://palette.lua
 
-  # butschster.windows.shell:glyphs
+  # windows.shell.theme:glyphs
   - name: glyphs
     kind: library.lua
     meta:
       comment: The shell's pseudographics — bevel edges, buttons, scroll bar, icons. Every character is exactly one cell wide.
     source: file://glyphs.lua
 
-  # butschster.windows.shell:widgets
+  # windows.shell.theme:widgets
   #
   # Primitives that do not know about the screen. Both the theme and the
   # window import them.
@@ -51,12 +51,12 @@ entries:
     modules:
       - tty
     imports:
-      text: butschster.tui_desktop.desktop:text
-      scroll: butschster.tui_desktop.desktop:scroll
-      glyphs: butschster.windows.shell:glyphs
-      palette: butschster.windows.shell:palette
+      text: windows.tui_desktop.desktop:text
+      scroll: windows.tui_desktop.desktop:scroll
+      glyphs: windows.shell.theme:glyphs
+      palette: windows.shell.theme:palette
 
-  # butschster.windows.shell:icons
+  # windows.shell.theme:icons
   #
   # Two parties draw the icon — the desktop through the compositor and the
   # "My Computer" window by itself.
@@ -68,11 +68,11 @@ entries:
     modules:
       - tty
     imports:
-      geometry: butschster.tui_desktop.desktop:geometry
-      glyphs: butschster.windows.shell:glyphs
-      palette: butschster.windows.shell:palette
+      geometry: windows.tui_desktop.desktop:geometry
+      glyphs: windows.shell.theme:glyphs
+      palette: windows.shell.theme:palette
 
-  # butschster.windows.shell:pixels
+  # windows.shell.theme:pixels
   #
   # The pixel twin of the primitives. It creates no rasters — the raster comes
   # from outside, from whoever keeps it between frames; a primitive that
@@ -86,12 +86,12 @@ entries:
     modules:
       - gfx
     imports:
-      text: butschster.tui_desktop.desktop:text
-      geometry: butschster.tui_desktop.desktop:geometry
-      palette: butschster.windows.shell:palette
-      images: butschster.windows.shell:images
+      text: windows.tui_desktop.desktop:text
+      geometry: windows.tui_desktop.desktop:geometry
+      palette: windows.shell.theme:palette
+      images: windows.shell.theme:images
 
-  # butschster.windows.shell:rasters
+  # windows.shell.theme:rasters
   #
   # Rasters outlive the frame, and this is not an optimization. A theme that
   # creates a raster in the draw function draws the CORRECT screen and resends
@@ -103,11 +103,11 @@ entries:
       comment: A store of rasters between frames — hands out a raster by name and state key and says whether it needs drawing into; whatever the frame did not name leaves the screen.
     source: file://rasters.lua
     imports:
-      geometry: butschster.tui_desktop.desktop:geometry
+      geometry: windows.tui_desktop.desktop:geometry
     modules:
       - gfx
 
-  # butschster.windows.shell:chrome_pixels
+  # windows.shell.theme:chrome_pixels
   #
   # The pixel theme. A separate entry by the same rule as the explorer's pixel
   # backend: an entry that declared `gfx` does not load at all on a runtime
@@ -120,29 +120,29 @@ entries:
     modules:
       - gfx
     imports:
-      menu_layout: butschster.windows.shell:menu_layout
-      placements: butschster.windows.shell:placements
-      geometry: butschster.tui_desktop.desktop:geometry
+      menu_layout: windows.shell.theme:menu_layout
+      placements: windows.shell.theme:placements
+      geometry: windows.tui_desktop.desktop:geometry
       # The set of title bar buttons is taken from the cell theme: one table
       # for both modes. A second list would diverge from the first, and a
       # dialog would end up with three buttons in pixels and two in cells.
-      chrome: butschster.windows.shell:chrome
-      icons: butschster.windows.shell:icons
-      palette: butschster.windows.shell:palette
-      pixels: butschster.windows.shell:pixels
+      chrome: windows.shell.theme:chrome
+      icons: windows.shell.theme:icons
+      palette: windows.shell.theme:palette
+      pixels: windows.shell.theme:pixels
       # The wallpaper picture, read by name like an icon.
-      images: butschster.windows.shell:images
-      rasters: butschster.windows.shell:rasters
-      widgets: butschster.windows.shell:widgets
+      images: windows.shell.theme:images
+      rasters: windows.shell.theme:rasters
+      widgets: windows.shell.theme:widgets
       # View windows. The compositor cannot load a library by an id from the
       # window's entry — require knows only imports — so every render is
       # imported here statically and named in the theme's VIEWS.
-      picture_render: butschster.windows.viewers:picture_render
-      sdk_render: butschster.windows.sdk:render
+      picture_render: windows.shell.viewers:picture_render
+      sdk_render: windows.shell.sdk:render
       # Desktop widgets — the layout and the hits both themes share.
-      gadgets: butschster.windows.shell:gadgets
+      gadgets: windows.shell.theme:gadgets
 
-  # butschster.windows.shell:chrome
+  # windows.shell.theme:chrome
   #
   # The theme per the base's contract. Only what knows about the whole screen
   # stays here.
@@ -154,14 +154,14 @@ entries:
     modules:
       - tty
     imports:
-      menu_layout: butschster.windows.shell:menu_layout
-      glyphs: butschster.windows.shell:glyphs
-      icons: butschster.windows.shell:icons
-      palette: butschster.windows.shell:palette
-      widgets: butschster.windows.shell:widgets
-      gadgets: butschster.windows.shell:gadgets
+      menu_layout: windows.shell.theme:menu_layout
+      glyphs: windows.shell.theme:glyphs
+      icons: windows.shell.theme:icons
+      palette: windows.shell.theme:palette
+      widgets: windows.shell.theme:widgets
+      gadgets: windows.shell.theme:gadgets
 
-  # butschster.windows.shell:gadgets
+  # windows.shell.theme:gadgets
   #
   # Desktop widgets (FR-006) — where they stand and what is pressed, one
   # table for both themes, like the icons' desktop_spot. Imports the SDK's
@@ -173,11 +173,11 @@ entries:
       comment: Desktop widgets for both themes — the column at the right edge, the hit of a widget row, the tree a widget's body shows and the widget drawn in cells.
     source: file://gadgets.lua
     imports:
-      ui: butschster.windows.sdk:ui
-      cells: butschster.windows.sdk:cells
-      widgets: butschster.windows.shell:widgets
+      ui: windows.shell.sdk:ui
+      cells: windows.shell.sdk:cells
+      widgets: windows.shell.theme:widgets
 
-  # butschster.windows.shell:icon_files
+  # windows.shell.theme:icon_files
   #
   # The real Windows 95 icons — PNG 32×32 and 16×16 in assets/icons, see
   # SOURCE.md in the same place. The folder is declared by the module
@@ -193,7 +193,7 @@ entries:
     directory: ./assets/icons
     auto_init: false
 
-  # butschster.windows.shell:images
+  # windows.shell.theme:images
   #
   # Raster icons: name → file → decoded raster, with a per-process cache.
   # The cache is mandatory, not desirable: an icon decoded anew every frame
@@ -212,22 +212,22 @@ entries:
       - registry
       - time
 
-  # butschster.windows.shell:menu_layout
+  # windows.shell.theme:menu_layout
   - name: menu_layout
     kind: library.lua
     meta:
       comment: The Start menu cascade layout for both themes — the folder tree from meta.group, the panels, their rows and the hit map; no painting, the banner arrives as a parameter.
     source: file://menu_layout.lua
     imports:
-      glyphs: butschster.windows.shell:glyphs
-      icons: butschster.windows.shell:icons
-      widgets: butschster.windows.shell:widgets
+      glyphs: windows.shell.theme:glyphs
+      icons: windows.shell.theme:icons
+      widgets: windows.shell.theme:widgets
 
-  # butschster.windows.shell:placements
+  # windows.shell.theme:placements
   - name: placements
     kind: library.lua
     meta:
       comment: Pure rectangle geometry of the pixel theme placements — higher windows and the menu cut lower pictures, plus the crop id and key rule.
     source: file://placements.lua
     imports:
-      geometry: butschster.tui_desktop.desktop:geometry
+      geometry: windows.tui_desktop.desktop:geometry

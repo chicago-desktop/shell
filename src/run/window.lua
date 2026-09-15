@@ -36,7 +36,7 @@ end
 -- is looked for here in the shell's explorer. It does not put a path back
 -- into the field (the explorer has no "pick a file" mode), so "Browse…" is a
 -- road to the explorer, not a picker dialog.
-local EXPLORER = "butschster.windows.explorer:window"
+local EXPLORER = "windows.shell.explorer:window"
 
 -- The window title is "Run", without an ellipsis: the ellipsis belongs to the
 -- menu item, it promises a dialog, and the dialog itself is named without

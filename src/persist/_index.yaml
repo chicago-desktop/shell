@@ -1,14 +1,14 @@
 version: "1.0"
-namespace: butschster.windows.persist
+namespace: windows.shell.persist
 
 # Storage for the desktop layout.
 #
 # There is no program code here: it lives in the base's
-# butschster_tui_desktop_windows. Here there is only what the user moves —
+# windows_tui_desktop_windows. Here there is only what the user moves —
 # where an icon is and what it is called.
 
 entries:
-  # butschster.windows.persist:repo
+  # windows.shell.persist:repo
   - name: repo
     kind: library.lua
     meta:

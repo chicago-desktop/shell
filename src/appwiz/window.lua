@@ -14,7 +14,7 @@
 -- have installed it is the worst thing this panel could do.
 --
 -- The application names the declarations file through the environment:
--- BUTSCHSTER_WINDOWS_DEPS_FS is the identifier of an `fs.directory` entry over
+-- WINDOWS_DEPS_FS is the identifier of an `fs.directory` entry over
 -- the directory with the dependencies' `_index.yaml`. If it did not name one,
 -- the window only shows and says why.
 
@@ -27,14 +27,14 @@ local app = require("app")
 local model = require("model")
 local environment = require("environment")
 
-local DEPS_ENV = "BUTSCHSTER_WINDOWS_DEPS_FS"
+local DEPS_ENV = "WINDOWS_DEPS_FS"
 local DEPS_FILE = "_index.yaml"
 local NEXT_STEPS = "Next: wippy update, then a restart"
 
 local geometry = require("geometry")
 local whole = geometry.whole
 
--- Reading the environment is shared (`butschster.windows.config:environment`):
+-- Reading the environment is shared (`windows.shell.config:environment`):
 -- first the process environment, then the file store, and a permission
 -- denial is called a permission denial. Only the words for the window's
 -- status line are here.

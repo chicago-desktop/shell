@@ -23,7 +23,7 @@ local gfx = require("gfx")
 local picture_render = {}
 
 -- The entry identifier by which the theme learns that the window is drawn here.
-picture_render.ID = "butschster.windows.viewers:picture_render"
+picture_render.ID = "windows.shell.viewers:picture_render"
 
 -- The background around the picture is the grey face, as in dialogs; a
 -- picture smaller than the window lies centred, as in Imaging.

@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: butschster.windows.regedit
+namespace: windows.shell.regedit
 
 # A registry viewer in the look of Windows 95 regedit: a tree of namespaces
 # and entries, the entry's fields, the path in the status bar. Read-only. The
@@ -13,7 +13,7 @@ entries:
       comment: The registry tree from a list of entries, visible rows, entry fields and the path — a pure build with no calls to the registry.
     source: file://model.lua
     imports:
-      geometry: butschster.tui_desktop.desktop:geometry
+      geometry: windows.tui_desktop.desktop:geometry
 
   - name: window
     kind: process.lua
@@ -30,8 +30,8 @@ entries:
       resizable: true
       width: 80
       height: 24
-      pixel_render: butschster.windows.sdk:render
-      pixel_state: butschster.windows.regedit:window
+      pixel_render: windows.shell.sdk:render
+      pixel_state: windows.shell.regedit:window
       comment: A registry viewer in the look of Windows 95 regedit — a tree of namespaces and entries, entry fields, the path; read-only; a window on the shell SDK.
     source: file://window.lua
     method: main
@@ -39,8 +39,8 @@ entries:
       - json
       - registry
     security:
-      policies: [butschster.windows.security:regedit_state]
+      policies: [windows.shell.security:regedit_state]
     imports:
-      app: butschster.windows.sdk:app
-      ui: butschster.windows.sdk:ui
-      model: butschster.windows.regedit:model
+      app: windows.shell.sdk:app
+      ui: windows.shell.sdk:ui
+      model: windows.shell.regedit:model

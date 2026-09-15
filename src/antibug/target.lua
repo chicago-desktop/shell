@@ -1,4 +1,4 @@
--- butschster.windows.antibug:target — runs ONE scan target as a child
+-- windows.shell.antibug:target — runs ONE scan target as a child
 -- (FR-009 §4a).
 --
 -- Spawned by the runner, never by the window: it inherits the runner's actor,
@@ -14,7 +14,7 @@ local exec = require("exec")
 local process = require("process")
 local targets = require("targets")
 
-local EXECUTOR = "butschster.windows.antibug:exec"
+local EXECUTOR = "windows.shell.antibug:exec"
 local STOP = "antibug.stop"
 
 local function main(args: any)

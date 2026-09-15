@@ -1,9 +1,9 @@
 version: "1.0"
-namespace: butschster.windows.run
+namespace: windows.shell.run
 
 # "Run" is a dialog on the shell SDK: a command field, "OK", "Cancel".
 # It no longer has its own layout, renderer and editor: those come from
-# `butschster.windows.sdk`; the only thing of its own here is the launch
+# `windows.shell.sdk`; the only thing of its own here is the launch
 # spec.
 
 entries:
@@ -33,14 +33,14 @@ entries:
       # 35 it was cut off with an ellipsis.
       width: 50
       height: 10
-      pixel_render: butschster.windows.sdk:render
-      pixel_state: butschster.windows.run:window
+      pixel_render: windows.shell.sdk:render
+      pixel_state: windows.shell.run:window
       comment: Enter a command and launch it in a separate Bash window through the compositor; a dialog on the shell SDK.
     source: file://window.lua
     method: main
     imports:
-      app: butschster.windows.sdk:app
-      desktop: butschster.tui_desktop.desktop:window_api
-      model: butschster.windows.run:model
+      app: windows.shell.sdk:app
+      desktop: windows.tui_desktop.desktop:window_api
+      model: windows.shell.run:model
     security:
-      policies: [butschster.windows.security:view_state]
+      policies: [windows.shell.security:view_state]

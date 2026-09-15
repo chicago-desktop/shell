@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: butschster.windows.programs
+namespace: windows.shell.programs
 
 # The program catalog and its only link to the layout.
 #
@@ -9,7 +9,7 @@ namespace: butschster.windows.programs
 # that the catalog knows nothing about the layout and must not know.
 
 entries:
-  # butschster.windows.programs:catalog
+  # windows.shell.programs:catalog
   - name: catalog
     kind: library.lua
     meta:
@@ -23,9 +23,9 @@ entries:
       # readings of the same meta drift apart silently, and one and the same
       # window would look like a dialog from "Start" and like an ordinary
       # window from the desktop.
-      programs_meta: butschster.tui_desktop.desktop:programs
+      programs_meta: windows.tui_desktop.desktop:programs
 
-  # butschster.windows.programs:defaults
+  # windows.shell.programs:defaults
   - name: defaults
     kind: library.lua
     meta:
@@ -34,9 +34,9 @@ entries:
     modules:
       - registry
     imports:
-      catalog: butschster.windows.programs:catalog
+      catalog: windows.shell.programs:catalog
 
-  # butschster.windows.programs:seed
+  # windows.shell.programs:seed
   - name: seed
     kind: library.lua
     meta:
@@ -47,9 +47,9 @@ entries:
       - time
       - uuid
     imports:
-      repo: butschster.windows.persist:repo
+      repo: windows.shell.persist:repo
 
-  # butschster.windows.programs:desktop_view
+  # windows.shell.programs:desktop_view
   - name: desktop_view
     kind: library.lua
     meta:
@@ -58,9 +58,9 @@ entries:
     modules:
       - registry
     imports:
-      catalog: butschster.windows.programs:catalog
+      catalog: windows.shell.programs:catalog
 
-  # butschster.windows.programs:base_images
+  # windows.shell.programs:base_images
   #
   # Icons for the BASE's windows. The base knows no icons of its own — it has
   # no icon pack — and naming them in its entries would tie a public module to
@@ -75,4 +75,4 @@ entries:
       comment: Icons for the tui-desktop base windows — the Bash window gets the console.
     data:
       images:
-        "butschster.tui_desktop.desktop:window_pty": console
+        "windows.tui_desktop.desktop:window_pty": console

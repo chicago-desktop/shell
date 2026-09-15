@@ -95,7 +95,7 @@ local function painted(open: any, font: any): any
 end
 
 local function define_tests()
-    test.describe("butschster.windows.sdk menu rows", function()
+    test.describe("windows.shell.sdk menu rows", function()
         test.it("keeps a list without shortcuts at its width and grows one with them by the widest plus two", function()
             local plain_menu = {kind = "menu", id = "m", size = 1, entries = {
                 {title = "File", items = {{id = "open", text = "Open"}, {separator = true}, {id = "exit", text = "Exit"}}},

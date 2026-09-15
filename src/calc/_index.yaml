@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: butschster.windows.calc
+namespace: windows.shell.calc
 
 # The Windows 95 calculator in standard view. The arithmetic is `engine`,
 # pure and with no screen; the window is built on the shell SDK, so it
@@ -26,14 +26,14 @@ entries:
       resizable: false
       width: 29
       height: 16
-      pixel_render: butschster.windows.sdk:render
-      pixel_state: butschster.windows.calc:window
+      pixel_render: windows.shell.sdk:render
+      pixel_state: windows.shell.calc:window
       comment: Calculator in the Windows 95 look — standard view with memory, computes like a desktop calculator; a window on the shell SDK.
     source: file://window.lua
     method: main
     security:
-      policies: [butschster.windows.security:view_state]
+      policies: [windows.shell.security:view_state]
     imports:
-      app: butschster.windows.sdk:app
-      ui: butschster.windows.sdk:ui
-      engine: butschster.windows.calc:engine
+      app: windows.shell.sdk:app
+      ui: windows.shell.sdk:ui
+      engine: windows.shell.calc:engine

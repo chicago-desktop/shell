@@ -8,7 +8,7 @@ window, not a caption pushed by an arbitrary service. Decision of the owner:
 "widgets on the desktop; first a UI kit for widgets, then weather, memory
 usage, maybe the goroutine count".
 **Depends on:** FR-005 (pixel chrome), the window SDK (`docs/sdk.md`), the
-view-window model of the base (`butschster/tui-desktop`, README "state
+view-window model of the base (`windows/tui-desktop`, README "state
 provider": `pixel_state`, `desktop.state`, `spawn_monitored`).
 
 ## 1. The idea in one sentence
@@ -56,15 +56,15 @@ like `desktop.tray`. The owner chose the registry, and the reasons hold:
     width: 20                      # cells; default 20, limits 10..40
     height: 6                      # cells; default 5, limits 2..16
     order: 20                      # position in the column; lower first; default 100
-    opens: butschster.windows.taskman:window   # optional: a click opens or raises it
+    opens: windows.shell.taskman:window   # optional: a click opens or raises it
     comment: Heap in use and its history, sampled every two seconds.
   source: file://memory.lua
   modules: [system, time]
   imports:
-    app: butschster.windows.sdk:app
-    ui: butschster.windows.sdk:ui
-    gadget: butschster.windows.sdk:gadget
-    facts: butschster.windows.config:system
+    app: windows.shell.sdk:app
+    ui: windows.shell.sdk:ui
+    gadget: windows.shell.sdk:gadget
+    facts: windows.shell.config:system
   security:
     policies: [app.monitor:widget_scope]
 ```
@@ -125,7 +125,7 @@ both, `widgets` is a list in display order, each item shaped like a view
 window so that the SDK renderer can take it as it is:
 
 ```lua
-{id = "g1", entry = "app.monitor:memory", title = "Memory", opens = "butschster.windows.taskman:window",
+{id = "g1", entry = "app.monitor:memory", title = "Memory", opens = "windows.shell.taskman:window",
  w = 20, h = 6, waiting = false, stopped = false,
  content_state = {sdk = 1, revision = 17, ui = <tree>, interaction = {…}}, state_revision = 17}
 ```
@@ -142,7 +142,7 @@ A widget produces one hit record per row of its rectangle in
 `hits.desktop[]`, the same shape as an icon row plus `widget`:
 
 ```lua
-{row = 4, from = 79, to = 98, widget = "g1", entry = "butschster.windows.taskman:window", title = "Memory"}
+{row = 4, from = 79, to = 98, widget = "g1", entry = "windows.shell.taskman:window", title = "Memory"}
 ```
 
 `entry` here is what a click opens (`meta.opens`), the field name kept as in
@@ -202,7 +202,7 @@ A widget whose tree fails `ui.problem` shows the problem text (alert label)
 in place of the body, the frame and title unchanged. `waiting` shows an empty
 body; `stopped` draws "stopped" in the body's last row over the last tree.
 
-## 8. The UI kit — `butschster.windows.sdk:gadget`
+## 8. The UI kit — `windows.shell.sdk:gadget`
 
 Builders of plain trees for the shapes every widget needs; a widget composes
 them and never touches geometry:
@@ -226,7 +226,7 @@ rows, `lines` one row per line; `w` 20 for all. The kit is documented in
 shape of §3 and the rule that a widget receives no input (a tree with
 focusable components is laid out but never gets an event).
 
-The SDK runner (`butschster.windows.sdk:app`) must run a widget without
+The SDK runner (`windows.shell.sdk:app`) must run a widget without
 change or with the smallest one: the widget id arrives where the window id
 arrives, the interval hook fires, `view` publishes. If the runner insists on
 something a widget cannot give (an input channel that must exist, an
@@ -242,9 +242,9 @@ Three entries, each a widget of §3:
   forecaster the way `app.weather:window` gets it (`weather.ask` /
   `weather.reply`); `interval` 60 s; `opens: app.weather:window`.
 - **`app.monitor:memory`** — every 2 s reads `memory` through
-  `butschster.windows.config:system` (`facts.read`), keeps 60 samples; heap in
+  `windows.shell.config:system` (`facts.read`), keeps 60 samples; heap in
   use as `meter` against a round ceiling (`charts.round_ceiling`) plus
-  `history`. `opens: butschster.windows.taskman:window`.
+  `history`. `opens: windows.shell.taskman:window`.
 - **`app.monitor:goroutines`** — same sampling for `goroutines`; `stat` +
   `history`.
 

@@ -41,7 +41,7 @@ function scene.state(options: any?): any
     if given.unrevised == true then revision = nil end
     return {
         width = scene.WIDTH, height = scene.HEIGHT, top = 1, bottom = scene.BOTTOM, clock = "12:00",
-        items = {{id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window",
+        items = {{id = "computer", kind = "shortcut", entry = "windows.shell.explorer:window",
             title = "My Computer", x = 2, y = 1}},
         windows = {{id = "w1", title = "Notepad", x = 62, y = 22, w = 36, h = 8, window_type = "app"}},
         focused_id = "w1",
@@ -51,7 +51,7 @@ function scene.state(options: any?): any
                     gadget.stat{caption = "Feels like +19", value = "+21", unit = " °C", image = "clock", icon = "☼"},
                     gadget.lines{lines = {"Samara", "Partly cloudy"}},
                 }, revision),
-            widget("g2", {entry = "app.monitor:memory", title = "Memory", opens = "butschster.windows.taskman:window",
+            widget("g2", {entry = "app.monitor:memory", title = "Memory", opens = "windows.shell.taskman:window",
                 w = 20, h = 8},
                 gadget.stack{
                     gadget.meter{caption = "Heap", value = 312, ceiling = 500, unit = " MB"},

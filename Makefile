@@ -1,7 +1,7 @@
-# butschster/windows — initialize, verify, and publish a standalone Kickside module.
+# windows/shell — initialize, verify, and publish a standalone Kickside module.
 MODULE := windows
 TYPE   := plugin
-VIS    := private
+VIS    := public
 
 # pipefail lets the test targets both stream runner output and keep its exit
 # code while grepping the log afterwards.

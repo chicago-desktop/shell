@@ -32,7 +32,7 @@ local whole = geometry.whole
 
 -- ─── Taking the numbers ──────────────────────────────────────────────────
 
--- A value or a reason for every field: `butschster.windows.config:system`.
+-- A value or a reason for every field: `windows.shell.config:system`.
 -- Previously the second value of `system.*` was discarded, and a permission
 -- denial turned into zero goroutines or "unavailable".
 local function snapshot(from: any?): any

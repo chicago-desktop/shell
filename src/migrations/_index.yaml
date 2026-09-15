@@ -1,8 +1,8 @@
 version: "1.0"
-namespace: butschster.windows.migrations
+namespace: windows.shell.migrations
 
 entries:
-  # butschster.windows.migrations:01_create_desktop_items
+  # windows.shell.migrations:01_create_desktop_items
   - name: 01_create_desktop_items
     kind: function.lua
     meta:
@@ -15,7 +15,7 @@ entries:
       migration: wippy.migration:migration
     method: migrate
 
-  # butschster.windows.migrations:02_desktop_items_unplaced
+  # windows.shell.migrations:02_desktop_items_unplaced
   - name: 02_desktop_items_unplaced
     kind: function.lua
     meta:
@@ -28,7 +28,7 @@ entries:
       migration: wippy.migration:migration
     method: migrate
 
-  # butschster.windows.migrations:03_settings
+  # windows.shell.migrations:03_settings
   - name: 03_settings
     kind: function.lua
     meta:
@@ -41,7 +41,7 @@ entries:
       migration: wippy.migration:migration
     method: migrate
 
-  # butschster.windows.migrations:04_layout_per_user
+  # windows.shell.migrations:04_layout_per_user
   - name: 04_layout_per_user
     kind: function.lua
     meta:

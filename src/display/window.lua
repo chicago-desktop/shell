@@ -16,7 +16,7 @@
 -- numbers (`size`, `padding`, `gap`) are the same tree in character mode.
 --
 -- "Background" is the pattern: the Windows 95 8×8 tiles
--- (`butschster.windows.display:patterns`), tiled by the pixel theme over the
+-- (`windows.shell.display:patterns`), tiled by the pixel theme over the
 -- desktop color. The wallpaper group stands there disabled until wallpapers
 -- exist. "Appearance" holds the desktop color, where Windows 95 kept it: the
 -- color of the Desktop item. "Screen Saver" says it is not available.

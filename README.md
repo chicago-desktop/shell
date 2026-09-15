@@ -1,4 +1,4 @@
-# butschster/windows — a Windows 95-style shell for the terminal desktop
+# windows/shell — a Windows 95-style shell for the terminal desktop
 
 New window applications: [SDK](docs/sdk.md),
 [skill for agents](skills/wippy-window-app/SKILL.md),
@@ -14,7 +14,7 @@ that is filled from the registry, and desktop icons that the user moves around.
 
 There is not a single line of window mechanics of its own here. Window hosting, programs under
 a PTY, the command channel and the workshop stay in
-[butschster/tui-desktop](https://github.com/wippy-windows/tui-desktop); the shell
+[windows/tui-desktop](https://github.com/wippy-windows/tui-desktop); the shell
 calls its compositor with its own theme. A copy of the compositor would drift from
 the original on the very first edit, and that would be discovered a week later on the live
 test stand.
@@ -30,16 +30,16 @@ found`); details are in [docs/traps.md](docs/traps.md#with-the-release-runtime-t
 WIPPY=~/repos/wippy/runtime/dist/wippy-linux-amd64   # build with gfx
 
 # in cells — works in any terminal
-$WIPPY run --host butschster.windows:terminal windows
+$WIPPY run --host windows.shell:terminal windows
 
 # in pixels — one-pixel edges, real icons and captions
-BUTSCHSTER_WINDOWS_PIXELS=1 $WIPPY run --host butschster.windows:terminal windows
+WINDOWS_PIXELS=1 $WIPPY run --host windows.shell:terminal windows
 ```
 
 Pixel mode needs two things, and without either of them the shell comes up **in
 cells and states the reason in the log**: a terminal with sixel or kitty that answered
 the cell-size query, and a TrueType font directory (`app:system_fonts`,
-overridden by `BUTSCHSTER_WINDOWS_FONTS`). Look in the log for the line
+overridden by `WINDOWS_FONTS`). Look in the log for the line
 `pixel mode` — it is written before any attempt.
 
 **Almost everything can be checked without occupying the test stand**:
@@ -77,8 +77,8 @@ its own host because it needs `hide_logs`, and from that moment autodetection
 refuses to choose. This is the price of a second shell, not a defect.
 
 ```bash
-$WIPPY run  --host butschster.windows:terminal       windows   # this shell
-$WIPPY run  --host butschster.tui_desktop:terminal   desktop   # the base's shell
+$WIPPY run  --host windows.shell:terminal       windows   # this shell
+$WIPPY run  --host windows.tui_desktop:terminal   desktop   # the base's shell
 $WIPPY run  --host wippy.terminal:host               register-webhook
 $WIPPY test --host wippy.terminal:host
 ```
@@ -130,21 +130,21 @@ contents when a module is removed.
 
 ### SDK windows: "Date/Time", calculator, registry, task manager, "Run…"
 
-Five shell programs are built on the window SDK (`butschster.windows.sdk:app`,
+Five shell programs are built on the window SDK (`windows.shell.sdk:app`,
 [docs/sdk.md](docs/sdk.md)): the application gives a component tree and changes
 the model on actions, while the layout, hits, scrolling and both renderers
 are provided by the SDK. They have no paints of their own, no state provider, no
 second geometry for the mouse; in pixel mode they are drawn by the shared
-`butschster.windows.sdk:render`, in text mode by the same components in cells.
+`windows.shell.sdk:render`, in text mode by the same components in cells.
 A renderer of its own remains with the image viewer; "My Computer" and the folder
 windows are on the SDK (FR-008).
 
-- Window: Date/Time; Entry: `butschster.windows.datetime:window`; What's inside: tabs, a month calendar with today's date, an analog clock, digital time, the time zone; **read-only** — there is nothing to adjust, "OK" and "Cancel" close it, "Apply" is disabled for good
-- Window: Calculator; Entry: `butschster.windows.calc:window`; What's inside: the standard Windows 95 view: the display, Back/CE/C, memory MC/MR/MS/M+, digits in blue, operations in red; it calculates like a desk calculator — an operation is applied immediately, 2 + 3 × 4 = 20; keyboard and mouse go into the same button. A window on the shell SDK: works both in cells and in pixels
-- Window: Registry Editor; Entry: `butschster.windows.regedit:window`; What's inside: regedit: on the left a tree of namespaces split by dots and of the entries inside them, on the right `kind`, `meta.*` and `data.*` of the selected entry, at the bottom the path `Registry\a\b\name`. The [+] box, Enter and → expand, ← collapses or goes to the parent, the wheel and the scrollbar scroll; F5 rereads. **Read-only** (FR-004 §3.4): the `regedit_state` policy has `registry.find` but not `registry.apply`. A window on the shell SDK (the `tree` component)
-- Window: Task Manager; Entry: `butschster.windows.taskman:window`; What's inside: open applications, Wippy processes, performance and the node on four tabs, refreshed every second; opened from Start → Settings → Task Manager. Details: [docs/taskman.md](docs/taskman.md)
-- Window: Run…; Entry: `butschster.windows.run:window`; What's inside: a command field; Enter or "OK" starts the command in its own Bash window, which is the base's terminal window; opened from Start → Run…. Details: [docs/run.md](docs/run.md)
-- Window: AntiBug; Entry: `butschster.windows.antibug:window`; What's inside: a test scanner in the style of McAfee VirusScan 95 — runs the application's `meta.type: test` entries one at a time through its own runner (its own actor and a wide scope; the window stays narrow), and the targets the application declares (`meta.type: windows.antibug_target`: a module working copy through the wippy test runner, a Go module through `go test -json`) as children; findings, progress, the log and "Scan complete."; opened from Start → Programs → AntiBug. Details: [docs/antibug.md](docs/antibug.md)
+- Window: Date/Time; Entry: `windows.shell.datetime:window`; What's inside: tabs, a month calendar with today's date, an analog clock, digital time, the time zone; **read-only** — there is nothing to adjust, "OK" and "Cancel" close it, "Apply" is disabled for good
+- Window: Calculator; Entry: `windows.shell.calc:window`; What's inside: the standard Windows 95 view: the display, Back/CE/C, memory MC/MR/MS/M+, digits in blue, operations in red; it calculates like a desk calculator — an operation is applied immediately, 2 + 3 × 4 = 20; keyboard and mouse go into the same button. A window on the shell SDK: works both in cells and in pixels
+- Window: Registry Editor; Entry: `windows.shell.regedit:window`; What's inside: regedit: on the left a tree of namespaces split by dots and of the entries inside them, on the right `kind`, `meta.*` and `data.*` of the selected entry, at the bottom the path `Registry\a\b\name`. The [+] box, Enter and → expand, ← collapses or goes to the parent, the wheel and the scrollbar scroll; F5 rereads. **Read-only** (FR-004 §3.4): the `regedit_state` policy has `registry.find` but not `registry.apply`. A window on the shell SDK (the `tree` component)
+- Window: Task Manager; Entry: `windows.shell.taskman:window`; What's inside: open applications, Wippy processes, performance and the node on four tabs, refreshed every second; opened from Start → Settings → Task Manager. Details: [docs/taskman.md](docs/taskman.md)
+- Window: Run…; Entry: `windows.shell.run:window`; What's inside: a command field; Enter or "OK" starts the command in its own Bash window, which is the base's terminal window; opened from Start → Run…. Details: [docs/run.md](docs/run.md)
+- Window: AntiBug; Entry: `windows.shell.antibug:window`; What's inside: a test scanner in the style of McAfee VirusScan 95 — runs the application's `meta.type: test` entries one at a time through its own runner (its own actor and a wide scope; the window stays narrow), and the targets the application declares (`meta.type: windows.antibug_target`: a module working copy through the wippy test runner, a Go module through `go test -json`) as children; findings, progress, the log and "Scan complete."; opened from Start → Programs → AntiBug. Details: [docs/antibug.md](docs/antibug.md)
 
 "Date/Time" has `resizable: false`, the calculator too; the registry editor can be resized. The taskbar clock opens "Date/Time": the host
 declares this with a `windows.taskbar_clock` entry (below).
@@ -189,7 +189,7 @@ and a shortcut to a hidden program works. Above
 all this, if the shell was brought up with logon, is the name of the logged-on user with
 the `user` icon and a rule under it (since 2026-09-09). By default the line cannot be
 selected: it has no hit and no number, the cursor steps over it. When the application
-names a profile window in `BUTSCHSTER_WINDOWS_PROFILE_ENTRY` (read without a default;
+names a profile window in `WINDOWS_PROFILE_ENTRY` (read without a default;
 the shell's `shell_env` policy grants it by name), the line opens it: the shell appends a
 profile item to the menu catalog (`chrome.profile_item` — the entry, the user's name as
 the title, `image = "user"`, `args = {user_id}`), the layout puts it behind the line instead
@@ -197,7 +197,7 @@ of listing it as a program, and the line takes slot 1 and a hit — the cursor l
 when Start opens, a click and Enter open it through the compositor's ordinary
 `items[hit.index]` path, so the base needs no change. The name is set by `chrome.use_user`
 from the logon result; both themes read the same `chrome.session`. When the application
-names a function in `BUTSCHSTER_WINDOWS_USER_FUNC` (read without a default; `{user_id}` →
+names a function in `WINDOWS_USER_FUNC` (read without a default; `{user_id}` →
 `{success, name}`, called through `funcs`), the name is read again on every
 `desktop.refresh` — the profile window sends one after a rename — and `chrome.rename_user`
 keeps the id and the entry and replaces the name, so the row repaints. Unset keeps the
@@ -227,7 +227,7 @@ without a module, and that is visible in the menu at once.
 **Mouse hover drives the menu**: the line under the pointer is highlighted, the folder
 under it expands, a deeper submenu goes away — the last two with a delay
 of 300 ms, as in Windows, so that a diagonal path into a submenu does not close it.
-The mechanics are in the base (`butschster/tui-desktop`, `hover_menu`), the theme only
+The mechanics are in the base (`windows/tui-desktop`, `hover_menu`), the theme only
 draws the selected line; in pixels the panel is redrawn because
 `selected` is part of its raster key.
 
@@ -238,14 +238,14 @@ Start → Settings → Add/Remove Programs shows the wippy modules — the
 edits the application's declarations file: it removes and appends entries. The
 change takes effect after `wippy update` and a restart, which the window says
 itself; it does not touch the registry or the Hub. The declarations folder is
-named by `BUTSCHSTER_WINDOWS_DEPS_FS`. Details: [docs/appwiz.md](docs/appwiz.md).
+named by `WINDOWS_DEPS_FS`. Details: [docs/appwiz.md](docs/appwiz.md).
 
 ### System Properties
 
 A right click on a desktop icon opens a context menu at the pointer:
 "Open" (in bold — the same as a double click) and "Properties", if the program's entry
 declared `meta.properties` — the identifier of the properties window. For
-"My Computer" this is `butschster.windows.sysprops:window`, "System
+"My Computer" this is `windows.shell.sysprops:window`, "System
 Properties", like System Properties in Windows 95: three tabs on the SDK.
 
 - **General** — the runtime node and role, the number of Lua modules, the host, PID and directory,
@@ -277,10 +277,10 @@ Display Properties in four tabs, laid out by the Windows 95 dialog's measured
 pixels (the numbers are in `src/display/window.lua`).
 
 - **Background** — the desktop pattern: the twenty Windows 95 8×8 tiles
-  (`butschster.windows.display:patterns`, the original bits) in a list, and a monitor
+  (`windows.shell.display:patterns`, the original bits) in a list, and a monitor
   preview (the SDK `monitor` component, which draws the pattern and the wallpaper
   too). The Wallpaper group lists the shell's own wallpapers
-  (`butschster.windows.display:wallpapers`: pictures drawn by `tools/wallpapers.py`
+  (`windows.shell.display:wallpapers`: pictures drawn by `tools/wallpapers.py`
   into `assets/wallpaper`, MIT, shipped with the module) with "Display: Tile / Center"
   radio buttons; a wallpaper comes with the way it is meant to be shown. "Browse…"
   is disabled: there is no file dialog yet. The preview draws a wallpaper at 1:1 —
@@ -293,7 +293,7 @@ pixels (the numbers are in `src/display/window.lua`).
   is forced by the runtime.
 
 "Apply" and "OK" write the choice into the shell's settings
-(`butschster_windows_settings`, keys `desktop_color`, `desktop_pattern`,
+(`windows_shell_settings`, keys `desktop_color`, `desktop_pattern`,
 `desktop_wallpaper` and `wallpaper_mode`) and ask the compositor to reread the desktop
 (`desktop.refresh`); it repaints through `chrome.use_desktop`, `chrome.use_pattern` and
 `chrome.use_wallpaper` — one point each. An icon raster carries
@@ -356,7 +356,7 @@ are different statements, and substituting one for the other is not allowed.
 
 **A program with `desktop: true` gets a shortcut exactly once, ever.**
 The mark that the program has already been offered lives in a separate table
-`butschster_windows_desktop_seeded` and is never deleted — including when
+`windows_shell_desktop_seeded` and is never deleted — including when
 the shortcut itself is deleted. Without this, deleting an icon would not work at all: it
 would come back on every start, and a person would decide that deletion is broken.
 
@@ -401,7 +401,7 @@ and it is not created again.
 Only what has something behind it is created. A "Recycle Bin" is deliberately
 absent: an icon that does nothing looks like a working part of the system, and the
 first thing people will ask about it is why it does not work. "Network
-Neighborhood" is not furniture: it is a program (`butschster.windows.network:window`)
+Neighborhood" is not furniture: it is a program (`windows.shell.network:window`)
 that asks for its own shortcut with `desktop: true`, so it reaches the desktop the
 way any program shortcut does, by the rule below.
 
@@ -487,7 +487,7 @@ A runtime build with PTY geometry updates is required. If the terminal or SSH
 does not pass pixels through the PTY, the answer to the initial query remains: after
 changing the terminal font in such an environment the shell has to be restarted.
 
-**It is switched on explicitly, by the variable `BUTSCHSTER_WINDOWS_PIXELS=1`**, not by the presence of
+**It is switched on explicitly, by the variable `WINDOWS_PIXELS=1`**, not by the presence of
 graphics: a terminal that can do sixel is no reason to draw the interface differently
 from what a person asked for.
 
@@ -496,7 +496,7 @@ the log: no graphics, the terminal did not report the cell size, no font was fou
 Pixel mode that silently failed to turn on looks like "somehow the old way",
 and a person goes looking for a breakage where there is none.
 
-The font arrives **as bytes** through `fs` (the directory is `BUTSCHSTER_WINDOWS_FONTS`,
+The font arrives **as bytes** through `fs` (the directory is `WINDOWS_FONTS`,
 by default `app:system_fonts`), not by a path inside `gfx`: reading a file is
 governed by the process's permissions, and a module that opens paths by itself would be a road
 around them. Bold is a separate file, not an option.
@@ -568,7 +568,7 @@ old grid remains.
 
 "My Computer" and every folder window are an SDK application
 ([FR-008](docs/rfcs/008-folder-windows.md)): `meta.pixel_render:
-butschster.windows.sdk:render`, and the window entry is its own `pixel_state`.
+windows.shell.sdk:render`, and the window entry is its own `pixel_state`.
 The shared SDK renderer draws the tree in pixels, the SDK's cells renderer in
 cells; there is no explorer renderer of its own any more. `paint-png` saves
 `shots/mycomputer.png`, `shots/folder-details.png` and `shots/folder-context.png`.
@@ -644,7 +644,7 @@ knows about the screen as a whole.
 ## How a window talks to the compositor
 
 With two things, and both come from the base's library
-`butschster.tui_desktop.desktop:window_api`. The window has no protocol of its own.
+`windows.tui_desktop.desktop:window_api`. The window has no protocol of its own.
 
 **The compositor's name arrives in the process context**, and the library reads it.
 A constant of its own would work only under this shell: under any other the window
@@ -681,7 +681,7 @@ It was believed that the mechanics could not be checked without a real terminal.
 **the shell's screen does not have to be a terminal.** `tty.viewport` is created right in
 the test function, `view:grant()` gives it to the spawned process — by the same
 mechanism the compositor hands screens to its windows — and inside runs
-the real `butschster.windows:shell` entry, not a copy of it for the test.
+the real `windows.shell:shell` entry, not a copy of it for the test.
 
 The price of this misconception has already been paid: the `desktop.refresh` command, which the layout
 handlers send **after every edit**, was never executed in the base. It
@@ -778,19 +778,19 @@ Tests live in `test/` and bring the module up as a separate application. The she
 can be launched from there by hand:
 
 ```bash
-cd test && $WIPPY run --host butschster.windows:terminal windows
+cd test && $WIPPY run --host windows.shell:terminal windows
 ```
 
 ### The base is taken from a working copy
 
-`butschster/tui-desktop` is not yet published to the Hub, so it is connected
+`windows/tui-desktop` is not yet published to the Hub, so it is connected
 by a replacement in `.wippy.yaml` — at the module root and in `test/`. **Condition for removal:** as
 soon as the base is published, remove both replacements; otherwise the module builds only
 on a machine where the needed directory lies next to it.
 
 ## "My Computer": drives are registry entries
 
-The window `butschster.windows.explorer:window` is an ordinary registry program
+The window `windows.shell.explorer:window` is an ordinary registry program
 (`meta.type: tui_desktop.window`), and the shell finds it with the same
 `registry.find` as everything else. The first-start furniture leads to it.
 
@@ -859,7 +859,7 @@ the compositor, through `definition.deps`, so its tests swap them for stand-ins.
 
 ### Window permissions: read and ask, but not spawn
 
-The policy `butschster.windows.security:explorer_window` grants `registry.find`,
+The policy `windows.shell.security:explorer_window` grants `registry.find`,
 `db.get`, `fs.get`, `process.send` and `process.registry`. **`spawn` and `exec`
 are not there** — a window with the right to spawn processes will sooner or later launch something other than
 what a file was opened with. It can open a neighboring window only by asking

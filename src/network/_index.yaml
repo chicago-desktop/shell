@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: butschster.windows.network
+namespace: windows.shell.network
 
 # Network Neighborhood — the Wippy mesh seen from inside the shell: which
 # nodes gossip currently shows, which one this runtime is, and which one Raft
@@ -9,7 +9,7 @@ namespace: butschster.windows.network
 # node is always in the list, and the status bar says "standalone node".
 
 entries:
-  # butschster.windows.network:model
+  # windows.shell.network:model
   - name: model
     kind: library.lua
     meta:
@@ -34,7 +34,7 @@ entries:
       resources: "*"
       effect: allow
 
-  # butschster.windows.network:window
+  # windows.shell.network:window
   - name: window
     kind: process.lua
     meta:
@@ -55,17 +55,17 @@ entries:
       resizable: true
       width: 64
       height: 18
-      pixel_render: butschster.windows.sdk:render
-      pixel_state: butschster.windows.network:window
+      pixel_render: windows.shell.sdk:render
+      pixel_state: windows.shell.network:window
       comment: Network Neighborhood — mesh nodes, their addresses, role and leader; refreshes every two seconds, read-only.
     source: file://window.lua
     method: main
     modules:
       - system
     security:
-      policies: [butschster.windows.network:window_scope]
+      policies: [windows.shell.network:window_scope]
     imports:
-      app: butschster.windows.sdk:app
-      ui: butschster.windows.sdk:ui
-      model: butschster.windows.network:model
-      facts: butschster.windows.config:system
+      app: windows.shell.sdk:app
+      ui: windows.shell.sdk:ui
+      model: windows.shell.network:model
+      facts: windows.shell.config:system

@@ -1,5 +1,5 @@
-organization: butschster
-module: windows
+organization: windows
+module: shell
 description: A Windows 95-style shell for the terminal desktop — a teal desktop, a taskbar with the "Start" button and a clock, a program menu built from the registry, and a shortcut layout that the user moves around.
 license: MIT
 repository: https://github.com/wippy-windows/windows
@@ -24,11 +24,8 @@ exclude:
   - "test/stubs/**"
   - "test/stubs:**"
   - "src/**/stubs/**"
-  # Windows 95/98 icons are Microsoft artwork and do not fall under MIT
-  # (docs/icons.md, "License"). The PNGs are excluded, not the whole
-  # `assets/**`: `SOURCE.md` ships, and the `icon_files` directory exists in the
-  # published module. Without the directory the runtime does not create the
-  # `fs.directory` entry with `auto_init: false` (NewFS → OpenRoot), whereas
-  # without the PNGs `images.get` refuses with a reason and the icons are drawn
-  # with primitives.
-  - "assets/icons/**/*.png"
+  # The Windows 95/98 icons (assets/icons, Microsoft artwork from shell32.dll,
+  # docs/icons.md "License") ship with the module since 2026-09-15: the owner
+  # made every repository and every Hub module public, so the package carries
+  # the same files as the repository. Without the PNGs the shell would draw
+  # the icons with primitives (`images.get` refuses with a reason).

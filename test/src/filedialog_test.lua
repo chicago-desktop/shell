@@ -1,4 +1,4 @@
--- The Windows 95 Open / Save As sheet (`butschster.windows.sdk:filedialog`):
+-- The Windows 95 Open / Save As sheet (`windows.shell.sdk:filedialog`):
 -- the layout at 44×16 in cells and at two pixel cells, every action of
 -- `update`, the Save As captions, a folder that was not read, and a PNG shot
 -- `test/shots/filedialog.png`.

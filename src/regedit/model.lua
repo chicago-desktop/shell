@@ -2,7 +2,7 @@
 -- fields. Not a single call to the registry: entries arrive as a list, and
 -- what is built here is checked by a test without the runtime.
 --
--- The tree is `namespace:name`. The namespace `butschster.windows.shell` is
+-- The tree is `namespace:name`. The namespace `windows.shell.theme` is
 -- laid out by dots into folders, and the entry becomes a leaf inside the
 -- last one. Exactly regedit: keys on the left, values on the right, only the
 -- contents are real.

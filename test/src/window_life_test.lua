@@ -45,7 +45,7 @@ local function exit_of(entry: string, argument: any): string
     local view = assert(tty.viewport({width = 60, height = 20}))
     local grant = assert(view:grant())
     local pid, err = process.with_options({terminal = grant})
-        :with_context({["tui_desktop.service"] = "butschster.windows.shell"})
+        :with_context({["tui_desktop.service"] = "windows.shell.desktop"})
         :spawn_monitored(entry, "app:processes", argument)
     if not pid then return "spawn: " .. tostring(err) end
     local deadline = time.now():unix_nano() + FIRST_FRAME_NS
@@ -80,12 +80,12 @@ end
 local function define_tests()
     test.describe("program windows stay alive after launch", function()
         test.it("Task Manager does not die on the first frame", function()
-            local outcome = exit_of("butschster.windows.taskman:window", nil)
+            local outcome = exit_of("windows.shell.taskman:window", nil)
             test.is_true(outcome:find("alive", 1, true) ~= nil, "Task Manager: " .. outcome)
         end)
         test.it("Notepad does not die on the first frame", function()
-            local outcome = exit_of("butschster.windows.viewers:notepad",
-                '{"drive":"butschster.windows.shell:icon_files","path":"/SOURCE.md"}')
+            local outcome = exit_of("windows.shell.viewers:notepad",
+                '{"drive":"windows.shell.theme:icon_files","path":"/SOURCE.md"}')
             test.is_true(outcome:find("alive", 1, true) ~= nil, "Notepad: " .. outcome)
         end)
     end)

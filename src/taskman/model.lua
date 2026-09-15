@@ -45,7 +45,7 @@ end
 -- ─── Graph ───────────────────────────────────────────────────────────────
 --
 -- Columns in block characters and the round ceiling moved to the SDK
--- (`butschster.windows.sdk:charts`): any window with a history of a number
+-- (`windows.shell.sdk:charts`): any window with a history of a number
 -- needs a graph. What stayed here are the names by which the tests and the
 -- window call them.
 model.LEVELS = {"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}

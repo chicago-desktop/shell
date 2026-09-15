@@ -6,25 +6,25 @@ version: "1.0"
 # `wippy update`; suites run with `wippy test`.
 workspace:
   replacements:
-    butschster/windows: ..
+    windows/shell: ..
     # The base is not in the Hub yet — it is taken from the neighboring working
     # copy. Remove together with the replacement in the root .wippy.yaml once
     # the base is published.
-    butschster/tui-desktop: ../../kickside-module
+    windows/tui-desktop: ../../kickside-module
 override:
-  "butschster.tui_desktop:exec:default_env.HOME": "${env:HOME}"
-  "butschster.tui_desktop:exec:default_env.PATH": "${env:PATH}"
-  "butschster.windows.security:user_security_scope:data.default": app:user
+  "windows.tui_desktop:exec:default_env.HOME": "${env:HOME}"
+  "windows.tui_desktop:exec:default_env.PATH": "${env:PATH}"
+  "windows.shell.security:user_security_scope:data.default": app:user
   # The base arrives transitively and asks the application for the same group.
   # Without a value, linking fails on its requirement, and the message points at
   # someone else's namespace — it reads as a defect of the base, which it is not.
-  "butschster.tui_desktop.security:user_security_scope:data.default": app:user
+  "windows.tui_desktop.security:user_security_scope:data.default": app:user
 vars:
   pg_host: localhost
   pg_port: 5433
   # <org>_test_<module>: harnesses of different organizations share one
   # Postgres server without colliding on database names.
-  pg_database: butschster_test_windows
+  pg_database: windows_test_shell
   pg_username: kickside
   pg_password: kickside
 profiles:

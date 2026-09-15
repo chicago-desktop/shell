@@ -19,9 +19,9 @@ local SAMPLE = table.concat({
     "    name: tui-desktop",
     "    kind: ns.dependency",
     "    meta: {}",
-    "    component: butschster/tui-desktop",
+    "    component: windows/tui-desktop",
     "    parameters:",
-    "      - name: butschster.tui_desktop:api_router",
+    "      - name: windows.tui_desktop:api_router",
     "        value: app:api",
     "",
     "  # app.deps:blog",
@@ -44,8 +44,8 @@ local function define_tests()
         test.it("the application declaration outranks another, the cache gives the pinned version and size", function()
             local rows = model.merge({
                 {id = "app.deps:bridge", component = "butschster/bridge", version = ">=v0.0.0"},
-                {id = "butschster.windows:dep.wippy.migration", component = "wippy/migration", version = "*"},
-                {id = "app.deps:windows", component = "butschster/windows", version = ">=v0.0.0"},
+                {id = "windows.shell:dep.wippy.migration", component = "wippy/migration", version = "*"},
+                {id = "app.deps:windows", component = "windows/shell", version = ">=v0.0.0"},
             }, {
                 {module = "butschster/bridge", version = "0.1.95", size = 100, pinned = false},
                 {module = "butschster/bridge", version = "0.1.96", size = 3340000, pinned = true},
@@ -58,13 +58,13 @@ local function define_tests()
             test.eq(rows[1].name, "bridge")
             test.eq(rows[1].version, "0.1.96", "the one pinned by the lock is taken, not the first in the cache")
             test.eq(rows[1].size, 3340000)
-            test.eq(rows[2].component, "butschster/windows")
-            test.is_nil(rows[2].version, "a working copy is not in the cache")
-            test.eq(rows[3].component, "chestor/graph")
-            test.eq(rows[3].owner, "cache")
+            test.eq(rows[2].component, "chestor/graph")
+            test.eq(rows[2].owner, "cache")
+            test.eq(rows[3].component, "windows/shell")
+            test.is_nil(rows[3].version, "a working copy is not in the cache")
             test.eq(rows[4].owner, "module")
-            test.eq(rows[4].declared_by, "butschster.windows")
-            test.is_true(model.owner_text(rows[4]):find("butschster.windows", 1, true) ~= nil)
+            test.eq(rows[4].declared_by, "windows.shell")
+            test.is_true(model.owner_text(rows[4]):find("windows.shell", 1, true) ~= nil)
         end)
 
         test.it("size is formatted with a dot and MB", function()

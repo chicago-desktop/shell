@@ -6,7 +6,7 @@ local tty = require("tty")
 local model = require("model")
 local ui = require("ui")
 local run_window = require("run_window")
-local RUN = "butschster.windows.run:window"
+local RUN = "windows.shell.run:window"
 -- A label's text from the SDK tree by match: this way the check does not
 -- depend on the line's position in the column.
 local function find_text(node: any, needle: string): any
@@ -45,7 +45,7 @@ local function click(desk, x, y)
     desk.view:send({type = "mouse", action = "release", button = "left", x = x, y = y})
 end
 local function boot(mode)
-    local service = "butschster.windows.test.run." .. mode
+    local service = "windows.shell.test.run." .. mode
     local view = assert(tty.viewport({width = 100, height = 34}))
     local pid, spawn_error = process.with_options({terminal = assert(view:grant())})
         :spawn_monitored("app:run_composer", "app:processes", service, tostring(process.pid()), mode)
@@ -119,7 +119,7 @@ local function define_tests()
             run_window.definition.update(state, {type = "activate", id = "browse"}, context)
             test.not_nil(asked)
             test.eq(asked.command, "desktop.open")
-            test.eq(asked.body.entry, "butschster.windows.explorer:window")
+            test.eq(asked.body.entry, "windows.shell.explorer:window")
             test.is_true(state.browsing)
             run_window.definition.update(state, {type = "channel", channel = "replies", ok = true,
                 value = {command = "desktop.open", ok = true}}, context)

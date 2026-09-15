@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: butschster.windows.sysprops
+namespace: windows.shell.sysprops
 
 # "System Properties" is the properties window of "My Computer", like System
 # Properties in Windows 95. It opens from the "Properties" item of the icon's
@@ -7,14 +7,14 @@ namespace: butschster.windows.sysprops
 # Settings".
 
 entries:
-  # butschster.windows.sysprops:model
+  # windows.shell.sysprops:model
   - name: model
     kind: library.lua
     meta:
       comment: The pure model of "System Properties" — the stand's device tree from a runtime snapshot and registry entries, visible rows, captions.
     source: file://model.lua
     imports:
-      geometry: butschster.tui_desktop.desktop:geometry
+      geometry: windows.tui_desktop.desktop:geometry
 
   # Permissions: read the runtime and the registry, ask the compositor and
   # publish state to it. The window can neither write to the registry nor
@@ -34,7 +34,7 @@ entries:
       resources: "*"
       effect: allow
 
-  # butschster.windows.sysprops:window
+  # windows.shell.sysprops:window
   - name: window
     kind: process.lua
     meta:
@@ -48,8 +48,8 @@ entries:
       resizable: false
       width: 60
       height: 24
-      pixel_render: butschster.windows.sdk:render
-      pixel_state: butschster.windows.sysprops:window
+      pixel_render: windows.shell.sdk:render
+      pixel_state: windows.shell.sysprops:window
       comment: System Properties — the runtime node and modules, hosts, file systems, databases and HTTP from the registry, memory and goroutines; a window on the shell SDK, read-only.
     source: file://window.lua
     method: main
@@ -57,10 +57,10 @@ entries:
       - system
       - registry
     security:
-      policies: [butschster.windows.sysprops:window_scope]
+      policies: [windows.shell.sysprops:window_scope]
     imports:
-      geometry: butschster.tui_desktop.desktop:geometry
-      app: butschster.windows.sdk:app
-      model: butschster.windows.sysprops:model
-      charts: butschster.windows.sdk:charts
-      facts: butschster.windows.config:system
+      geometry: windows.tui_desktop.desktop:geometry
+      app: windows.shell.sdk:app
+      model: windows.shell.sysprops:model
+      charts: windows.shell.sdk:charts
+      facts: windows.shell.config:system

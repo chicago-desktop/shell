@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: butschster.windows.antibug
+namespace: windows.shell.antibug
 
 # AntiBug (FR-009, docs/rfcs/009-antibug.md): the test scanner in the style of
 # McAfee VirusScan 95. A scan is a run of test suites; an infected test is a
@@ -16,17 +16,17 @@ namespace: butschster.windows.antibug
 # the target process the runner spawns — the window itself never execs.
 
 entries:
-  # butschster.windows.antibug:process_host
+  # windows.shell.antibug:process_host
   - name: process_host
     kind: ns.requirement
     meta:
       comment: The process host AntiBug's target processes run on.
     default: app:processes
     targets:
-      - entry: butschster.windows.antibug:target
+      - entry: windows.shell.antibug:target
         path: .meta.process_host
 
-  # butschster.windows.antibug:window_scope
+  # windows.shell.antibug:window_scope
   - name: window_scope
     kind: security.policy
     meta:
@@ -42,7 +42,7 @@ entries:
       resources: "*"
       effect: allow
 
-  # butschster.windows.antibug:runner_call
+  # windows.shell.antibug:runner_call
   #
   # The one function the window may call. The user group's own `funcs.call`
   # covers kickside.* and the documentation function, not this entry, so no
@@ -55,10 +55,10 @@ entries:
       actions:
         - funcs.call
       resources:
-        - butschster.windows.antibug:runner
+        - windows.shell.antibug:runner
       effect: allow
 
-  # butschster.windows.antibug:runner_policy
+  # windows.shell.antibug:runner_policy
   - name: runner_policy
     kind: security.policy
     meta:
@@ -68,7 +68,7 @@ entries:
       resources: "*"
       effect: allow
 
-  # butschster.windows.antibug:exec
+  # windows.shell.antibug:exec
   #
   # exec.native does not inherit the OS environment, and there is no
   # `default_env` here: a `${env:HOME}` placeholder in this entry failed the
@@ -80,14 +80,14 @@ entries:
     meta:
       comment: Runs AntiBug's scan targets — the wippy test runner of a module working copy, go test of a Go module — with the environment the target declares.
 
-  # butschster.windows.antibug:scan
+  # windows.shell.antibug:scan
   - name: scan
     kind: library.lua
     meta:
       comment: AntiBug's model, pure — the test entries and targets, the group, suite and entry tree, what a selection scans, the scan's state machine over the wippy.test events, the findings, the log and the box.
     source: file://scan.lua
 
-  # butschster.windows.antibug:targets
+  # windows.shell.antibug:targets
   - name: targets
     kind: library.lua
     meta:
@@ -96,7 +96,7 @@ entries:
     modules:
       - json
 
-  # butschster.windows.antibug:runner
+  # windows.shell.antibug:runner
   - name: runner
     kind: function.lua
     meta:
@@ -108,14 +108,14 @@ entries:
       - process
       - registry
     imports:
-      targets: butschster.windows.antibug:targets
+      targets: windows.shell.antibug:targets
     security:
       actor:
-        id: butschster.windows.antibug:runner
+        id: windows.shell.antibug:runner
       policies:
-        - butschster.windows.antibug:runner_policy
+        - windows.shell.antibug:runner_policy
 
-  # butschster.windows.antibug:target
+  # windows.shell.antibug:target
   #
   # Spawned by the runner only (the window may not spawn): it inherits the
   # runner's actor, runs the target's command through `exec`, streams the
@@ -132,9 +132,9 @@ entries:
       - exec
       - process
     imports:
-      targets: butschster.windows.antibug:targets
+      targets: windows.shell.antibug:targets
 
-  # butschster.windows.antibug:window
+  # windows.shell.antibug:window
   - name: window
     kind: process.lua
     meta:
@@ -153,8 +153,8 @@ entries:
       height: 22
       window_type: app
       resizable: true
-      pixel_render: butschster.windows.sdk:render
-      pixel_state: butschster.windows.antibug:window
+      pixel_render: windows.shell.sdk:render
+      pixel_state: windows.shell.antibug:window
       comment: AntiBug — runs the application's tests and the declared targets like a 1995 virus scan — Where and What, Reports, the findings, the progress and the Scan complete box; an SDK application.
     source: file://window.lua
     method: main
@@ -167,13 +167,13 @@ entries:
       - time
     security:
       policies:
-        - butschster.windows.antibug:window_scope
-        - butschster.windows.antibug:runner_call
+        - windows.shell.antibug:window_scope
+        - windows.shell.antibug:runner_call
     imports:
-      app: butschster.windows.sdk:app
-      ui: butschster.windows.sdk:ui
-      filedialog: butschster.windows.sdk:filedialog
-      scan: butschster.windows.antibug:scan
-      targets: butschster.windows.antibug:targets
-      sources: butschster.windows.explorer:sources
-      explorer_model: butschster.windows.explorer:model
+      app: windows.shell.sdk:app
+      ui: windows.shell.sdk:ui
+      filedialog: windows.shell.sdk:filedialog
+      scan: windows.shell.antibug:scan
+      targets: windows.shell.antibug:targets
+      sources: windows.shell.explorer:sources
+      explorer_model: windows.shell.explorer:model

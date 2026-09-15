@@ -23,7 +23,7 @@ local function main(service, observer, mode)
             process.send(observer, "run.menu", {spots = spots})
         end
         for _, window in ipairs(state.windows) do
-            if window.entry == "butschster.windows.run:window" and window.content_state and not window.waiting then
+            if window.entry == "windows.shell.run:window" and window.content_state and not window.waiting then
                 local inset = chrome.window_insets(window)
                 process.send(observer, "run.frame", {id = window.id, state = window.content_state,
                     x = window.x + inset.left - 1, y = window.y + inset.top - 1,

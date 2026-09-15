@@ -93,7 +93,7 @@ local function keys_of(set: any): string
 end
 
 local function define_tests()
-    test.describe("butschster.windows.sdk List view", function()
+    test.describe("windows.shell.sdk List view", function()
         test.it("fills columns top to bottom at two sizes: the column by the widest caption, the last partial, the bar only when needed", function()
             local roomy = ui.list_shape(files(12), 40, 6)
             test.eq(table.concat({roomy.column, roomy.lines, roomy.total, roomy.fit, tostring(roomy.bar)}, ","), "10,6,2,4,false",

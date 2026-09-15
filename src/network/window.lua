@@ -2,7 +2,7 @@
 -- a grid of icons, "Entire Network" first, one computer per node, and a
 -- status bar that says how many objects are there and whether one is picked.
 --
--- Every reading goes through `butschster.windows.config:system`: a value OR a
+-- Every reading goes through `windows.shell.config:system`: a value OR a
 -- reason, never a silent blank. `system.cluster.members()` answers an error
 -- while membership is still forming, on a runtime with clustering switched
 -- off, and when the policy denies `system.read` — the status bar names which,

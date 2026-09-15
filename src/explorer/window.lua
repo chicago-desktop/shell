@@ -29,7 +29,7 @@ definition.deps = {desktop = desktop, sources = sources}
 
 -- "Properties" of My Computer and of a drive is the System Properties window
 -- the desktop icon already names.
-definition.SYSPROPS = "butschster.windows.sysprops:window"
+definition.SYSPROPS = "windows.shell.sysprops:window"
 
 definition.VIEWS = {"large", "small", "list", "details"}
 local VIEW_TEXT: any = {large = "Large Icons", small = "Small Icons", list = "List", details = "Details"}
@@ -491,7 +491,7 @@ local function command(state: any, id: any, context: any): boolean
         return message(state, {title = "Help", icon = "?", image = "help", lines = {"Help is not available."}})
     elseif id == "help_about" then
         return message(state, {title = "About Windows", image = "windows", icon = "▩", lines = {
-            "The Windows 95 shell for Wippy (butschster/windows).",
+            "The Windows 95 shell for Wippy (windows/shell).",
             "Icons: Microsoft artwork from shell32.dll, not under the module's MIT licence.",
         }})
     elseif id == "tb_up" then

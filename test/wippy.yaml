@@ -1,3 +1,3 @@
-organization: butschster
-module: windows-harness
-description: Standalone runnable harness that boots butschster/windows and runs its co-located *_test.lua suites.
+organization: windows
+module: shell-harness
+description: Standalone runnable harness that boots windows/shell and runs its co-located *_test.lua suites.

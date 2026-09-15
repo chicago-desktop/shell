@@ -15,7 +15,7 @@ local glyphs = require("glyphs")
 local palette = require("palette")
 
 local function define_tests()
-    test.describe("butschster.windows glyphs", function()
+    test.describe("windows.shell glyphs", function()
         test.it("keeps every character of the set in one cell", function()
             local set = glyphs.all()
             test.is_true(#set > 0, "the set must not be empty: there would be nothing to measure")
@@ -25,7 +25,7 @@ local function define_tests()
         end)
     end)
 
-    test.describe("butschster.windows palette", function()
+    test.describe("windows.shell palette", function()
         test.it("keeps the same names in both sets", function()
             -- A key forgotten in the fallback set shows up not as a failure
             -- but as nil in a style, that is, as a color "whatever happens"

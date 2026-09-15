@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: butschster.windows.viewers
+namespace: windows.shell.viewers
 
 # Viewers: Notepad for text and the image viewer.
 #
@@ -18,7 +18,7 @@ namespace: butschster.windows.viewers
 
 entries:
   # ─── Libraries ───────────────────────────────────────────────────────
-  # butschster.windows.viewers:files
+  # windows.shell.viewers:files
   - name: files
     kind: library.lua
     meta:
@@ -28,16 +28,16 @@ entries:
       - fs
       - json
 
-  # butschster.windows.viewers:associations
+  # windows.shell.viewers:associations
   - name: associations
     kind: library.lua
     meta:
       comment: File-type registry — a program declares meta.opens, the "extension → entry" table is assembled from the catalog; a dispute over an extension is named, not settled silently.
     source: file://associations.lua
     imports:
-      files: butschster.windows.viewers:files
+      files: windows.shell.viewers:files
 
-  # butschster.windows.viewers:picture_render
+  # windows.shell.viewers:picture_render
   #
   # Pure drawing of the view window: called by the theme in the compositor
   # process. It has no permissions and needs none — the picture arrives in
@@ -48,7 +48,7 @@ entries:
       comment: Image viewer, drawing — fit or show at a zoom, one frame raster per window, resent only on change.
     source: file://picture_render.lua
     imports:
-      geometry: butschster.tui_desktop.desktop:geometry
+      geometry: windows.tui_desktop.desktop:geometry
     modules:
       - base64
       - gfx
@@ -103,7 +103,7 @@ entries:
       effect: allow
 
   # ─── Notepad ─────────────────────────────────────────────────────────
-  # butschster.windows.viewers:notepad
+  # windows.shell.viewers:notepad
   - name: notepad
     kind: process.lua
     meta:
@@ -121,8 +121,8 @@ entries:
       resizable: true
       # An SDK application (FR-007 §6): the shared renderer draws the tree
       # this same entry publishes as its state provider.
-      pixel_render: butschster.windows.sdk:render
-      pixel_state: butschster.windows.viewers:notepad
+      pixel_render: windows.shell.sdk:render
+      pixel_state: windows.shell.viewers:notepad
       # What it opens. The explorer assembles the type registry from this field.
       opens: [txt, md, log, csv, json, yaml, yml, lua, ini, conf, toml, xml, html, css, js, ts, go, py, sh]
       # The Type column of its files in the explorer's Details view.
@@ -138,13 +138,13 @@ entries:
       - time
       - tty
     security:
-      policies: [butschster.windows.viewers:notepad_scope]
+      policies: [windows.shell.viewers:notepad_scope]
     imports:
-      app: butschster.windows.sdk:app
-      notepad_model: butschster.windows.viewers:notepad_model
-      filedialog: butschster.windows.sdk:filedialog
-      sources: butschster.windows.explorer:sources
-      explorer_model: butschster.windows.explorer:model
+      app: windows.shell.sdk:app
+      notepad_model: windows.shell.viewers:notepad_model
+      filedialog: windows.shell.sdk:filedialog
+      sources: windows.shell.explorer:sources
+      explorer_model: windows.shell.explorer:model
 
   # The Notepad window's model, pure: menus, sheets, the clipboard, the
   # "save changes?" gate, and the 64 KB read over a given `fs.get`.
@@ -154,13 +154,13 @@ entries:
       comment: Notepad's model (FR-007 §1, §6), pure — the window reads and writes through functions it is given.
     source: file://notepad_model.lua
     imports:
-      ui: butschster.windows.sdk:ui
-      editor: butschster.windows.sdk:editor
-      filedialog: butschster.windows.sdk:filedialog
-      files: butschster.windows.viewers:files
+      ui: windows.shell.sdk:ui
+      editor: windows.shell.sdk:editor
+      filedialog: windows.shell.sdk:filedialog
+      files: windows.shell.viewers:files
 
   # ─── Image viewer ────────────────────────────────────────────────────
-  # butschster.windows.viewers:picture
+  # windows.shell.viewers:picture
   #
   # A view window. There is no process inside: the theme draws through
   # `render`, `state` brings the data. The source is a stub for the sake of
@@ -179,8 +179,8 @@ entries:
       width: 70
       height: 22
       window_content: pixels
-      render: butschster.windows.viewers:picture_render
-      state: butschster.windows.viewers:picture_state
+      render: windows.shell.viewers:picture_render
+      state: windows.shell.viewers:picture_state
       opens: [png, gif, jpg, jpeg]
       file_type: Image File
       comment: Image viewer — PNG, GIF, JPEG from a registry drive; fits into the window or shows at a zoom with panning. Pixel mode only.
@@ -190,7 +190,7 @@ entries:
       - channel
       - time
 
-  # butschster.windows.viewers:picture_state
+  # windows.shell.viewers:picture_state
   - name: picture_state
     kind: process.lua
     meta:
@@ -205,9 +205,9 @@ entries:
       - json
       - process
     security:
-      policies: [butschster.windows.viewers:provider_scope]
+      policies: [windows.shell.viewers:provider_scope]
     imports:
-      geometry: butschster.tui_desktop.desktop:geometry
-      desktop: butschster.tui_desktop.desktop:window_api
-      scroll: butschster.tui_desktop.desktop:scroll
-      files: butschster.windows.viewers:files
+      geometry: windows.tui_desktop.desktop:geometry
+      desktop: windows.tui_desktop.desktop:window_api
+      scroll: windows.tui_desktop.desktop:scroll
+      files: windows.shell.viewers:files

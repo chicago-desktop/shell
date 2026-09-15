@@ -16,7 +16,7 @@ module from the Hub; checking the module name and its requirements is left to
 `wippy update`, which will refuse loudly and by name.
 
 - **Remove** — only for modules declared by the application. A dependency of
-  another module ("required by module butschster.windows") and a module that lies
+  another module ("required by module windows.shell") and a module that lies
   only in the cache cannot be removed, and the window names the reason.
 - **Install…** — asks for `org/name` in lowercase and appends an entry with
   version "any" and no parameters. The entry name is the second half of the module
@@ -30,17 +30,17 @@ module from the Hub; checking the module name and its requirements is left to
 ## What the application must provide
 
 The declarations folder is named by the environment variable
-`BUTSCHSTER_WINDOWS_DEPS_FS` — the identifier of an `fs.directory` entry over the
+`WINDOWS_DEPS_FS` — the identifier of an `fs.directory` entry over the
 directory with the dependencies' `_index.yaml`. On the kickside test stand this is
 `app.desktop:deps_source` over `src/app/deps`, set in `.wippy.yaml` as an override
 of `app.env:defaults`. Without the variable the window works in "read-only" mode
 and says what is missing.
 
-The window's permissions (`butschster.windows.appwiz:window_scope`): read the
+The window's permissions (`windows.shell.appwiz:window_scope`): read the
 registry, read the module cache (`hub.cache.list`), the environment and the
 declarations folder; neither spawn processes nor change the registry. The window
 is built on the shell SDK
-(`butschster.windows.sdk:app`): a table with columns, buttons, an input line — shared components,
+(`windows.shell.sdk:app`): a table with columns, buttons, an input line — shared components,
 both render modes.
 
 ## The cache trap

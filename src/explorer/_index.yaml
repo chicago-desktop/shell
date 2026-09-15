@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: butschster.windows.explorer
+namespace: windows.shell.explorer
 
 # "My Computer" — a window that shows the running system itself.
 #
@@ -22,7 +22,7 @@ namespace: butschster.windows.explorer
 # entry loader pointing at the file, not at the phrase.
 
 entries:
-  # butschster.windows.explorer:model
+  # windows.shell.explorer:model
   - name: model
     kind: library.lua
     meta:
@@ -32,12 +32,12 @@ entries:
       - registry
     imports:
       # File type registry: the program for an extension and its icon.
-      associations: butschster.windows.viewers:associations
-      catalog: butschster.windows.programs:catalog
+      associations: windows.shell.viewers:associations
+      catalog: windows.shell.programs:catalog
       # The extension rule for the Type column of an unknown file.
-      files: butschster.windows.viewers:files
+      files: windows.shell.viewers:files
 
-  # butschster.windows.explorer:sources
+  # windows.shell.explorer:sources
   - name: sources
     kind: library.lua
     meta:
@@ -53,11 +53,11 @@ entries:
       - time
       - uuid
     imports:
-      catalog: butschster.windows.programs:catalog
-      model: butschster.windows.explorer:model
-      repo: butschster.windows.persist:repo
+      catalog: windows.shell.programs:catalog
+      model: windows.shell.explorer:model
+      repo: windows.shell.persist:repo
 
-  # butschster.windows.explorer:window
+  # windows.shell.explorer:window
   #
   # The window itself. An ordinary registry program — the shell finds it with
   # the same `registry.find` as everything else, and it gets into the "Start"
@@ -75,8 +75,8 @@ entries:
       image: my_computer
       # An SDK application (FR-008): the shared renderer draws the tree the
       # window publishes, and this same entry is its state provider.
-      pixel_render: butschster.windows.sdk:render
-      pixel_state: butschster.windows.explorer:window
+      pixel_render: windows.shell.sdk:render
+      pixel_state: windows.shell.explorer:window
       icon: "▣"
       # Windows 95's My Computer was about 260×220 px on a 640×480 screen;
       # 48×16 cells is the same share of a 1000-px desktop. Every folder opens
@@ -93,7 +93,7 @@ entries:
       order: 5
       group: ""
       # "Properties" in the icon's context menu is "System Properties".
-      properties: butschster.windows.sysprops:window
+      properties: windows.shell.sysprops:window
       comment: A folder window as in Windows 95 — My Computer, a drive, a folder or the Control Panel in four views, a window per folder; an SDK application.
     source: file://window.lua
     method: main
@@ -107,14 +107,14 @@ entries:
       - tty
       - uuid
     security:
-      policies: [butschster.windows.security:explorer_window]
+      policies: [windows.shell.security:explorer_window]
     imports:
-      app: butschster.windows.sdk:app
-      ui: butschster.windows.sdk:ui
+      app: windows.shell.sdk:app
+      ui: windows.shell.sdk:ui
       # Requests to the compositor go through the base library, not our own
       # protocol. It reads the compositor's name from the process context; a
       # constant of our own would work only under our shell and would
       # silently miss under any other.
-      desktop: butschster.tui_desktop.desktop:window_api
-      model: butschster.windows.explorer:model
-      sources: butschster.windows.explorer:sources
+      desktop: windows.tui_desktop.desktop:window_api
+      model: windows.shell.explorer:model
+      sources: windows.shell.explorer:sources

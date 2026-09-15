@@ -483,17 +483,17 @@ local function define_tests()
         end)
 
         test.it("the runner runs only test entries: anything else is refused by name", function()
-            local refused, err = funcs.new():call("butschster.windows.antibug:runner", {entry = "app:antibug_actor_probe"})
+            local refused, err = funcs.new():call("windows.shell.antibug:runner", {entry = "app:antibug_actor_probe"})
             test.is_nil(err, tostring(err))
             test.eq(refused and refused.error, "app:antibug_actor_probe is not a test entry")
-            local missing = funcs.new():call("butschster.windows.antibug:runner", {entry = "app:no_such_test"})
+            local missing = funcs.new():call("windows.shell.antibug:runner", {entry = "app:no_such_test"})
             test.is_true(tostring(missing and missing.error):find("no such entry: app:no_such_test", 1, true) ~= nil,
                 tostring(missing and missing.error))
         end)
 
         test.it("live: scans one real harness test entry through the real runner and sees its cases arrive", function()
             local target = "app:glyphs_test"
-            local found = {entry(target, "Windows Shell", "butschster_windows")}
+            local found = {entry(target, "Windows Shell", "windows_shell")}
             window.deps.sys = setmetatable({find = function(): (any, any) return found, nil end}, {__index = REAL_SYS})
             local context = app.context({width = 62, height = 19})
             local model = window.init(nil, context)

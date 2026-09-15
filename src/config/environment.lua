@@ -5,7 +5,7 @@
 --
 -- THE FIRST. `env.get` sees ONLY the file store. For a variable from the
 -- process environment it answers "environment variable not found" — that is,
--- `BUTSCHSTER_WINDOWS_PIXELS=1 wippy run …` does not work without `get_all`.
+-- `WINDOWS_PIXELS=1 wippy run …` does not work without `get_all`.
 -- The process environment is returned by `env.get_all`.
 --
 -- THE SECOND, and it is quieter. A declared module without a granted

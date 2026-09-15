@@ -1,4 +1,4 @@
--- butschster.windows.antibug:scan — AntiBug's model (FR-009 §4, §4a, §6), pure.
+-- windows.shell.antibug:scan — AntiBug's model (FR-009 §4, §4a, §6), pure.
 --
 -- A scan is a run of test entries and targets; an infected test is a failed
 -- case. This file knows the entries (from a registry listing it is given),
@@ -67,7 +67,7 @@ function scan.short(id: any): string
     return name:match(":([^:]+)$") or name
 end
 
--- new(entries, targets) — `targets` as `butschster.windows.antibug:targets`
+-- new(entries, targets) — `targets` as `windows.shell.antibug:targets`
 -- lists them (`{id, title, kind, dir, problem?}`).
 function scan.new(entries: any, targets: any?): any
     local state: any = {entries = entries or {}, targets = targets or {}, target = scan.REGISTRY,

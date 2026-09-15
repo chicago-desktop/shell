@@ -66,7 +66,7 @@ Dialogs and messages (title `Notepad` unless said otherwise):
 
 ## 2. What this needs that the SDK does not have
 
-Today's Notepad (`butschster.windows.viewers:notepad`) is a raw-tty viewer:
+Today's Notepad (`windows.shell.viewers:notepad`) is a raw-tty viewer:
 read-only, no menu, no caret, no SDK. The SDK's `input` is a single-line
 field; `text` is a read-only scroller. So the work is four pieces, three of
 them reusable beyond Notepad:
@@ -168,7 +168,7 @@ once in the log — a Notepad in the wrong font is better than no Notepad.
 ## 5. The file dialog (Open / Save As)
 
 The Windows 95 common dialog, as an in-window sheet the SDK builds
-(`ui.file_dialog(spec)` in a new `butschster.windows.sdk:filedialog`
+(`ui.file_dialog(spec)` in a new `windows.shell.sdk:filedialog`
 library), 426×264 px in the original — here 44×16 cells:
 
 - title `Open` / `Save As`; row 1: `Look in:` and a `select` of places —
@@ -200,8 +200,8 @@ double-click and the default button, the result shape; a PNG shot
 
 ## 6. The Notepad application
 
-`butschster.windows.viewers:notepad` becomes an SDK application
-(`pixel_render: butschster.windows.sdk:render`, `pixel_state` itself),
+`windows.shell.viewers:notepad` becomes an SDK application
+(`pixel_render: windows.shell.sdk:render`, `pixel_state` itself),
 64×20 cells, resizable, `group: Programs`, the same `opens` list and images.
 
 - **Without arguments** — `Untitled - Notepad`, an empty document. With the

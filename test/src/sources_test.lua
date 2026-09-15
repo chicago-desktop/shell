@@ -30,7 +30,7 @@ local function by_title(objects, title)
 end
 
 local function define_tests()
-    test.describe("butschster.windows explorer sources", function()
+    test.describe("windows.shell explorer sources", function()
         test.it("takes drives from the registry, not from its own table", function()
             -- A drive declared by an installed module must appear by itself.
             -- The harness declared one — and here it is, without a single
@@ -76,12 +76,12 @@ local function define_tests()
             local shown, err = sources.list("control", {})
             test.is_nil(err)
             test.eq(shown.title, "Control Panel")
-            local display = by_id(shown.objects, "butschster.windows.display:window")
+            local display = by_id(shown.objects, "windows.shell.display:window")
             test.not_nil(display, "Display Properties is a Settings program")
-            test.not_nil(by_id(shown.objects, "butschster.windows.taskman:window"), "so is the Task Manager")
-            test.is_nil(by_id(shown.objects, "butschster.windows.explorer:window"), "My Computer is not a Settings program")
+            test.not_nil(by_id(shown.objects, "windows.shell.taskman:window"), "so is the Task Manager")
+            test.is_nil(by_id(shown.objects, "windows.shell.explorer:window"), "My Computer is not a Settings program")
             test.eq(display.open.action, "open_window")
-            test.eq(display.open.entry, "butschster.windows.display:window")
+            test.eq(display.open.entry, "windows.shell.display:window")
             test.is_true(type(display.comment) == "string" and display.comment ~= "",
                 "the Comment column is the entry's meta.comment")
             test.eq(display.detail, display.comment)
@@ -141,7 +141,7 @@ local function define_tests()
             -- otherwise the window opens empty.
             test.not_nil(self_file.open, "a file with a declared extension must open")
             test.eq(self_file.open.action, "open_window")
-            test.eq(self_file.open.entry, "butschster.windows.viewers:notepad")
+            test.eq(self_file.open.entry, "windows.shell.viewers:notepad")
             test.is_true(tostring(self_file.open.args):find(PROBE, 1, true) ~= nil,
                 "the argument must name the drive")
             test.is_true(tostring(self_file.open.args):find("/sources_test.lua", 1, true) ~= nil,

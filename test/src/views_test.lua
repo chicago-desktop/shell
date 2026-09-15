@@ -83,7 +83,7 @@ local function assert_disjoint(buttons: any)
 end
 
 local function define_tests()
-    test.describe("butschster.windows \"Date/Time\" window", function()
+    test.describe("windows.shell \"Date/Time\" window", function()
         local function clock_state(): any
             return {clock = {year = 2026, month = 9, day = 8, hour = 21, minute = 47, second = 5,
                 first_weekday = 1, days = 30, zone = "UTC+04:00"}, tab = 1}
@@ -140,7 +140,7 @@ local function define_tests()
         end)
     end)
 
-    test.describe("butschster.windows calculator", function()
+    test.describe("windows.shell calculator", function()
         test.it("counts like the buttons, not like an expression", function()
             local state = engine.new()
             for _, id in ipairs({"2", "add", "3", "mul", "4", "eq"}) do state = engine.press(state, id) end
@@ -357,29 +357,29 @@ local function define_tests()
         end)
     end)
 
-    test.describe("butschster.windows registry viewer", function()
+    test.describe("windows.shell registry viewer", function()
         local records = {
             {id = "app:db", kind = "db.sql.sqlite", meta = {comment = "database"}, data = {file = ":memory:"}},
-            {id = "butschster.windows.shell:chrome", kind = "library.lua", meta = {comment = "theme"},
+            {id = "windows.shell.theme:chrome", kind = "library.lua", meta = {comment = "theme"},
                 data = {source = "file://chrome.lua", modules = {"tty"}}},
-            {id = "butschster.windows.shell:pixels", kind = "library.lua", meta = {}, data = {}},
-            {id = "butschster.windows:shell", kind = "process.lua", meta = {title = "Shell"}, data = {}},
+            {id = "windows.shell.theme:pixels", kind = "library.lua", meta = {}, data = {}},
+            {id = "windows.shell:shell", kind = "process.lua", meta = {title = "Shell"}, data = {}},
             {id = "app.desktop:window_calc", kind = "process.lua", meta = {type = "tui_desktop.window"}, data = {}},
         }
 
         test.it("lays namespaces out by dots, folders before entries", function()
             local root = reg_model.build(records)
-            test.eq(#root.children, 2, "two root namespaces: app and butschster")
+            test.eq(#root.children, 2, "two root namespaces: app and windows")
             test.eq(root.children[1].label, "app")
             local app = root.children[1]
             test.eq(app.children[1].kind, "folder", "the desktop folder comes before the db entry")
             test.eq(app.children[1].label, "desktop")
             test.eq(app.children[2].label, "db")
-            local windows = reg_model.find(root, "butschster.windows")
+            local windows = reg_model.find(root, "windows.shell")
             test.not_nil(windows)
             test.eq(#windows.children, 2, "the shell folder and the shell entry side by side")
             test.eq(windows.children[1].kind, "folder")
-            test.eq(windows.children[2].key, "butschster.windows:shell")
+            test.eq(windows.children[2].key, "windows.shell:shell")
         end)
 
         test.it("visible rows depend on the expanded keys, the path is written as in regedit", function()
@@ -391,22 +391,22 @@ local function define_tests()
             test.eq(rows[2].depth, 1)
             test.is_true(rows[2].has_children)
             test.is_false(rows[2].expanded)
-            expanded["butschster"] = true
-            expanded["butschster.windows"] = true
+            expanded["windows"] = true
+            expanded["windows.shell"] = true
             rows = reg_model.flatten(root, expanded)
             test.eq(rows[#rows].label, "shell")
             test.eq(rows[#rows].kind, "entry")
             test.is_false(rows[#rows].trail[#rows[#rows].trail], "the last sibling — the line does not go down")
-            test.eq(reg_model.path("butschster.windows.shell:chrome"), "Registry\\butschster\\windows\\shell\\chrome")
+            test.eq(reg_model.path("windows.shell.theme:chrome"), "Registry\\windows\\shell\\theme\\chrome")
             test.eq(reg_model.path(""), "Registry")
-            test.eq(reg_model.parent_key("butschster.windows.shell:chrome"), "butschster.windows.shell")
-            test.eq(reg_model.parent_key("butschster.windows"), "butschster")
+            test.eq(reg_model.parent_key("windows.shell.theme:chrome"), "windows.shell.theme")
+            test.eq(reg_model.parent_key("windows.shell"), "windows")
             test.eq(reg_model.parent_key("app"), "")
         end)
 
         test.it("entry fields — kind, meta and data alphabetically, tables on one line", function()
             local root = reg_model.build(records)
-            local node = reg_model.find(root, "butschster.windows.shell:chrome")
+            local node = reg_model.find(root, "windows.shell.theme:chrome")
             local values = reg_model.values(node, function(v) return "{json}" end)
             test.eq(values[1].name, "kind")
             test.eq(values[1].data, "library.lua")
@@ -445,7 +445,7 @@ local function define_tests()
                 x = tree.rect.x + 10, y = tree.rect.y + 4})
             test.eq(picked.type, "select")
             regedit.definition.update(state, picked, context)
-            test.eq(state.selected, "butschster")
+            test.eq(state.selected, "windows")
             interaction.focus = "tree"
             local function key(name)
                 plan = plan_now()
@@ -453,19 +453,19 @@ local function define_tests()
                 if action then regedit.definition.update(state, action, context) end
             end
             key("right")
-            test.is_true(state.expanded["butschster"], "right on a collapsed one — expand")
+            test.is_true(state.expanded["windows"], "right on a collapsed one — expand")
             key("right")
-            test.eq(state.selected, "butschster.windows", "right on an expanded one — to the first child")
+            test.eq(state.selected, "windows.shell", "right on an expanded one — to the first child")
             key("right")
-            test.is_true(state.expanded["butschster.windows"])
+            test.is_true(state.expanded["windows.shell"])
             key("left")
-            test.is_nil(state.expanded["butschster.windows"], "left on an expanded one — collapse")
+            test.is_nil(state.expanded["windows.shell"], "left on an expanded one — collapse")
             key("left")
-            test.eq(state.selected, "butschster", "left on a collapsed one — to the parent")
+            test.eq(state.selected, "windows", "left on a collapsed one — to the parent")
             key("end")
-            test.eq(state.selected, "butschster.windows", "end — the last visible row")
+            test.eq(state.selected, "windows.shell", "end — the last visible row")
             local tree_view = regedit.definition.view(state, context)
-            test.eq(tree_view.children[3].fields[1].text, "Registry\\butschster\\windows")
+            test.eq(tree_view.children[3].fields[1].text, "Registry\\windows\\shell")
         end)
 
         test.it("a long tree scrolls and keeps the selection on screen", function()
@@ -533,14 +533,14 @@ local function define_tests()
             test.is_nil(err)
             test.is_true(#found > 30, "the harness has more than thirty entries, found " .. tostring(#found))
             local root = reg_model.build(found)
-            local shell = reg_model.find(root, "butschster.windows.shell:chrome")
+            local shell = reg_model.find(root, "windows.shell.theme:chrome")
             test.not_nil(shell, "the theme entry must be found in the tree")
             test.eq(shell.record.kind, "library.lua")
         end)
 
     end)
 
-    test.describe("butschster.windows farewell screen", function()
+    test.describe("windows.shell farewell screen", function()
         test.it("after \"Shut Down\" — a black screen with the caption in the middle", function()
             -- The compositor holds this frame for FAREWELL_HOLD seconds; a
             -- frame without the caption would read as a hung terminal, not as
@@ -571,7 +571,7 @@ local function define_tests()
         end)
     end)
 
-    test.describe("butschster.windows fixed size", function()
+    test.describe("windows.shell fixed size", function()
         test.it("a window with resizable false has no \"maximize\" button", function()
             local set = chrome.buttons_for({window_type = "app", resizable = false})
             test.eq(#set, 2)

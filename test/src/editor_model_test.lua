@@ -35,7 +35,7 @@ end
 local CTRL, SHIFT = {ctrl = true}, {shift = true}
 
 local function define_tests()
-    test.describe("butschster.windows.sdk editor document", function()
+    test.describe("windows.shell.sdk editor document", function()
         test.it("go-lua: table.concat(t, sep, j + 1, j) is t[j], not the empty string — a tripwire", function()
             -- The model joins runes through its own `slice` because of this:
             -- a caret at a line's end cut the tail as the last rune again.

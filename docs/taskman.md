@@ -19,7 +19,7 @@ the runtime state and the window list. Ending processes has not been added.
 
 `src/taskman/window.lua` is the SDK application (`init/view/update`), `model.lua` is
 the history, the formats and stable sorting of processes; the graph and the scale
-ceiling live in `butschster.windows.sdk:charts`, because any window with a
+ceiling live in `windows.shell.sdk:charts`, because any window with a
 history of a number needs them.
 
 `test/src/taskman_test.lua` checks the SDK layout for overlaps at

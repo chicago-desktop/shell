@@ -1,11 +1,11 @@
 # Bash and "Run…"
 
 "Start → Programs → Bash" opens the base's stock terminal window
-`butschster.tui_desktop.desktop:window_pty`. The entry declares the title,
+`windows.tui_desktop.desktop:window_pty`. The entry declares the title,
 group and icon through `meta`; there is no separate copy of the PTY process.
 
 Bash starts with `-i` and reads `~/.bashrc`. The application passes `HOME`
-and `PATH` to the executor `butschster.tui_desktop:exec` through `default_env`:
+and `PATH` to the executor `windows.tui_desktop:exec` through `default_env`:
 `exec.native` itself does not inherit the OS environment. An example setup is in the
 "Bash environment" section of the base's README. Without these variables programs from
 `~/.local/bin` (for example, `claude`, `codex`) give `command not found`,
@@ -27,7 +27,7 @@ after a successful reply. It has no `exec.run` or `process.spawn` permissions.
 The command is passed as a single `-c` argument, with quotes and backslashes
 preserved: it is interpreted by Bash, not by Wippy's argument parser.
 
-The dialog is built on the shell SDK (`butschster.windows.sdk:app`): a 32 px icon,
+The dialog is built on the shell SDK (`windows.shell.sdk:app`): a 32 px icon,
 two hint lines as one multi-line label, an `input` field, the buttons "OK"
 (the default), "Cancel" and "Browse…" — the last one opens "My Computer"
 and waits for the compositor's reply over the same channel, without closing the dialog.

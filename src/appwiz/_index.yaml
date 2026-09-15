@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: butschster.windows.appwiz
+namespace: windows.shell.appwiz
 
 # "Add/Remove Programs" is appwiz, as in Windows. A program here is a wippy
 # module; the window shows declared and cached modules and edits the
@@ -7,14 +7,14 @@ namespace: butschster.windows.appwiz
 # after a restart; the window says so rather than pretending.
 
 entries:
-  # butschster.windows.appwiz:model
+  # windows.shell.appwiz:model
   - name: model
     kind: library.lua
     meta:
       comment: The pure model of the install panel — merging declarations with the cache, editing the declarations text, the name of a new entry.
     source: file://model.lua
     imports:
-      geometry: butschster.tui_desktop.desktop:geometry
+      geometry: windows.tui_desktop.desktop:geometry
 
   # Permissions: the same as the view provider's (context, the compositor in
   # the process registry, sending state to it), plus reading the registry and
@@ -48,10 +48,10 @@ entries:
       actions:
         - env.get
       resources:
-        - BUTSCHSTER_WINDOWS_DEPS_FS
+        - WINDOWS_DEPS_FS
       effect: allow
 
-  # butschster.windows.appwiz:window
+  # windows.shell.appwiz:window
   - name: window
     kind: process.lua
     meta:
@@ -67,8 +67,8 @@ entries:
       height: 22
       window_type: app
       resizable: true
-      pixel_render: butschster.windows.sdk:render
-      pixel_state: butschster.windows.appwiz:window
+      pixel_render: windows.shell.sdk:render
+      pixel_state: windows.shell.appwiz:window
       comment: Add/Remove Programs — wippy modules from the application's declarations and the cache; remove and add a declaration, takes effect after wippy update and a restart.
     source: file://window.lua
     method: main
@@ -79,9 +79,9 @@ entries:
       - registry
       - time
     security:
-      policies: [butschster.windows.appwiz:window_scope, butschster.windows.appwiz:window_env]
+      policies: [windows.shell.appwiz:window_scope, windows.shell.appwiz:window_env]
     imports:
-      geometry: butschster.tui_desktop.desktop:geometry
-      app: butschster.windows.sdk:app
-      model: butschster.windows.appwiz:model
-      environment: butschster.windows.config:environment
+      geometry: windows.tui_desktop.desktop:geometry
+      app: windows.shell.sdk:app
+      model: windows.shell.appwiz:model
+      environment: windows.shell.config:environment

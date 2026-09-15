@@ -11,14 +11,14 @@ local test = require("test")
 local registry = require("registry")
 
 local ADMIN_ONLY = {
-    "butschster.windows.taskman:window",
-    "butschster.windows.antibug:window",
-    "butschster.windows.appwiz:window",
-    "butschster.windows.regedit:window",
+    "windows.shell.taskman:window",
+    "windows.shell.antibug:window",
+    "windows.shell.appwiz:window",
+    "windows.shell.regedit:window",
 }
 
 local function define_tests()
-    test.describe("butschster.windows administrator windows", function()
+    test.describe("windows.shell administrator windows", function()
         test.it("Task Manager, AntiBug, Add/Remove Programs and the Registry Editor require windows.admin", function()
             for _, id in ipairs(ADMIN_ONLY) do
                 local entry, err = registry.get(id)

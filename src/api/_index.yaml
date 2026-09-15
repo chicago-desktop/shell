@@ -1,5 +1,5 @@
 version: "1.0"
-namespace: butschster.windows.api
+namespace: windows.shell.api
 
 # Shell endpoints: the program catalog for reading, and the desktop layout
 # for reading and writing.
@@ -11,7 +11,7 @@ namespace: butschster.windows.api
 # the registry, and the two would diverge on the first module removal.
 
 entries:
-  # butschster.windows.api:control
+  # windows.shell.api:control
   #
   # The compositor rereads the layout on command, not every frame, so an
   # endpoint that changed a row is obliged to nudge it. Otherwise the icon
@@ -28,9 +28,9 @@ entries:
     imports:
       # The rule of desktop names (name, name.2, …): one shell per terminal.ssh
       # connection, and a refresh has to reach every one.
-      desktop: butschster.tui_desktop.desktop:window_api
+      desktop: windows.tui_desktop.desktop:window_api
 
-  # butschster.windows.api:list_programs
+  # windows.shell.api:list_programs
   - name: list_programs
     kind: function.lua
     meta:
@@ -42,9 +42,9 @@ entries:
       - security
       - registry
     imports:
-      catalog: butschster.windows.programs:catalog
+      catalog: windows.shell.programs:catalog
     security:
-      policies: [butschster.windows.security:shell_storage]
+      policies: [windows.shell.security:shell_storage]
 
   - name: list_programs.endpoint
     kind: http.endpoint
@@ -55,7 +55,7 @@ entries:
     func: list_programs
     path: /windows/programs
 
-  # butschster.windows.api:list_desktop
+  # windows.shell.api:list_desktop
   - name: list_desktop
     kind: function.lua
     meta:
@@ -70,11 +70,11 @@ entries:
       - time
       - uuid
     imports:
-      repo: butschster.windows.persist:repo
-      catalog: butschster.windows.programs:catalog
-      view: butschster.windows.programs:desktop_view
+      repo: windows.shell.persist:repo
+      catalog: windows.shell.programs:catalog
+      view: windows.shell.programs:desktop_view
     security:
-      policies: [butschster.windows.security:shell_storage]
+      policies: [windows.shell.security:shell_storage]
 
   - name: list_desktop.endpoint
     kind: http.endpoint
@@ -85,7 +85,7 @@ entries:
     func: list_desktop
     path: /windows/desktop
 
-  # butschster.windows.api:desktop_body
+  # windows.shell.api:desktop_body
   #
   # The body of desktop POST and PATCH — parsing and validation in one place,
   # without HTTP or the database, so that every refusal is checked by a test
@@ -98,9 +98,9 @@ entries:
     modules:
       - json
     imports:
-      repo: butschster.windows.persist:repo
+      repo: windows.shell.persist:repo
 
-  # butschster.windows.api:create_desktop_item
+  # windows.shell.api:create_desktop_item
   - name: create_desktop_item
     kind: function.lua
     meta:
@@ -118,12 +118,12 @@ entries:
       - channel
       - process
     imports:
-      repo: butschster.windows.persist:repo
-      catalog: butschster.windows.programs:catalog
-      control: butschster.windows.api:control
-      desktop_body: butschster.windows.api:desktop_body
+      repo: windows.shell.persist:repo
+      catalog: windows.shell.programs:catalog
+      control: windows.shell.api:control
+      desktop_body: windows.shell.api:desktop_body
     security:
-      policies: [butschster.windows.security:shell_storage]
+      policies: [windows.shell.security:shell_storage]
 
   - name: create_desktop_item.endpoint
     kind: http.endpoint
@@ -134,7 +134,7 @@ entries:
     func: create_desktop_item
     path: /windows/desktop
 
-  # butschster.windows.api:update_desktop_item
+  # windows.shell.api:update_desktop_item
   - name: update_desktop_item
     kind: function.lua
     meta:
@@ -151,11 +151,11 @@ entries:
       - channel
       - process
     imports:
-      repo: butschster.windows.persist:repo
-      control: butschster.windows.api:control
-      desktop_body: butschster.windows.api:desktop_body
+      repo: windows.shell.persist:repo
+      control: windows.shell.api:control
+      desktop_body: windows.shell.api:desktop_body
     security:
-      policies: [butschster.windows.security:shell_storage]
+      policies: [windows.shell.security:shell_storage]
 
   - name: update_desktop_item.endpoint
     kind: http.endpoint
@@ -166,7 +166,7 @@ entries:
     func: update_desktop_item
     path: /windows/desktop/{id}
 
-  # butschster.windows.api:delete_desktop_item
+  # windows.shell.api:delete_desktop_item
   - name: delete_desktop_item
     kind: function.lua
     meta:
@@ -182,10 +182,10 @@ entries:
       - channel
       - process
     imports:
-      repo: butschster.windows.persist:repo
-      control: butschster.windows.api:control
+      repo: windows.shell.persist:repo
+      control: windows.shell.api:control
     security:
-      policies: [butschster.windows.security:shell_storage]
+      policies: [windows.shell.security:shell_storage]
 
   - name: delete_desktop_item.endpoint
     kind: http.endpoint
@@ -196,7 +196,7 @@ entries:
     func: delete_desktop_item
     path: /windows/desktop/{id}
 
-  # butschster.windows.api:shell_status
+  # windows.shell.api:shell_status
   #
   # The restore report for workshop windows is visible only here: the
   # terminal host log is muted, and a failure told to the log is told to
@@ -214,9 +214,9 @@ entries:
       - process
       - time
     imports:
-      control: butschster.windows.api:control
+      control: windows.shell.api:control
     security:
-      policies: [butschster.windows.security:shell_storage]
+      policies: [windows.shell.security:shell_storage]
 
   - name: shell_status.endpoint
     kind: http.endpoint

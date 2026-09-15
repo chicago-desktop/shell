@@ -1,11 +1,11 @@
 version: "1.0"
-namespace: butschster.windows
+namespace: windows.shell
 
 # A Windows 95 style shell for the terminal desktop.
 #
 # There is no window mechanics of its own here: window hosting, PTY, the
 # command channel and the store of apps built on the fly stay in
-# butschster/tui-desktop. This module brings three things — the look (the
+# windows/tui-desktop. This module brings three things — the look (the
 # theme), the desktop layout (its own table) and the program menu, built from
 # the registry.
 #
@@ -34,11 +34,11 @@ entries:
   # the compositor, the window host, PTY windows, the command channel and the
   # workshop.
   - version: "*"
-    name: dep.butschster.tui_desktop
+    name: dep.windows.tui_desktop
     kind: ns.dependency
     meta:
       comment: The desktop base — compositor, windows and command channel. The shell calls its compositor with its own theme.
-    component: butschster/tui-desktop
+    component: windows/tui-desktop
 
   # ─── What the module asks of the application ─────────────────────────
   # The database is named ONCE, here, and for every migration: a migration
@@ -53,20 +53,20 @@ entries:
       comment: The database where the shell keeps its tables — the desktop layout (shortcuts and folders) and the shell settings.
     default: app:db
     targets:
-      - entry: butschster.windows.migrations:01_create_desktop_items
+      - entry: windows.shell.migrations:01_create_desktop_items
         path: .meta.target_db
-      - entry: butschster.windows.migrations:02_desktop_items_unplaced
+      - entry: windows.shell.migrations:02_desktop_items_unplaced
         path: .meta.target_db
-      - entry: butschster.windows.migrations:03_settings
+      - entry: windows.shell.migrations:03_settings
         path: .meta.target_db
-      - entry: butschster.windows.migrations:04_layout_per_user
+      - entry: windows.shell.migrations:04_layout_per_user
         path: .meta.target_db
 
   # There is NO font folder here, and that is not an omission.
   # `ns.requirement` writes a field into the entry, and a process does not
   # read its entry's fields about itself — the value would simply get
   # nowhere, and the requirement would become a decoration that looks like a
-  # setting. The folder is named by the environment: BUTSCHSTER_WINDOWS_FONTS,
+  # setting. The folder is named by the environment: WINDOWS_FONTS,
   # default `app:system_fonts`. The database is the exception: its name has to
   # reach the migrations, which only a requirement does, and the repository
   # reads it from their entry with registry.get.
@@ -77,17 +77,17 @@ entries:
       comment: The HTTP router the shell handlers attach to. It must require authentication and endpoint_firewall.
     default: app:api
     targets:
-      - entry: butschster.windows.api:list_programs.endpoint
+      - entry: windows.shell.api:list_programs.endpoint
         path: .meta.router
-      - entry: butschster.windows.api:list_desktop.endpoint
+      - entry: windows.shell.api:list_desktop.endpoint
         path: .meta.router
-      - entry: butschster.windows.api:create_desktop_item.endpoint
+      - entry: windows.shell.api:create_desktop_item.endpoint
         path: .meta.router
-      - entry: butschster.windows.api:update_desktop_item.endpoint
+      - entry: windows.shell.api:update_desktop_item.endpoint
         path: .meta.router
-      - entry: butschster.windows.api:delete_desktop_item.endpoint
+      - entry: windows.shell.api:delete_desktop_item.endpoint
         path: .meta.router
-      - entry: butschster.windows.api:shell_status.endpoint
+      - entry: windows.shell.api:shell_status.endpoint
         path: .meta.router
 
   # ─── Host ────────────────────────────────────────────────────────────
@@ -108,12 +108,12 @@ entries:
       auto_start: true
 
   # The window host is not declared here: windows are spawned by the base's
-  # compositor on its own `butschster.tui_desktop:workers`. A second host
+  # compositor on its own `windows.tui_desktop:workers`. A second host
   # would mean a second copy of the window mechanics, which would diverge
   # from the original on the first edit.
 
   # ─── Shell ───────────────────────────────────────────────────────────
-  # butschster.windows:shell
+  # windows.shell:shell
   - name: shell
     kind: process.lua
     meta:
@@ -122,8 +122,8 @@ entries:
         name: windows
         short: A Windows 95 style shell for the terminal desktop
         security:
-          actor: {id: butschster.windows:shell}
-          policies: [butschster.windows.security:shell_runtime, butschster.windows.security:shell_env]
+          actor: {id: windows.shell:shell}
+          policies: [windows.shell.security:shell_runtime, windows.shell.security:shell_env]
     source: file://windows.lua
     method: main
     modules:
@@ -144,16 +144,16 @@ entries:
       - tty
       - uuid
     imports:
-      library: butschster.tui_desktop.desktop:library
-      chrome: butschster.windows.shell:chrome
-      chrome_pixels: butschster.windows.shell:chrome_pixels
-      catalog: butschster.windows.programs:catalog
-      defaults: butschster.windows.programs:defaults
-      seed: butschster.windows.programs:seed
-      view: butschster.windows.programs:desktop_view
-      repo: butschster.windows.persist:repo
-      patterns: butschster.windows.display:patterns
-      wallpapers: butschster.windows.display:wallpapers
-      logon_screen: butschster.windows.logon:screen
-      logon_provider: butschster.windows.logon:provider
-      environment: butschster.windows.config:environment
+      library: windows.tui_desktop.desktop:library
+      chrome: windows.shell.theme:chrome
+      chrome_pixels: windows.shell.theme:chrome_pixels
+      catalog: windows.shell.programs:catalog
+      defaults: windows.shell.programs:defaults
+      seed: windows.shell.programs:seed
+      view: windows.shell.programs:desktop_view
+      repo: windows.shell.persist:repo
+      patterns: windows.shell.display:patterns
+      wallpapers: windows.shell.display:wallpapers
+      logon_screen: windows.shell.logon:screen
+      logon_provider: windows.shell.logon:provider
+      environment: windows.shell.config:environment

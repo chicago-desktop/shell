@@ -1,4 +1,4 @@
--- butschster.windows.viewers:notepad_model — Notepad as Windows 95 had it
+-- windows.shell.viewers:notepad_model — Notepad as Windows 95 had it
 -- (FR-007 §1, §6), pure.
 --
 -- The window's model and its `view`, `update` and `title`: the menus of §1,
@@ -240,7 +240,7 @@ local function command(state: any, context: any, id: any): boolean
     elseif id == "find_next" then return find_next(state, context)
     elseif id == "help" then return message(state, {notepad.NO_HELP}, {image = "help", icon = "?"})
     elseif id == "about" then
-        return message(state, {"Notepad", "The Windows 95 shell for Wippy (butschster/windows).",
+        return message(state, {"Notepad", "The Windows 95 shell for Wippy (windows/shell).",
             "Icons: Microsoft artwork from shell32.dll, not under the module's MIT licence."}, {title = "About Notepad"})
     else
         return false

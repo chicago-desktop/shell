@@ -30,8 +30,8 @@ end
 
 screen_lib.TITLE = "Welcome to Windows"
 screen_lib.PROMPT = "Type a user name and password to log on to Windows."
-screen_lib.ENTRY = "butschster.windows.logon:screen"
-screen_lib.RENDER = "butschster.windows.sdk:render"
+screen_lib.ENTRY = "windows.shell.logon:screen"
+screen_lib.RENDER = "windows.shell.sdk:render"
 
 -- Client size, in cells — after the Windows 95 reference: a 32 px icon on
 -- the left, the prompt and two fields in the middle, "OK" and "Cancel" in a

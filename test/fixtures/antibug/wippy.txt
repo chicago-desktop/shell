@@ -3,8 +3,8 @@
 
 [2m  41 tests in 1 suites[0m
 [2m  [0m
-[2K  [36m⠋[0m [1mbutschster_windows[0m [2m(1/41)[0m [2mantibug_actor_test[0m  [36m[0m[2m░░░░░░░░░░░░░░░[0m [2m  2%[0m[2K    [32mo[0m [2mmeasured: the facts of one wide and two narrow calls, in one line[0m [2m<1ms[0m
-[2K  [36m⠙[0m [1mbutschster_windows[0m [2m(2/41)[0m [2mantibug_test[0m  [36m█[0m[2m░░░░░░░░░░░░░░[0m [2m  7%[0m[2K    [31mx[0m takes only function test entries, sorted by group, suite and order; no suite is 'other'
+[2K  [36m⠋[0m [1mwindows_shell[0m [2m(1/41)[0m [2mantibug_actor_test[0m  [36m[0m[2m░░░░░░░░░░░░░░░[0m [2m  2%[0m[2K    [32mo[0m [2mmeasured: the facts of one wide and two narrow calls, in one line[0m [2m<1ms[0m
+[2K  [36m⠙[0m [1mwindows_shell[0m [2m(2/41)[0m [2mantibug_test[0m  [36m█[0m[2m░░░░░░░░░░░░░░[0m [2m  7%[0m[2K    [31mx[0m takes only function test entries, sorted by group, suite and order; no suite is 'other'
 [2K    [31mx[0m builds the group → suite → entry tree with counts and the expander state
 [2K    [31mx[0m chooses the entries of every selection shape and filter
 [2K    [32mo[0m [2mruns a scan through plan, cases, answer and completion, in either order[0m [2m<1ms[0m
@@ -20,7 +20,7 @@
 [2K    [32mo[0m [2mshots: mid-scan with two findings, and the Scan complete box[0m [2m21ms[0m
 [2K    [32mo[0m [2mthe runner runs only test entries: anything else is refused by name[0m [2m<1ms[0m
 [2K    [32mo[0m [2mlive: scans one real harness test entry through the real runner and sees its cases arrive[0m [2m<1ms[0m
-[2K  [36m⠹[0m [1mbutschster_windows[0m [2m(3/41)[0m [2mappwiz_test[0m  [36m█[0m[2m░░░░░░░░░░░░░░[0m [2m 12%[0m[2K    [32mo[0m [2mthe application declaration outranks another, the cache gives the pinned version and size[0m [2m<1ms[0m
+[2K  [36m⠹[0m [1mwindows_shell[0m [2m(3/41)[0m [2mappwiz_test[0m  [36m█[0m[2m░░░░░░░░░░░░░░[0m [2m 12%[0m[2K    [32mo[0m [2mthe application declaration outranks another, the cache gives the pinned version and size[0m [2m<1ms[0m
 [2K    [32mo[0m [2msize is formatted with a dot and MB[0m [2m<1ms[0m
 [2K    [32mo[0m [2mthe entry name is the second half, a taken one gives way to the form org-name[0m [2m<1ms[0m
 [2K    [32mo[0m [2ma module is named org/name in lowercase[0m [2m<1ms[0m
@@ -34,7 +34,7 @@
 [2K    [32mo[0m [2man edit that changed other than one declaration is rejected before writing[0m [2m<1ms[0m
 [2K    [32mo[0m [2mwrites with a backup next to it, and the disk holds exactly what was written[0m [2m1ms[0m
 [2K    [32mo[0m [2ma mismatch after writing is named together with where the previous text is[0m [2m<1ms[0m
-[2K  [36m⠸[0m [1mbutschster_windows[0m [2m(4/41)[0m [2mcatalog_test[0m  [36m██[0m[2m░░░░░░░░░░░░░[0m [2m 17%[0m[2K    [32mo[0m [2mreads the host's exact clock entry[0m [2m<1ms[0m
+[2K  [36m⠸[0m [1mwindows_shell[0m [2m(4/41)[0m [2mcatalog_test[0m  [36m██[0m[2m░░░░░░░░░░░░░[0m [2m 17%[0m[2K    [32mo[0m [2mreads the host's exact clock entry[0m [2m<1ms[0m
 [2K    [32mo[0m [2mkeeps meta.image all the way to the desktop, the menu and the explorer[0m [2m<1ms[0m
 [2K    [32mo[0m [2ma stand declaration gives an icon to exactly one entry, keeping the program's meta.image[0m [2m<1ms[0m
 [2K    [32mo[0m [2mreads the stand's icons from the registry and passes them identically to the desktop and to Start[0m [2m2ms[0m
@@ -51,7 +51,7 @@
 [2K    [32mo[0m [2mdoes not create a menu folder whose children are all hidden[0m [2m<1ms[0m
 [2K    [32mo[0m [2mnames an unknown window type but shows the program[0m [2m<1ms[0m
 [2K    [32mo[0m [2mbuilds a folder from a real registry entry[0m [2m<1ms[0m
-[2K  [36m⠼[0m [1mbutschster_windows[0m [2m(5/41)[0m [2mchrome_test[0m  [36m███[0m[2m░░░░░░░░░░░░[0m [2m 21%[0m[2K    [32mo[0m [2mrefuses to paint or fill until the cell size is named, and once it is forgotten[0m [2m<1ms[0m
+[2K  [36m⠼[0m [1mwindows_shell[0m [2m(5/41)[0m [2mchrome_test[0m  [36m███[0m[2m░░░░░░░░░░░░[0m [2m 21%[0m[2K    [32mo[0m [2mrefuses to paint or fill until the cell size is named, and once it is forgotten[0m [2m<1ms[0m
 [2K    [32mo[0m [2mapplies terminal defaults by entry identity in both themes[0m [2m<1ms[0m
 [2K    [32mo[0m [2mfills blank PTY rows and passes defaults through to ANSI parsing[0m [2m<1ms[0m
 [2K    [32mo[0m [2mkeeps the caption in one row from 16px cells and maps every button pixel to its hit[0m [2m318ms[0m
@@ -109,20 +109,20 @@
 [2K    [32mo[0m [2msubtract cuts the four overlap cases into what is left[0m [2m<1ms[0m
 [2K    [32mo[0m [2mvisible cuts a picture by the windows above its layer and by the menu, never the menu[0m [2m<1ms[0m
 [2K    [32mo[0m [2mnames a crop after its source and offset, and keys it by the source's version[0m [2m<1ms[0m
-[2K  [36m⠴[0m [1mbutschster_windows[0m [2m(6/41)[0m [2mcontext_test[0m  [36m████[0m[2m░░░░░░░░░░░[0m [2m 26%[0m[2K    [32mo[0m [2ma right press on a list, a table and icons is context with the entry and the cell[0m [2m<1ms[0m
+[2K  [36m⠴[0m [1mwindows_shell[0m [2m(6/41)[0m [2mcontext_test[0m  [36m████[0m[2m░░░░░░░░░░░[0m [2m 26%[0m[2K    [32mo[0m [2ma right press on a list, a table and icons is context with the entry and the cell[0m [2m<1ms[0m
 [2K    [32mo[0m [2ma context menu floats at its cell, taking no room, and is open while the tree carries it[0m [2m<1ms[0m
 [2K    [32mo[0m [2mEsc, F10 and a press outside dismiss it; the keys walk it and its submenu[0m [2m<1ms[0m
 [2K    [32mo[0m [2mflips left and up to end at its cell when it would run past the edges[0m [2m<1ms[0m
 [2K    [32mo[0m [2mpaints its list in pixels over what is under it[0m [2m6ms[0m
 [2K    [32mo[0m [2mrefuses a popup without its cell and a row both checked and a bullet[0m [2m<1ms[0m
-[2K  [36m⠦[0m [1mbutschster_windows[0m [2m(7/41)[0m [2mdefaults_test[0m  [36m████[0m[2m░░░░░░░░░░░[0m [2m 31%[0m[2K    [32mo[0m [2mdoes not put on the desktop an icon with nothing behind it[0m [2m<1ms[0m
+[2K  [36m⠦[0m [1mwindows_shell[0m [2m(7/41)[0m [2mdefaults_test[0m  [36m████[0m[2m░░░░░░░░░░░[0m [2m 31%[0m[2K    [32mo[0m [2mdoes not put on the desktop an icon with nothing behind it[0m [2m<1ms[0m
 [2K    [32mo[0m [2mgives furniture names that fit under the icon[0m [2m<1ms[0m
 [2K    [32mo[0m [2mskips a shortcut to a program that is not in the catalog[0m [2m<1ms[0m
 [2K    [32mo[0m [2mcreates furniture once and does not bring back what was thrown away[0m [2m<1ms[0m
 [2K    [32mo[0m [2mcreates furniture before programs[0m [2m<1ms[0m
 [2K    [32mo[0m [2mkeeps the furniture key in a form a registry entry cannot have[0m [2m<1ms[0m
 [2K    [32mo[0m [2mdoes not assign furniture a place at all[0m [2m<1ms[0m
-[2K  [36m⠧[0m [1mbutschster_windows[0m [2m(8/41)[0m [2mdesktop_widgets_test[0m  [36m█████[0m[2m░░░░░░░░░░[0m [2m 36%[0m[2K    [32mo[0m [2mstands in the right column, one row under the top, an empty row apart, at x = width - w[0m [2m<1ms[0m
+[2K  [36m⠧[0m [1mwindows_shell[0m [2m(8/41)[0m [2mdesktop_widgets_test[0m  [36m█████[0m[2m░░░░░░░░░░[0m [2m 36%[0m[2K    [32mo[0m [2mstands in the right column, one row under the top, an empty row apart, at x = width - w[0m [2m<1ms[0m
 [2K    [32mo[0m [2mopens a second column, one empty column left of the first column's widest[0m [2m<1ms[0m
 [2K    [32mo[0m [2mdraws a wide widget at a third of the screen and leaves out one that fits nowhere[0m [2m<1ms[0m
 [2K    [32mo[0m [2mgives a hit per widget row, the same records in both themes, after the icons'[0m [2m3ms[0m
@@ -136,14 +136,14 @@
 [2K    [32mo[0m [2mreads widget entries: the defaults, a declared size as declared, by order then id[0m [2m<1ms[0m
 [2K    [32mo[0m [2mfinds the harness's widget entry in the real registry, and not among the programs[0m [2m<1ms[0m
 [2K    [32mo[0m [2mruns a widget on the SDK runner as it is: its id, the interval, a published view, no update[0m [2m20ms[0m
-[2K  [36m⠇[0m [1mbutschster_windows[0m [2m(9/41)[0m [2mdisplay_test[0m  [36m██████[0m[2m░░░░░░░░░[0m [2m 41%[0m[2K    [32mo[0m [2mchecks the color format and captions the resolution[0m [2m<1ms[0m
+[2K  [36m⠇[0m [1mwindows_shell[0m [2m(9/41)[0m [2mdisplay_test[0m  [36m██████[0m[2m░░░░░░░░░[0m [2m 41%[0m[2K    [32mo[0m [2mchecks the color format and captions the resolution[0m [2m<1ms[0m
 [2K    [32mo[0m [2mlays out all four tabs without overlaps, in cells and at 8×16 and 10×20[0m [2m8ms[0m
 [2K    [32mo[0m [2mmatches the Windows 95 dialog at 8×16 and 10×20[0m [2m4ms[0m
 [2K    [32mo[0m [2mthe Settings tab is Windows 95's: palette and spectrum, a disabled slider, Font size, Change Display Type[0m [2m1ms[0m
 [2K    [32mo[0m [2mchoosing a wallpaper and how to show it writes both and previews it on the monitor[0m [2m1ms[0m
 [2K    [32mo[0m [2mchoosing a color and a pattern, "Apply" and "OK" write through the substituted write[0m [2m1ms[0m
 [2K    [32mo[0m [2mthe theme repaints the desktop from one point in both modes[0m [2m<1ms[0m
-[2K  [36m⠏[0m [1mbutschster_windows[0m [2m(10/41)[0m [2meditor_model_test[0m  [36m██████[0m[2m░░░░░░░░░[0m [2m 46%[0m[2K    [32mo[0m [2mgo-lua: table.concat(t, sep, j + 1, j) is t[j], not the empty string — a tripwire[0m [2m<1ms[0m
+[2K  [36m⠏[0m [1mwindows_shell[0m [2m(10/41)[0m [2meditor_model_test[0m  [36m██████[0m[2m░░░░░░░░░[0m [2m 46%[0m[2K    [32mo[0m [2mgo-lua: table.concat(t, sep, j + 1, j) is t[j], not the empty string — a tripwire[0m [2m<1ms[0m
 [2K    [32mo[0m [2mkeeps a document as lines; set replaces it with the caret at the start and no undo[0m [2m<1ms[0m
 [2K    [32mo[0m [2mtypes runes, breaks a line with Enter and joins lines with Backspace and Delete[0m [2m<1ms[0m
 [2K    [32mo[0m [2mjumps by words both ways, across a line's end[0m [2m<1ms[0m
@@ -155,7 +155,7 @@
 [2K    [32mo[0m [2mleaves Ctrl+Z, X, C, V and Esc to the application; a read-only document only moves[0m [2m<1ms[0m
 [2K    [32mo[0m [2mpastes lines at the caret, and the pointer places, extends and takes a word[0m [2m<1ms[0m
 [2K    [32mo[0m [2mbrings the caret into view by rows and, without wrap, by columns[0m [2m<1ms[0m
-[2K  [36m⠋[0m [1mbutschster_windows[0m [2m(11/41)[0m [2meditor_test[0m  [36m███████[0m[2m░░░░░░░░[0m [2m 51%[0m[2K    [32mo[0m [2mlays out a horizontal bar only without wrap, a vertical bar always[0m [2m1ms[0m
+[2K  [36m⠋[0m [1mwindows_shell[0m [2m(11/41)[0m [2meditor_test[0m  [36m███████[0m[2m░░░░░░░░[0m [2m 51%[0m[2K    [32mo[0m [2mlays out a horizontal bar only without wrap, a vertical bar always[0m [2m1ms[0m
 [2K    [32mo[0m [2mmakes the document from the node's text once and keeps it when the tree does not show it[0m [2m<1ms[0m
 [2K    [32mo[0m [2mbrings the caret into view in the plan after a key moved it past the page[0m [2m<1ms[0m
 [2K    [32mo[0m [2mrepaints only the rows whose text changed[0m [2m2ms[0m
@@ -168,11 +168,11 @@
 [2K    [32mo[0m [2mdraws the bars in pixels: the horizontal one only without wrap[0m [2m3ms[0m
 [2K    [32mo[0m [2mdraws an edit and a move whatever update answers[0m [2m<1ms[0m
 [2K    [32mo[0m [2mpaints a 40×10 editor with three lines, a selection and word wrap, in pixels and in cells[0m [2m11ms[0m
-[2K  [36m⠙[0m [1mbutschster_windows[0m [2m(12/41)[0m [2menvironment_test[0m  [36m████████[0m[2m░░░░░░░[0m [2m 56%[0m[2K    [32mo[0m [2ma permission denial is called a denial, not 'not set'[0m [2m<1ms[0m
+[2K  [36m⠙[0m [1mwindows_shell[0m [2m(12/41)[0m [2menvironment_test[0m  [36m████████[0m[2m░░░░░░░[0m [2m 56%[0m[2K    [32mo[0m [2ma permission denial is called a denial, not 'not set'[0m [2m<1ms[0m
 [2K    [32mo[0m [2ma missing variable is 'not set' and is not called a denial[0m [2m<1ms[0m
 [2K    [32mo[0m [2mthe process environment outranks the store, an empty string is not a value[0m [2m<1ms[0m
 [2K    [32mo[0m [2mreads the error kind, not its text[0m [2m<1ms[0m
-[2K  [36m⠹[0m [1mbutschster_windows[0m [2m(13/41)[0m [2mexplorer_test[0m  [36m█████████[0m[2m░░░░░░[0m [2m 60%[0m[2K    [32mo[0m [2mleaves only the Control Panel at the root when there are no filesystems[0m [2m<1ms[0m
+[2K  [36m⠹[0m [1mwindows_shell[0m [2m(13/41)[0m [2mexplorer_test[0m  [36m█████████[0m[2m░░░░░░[0m [2m 60%[0m[2K    [32mo[0m [2mleaves only the Control Panel at the root when there are no filesystems[0m [2m<1ms[0m
 [2K    [32mo[0m [2mmakes a drive of every fs entry without creating anything itself[0m [2m<1ms[0m
 [2K    [32mo[0m [2mcaptions with the full name the drives that cannot be told apart otherwise[0m [2m<1ms[0m
 [2K    [32mo[0m [2mhas the drives and the Control Panel at the root, without the shell's pseudo-folders[0m [2m<1ms[0m
@@ -196,7 +196,7 @@
 [2K    [32mo[0m [2man unsolicited refusal does not touch the window list and goes to the status bar[0m [2m<1ms[0m
 [2K    [32mo[0m [2ma reply to desktop.list still fills the list[0m [2m<1ms[0m
 [2K    [32mo[0m [2msomeone else's reply is not passed off as the list[0m [2m<1ms[0m
-[2K  [36m⠸[0m [1mbutschster_windows[0m [2m(14/41)[0m [2mexplorer_window_test[0m  [36m█████████[0m[2m░░░░░░[0m [2m 65%[0m[2K    [32mo[0m [2mstarts at its args path, titled by it; an unknown path is My Computer with a notice[0m [2m<1ms[0m
+[2K  [36m⠸[0m [1mwindows_shell[0m [2m(14/41)[0m [2mexplorer_window_test[0m  [36m█████████[0m[2m░░░░░░[0m [2m 65%[0m[2K    [32mo[0m [2mstarts at its args path, titled by it; an unknown path is My Computer with a notice[0m [2m<1ms[0m
 [2K    [32mo[0m [2mthe menus are Windows 95's, verbatim, with the disabled items greyed and doing nothing[0m [2m<1ms[0m
 [2K    [32mo[0m [2mSelect All, Invert Selection and Open[0m [2m<1ms[0m
 [2K    [32mo[0m [2mView: toolbar and status bar toggle, one of four views is bulleted, Arrange sorts[0m [2m1ms[0m
@@ -213,7 +213,7 @@
 [2K    [32mo[0m [2mthe status bar counts the objects and names the selection or the drive[0m [2m<1ms[0m
 [2K    [32mo[0m [2mthe four views lay out at 48×16 and 72×22 in cells and pixels without overlaps[0m [2m57ms[0m
 [2K    [32mo[0m [2mthe real window comes up in a viewport and shows My Computer with its menu and status bar[0m [2m51ms[0m
-[2K  [36m⠼[0m [1mbutschster_windows[0m [2m(15/41)[0m [2mfiledialog_test[0m  [36m██████████[0m[2m░░░░░[0m [2m 70%[0m[2K    [32mo[0m [2mlays out at 44×16 in cells and pixels without overlaps, rows as in the original[0m [2m1ms[0m
+[2K  [36m⠼[0m [1mwindows_shell[0m [2m(15/41)[0m [2mfiledialog_test[0m  [36m██████████[0m[2m░░░░░[0m [2m 70%[0m[2K    [32mo[0m [2mlays out at 44×16 in cells and pixels without overlaps, rows as in the original[0m [2m1ms[0m
 [2K    [32mo[0m [2mthe list: folders first, then the files of the type with their pictures; cells draw every row[0m [2m1ms[0m
 [2K    [32mo[0m [2mSave As names its rows as Windows 95 did[0m [2m<1ms[0m
 [2K    [32mo[0m [2ma click on a file puts its name into File name; a click on a folder only selects it[0m [2m1ms[0m
@@ -225,21 +225,21 @@
 [2K    [32mo[0m [2mCancel and Esc cancel; an action that is not the sheet's asks nothing[0m [2m<1ms[0m
 [2K    [32mo[0m [2marrive shows the place read; a folder that was not read shows its reason, not an empty list[0m [2m1ms[0m
 [2K    [32mo[0m [2mdraws in pixels: the shot test/shots/filedialog.png[0m [2m17ms[0m
-[2K  [36m⠴[0m [1mbutschster_windows[0m [2m(16/41)[0m [2mgadget_test[0m  [36m███████████[0m[2m░░░░[0m [2m 75%[0m[2K    [32mo[0m [2mevery builder gives a plain, passive tree ui.problem accepts[0m [2m<1ms[0m
+[2K  [36m⠴[0m [1mwindows_shell[0m [2m(16/41)[0m [2mgadget_test[0m  [36m███████████[0m[2m░░░░[0m [2m 75%[0m[2K    [32mo[0m [2mevery builder gives a plain, passive tree ui.problem accepts[0m [2m<1ms[0m
 [2K    [32mo[0m [2mtakes the rows the kit promises, and a history takes the rest of a stack[0m [2m<1ms[0m
 [2K    [32mo[0m [2mscales a history to charts.ceiling_of when no ceiling is named, and keeps one that is[0m [2m<1ms[0m
 [2K    [32mo[0m [2mwrites a value as text: a whole number bare, a fraction to one place, the unit as given[0m [2m<1ms[0m
 [2K    [32mo[0m [2mputs a stat's picture on its left in four columns, and leaves it out without one[0m [2m<1ms[0m
 [2K    [32mo[0m [2mlays a meter out as the caption and the value over a bar across the whole width[0m [2m<1ms[0m
 [2K    [32mo[0m [2mlays the weather and the monitor out inside a widget's panel without overlaps, at 20×6 and 20×8[0m [2m3ms[0m
-[2K  [36m⠦[0m [1mbutschster_windows[0m [2m(17/41)[0m [2mgauge_test[0m  [36m████████████[0m[2m░░░[0m [2m 80%[0m[2K    [32mo[0m [2mlays a gauge out in either orientation and refuses any other[0m [2m<1ms[0m
+[2K  [36m⠦[0m [1mwindows_shell[0m [2m(17/41)[0m [2mgauge_test[0m  [36m████████████[0m[2m░░░[0m [2m 80%[0m[2K    [32mo[0m [2mlays a gauge out in either orientation and refuses any other[0m [2m<1ms[0m
 [2K    [32mo[0m [2mfills the share of value over ceiling, clamped, to the nearest unit[0m [2m<1ms[0m
 [2K    [32mo[0m [2mdraws a horizontal gauge in pixels as a sunken progress bar of navy blocks[0m [2m2ms[0m
 [2K    [32mo[0m [2mkeeps the vertical LED meter as the default, apart from the horizontal bar[0m [2m3ms[0m
 [2K    [32mo[0m [2mdraws a horizontal gauge in cells as a sunken field of blocks on its middle row[0m [2m2ms[0m
-[2K  [36m⠧[0m [1mbutschster_windows[0m [2m(18/41)[0m [2mglyphs_test[0m  [36m████████████[0m[2m░░░[0m [2m 85%[0m[2K    [32mo[0m [2mkeeps every character of the set in one cell[0m [2m<1ms[0m
+[2K  [36m⠧[0m [1mwindows_shell[0m [2m(18/41)[0m [2mglyphs_test[0m  [36m████████████[0m[2m░░░[0m [2m 85%[0m[2K    [32mo[0m [2mkeeps every character of the set in one cell[0m [2m<1ms[0m
 [2K    [32mo[0m [2mkeeps the same names in both sets[0m [2m<1ms[0m
-[2K  [36m⠇[0m [1mbutschster_windows[0m [2m(19/41)[0m [2mimages_test[0m  [36m█████████████[0m[2m░░[0m [2m 90%[0m[2K    [32mo[0m [2mreads a picture from a pack by <entry>/<file> and keeps one raster[0m [2m<1ms[0m
+[2K  [36m⠇[0m [1mwindows_shell[0m [2m(19/41)[0m [2mimages_test[0m  [36m█████████████[0m[2m░░[0m [2m 90%[0m[2K    [32mo[0m [2mreads a picture from a pack by <entry>/<file> and keeps one raster[0m [2m<1ms[0m
 [2K    [32mo[0m [2mrefuses an fs entry that did not declare itself a pack[0m [2m<1ms[0m
 [2K    [32mo[0m [2mnames the pack that is not in the registry and the file that is not in the pack[0m [2m<1ms[0m
 [2K    [32mo[0m [2mrefuses a picture whose size is not its folder's[0m [2m<1ms[0m
@@ -252,15 +252,15 @@
 [2K    [32mo[0m [2mrefuses a size that is not in the pack[0m [2m<1ms[0m
 [2K    [32mo[0m [2mresolves the name by kind and by an explicit image[0m [2m<1ms[0m
 [2K    [32mo[0m [2mputs the icon and the shortcut overlay into a raster[0m [2m<1ms[0m
-[2K  [36m⠏[0m [1mbutschster_windows[0m [2m(20/41)[0m [2mlist_reveal_test[0m  [36m██████████████[0m[2m░[0m [2m 95%[0m[2K    [32mo[0m [2mshows the named row and does not knock the scroll off while the value stays the same[0m [2m<1ms[0m
-[2K  [36m⠋[0m [1mbutschster_windows[0m [2m(21/41)[0m [2mlogon_test[0m  [36m███████████████[0m[2m[0m [2m100%[0m[2K    [32mo[0m [2mmasks the password with asterisks, keeping the real value in the tree[0m [2m1ms[0m
+[2K  [36m⠏[0m [1mwindows_shell[0m [2m(20/41)[0m [2mlist_reveal_test[0m  [36m██████████████[0m[2m░[0m [2m 95%[0m[2K    [32mo[0m [2mshows the named row and does not knock the scroll off while the value stays the same[0m [2m<1ms[0m
+[2K  [36m⠋[0m [1mwindows_shell[0m [2m(21/41)[0m [2mlogon_test[0m  [36m███████████████[0m[2m[0m [2m100%[0m[2K    [32mo[0m [2mmasks the password with asterisks, keeping the real value in the tree[0m [2m1ms[0m
 [2K    [32mo[0m [2mEnter in the name leads to the password; a refusal clears the password, the second attempt logs on[0m [2m19ms[0m
 [2K    [32mo[0m [2mdoes not call the check with an empty name and shows a hint[0m [2m2ms[0m
 [2K    [32mo[0m [2mEsc and 'Cancel' refuse without a check; a closed terminal names the reason[0m [2m8ms[0m
 [2K    [32mo[0m [2mdraws the dialog in cells as a theme window: title, fields, buttons[0m [2m1ms[0m
 [2K    [32mo[0m [2mdraws the dialog in pixels through the theme's paint and produces a snapshot[0m [2m40ms[0m
 [2K    [32mo[0m [2mtakes the name only from a success, and tells a permission denial apart[0m [2m<1ms[0m
-[2K  [36m⠙[0m [1mbutschster_windows[0m [2m(22/41)[0m [2mmenu_test[0m  [36m███████████████[0m[2m[0m [2m104%[0m[2K    [32mo[0m [2mkeeps a list without shortcuts at its width and grows one with them by the widest plus two[0m [2m1ms[0m
+[2K  [36m⠙[0m [1mwindows_shell[0m [2m(22/41)[0m [2mmenu_test[0m  [36m███████████████[0m[2m[0m [2m104%[0m[2K    [32mo[0m [2mkeeps a list without shortcuts at its width and grows one with them by the widest plus two[0m [2m1ms[0m
 [2K    [32mo[0m [2mdraws in cells the check, the bullet, the right-aligned shortcut and the submenu arrow[0m [2m1ms[0m
 [2K    [32mo[0m [2mdraws in pixels a 7-px check and a 6-px bullet before the text, the shortcut ending a cell early[0m [2m6ms[0m
 [2K    [32mo[0m [2mcentres the marks in the first and the last band, under and over the 3 px frame[0m [2m4ms[0m
@@ -270,7 +270,7 @@
 [2K    [32mo[0m [2mfollows the pointer: a submenu's row opens it, another row closes it, another title takes over[0m [2m<1ms[0m
 [2K    [32mo[0m [2mrefuses a row both checked and a bullet, and a submenu inside a submenu[0m [2m<1ms[0m
 [2K    [32mo[0m [2mpaints an open submenu with its cursor, and keys the rows it covers[0m [2m18ms[0m
-[2K  [36m⠹[0m [1mbutschster_windows[0m [2m(23/41)[0m [2mnetwork_test[0m  [36m████████████████[0m[2m[0m [2m109%[0m[2K    [32mo[0m [2mputs this computer first and names the elected leader[0m [2m<1ms[0m
+[2K  [36m⠹[0m [1mwindows_shell[0m [2m(23/41)[0m [2mnetwork_test[0m  [36m████████████████[0m[2m[0m [2m109%[0m[2K    [32mo[0m [2mputs this computer first and names the elected leader[0m [2m<1ms[0m
 [2K    [32mo[0m [2mfills the table with the address, and writes a dash where there is none[0m [2m<1ms[0m
 [2K    [32mo[0m [2mtells a lone node from a refusal in the status line[0m [2m<1ms[0m
 [2K    [32mo[0m [2mnames the selected node, and the leader when nothing is selected[0m [2m<1ms[0m
@@ -282,7 +282,7 @@
 [2K    [32mo[0m [2mswitches to About and back, and Escape closes the window[0m [2m<1ms[0m
 [2K    [32mo[0m [2mtells a policy refusal from an absent cluster, whatever kind the runtime used[0m [2m<1ms[0m
 [2K    [32mo[0m [2mkeeps each field's value or its reason, and the screen shows the refusal[0m [2m2ms[0m
-[2K  [36m⠸[0m [1mbutschster_windows[0m [2m(24/41)[0m [2mnotepad_test[0m  [36m█████████████████[0m[2m[0m [2m114%[0m[2K    [32mo[0m [2mstarts untitled, opens the explorer's file, and titles the window with a plain hyphen[0m [2m<1ms[0m
+[2K  [36m⠸[0m [1mwindows_shell[0m [2m(24/41)[0m [2mnotepad_test[0m  [36m█████████████████[0m[2m[0m [2m114%[0m[2K    [32mo[0m [2mstarts untitled, opens the explorer's file, and titles the window with a plain hyphen[0m [2m<1ms[0m
 [2K    [32mo[0m [2mrefuses a file over 64 KB with the original's words before it is read into the editor[0m [2m8ms[0m
 [2K    [32mo[0m [2mreads through the drive's own handle: stat first, then the 64 KB rule, a missing file apart[0m [2m<1ms[0m
 [2K    [32mo[0m [2mhas the menus of Windows 95: the shortcut column, Word Wrap checked, what cannot be done greyed[0m [2m<1ms[0m
@@ -293,20 +293,20 @@
 [2K    [32mo[0m [2mkeeps the clipboard in the window: Ctrl+X, C and V, Ctrl+Z toggles, F5 inserts the time, Help and About[0m [2m<1ms[0m
 [2K    [32mo[0m [2mthe title bar's close asks for a changed document: Yes saves and closes, No closes, Cancel stays[0m [2m<1ms[0m
 [2K    [32mo[0m [2mpaints a few lines with a selection and the Edit menu open, in pixels and in cells[0m [2m24ms[0m
-[2K  [36m⠼[0m [1mbutschster_windows[0m [2m(25/41)[0m [2mprograms_live_test[0m  [36m█████████████████[0m[2m[0m [2m119%[0m[2K    [32mo[0m [2mTask Manager, Notepad and the picture viewer answer with a window description[0m [2m518ms[0m
-[2K  [36m⠴[0m [1mbutschster_windows[0m [2m(26/41)[0m [2mrun_test[0m  [36m██████████████████[0m[2m[0m [2m124%[0m[2K    [32mo[0m [2mbuilds a Bash launch spec and rejects empty commands[0m [2m<1ms[0m
+[2K  [36m⠼[0m [1mwindows_shell[0m [2m(25/41)[0m [2mprograms_live_test[0m  [36m█████████████████[0m[2m[0m [2m119%[0m[2K    [32mo[0m [2mTask Manager, Notepad and the picture viewer answer with a window description[0m [2m518ms[0m
+[2K  [36m⠴[0m [1mwindows_shell[0m [2m(26/41)[0m [2mrun_test[0m  [36m██████████████████[0m[2m[0m [2m124%[0m[2K    [32mo[0m [2mbuilds a Bash launch spec and rejects empty commands[0m [2m<1ms[0m
 [2K    [32mo[0m [2mlays out the dialog on the SDK: input, OK by default, Cancel, no overlaps[0m [2m<1ms[0m
 [2K    [32mo[0m [2mBrowse… asks for My Computer and does not close the dialog on the reply[0m [2m<1ms[0m
 [2K    [32mo[0m [2mopens Bash and Run from Start and keeps the launched shell after Run closes[0m [2m2.2s[0m
 [2K    [32mo[0m [2mkeeps a usable cell dialog with Escape cancellation[0m [2m87ms[0m
-[2K  [36m⠦[0m [1mbutschster_windows[0m [2m(27/41)[0m [2msdk_close_test[0m  [36m███████████████████[0m[2m[0m [2m129%[0m[2K    [32mo[0m [2mthe rule: only stay() keeps the window open; update's answer does not count[0m [2m<1ms[0m
+[2K  [36m⠦[0m [1mwindows_shell[0m [2m(27/41)[0m [2msdk_close_test[0m  [36m███████████████████[0m[2m[0m [2m129%[0m[2K    [32mo[0m [2mthe rule: only stay() keeps the window open; update's answer does not count[0m [2m<1ms[0m
 [2K    [32mo[0m [2mthe loop keeps running after a refused close and ends on the one the window accepts[0m [2m50ms[0m
 [2K    [32mo[0m [2ma window answering false to everything closes at the first close[0m [2m50ms[0m
 [2K    [32mo[0m [2ma window that calls context.close() while answering a close ends at once[0m [2m51ms[0m
-[2K  [36m⠧[0m [1mbutschster_windows[0m [2m(28/41)[0m [2msdk_focus_test[0m  [36m████████████████████[0m[2m[0m [2m134%[0m[2K    [32mo[0m [2ma release after the window lost the keyboard does not press the button[0m [2m<1ms[0m
+[2K  [36m⠧[0m [1mwindows_shell[0m [2m(28/41)[0m [2msdk_focus_test[0m  [36m████████████████████[0m[2m[0m [2m134%[0m[2K    [32mo[0m [2ma release after the window lost the keyboard does not press the button[0m [2m<1ms[0m
 [2K    [32mo[0m [2mdrops a captured drag too, and redraws only when something was held[0m [2m<1ms[0m
 [2K    [32mo[0m [2mgaining the keyboard and other events leave the interaction alone[0m [2m<1ms[0m
-[2K  [36m⠇[0m [1mbutschster_windows[0m [2m(29/41)[0m [2msdk_test[0m  [36m████████████████████[0m[2m[0m [2m139%[0m[2K    [32mo[0m [2mkeeps the same step as the shell icon library[0m [2m<1ms[0m
+[2K  [36m⠇[0m [1mwindows_shell[0m [2m(29/41)[0m [2msdk_test[0m  [36m████████████████████[0m[2m[0m [2m139%[0m[2K    [32mo[0m [2mkeeps the same step as the shell icon library[0m [2m<1ms[0m
 [2K    [32mo[0m [2mwraps items into rows, scrolls by row and walks the grid with arrows[0m [2m<1ms[0m
 [2K    [32mo[0m [2mpadding_bottom = 0 puts the last row against the frame while the other sides keep padding[0m [2m<1ms[0m
 [2K    [32mo[0m [2mlays out disjoint controls at actual client sizes and clamps after data shrink[0m [2m2ms[0m
@@ -368,7 +368,7 @@
 [2K    [32mo[0m [2ma static table needs no id, takes no focus and no clicks[0m [2m<1ms[0m
 [2K    [32mo[0m [2mdraws the active tab higher and open into the page, the frame line under the inactive one[0m [2m1ms[0m
 [2K    [32mo[0m [2mrepaints the page frame's top row when the active tab changes[0m [2m<1ms[0m
-[2K  [36m⠏[0m [1mbutschster_windows[0m [2m(30/41)[0m [2mselection_test[0m  [36m█████████████████████[0m[2m[0m [2m143%[0m[2K    [32mo[0m [2mlays small icons out in 15-cell columns one row high and walks them as the large grid[0m [2m<1ms[0m
+[2K  [36m⠏[0m [1mwindows_shell[0m [2m(30/41)[0m [2mselection_test[0m  [36m█████████████████████[0m[2m[0m [2m143%[0m[2K    [32mo[0m [2mlays small icons out in 15-cell columns one row high and walks them as the large grid[0m [2m<1ms[0m
 [2K    [32mo[0m [2mdraws a small icon in cells as its glyph, a space and the caption, cut with an ellipsis[0m [2m<1ms[0m
 [2K    [32mo[0m [2mdraws a small icon in pixels as a 16-px picture and the caption 3 px after it[0m [2m5ms[0m
 [2K    [32mo[0m [2micons: a click selects one, Ctrl toggles, Shift takes the range in view order, Ctrl+A all[0m [2m1ms[0m
@@ -378,9 +378,9 @@
 [2K    [32mo[0m [2ma click on a tree row is a select with pointer, a key is one without[0m [2m<1ms[0m
 [2K    [32mo[0m [2mshows a cell's icon character before its text in cells[0m [2m<1ms[0m
 [2K    [32mo[0m [2mdraws a cell's 16-px picture two pixels in and its text 3 px after it[0m [2m2ms[0m
-[2K  [36m⠋[0m [1mbutschster_windows[0m [2m(31/41)[0m [2mshell_test[0m  [36m██████████████████████[0m[2m[0m [2m148%[0m[2K    [32mo[0m [2mre-reads the layout on a handler's command[0m [2m112ms[0m
+[2K  [36m⠋[0m [1mwindows_shell[0m [2m(31/41)[0m [2mshell_test[0m  [36m██████████████████████[0m[2m[0m [2m148%[0m[2K    [32mo[0m [2mre-reads the layout on a handler's command[0m [2m112ms[0m
 [2K    [32mo[0m [2mdoes not pass off a stopped shell as a failure[0m [2m<1ms[0m
-[2K  [36m⠙[0m [1mbutschster_windows[0m [2m(32/41)[0m [2msources_test[0m  [36m███████████████████████[0m[2m[0m [2m153%[0m[2K    [32mo[0m [2mtakes drives from the registry, not from its own table[0m [2m<1ms[0m
+[2K  [36m⠙[0m [1mwindows_shell[0m [2m(32/41)[0m [2msources_test[0m  [36m███████████████████████[0m[2m[0m [2m153%[0m[2K    [32mo[0m [2mtakes drives from the registry, not from its own table[0m [2m<1ms[0m
 [2K    [32mo[0m [2mshows the drives and the Control Panel at the root[0m [2m<1ms[0m
 [2K    [32mo[0m [2mlists the catalog's Settings programs in the Control Panel, with their comments[0m [2m<1ms[0m
 [2K    [32mo[0m [2mreads each file's size and date with a stat, and names its type[0m [2m33ms[0m
@@ -390,7 +390,7 @@
 [2K    [32mo[0m [2mdoes not show folder contents on the top level of the desktop[0m [2m4ms[0m
 [2K    [32mo[0m [2manswers with a reason for a desktop folder that does not exist[0m [2m<1ms[0m
 [2K    [32mo[0m [2mdoes not pass an unknown path off as the root[0m [2m<1ms[0m
-[2K  [36m⠹[0m [1mbutschster_windows[0m [2m(33/41)[0m [2mstorage_test[0m  [36m███████████████████████[0m[2m[0m [2m158%[0m[2K    [32mo[0m [2msurvives the round created — read — moved — deleted[0m [2m<1ms[0m
+[2K  [36m⠹[0m [1mwindows_shell[0m [2m(33/41)[0m [2mstorage_test[0m  [36m███████████████████████[0m[2m[0m [2m158%[0m[2K    [32mo[0m [2msurvives the round created — read — moved — deleted[0m [2m<1ms[0m
 [2K    [32mo[0m [2manswers whether the row EXISTED, not just "deleted"[0m [2m<1ms[0m
 [2K    [32mo[0m [2mmoves the contents of a deleted folder to the desktop instead of deleting them along with it[0m [2m<1ms[0m
 [2K    [32mo[0m [2mkeeps a shortcut to a vanished entry and marks it broken[0m [2m<1ms[0m
@@ -408,15 +408,15 @@
 [2K    [32mo[0m [2moffering one icon twice gives one shortcut and not a single error[0m [2m<1ms[0m
 [2K    [32mo[0m [2ma setting is written and read with placeholders of one dialect[0m [2m<1ms[0m
 [2K    [32mo[0m [2mmigration 02: rebuilding the table inside a transaction rolls back entirely[0m [2m<1ms[0m
-[2K  [36m⠸[0m [1mbutschster_windows[0m [2m(34/41)[0m [2msysprops_test[0m  [36m████████████████████████[0m[2m[0m [2m163%[0m[2K    [32mo[0m [2mlays out registry entries by kind prefix, marks empty groups[0m [2m<1ms[0m
+[2K  [36m⠸[0m [1mwindows_shell[0m [2m(34/41)[0m [2msysprops_test[0m  [36m████████████████████████[0m[2m[0m [2m163%[0m[2K    [32mo[0m [2mlays out registry entries by kind prefix, marks empty groups[0m [2m<1ms[0m
 [2K    [32mo[0m [2mlays out three tabs without overlaps and keeps the buttons[0m [2m3ms[0m
 [2K    [32mo[0m [2mthe runtime resources are a static table: no id, no focus[0m [2m<1ms[0m
 [2K    [32mo[0m [2mthe tree expands and selects, OK closes[0m [2m<1ms[0m
 [2K    [32mo[0m [2munread hosts show the reason instead of "(none)", the permission denial is named[0m [2m<1ms[0m
-[2K  [36m⠼[0m [1mbutschster_windows[0m [2m(35/41)[0m [2mtable_kind_test[0m  [36m█████████████████████████[0m[2m[0m [2m168%[0m[2K    [32mo[0m [2mcells: a cell with a kind and no icon gets the kind's glyph; its own icon still wins[0m [2m1ms[0m
+[2K  [36m⠼[0m [1mwindows_shell[0m [2m(35/41)[0m [2mtable_kind_test[0m  [36m█████████████████████████[0m[2m[0m [2m168%[0m[2K    [32mo[0m [2mcells: a cell with a kind and no icon gets the kind's glyph; its own icon still wins[0m [2m1ms[0m
 [2K    [32mo[0m [2mpixels: a cell's kind draws that kind's picture — the same as naming it[0m [2m3ms[0m
 [2K    [32mo[0m [2mframe meta: title and image as strings or functions of the model; empty keeps the window's own[0m [2m<1ms[0m
-[2K  [36m⠴[0m [1mbutschster_windows[0m [2m(36/41)[0m [2mtaskman_test[0m  [36m█████████████████████████[0m[2m[0m [2m173%[0m[2K    [32mo[0m [2mlays out tabs, tables, groups and the refresh button without overlaps at several sizes[0m [2m12ms[0m
+[2K  [36m⠴[0m [1mwindows_shell[0m [2m(36/41)[0m [2mtaskman_test[0m  [36m█████████████████████████[0m[2m[0m [2m173%[0m[2K    [32mo[0m [2mlays out tabs, tables, groups and the refresh button without overlaps at several sizes[0m [2m12ms[0m
 [2K    [32mo[0m [2mthe name — value pairs are static tables: no made-up id, no focus[0m [2m1ms[0m
 [2K    [32mo[0m [2mkeeps the selected task by id when sampling reorders rows and switches tabs[0m [2m<1ms[0m
 [2K    [32mo[0m [2mopens the real native window, handles tabs and refresh, and keeps sampling[0m [2m1.1s[0m
@@ -429,7 +429,7 @@
 [2K    [32mo[0m [2mseconds from a number of any unit[0m [2m<1ms[0m
 [2K    [32mo[0m [2mprocesses are sorted stably, by entry and pid[0m [2m<1ms[0m
 [2K    [32mo[0m [2ma permission denial is named, not turned into zero or "unavailable"[0m [2m<1ms[0m
-[2K  [36m⠦[0m [1mbutschster_windows[0m [2m(37/41)[0m [2mviewers_test[0m  [36m██████████████████████████[0m[2m[0m [2m178%[0m[2K    [32mo[0m [2mis assembled and parsed with one form[0m [2m<1ms[0m
+[2K  [36m⠦[0m [1mwindows_shell[0m [2m(37/41)[0m [2mviewers_test[0m  [36m██████████████████████████[0m[2m[0m [2m178%[0m[2K    [32mo[0m [2mis assembled and parsed with one form[0m [2m<1ms[0m
 [2K    [32mo[0m [2mrefuses with a reason on garbage and emptiness[0m [2m<1ms[0m
 [2K    [32mo[0m [2mextension — lower case, without the dot, only the last one[0m [2m<1ms[0m
 [2K    [32mo[0m [2massembles the table from both entry forms[0m [2m<1ms[0m
@@ -443,7 +443,7 @@
 [2K    [32mo[0m [2mthe frame is exactly the window size and one and the same while nothing changed[0m [2m<1ms[0m
 [2K    [32mo[0m [2mthe placement covers exactly the inner rectangle[0m [2m<1ms[0m
 [2K    [32mo[0m [2ma waiting window and a provider failure are named, not drawn[0m [2m<1ms[0m
-[2K  [36m⠧[0m [1mbutschster_windows[0m [2m(38/41)[0m [2mviews_test[0m  [36m███████████████████████████[0m[2m[0m [2m182%[0m[2K    [32mo[0m [2mthe month grid starts on the right day and ends with the last one[0m [2m<1ms[0m
+[2K  [36m⠧[0m [1mwindows_shell[0m [2m(38/41)[0m [2mviews_test[0m  [36m███████████████████████████[0m[2m[0m [2m182%[0m[2K    [32mo[0m [2mthe month grid starts on the right day and ends with the last one[0m [2m<1ms[0m
 [2K    [32mo[0m [2mthe bottom buttons share no cells, "OK" is the default, "Apply" cannot be pressed[0m [2m<1ms[0m
 [2K    [32mo[0m [2mthe same second does not redraw, "OK" closes, Esc is left to the loop[0m [2m<1ms[0m
 [2K    [32mo[0m [2mcounts like the buttons, not like an expression[0m [2m<1ms[0m
@@ -469,9 +469,9 @@
 [2K    [32mo[0m [2ma window with resizable false has no "maximize" button[0m [2m<1ms[0m
 [2K    [32mo[0m [2mshows a product past 1e15 as a number, not as %!g(lua.LInteger=…)[0m [2m<1ms[0m
 [2K    [32mo[0m [2mcontrol: an ordinary integer result keeps the %d path[0m [2m<1ms[0m
-[2K  [36m⠇[0m [1mbutschster_windows[0m [2m(39/41)[0m [2mwindow_life_test[0m  [36m████████████████████████████[0m[2m[0m [2m187%[0m[2K    [32mo[0m [2mTask Manager does not die on the first frame[0m [2m321ms[0m
+[2K  [36m⠇[0m [1mwindows_shell[0m [2m(39/41)[0m [2mwindow_life_test[0m  [36m████████████████████████████[0m[2m[0m [2m187%[0m[2K    [32mo[0m [2mTask Manager does not die on the first frame[0m [2m321ms[0m
 [2K    [32mo[0m [2mNotepad does not die on the first frame[0m [2m342ms[0m
-[2K  [36m⠏[0m [1mbutschster_windows[0m [2m(40/41)[0m [2mwiring_test[0m  [36m████████████████████████████[0m[2m[0m [2m192%[0m[2K    [32mo[0m [2msilences the log on its own terminal host[0m [2m<1ms[0m
+[2K  [36m⠏[0m [1mwindows_shell[0m [2m(40/41)[0m [2mwiring_test[0m  [36m████████████████████████████[0m[2m[0m [2m192%[0m[2K    [32mo[0m [2msilences the log on its own terminal host[0m [2m<1ms[0m
 [2K    [32mo[0m [2mdoes not set up a window host of its own[0m [2m<1ms[0m
 [2K    [32mo[0m [2mdeclares "My Computer" as an ordinary registry program[0m [2m<1ms[0m
 [2K    [32mo[0m [2masks the compositor through the base's library, not a protocol of its own[0m [2m<1ms[0m
@@ -493,10 +493,10 @@
 [2K    [32mo[0m [2mlets the shell return workshop windows to the registry[0m [2m<1ms[0m
 [2K    [32mo[0m [2mcloses the handles with a policy the application injects[0m [2m<1ms[0m
 [2K    [32mo[0m [2mdeclares no module whose right has not been granted[0m [2m<1ms[0m
-[2K  [36m⠋[0m [1mbutschster_windows[0m [2m(41/41)[0m [2mworkshop_sdk_test[0m  [36m█████████████████████████████[0m[2m[0m [2m197%[0m[2K    [32mo[0m [2mthe description passes validation and ends up in an entry with the SDK import and the pixel view[0m [2m<1ms[0m
+[2K  [36m⠋[0m [1mwindows_shell[0m [2m(41/41)[0m [2mworkshop_sdk_test[0m  [36m█████████████████████████████[0m[2m[0m [2m197%[0m[2K    [32mo[0m [2mthe description passes validation and ends up in an entry with the SDK import and the pixel view[0m [2m<1ms[0m
 [2K    [32mo[0m [2ma window applied to the registry starts and stays alive[0m [2m328ms[0m
 [2K    [32mo[0m [2ma window that dies right after its first frame is caught, not taken for alive[0m [2m6ms[0m
-[2K  [31mx[0m [1mbutschster_windows[0m [2m(493)[0m [31m3 failed[0m [2m7.4s[0m
+[2K  [31mx[0m [1mwindows_shell[0m [2m(493)[0m [31m3 failed[0m [2m7.4s[0m
 
 [1m[31m  Failures[0m[0m
 

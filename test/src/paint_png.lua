@@ -6,7 +6,7 @@
 -- visible only in the screenshot, and a person or an agent looks at it with
 -- Read.
 --
--- Draws with THE SAME `butschster.windows.shell:pixels` that will ship to the
+-- Draws with THE SAME `windows.shell.theme:pixels` that will ship to the
 -- running system. A private copy of the painting for the sake of a
 -- screenshot would be checking the copy.
 --
@@ -270,15 +270,15 @@ local function main(spec)
 
     -- Fixed public labels reproduce the menu used to report unreadable text.
     local font_menu = catalog.build({
-        {id = "butschster.windows.explorer:window", meta = {title = "My Computer", image = "my_computer", group = "", order = 10}},
-        {id = "butschster.windows.calc:window", meta = {title = "Calculator", image = "calculator", order = 20}},
-        {id = "butschster.windows.datetime:window", meta = {title = "Date & Time", image = "clock", order = 30}},
-        {id = "butschster.windows.viewers:notepad", meta = {title = "Notepad", image = "text_document", order = 40}},
+        {id = "windows.shell.explorer:window", meta = {title = "My Computer", image = "my_computer", group = "", order = 10}},
+        {id = "windows.shell.calc:window", meta = {title = "Calculator", image = "calculator", order = 20}},
+        {id = "windows.shell.datetime:window", meta = {title = "Date & Time", image = "clock", order = 30}},
+        {id = "windows.shell.viewers:notepad", meta = {title = "Notepad", image = "text_document", order = 40}},
         {id = "example:bridge", meta = {title = "Jobs", group = "Programs/Bridge", order = 50}},
         {id = "example:content", meta = {title = "Articles", group = "Programs/Content machine", order = 60}},
-        {id = "butschster.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "program", order = 70}},
+        {id = "windows.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "program", order = 70}},
         {id = "example:settings", meta = {title = "Properties", group = "Settings", order = 80}},
-        {id = "butschster.windows.run:window", meta = {title = "Run…", image = "run", group = "", order = 900}},
+        {id = "windows.shell.run:window", meta = {title = "Run…", image = "run", group = "", order = 900}},
     })
     chrome_pixels.use_fonts(font, bold)
     chrome_pixels.use_cell_size(cell.w, cell.h)
@@ -328,7 +328,7 @@ local function main(spec)
             },
             focused_id = "w2",
             items = {
-                {id = "s1", kind = "shortcut", entry = "butschster.windows.explorer:window",
+                {id = "s1", kind = "shortcut", entry = "windows.shell.explorer:window",
                  title = "My Computer", x = 2, y = 1},
                 {id = "f1", kind = "folder", title = "Programs", x = 2, y = 5},
                 {id = "s2", kind = "shortcut", entry = "app:bin", image = "recycle_bin", title = "Recycle Bin", x = 2, y = 9},
@@ -356,8 +356,8 @@ local function main(spec)
             -- icon, "Open" in bold, "Properties" past the separator line.
             state.selected = "s1"
             state.menu = {anchor = {x = 6, y = 2}, cursor = 2, open = {}, items = {
-                {label = "Open", bold = true, entry = "butschster.windows.explorer:window", title = "My Computer"},
-                {label = "Properties", entry = "butschster.windows.sysprops:window", separator_before = true},
+                {label = "Open", bold = true, entry = "windows.shell.explorer:window", title = "My Computer"},
+                {label = "Properties", entry = "windows.shell.sysprops:window", separator_before = true},
             }}
         elseif notice == "over" then
             -- A window under the open "Start": its raster is cut by the menu
@@ -374,7 +374,7 @@ local function main(spec)
             -- reason is visible in full.
             state.items, state.selected, state.menu = {}, nil, nil
             state.windows = {state.windows[2]}
-            state.failure = "database is locked: SELECT id, x, y, image FROM butschster_windows_desktop"
+            state.failure = "database is locked: SELECT id, x, y, image FROM windows_shell_desktop"
                 .. " ORDER BY position; retry after the shell restarts"
             state.notice = "could not open: app:gone — entry not found"
         elseif notice then
@@ -414,26 +414,26 @@ local function main(spec)
         chrome_pixels.use_fonts(font, bold)
         chrome_pixels.use_cell_size(cell.w, cell.h)
         local records = {
-            {id = "butschster.windows.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10, in_menu = false}},
+            {id = "windows.shell.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10, in_menu = false}},
             {id = "app.desktop:window_calc", meta = {title = "Calculator", image = "calculator", group = "Accessories"}},
-            {id = "butschster.tui_desktop.apps:commander", meta = {title = "Stand Explorer"}},
-            {id = "butschster.tui_desktop.apps:dataflows", meta = {title = "Runs"}},
-            {id = "butschster.tui_desktop.apps:bridge_runs", meta = {title = "Job runs"}},
-            {id = "butschster.tui_desktop.apps:bridge_jobs", meta = {title = "Bridge jobs"}},
-            {id = "butschster.tui_desktop.apps:dataflow_detail", meta = {title = "Run nodes"}},
-            {id = "butschster.tui_desktop.apps:clock", meta = {title = "Clock"}},
+            {id = "windows.tui_desktop.apps:commander", meta = {title = "Stand Explorer"}},
+            {id = "windows.tui_desktop.apps:dataflows", meta = {title = "Runs"}},
+            {id = "windows.tui_desktop.apps:bridge_runs", meta = {title = "Job runs"}},
+            {id = "windows.tui_desktop.apps:bridge_jobs", meta = {title = "Bridge jobs"}},
+            {id = "windows.tui_desktop.apps:dataflow_detail", meta = {title = "Run nodes"}},
+            {id = "windows.tui_desktop.apps:clock", meta = {title = "Clock"}},
         }
         local built = catalog.build(records)
         assert(catalog.assign_images(built.programs, {{data = {images = {
-            ["butschster.tui_desktop.apps:commander"] = "network_neighborhood",
-            ["butschster.tui_desktop.apps:dataflows"] = "run",
-            ["butschster.tui_desktop.apps:bridge_runs"] = "documents_stack",
-            ["butschster.tui_desktop.apps:bridge_jobs"] = "system",
-            ["butschster.tui_desktop.apps:dataflow_detail"] = "program_settings",
-            ["butschster.tui_desktop.apps:clock"] = "clock",
+            ["windows.tui_desktop.apps:commander"] = "network_neighborhood",
+            ["windows.tui_desktop.apps:dataflows"] = "run",
+            ["windows.tui_desktop.apps:bridge_runs"] = "documents_stack",
+            ["windows.tui_desktop.apps:bridge_jobs"] = "system",
+            ["windows.tui_desktop.apps:dataflow_detail"] = "program_settings",
+            ["windows.tui_desktop.apps:clock"] = "clock",
         }}}}))
         local items = desktop_view.join({
-            {id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window", title = "My Computer", x = 2, y = 1},
+            {id = "computer", kind = "shortcut", entry = "windows.shell.explorer:window", title = "My Computer", x = 2, y = 1},
         }, built)
         local state = {width = 100, height = 36, top = 1, bottom = 36 - chrome_pixels.layout(100, 36).bottom,
             items = items, windows = {}, clock = "12:00",
@@ -456,21 +456,21 @@ local function main(spec)
         chrome_pixels.use_fonts(font, bold)
         chrome_pixels.use_cell_size(cell.w, cell.h)
         local found = catalog.build({
-            {id = "butschster.windows.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10, in_menu = false}},
-            {id = "butschster.windows.calc:window", meta = {title = "Calculator", image = "calculator", group = "Accessories", order = 20}},
-            {id = "butschster.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "console", group = "Accessories"}},
-            {id = "butschster.windows.run:window", meta = {title = "Run…", image = "run", order = 900}},
+            {id = "windows.shell.explorer:window", meta = {title = "My Computer", image = "my_computer", order = 10, in_menu = false}},
+            {id = "windows.shell.calc:window", meta = {title = "Calculator", image = "calculator", group = "Accessories", order = 20}},
+            {id = "windows.tui_desktop.desktop:window_pty", meta = {title = "Bash", image = "console", group = "Accessories"}},
+            {id = "windows.shell.run:window", meta = {title = "Run…", image = "run", order = 900}},
         })
         local items = found.programs
         local state: any = {width = 100, height = 32, top = 1,
             bottom = 32 - chrome_pixels.layout(100, 32).bottom,
-            items = {{id = "computer", kind = "shortcut", entry = "butschster.windows.explorer:window",
+            items = {{id = "computer", kind = "shortcut", entry = "windows.shell.explorer:window",
                 title = "My Computer", x = 8, y = 2}},
             -- The title is the one the window names itself (`definition.title`):
             -- "Run" without the ellipsis, the ellipsis stays with the menu item.
-            windows = {{id = "run", entry = "butschster.windows.run:window", image = "run",
+            windows = {{id = "run", entry = "windows.shell.run:window", image = "run",
                 title = run_window.definition.title, window_type = "dialog", content = "pixels", resizable = false,
-                render = "butschster.windows.sdk:render", x = 30, y = 7, w = 50, h = 10,
+                render = "windows.shell.sdk:render", x = 30, y = 7, w = 50, h = 10,
                 content_state = {sdk = 1, revision = 1, interaction = ui.interaction(),
                     ui = run_window.definition.view({text = "claude --resume", pending = false}, {width = 48, height = 7})}}},
             focused_id = "run", clock = "12:00",
@@ -514,7 +514,7 @@ local function main(spec)
         end
         for index = 1, 76 do
             state.snapshot.processes[index] = {pid = "local:process-" .. string.format("%04d", index),
-                source = index == 1 and "butschster.windows:shell" or "app.workers:worker_" .. string.format("%02d", index),
+                source = index == 1 and "windows.shell:shell" or "app.workers:worker_" .. string.format("%02d", index),
                 state = index % 4 == 0 and "running" or "waiting", steps = index * 147, started = 1788850100}
         end
         local names = {"applications", "processes", "performance", "node"}
@@ -522,9 +522,9 @@ local function main(spec)
             state.tab, state.selected_id = tab, tab == 1 and "w2" or (tab == 2 and "local:process-0002" or nil)
             local client = {width = 76, height = 24}
             local scene = {width = 110, height = 36, top = 1, bottom = 34, items = {}, clock = "12:00",
-                focused_id = "taskman", windows = {{id = "taskman", entry = "butschster.windows.taskman:window",
+                focused_id = "taskman", windows = {{id = "taskman", entry = "windows.shell.taskman:window",
                     title = "Task Manager", image = "system", window_type = "app", content = "pixels",
-                    render = "butschster.windows.sdk:render", state_revision = tab, x = 17, y = 4, w = 78, h = 27,
+                    render = "windows.shell.sdk:render", state_revision = tab, x = 17, y = 4, w = 78, h = 27,
                     content_state = {sdk = 1, revision = tab, interaction = ui.interaction(),
                         ui = taskman_window.definition.view(state, client)}}}}
             local rendered = chrome_pixels.paint(scene, cell.w, cell.h)
@@ -540,7 +540,7 @@ local function main(spec)
     -- Real shell chrome with a sample of the cell text layer represented in PNG.
     do
         local mono = assert(load_font("LiberationMono-Regular.ttf", 14))
-        local window = {id = "bash", entry = "butschster.tui_desktop.desktop:window_pty",
+        local window = {id = "bash", entry = "windows.tui_desktop.desktop:window_pty",
             title = "Bash", image = "program", window_type = "app", x = 16, y = 6, w = 72, h = 20}
         local state = {width = 100, height = 32, top = 1, bottom = 30, items = {},
             windows = {window}, focused_id = "bash", clock = "12:00"}
@@ -675,7 +675,7 @@ local function main(spec)
     do
         local explorer = explorer_window.definition
         local drives = {}
-        for _, name in ipairs({"app:app_fs", "app:data_dir", "app:system_fonts", "butschster.windows:assets",
+        for _, name in ipairs({"app:app_fs", "app:data_dir", "app:system_fonts", "windows.shell:assets",
             "keeper:ui_static_fs", "vlad.doom:ui_static_fs"}) do
             drives[#drives + 1] = {id = name, kind = name:find("ui_static", 1, true) and "fs.embed" or "fs.directory"}
         end
@@ -691,7 +691,7 @@ local function main(spec)
                 interaction = ui.interaction(), ui = explorer.view(state, {width = cols, height = rows})}}, cols, rows)
         end
         shot("mycomputer", folder("", model.root(drives)), 46, 14)
-        local programs = {{entry = "butschster.windows.viewers:notepad", title = "Notepad", image = "notepad",
+        local programs = {{entry = "windows.shell.viewers:notepad", title = "Notepad", image = "notepad",
             file_image = "text_document", file_type = "Text Document", opens = {"txt", "md", "lua", "yaml"}}}
         local stamp = 1789300200
         local files = model.files({
@@ -764,19 +764,19 @@ local function main(spec)
             {id = "app:db", kind = "db.sql.sqlite", meta = {comment = "Stand database"}, data = {file = ".wippy/app.db"}},
             {id = "app:api", kind = "http.router", meta = {}, data = {prefix = "/api/v1"}},
             {id = "app.desktop:window_calc", kind = "process.lua", meta = {type = "tui_desktop.window", title = "Calculator"}, data = {}},
-            {id = "butschster.windows.shell:chrome", kind = "library.lua", meta = {comment = "Cell theme"}, data = {source = "file://chrome.lua", modules = {"tty"}}},
-            {id = "butschster.windows.shell:pixels", kind = "library.lua", meta = {comment = "Pixel primitives"}, data = {source = "file://pixels.lua"}},
-            {id = "butschster.windows.shell:palette", kind = "library.lua", meta = {}, data = {}},
-            {id = "butschster.windows:shell", kind = "process.lua", meta = {title = "Windows 95 shell"}, data = {method = "main", modules = {"gfx", "tty"}}},
-            {id = "butschster.windows:terminal", kind = "terminal.host", meta = {}, data = {hide_logs = true}},
+            {id = "windows.shell.theme:chrome", kind = "library.lua", meta = {comment = "Cell theme"}, data = {source = "file://chrome.lua", modules = {"tty"}}},
+            {id = "windows.shell.theme:pixels", kind = "library.lua", meta = {comment = "Pixel primitives"}, data = {source = "file://pixels.lua"}},
+            {id = "windows.shell.theme:palette", kind = "library.lua", meta = {}, data = {}},
+            {id = "windows.shell:shell", kind = "process.lua", meta = {title = "Windows 95 shell"}, data = {method = "main", modules = {"gfx", "tty"}}},
+            {id = "windows.shell:terminal", kind = "terminal.host", meta = {}, data = {hide_logs = true}},
             {id = "wippy.security:process", kind = "security.group", meta = {}, data = {}},
         }
         local session = regedit.session(sample)
-        for _, key in ipairs({"", "butschster", "butschster.windows", "butschster.windows.shell"}) do
+        for _, key in ipairs({"", "windows", "windows.shell", "windows.shell.theme"}) do
             session.expanded[key] = true
         end
         session.rows = reg_model.flatten(session.root, session.expanded)
-        session.selected = "butschster.windows.shell:chrome"
+        session.selected = "windows.shell.theme:chrome"
         view_shot("regedit", sdk_render, {id = "shot", state_revision = 1, content_state = {sdk = 1, revision = 1,
             interaction = ui.interaction(), ui = regedit.definition.view(session, {width = 78, height = 22})}}, 78, 22)
     end

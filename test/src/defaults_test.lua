@@ -11,7 +11,7 @@ local defaults = require("defaults")
 local seed = require("seed")
 
 local function define_tests()
-    test.describe("butschster.windows desktop furniture", function()
+    test.describe("windows.shell desktop furniture", function()
         test.it("does not put on the desktop an icon with nothing behind it", function()
             -- The Recycle Bin and "Network Neighborhood" are absent from the
             -- declaration on purpose: a prop icon looks like a working part of
@@ -109,7 +109,7 @@ local function define_tests()
             test.is_nil(ferr)
 
             local program, perr = seed.ensure({
-                {entry = "butschster.windows.test:second", title = "Second", desktop = true},
+                {entry = "windows.shell.test:second", title = "Second", desktop = true},
             })
             test.is_nil(perr)
 

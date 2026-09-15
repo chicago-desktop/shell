@@ -13,8 +13,8 @@ resources". What follows from that is in the section on the license.
 
 - What: Icon files, 32×32 and 16×16, RGBA PNG; Where: `assets/icons/32/`, `assets/icons/16/`
 - What: Where they were taken from, which number means what, how to rebuild; Where: `assets/icons/SOURCE.md`
-- What: The filesystem through which they are read; Where: entry `butschster.windows.shell:icon_files` (`src/shell/_index.yaml`)
-- What: Library: name → file → raster; Where: `src/shell/images.lua`, entry `butschster.windows.shell:images`
+- What: The filesystem through which they are read; Where: entry `windows.shell.theme:icon_files` (`src/shell/_index.yaml`)
+- What: Library: name → file → raster; Where: `src/shell/images.lua`, entry `windows.shell.theme:images`
 - What: Check that every icon is readable and has its size; Where: `test/src/images_test.lua`
 
 The source is <https://github.com/trapd00r/win95-winxp_icons>, the `icons/`
@@ -37,7 +37,7 @@ A program's file icon is its `meta.image`, unless the entry named
 
 The Bash window is an entry of THE BASE, and it deliberately has no `meta.image`
 of its own: the icon names are a package of this shell, and the public module
-does not know them. Its icon is named by `butschster.windows.programs:base_images`
+does not know them. Its icon is named by `windows.shell.programs:base_images`
 — an entry of the same type `windows.program_images` with which the application
 assigns icons to workshop windows. A program's own `meta.image`, if present, takes precedence.
 
@@ -81,7 +81,7 @@ the folder in the explorer will one day turn out to be different folders:
 - `item.kind`: `drive`; icon: `drive`
 - `item.kind`: `program`, `window`; icon: `program`
 - `item.kind`: `item`, `file`; icon: `document`
-- `item.kind`: an item with `entry = butschster.windows.explorer:window`; icon: `my_computer`
+- `item.kind`: an item with `entry = windows.shell.explorer:window`; icon: `my_computer`
 - `item.kind`: `shortcut` to anything else; icon: `program` + overlay `shortcut_overlay`
 - `item.kind`: `broken = true`; icon: no icon → the caller draws with primitives
 
@@ -104,7 +104,7 @@ The test stand can declare an entry `kind: registry.entry`, `meta.type: windows.
     type: windows.program_images
   data:
     images:
-      "butschster.tui_desktop.apps:clock": clock
+      "windows.tui_desktop.apps:clock": clock
 ```
 
 This is the styling of specific programs of the test stand, so the entry lives in the application.
@@ -118,7 +118,7 @@ The catalog applies the styling before passing the data to the desktop and the m
 **The file arrives as bytes through `fs`, not as a path inside `gfx`.** The same decision
 as for the font: reading a file is governed by the process's permissions, and a module that
 opens paths itself would be a road around them. So the actor that draws must
-have `fs.get` on `butschster.windows.shell:icon_files`. The shell and the explorer
+have `fs.get` on `windows.shell.theme:icon_files`. The shell and the explorer
 window today have `fs.get` on `*`, so it works — but the audit of 2026-09-08
 disputes exactly that `*` on the window; when it is narrowed, this entry must be named
 explicitly.

@@ -53,7 +53,7 @@ Scanned / Infected; `Virus List` with `Info`). The runtime side: the
 The window is a program under the logged-on user (every window is). Tests
 need more than a user has. Two shapes, the first preferred:
 
-1. **A runner entry** `butschster.windows.antibug:runner` (`function.lua`)
+1. **A runner entry** `windows.shell.antibug:runner` (`function.lua`)
    with its own `security.actor` and a policy like `wippy.test:runner_policy`
    (`actions: '*'`); the window calls it with `funcs.async` and the runner
    runs the entry with the events forwarded to the window's pid. Whether a
@@ -70,7 +70,7 @@ known in advance.
 
 ## 4. The window
 
-`butschster.windows.antibug:window`, an SDK application, 64×22 cells,
+`windows.shell.antibug:window`, an SDK application, 64×22 cells,
 resizable, `group: Programs` (or `Settings`, §3), title `AntiBug`, image from
 the module's icon assets (a fitting `w95_*`/`w98_*` picture — the
 implementer picks; there is no antivirus icon in shell32).

@@ -83,7 +83,7 @@ local function lives(entry: string): string
     local view = assert(tty.viewport({width = 50, height = 16}))
     local grant = assert(view:grant())
     local pid, err = process.with_options({terminal = grant})
-        :with_context({["tui_desktop.service"] = "butschster.windows.shell"})
+        :with_context({["tui_desktop.service"] = "windows.shell.desktop"})
         :spawn_monitored(entry, "app:processes", "hello")
     if not pid then return "spawn: " .. tostring(err) end
     local deadline = time.now():unix_nano() + FIRST_FRAME_NS
@@ -121,14 +121,14 @@ local function define_tests()
             local window, err = apps.prepare({
                 name = NAME, title = "SDK probe", width = 50, height = 16, source = SOURCE,
                 modules = {"json"}, group = "Programs",
-                imports = {app = "butschster.windows.sdk:app"},
-                pixel_render = "butschster.windows.sdk:render",
+                imports = {app = "windows.shell.sdk:app"},
+                pixel_render = "windows.shell.sdk:render",
                 image = "program", window_type = "app",
             })
             test.is_nil(err)
             local entry = apps.build_entry(window)
-            test.eq(entry.data.imports.app, "butschster.windows.sdk:app")
-            test.eq(entry.meta.pixel_render, "butschster.windows.sdk:render")
+            test.eq(entry.data.imports.app, "windows.shell.sdk:app")
+            test.eq(entry.meta.pixel_render, "windows.shell.sdk:render")
             test.eq(entry.meta.pixel_state, entry.id)
             test.eq(entry.meta.image, "program")
         end)
@@ -136,8 +136,8 @@ local function define_tests()
         test.it("a window applied to the registry starts and stays alive", function()
             local window = assert(apps.prepare({
                 name = NAME, title = "SDK probe", width = 50, height = 16, source = SOURCE,
-                imports = {app = "butschster.windows.sdk:app"},
-                pixel_render = "butschster.windows.sdk:render",
+                imports = {app = "windows.shell.sdk:app"},
+                pixel_render = "windows.shell.sdk:render",
             }))
             local ok, aerr = apps.apply(window)
             test.is_true(ok == true, "the registry did not accept the window: " .. tostring(aerr))

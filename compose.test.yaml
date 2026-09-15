@@ -2,13 +2,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: butschster_test_windows
+      POSTGRES_DB: windows_test_shell
       POSTGRES_USER: kickside
       POSTGRES_PASSWORD: kickside
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kickside -d butschster_test_windows"]
+      test: ["CMD-SHELL", "pg_isready -U kickside -d windows_test_shell"]
       interval: 2s
       timeout: 3s
       retries: 30

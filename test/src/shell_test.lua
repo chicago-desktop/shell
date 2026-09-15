@@ -35,7 +35,7 @@ local function boot_shell()
     -- is not the shell that comes up on the stand. It takes the service name
     -- for itself — the same one `control` looks for.
     local pid, err = process.with_options({terminal = grant})
-        :spawn_monitored("butschster.windows:shell", "app:processes", "test")
+        :spawn_monitored("windows.shell:shell", "app:processes", "test")
     test.is_nil(err)
     test.not_nil(pid, "the shell did not start")
 
@@ -51,7 +51,7 @@ local function boot_shell()
 end
 
 local function define_tests()
-    test.describe("butschster.windows shell alive", function()
+    test.describe("windows.shell shell alive", function()
         test.it("re-reads the layout on a handler's command", function()
             local shell: any = boot_shell()
 

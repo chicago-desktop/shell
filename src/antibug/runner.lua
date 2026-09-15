@@ -1,4 +1,4 @@
--- butschster.windows.antibug:runner — runs a scan item for AntiBug's window
+-- windows.shell.antibug:runner — runs a scan item for AntiBug's window
 -- (FR-009 §3, shape 1; §4a).
 --
 -- The window is a program under the logged-on user and keeps a narrow scope;
@@ -26,7 +26,7 @@ local registry = require("registry")
 local process = require("process")
 local targets = require("targets")
 
-local TARGET_PROCESS = "butschster.windows.antibug:target"
+local TARGET_PROCESS = "windows.shell.antibug:target"
 local DEFAULT_PROCESS_HOST = "app:processes"
 
 local function run_entry(given: any): any

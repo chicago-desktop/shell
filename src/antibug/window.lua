@@ -1,6 +1,6 @@
 -- AntiBug (FR-009 §4, §4a): the test scanner window, an SDK application.
 --
--- The model is `butschster.windows.antibug:scan`, pure; here are the window's
+-- The model is `windows.shell.antibug:scan`, pure; here are the window's
 -- tree, its actions and the world it reads through `definition.deps.sys` (a
 -- test replaces it):
 --   the test entries and the declared targets from the registry;
@@ -25,7 +25,7 @@ local targets = require("targets")
 local sources = require("sources")
 local explorer_model = require("explorer_model")
 
-local RUNNER = "butschster.windows.antibug:runner"
+local RUNNER = "windows.shell.antibug:runner"
 local STOP_TOPIC = "antibug.stop"
 -- How long a stopped target's process gets to say it is gone.
 local STOP_WAIT = "5s"

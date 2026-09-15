@@ -5,15 +5,15 @@
 -- others' screens, and a color one of them picks must not repaint theirs.
 -- Every row gets `user_id`; the rows that exist become the SHARED layout
 -- (`''`), the one a desktop without logon shows and the one a person inherits
--- at first use (butschster.windows.persist:repo).
+-- at first use (windows.shell.persist:repo).
 --
 -- Settings and marks change their primary key to (user_id, …). PostgreSQL
 -- swaps the constraint; SQLite cannot, so those two tables are rebuilt, as
 -- migration 02 rebuilt the layout.
 
-local ITEMS = "butschster_windows_desktop_items"
-local SETTINGS = "butschster_windows_settings"
-local SEEDED = "butschster_windows_desktop_seeded"
+local ITEMS = "windows_shell_desktop_items"
+local SETTINGS = "windows_shell_settings"
+local SEEDED = "windows_shell_desktop_seeded"
 
 local function run(db: any, statement: string, what: string)
     local _, err = db:execute(statement)
@@ -28,7 +28,7 @@ return require("migration").define(function()
             up(function(db)
                 run(db, "ALTER TABLE " .. ITEMS .. " ADD COLUMN user_id TEXT NOT NULL DEFAULT ''",
                     "Failed to add user_id to desktop items")
-                run(db, "CREATE INDEX butschster_windows_desktop_items_user_idx ON " .. ITEMS .. " (user_id)",
+                run(db, "CREATE INDEX windows_shell_desktop_items_user_idx ON " .. ITEMS .. " (user_id)",
                     "Failed to index desktop items by person")
                 run(db, "ALTER TABLE " .. SETTINGS .. " ADD COLUMN user_id TEXT NOT NULL DEFAULT ''",
                     "Failed to add user_id to settings")
@@ -54,7 +54,7 @@ return require("migration").define(function()
                 db:execute("ALTER TABLE " .. SETTINGS .. " DROP COLUMN user_id")
                 db:execute("ALTER TABLE " .. SETTINGS .. " ADD PRIMARY KEY (key)")
                 db:execute("DELETE FROM " .. ITEMS .. " WHERE user_id <> ''")
-                db:execute("DROP INDEX IF EXISTS butschster_windows_desktop_items_user_idx")
+                db:execute("DROP INDEX IF EXISTS windows_shell_desktop_items_user_idx")
                 db:execute("ALTER TABLE " .. ITEMS .. " DROP COLUMN user_id")
             end)
         end)
@@ -63,7 +63,7 @@ return require("migration").define(function()
             up(function(db)
                 run(db, "ALTER TABLE " .. ITEMS .. " ADD COLUMN user_id TEXT NOT NULL DEFAULT ''",
                     "Failed to add user_id to desktop items")
-                run(db, "CREATE INDEX butschster_windows_desktop_items_user_idx ON " .. ITEMS .. " (user_id)",
+                run(db, "CREATE INDEX windows_shell_desktop_items_user_idx ON " .. ITEMS .. " (user_id)",
                     "Failed to index desktop items by person")
 
                 run(db, "CREATE TABLE " .. SETTINGS .. "_new ("
@@ -100,7 +100,7 @@ return require("migration").define(function()
                 db:execute("DROP TABLE " .. SETTINGS)
                 db:execute("ALTER TABLE " .. SETTINGS .. "_old RENAME TO " .. SETTINGS)
                 db:execute("DELETE FROM " .. ITEMS .. " WHERE user_id <> ''")
-                db:execute("DROP INDEX IF EXISTS butschster_windows_desktop_items_user_idx")
+                db:execute("DROP INDEX IF EXISTS windows_shell_desktop_items_user_idx")
                 db:execute("ALTER TABLE " .. ITEMS .. " DROP COLUMN user_id")
             end)
         end)

@@ -146,7 +146,7 @@ local function pictured_cells(rows: any, cols: integer, count: integer, font: an
 end
 
 local function define_tests()
-    test.describe("butschster.windows.viewers Notepad", function()
+    test.describe("windows.shell.viewers Notepad", function()
         test.it("starts untitled, opens the explorer's file, and titles the window with a plain hyphen", function()
             local state, context = opened({})
             test.eq(notepad.title(state), "Untitled - Notepad")

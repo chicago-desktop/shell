@@ -99,7 +99,7 @@ chrome.TOOL_BUTTONS = {
 -- place.
 --
 -- The values are the same ones the base declares
--- (`butschster.tui_desktop.desktop:programs`). A type that is not here is
+-- (`windows.tui_desktop.desktop:programs`). A type that is not here is
 -- `app`: an unknown value is no reason not to draw the window, and that is
 -- decided by the base, not the theme.
 chrome.BUTTON_SETS = {
@@ -225,7 +225,7 @@ chrome.MENU_BANNER = "Wippy 2026"
 chrome.session = {user = nil}
 
 -- use_user(user) — user = {id, name, entry?}, or nil to clear it. `entry` is
--- the profile window the application named (BUTSCHSTER_WINDOWS_PROFILE_ENTRY):
+-- the profile window the application named (WINDOWS_PROFILE_ENTRY):
 -- with it the user row at the top of Start opens that window; without it the
 -- row is a caption.
 function chrome.use_user(user: any)
@@ -240,7 +240,7 @@ end
 -- rename_user(name) -> whether the name changed
 --
 -- The account was renamed while the shell runs (the profile window writes the
--- full name, the application answers it through BUTSCHSTER_WINDOWS_USER_FUNC
+-- full name, the application answers it through WINDOWS_USER_FUNC
 -- on `desktop.refresh`). The identity stays what it was at logon: the id and
 -- the profile entry are kept, only the name moves — and with it the pixel
 -- menu's memo key, so the row repaints. Nobody logged on, nobody to rename.
@@ -298,7 +298,7 @@ function chrome.use_desktop(hex: any): boolean
 end
 
 -- use_pattern(rows) — the desktop pattern from "Display Properties": eight
--- bit rows (`butschster.windows.display:patterns`), or nil for none. The
+-- bit rows (`windows.shell.display:patterns`), or nil for none. The
 -- pixel theme tiles it over the desktop color. Cells have no pattern: an 8×8
 -- pixel tile has no place in a character cell, and a dither character on every
 -- desktop cell would read as noise and cost every cell a styled character.
@@ -532,7 +532,7 @@ chrome.title_bar = title_bar
 -- outer terminal theme. Explicit application colors remain authoritative.
 local console_colors = {foreground = color.console_text, background = color.console_bg}
 function chrome.content_colors(window)
-    if window.entry == "butschster.tui_desktop.desktop:window_pty" then return console_colors end
+    if window.entry == "windows.tui_desktop.desktop:window_pty" then return console_colors end
     return nil
 end
 
@@ -814,7 +814,7 @@ end
 
 -- ─── Start menu ──────────────────────────────────────────────────────────
 --
--- The cascade layout lives in `butschster.windows.shell:menu_layout`: one pure
+-- The cascade layout lives in `windows.shell.theme:menu_layout`: one pure
 -- function for both themes, no painting. `chrome.menu_layout` stays as a thin
 -- alias — the callers and the tests use it — and it is also where the banner
 -- enters the layout: the text is branding and lives here with the theme, and
