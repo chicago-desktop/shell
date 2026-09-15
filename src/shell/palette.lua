@@ -1,8 +1,8 @@
 -- The shell palette: two sets of the same names.
 --
--- `exact` is the exact Windows 95 colors, as hexadecimal RGB. This is the
+-- `exact` is the exact classic colors, as hexadecimal RGB. This is the
 -- default set, and here is why the choice changed. While the goal was "in the
--- spirit of Windows", the base indexes 0-15 won: the terminal takes them from
+-- spirit of the original", the base indexes 0-15 won: the terminal takes them from
 -- its theme, and the shell settled into it without arguing. The goal is
 -- different now: match the frame to a reference screenshot. The terminal
 -- theme is then not a helper but a hindrance: its "blue" is exactly the
@@ -31,7 +31,7 @@ palette.exact = {
     console_bg = "#000000",
     console_text = "#c0c0c0",
     -- Farewell screen: black with orange text, like "It's now safe to turn
-    -- off your computer" in Windows 95.
+    -- off your computer" in the original.
     farewell_bg = "#000000",
     farewell_text = "#ff8800",
     -- Desktop.
@@ -46,7 +46,7 @@ palette.exact = {
     face_text = "#000000",
 
     -- List field: white with black text. Icons inside a window lie on it,
-    -- not on the face: in the Windows 95 explorer these are different
+    -- not on the face: in the classic explorer these are different
     -- surfaces, and an icon caption on gray looks like a label on a button.
     field = "#ffffff",
     field_text = "#000000",
@@ -56,7 +56,7 @@ palette.exact = {
     light = "#ffffff",
     shadow = "#808080",
     -- The second dark edge of large frames and the outline of the default
-    -- button. Windows 95 has two of them, and telling them apart matters:
+    -- button. The original has two of them, and telling them apart matters:
     -- #808080 is depth, #000000 is the object's boundary.
     frame = "#000000",
 
@@ -69,7 +69,7 @@ palette.exact = {
     title_idle_fg = "#c0c0c0",
 
     -- Selection: the caption of the selected icon, the menu item under the
-    -- cursor. The same color as the active title: in Windows 95 it is one
+    -- cursor. The same color as the active title: in the original it is one
     -- quantity.
     select_bg = "#000080",
     select_fg = "#ffffff",

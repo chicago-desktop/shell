@@ -127,7 +127,7 @@ return {main = main, definition = definition}
   desktop library (`desktop.open`, `desktop.close`, `desktop.list`).
 - `pixel_render` must be a library the theme registers (`chicago.shell.sdk:render`
   for SDK windows). Without it the window is cell-only.
-- Rights: the window runs under the actor of the logged-on user (Windows logon)
+- Rights: the window runs under the actor of the logged-on user (the shell's logon)
   plus `app_window_scope` (process context, `db.get`, send to the compositor).
   Under a shell without logon it runs under the shell's actor. Neither grants
   spawning processes or changing the registry.

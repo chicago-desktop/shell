@@ -35,7 +35,7 @@ local SERVICE_NAME = "chicago.shell.desktop"
 -- effect this means the font can arrive from anywhere — from the module's
 -- embedded filesystem, from the database.
 --
--- Bold is a SEPARATE file, not an option: in Windows 95 the title bar is set
+-- Bold is a SEPARATE file, not an option: in the original the title bar is set
 -- in it, and synthesizing it by smearing pixels means ceasing to look alike.
 -- The environment is read by `chicago.shell.config:environment` — which
 -- also holds both traps that make "the variable is not set" sometimes a lie:
@@ -73,7 +73,7 @@ end
 -- Fonts for the pixel theme. A failure here is NOT a reason to take the shell
 -- down: it comes up in cells and states the reason. An empty screen instead
 -- of a desktop reads as a broken stand, not as a file that was not found.
--- The large font is for the farewell screen: in Windows 95 "It's now safe to
+-- The large font is for the farewell screen: in the original "It's now safe to
 -- turn off your computer" is set large, in two lines, across the whole
 -- screen. The size is computed from the cell height, not a constant: on a
 -- terminal with a different cell, a 34-pixel caption would be either tiny or

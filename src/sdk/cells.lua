@@ -75,7 +75,7 @@ end
 -- An input's placeholder: grey on the field's own white, not the face's grey —
 -- a face-colored row inside a field reads as a disabled field.
 local placeholder_style = tty.style():foreground(palette.active.shadow):background(palette.active.field)
--- A horizontal gauge's blocks: the Windows 95 progress navy over the face.
+-- A horizontal gauge's blocks: the classic progress navy over the face.
 local progress_style = tty.style():foreground(palette.active.select_bg):background(palette.active.face)
 function cells.rows(plan: any, interaction: any, width: any, height: any): any
     local canvas = tty.canvas(whole(math.max(1, width)), whole(math.max(1, height)))
@@ -201,7 +201,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             -- box. Text is aligned right or left, a cut is marked. The field is
             -- one cell row, the middle one of its rect, like a button or an
             -- input; the other rows stay face (pixels grow it around that row
-            -- to the Windows 95 size instead).
+            -- to the classic size instead).
             local inner = math.max(0, whole(r.w) - 2)
             local shown = ellipsized(node.text or "", inner)
             local pad = math.max(0, inner - widgets.cells(shown))
@@ -496,7 +496,7 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             end
             if node.kind == "select" and r.w >= 2 then
                 local middle = r.y + r.h // 2
-                -- Focused, the chosen label is highlighted, as in Windows 95.
+                -- Focused, the chosen label is highlighted, as in the original.
                 if focused and not node.disabled and label ~= "" then
                     put(r.x, middle, label, widgets.cells(label), styles.select)
                 end

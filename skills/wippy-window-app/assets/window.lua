@@ -38,7 +38,7 @@ function definition.update(model: any, action: any, context: any)
     elseif action.id == "show" then model.message = model.text
     elseif action.id == "close" then context.close()
     elseif action.type == "key" then
-        -- A key no component took. Esc closes, as in Windows. Any other key
+        -- A key no component took. Esc closes, as in the original. Any other key
         -- changed nothing: `false` means "do not redraw". Only here — resize
         -- and component actions go through `update` too, and returning false
         -- for them would leave the old frame on screen.

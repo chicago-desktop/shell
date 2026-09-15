@@ -1,4 +1,4 @@
--- Logon dialog: "Welcome to Windows" before the first desktop frame.
+-- Logon dialog: "Welcome to Chicago" before the first desktop frame.
 --
 -- This is not a compositor window — it has neither a process nor a viewport:
 -- the desktop is not up yet, and the first thing a person sees is this dialog
@@ -28,12 +28,12 @@ local function num(value: any): number
     return tonumber(value) or 0
 end
 
-screen_lib.TITLE = "Welcome to Windows"
-screen_lib.PROMPT = "Type a user name and password to log on to Windows."
+screen_lib.TITLE = "Welcome to Chicago"
+screen_lib.PROMPT = "Type a user name and password to log on to Chicago."
 screen_lib.ENTRY = "chicago.shell.logon:screen"
 screen_lib.RENDER = "chicago.shell.sdk:render"
 
--- Client size, in cells — after the Windows 95 reference: a 32 px icon on
+-- Client size, in cells — after the classic reference: a 32 px icon on
 -- the left, the prompt and two fields in the middle, "OK" and "Cancel" in a
 -- column on the right, with no blank row between them. The width is the sum
 -- of the columns: padding, icon (4), gap, middle (label 11 + gap + field 22),

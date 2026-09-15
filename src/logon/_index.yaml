@@ -1,7 +1,7 @@
 version: "1.0"
 namespace: chicago.shell.logon
 
-# Logon — "Welcome to Windows" before the first desktop frame.
+# Logon — "Welcome to Chicago" before the first desktop frame.
 #
 # The shell hands the base compositor the function `options.logon`; it draws
 # a dialog on the same terminal and returns the user identity under which the

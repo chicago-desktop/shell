@@ -52,7 +52,7 @@ local function joined(canvas: any): string
 end
 
 local function define_tests()
-    test.describe("Welcome to Windows", function()
+    test.describe("Welcome to Chicago", function()
         test.it("masks the password with asterisks, keeping the real value in the tree", function()
             local tree = screen_lib.tree({user = "pb", password = "secret", busy = false})
             local interaction = ui.interaction()

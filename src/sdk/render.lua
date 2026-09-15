@@ -63,10 +63,10 @@ end
 -- menu_box(popup, cell) -> {x, y, w, h, first} — a menu's open list in pixels:
 -- the panel's box and `first`, the top of the first item row. A pixel plan
 -- (`lead` 0, ui.popup) has no frame rows: the panel is the item rows, its top
--- pixel row the one under the bar — the Windows 95 drop-down touches the bar.
+-- pixel row the one under the bar — the classic drop-down touches the bar.
 -- A cells plan (`lead` 1) keeps its frame rows, and the panel is drawn tight
 -- around the items, 4 px into them: a whole frame row is a couple dozen
--- pixels of emptiness no Windows 95 menu had.
+-- pixels of emptiness no classic menu had.
 -- A drop-down's frame: a 2 px raised edge and 1 px of face on every side.
 render.MENU_FRAME = 3
 function render.menu_box(popup: any, cell: any): any
@@ -142,7 +142,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
             local w, h = rect.w * cell.w, rect.h * cell.h
             -- The scrollbar of a list, table, tree and icon grid takes the plan's
             -- columns (`item.bar_cols`, 16 px in whole cells), flush right. Its
-            -- arrow buttons are square, as in Windows 95, and never taller than
+            -- arrow buttons are square, as in the original, and never taller than
             -- one row, because the hit test counts an arrow as one row.
             local bar_w = whole(item.bar_cols or 1) * cell.w
             local focused = interaction.focus == node.id
@@ -175,7 +175,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                     end
                 end
             elseif node.kind == "clock" then
-                -- The Windows 95 "Date/Time" clock, following the original's pixels:
+                -- The classic "Date/Time" clock, following the original's pixels:
                 -- the dial sits on the face with no white field; sixty marks around
                 -- the circle — minute marks are raised 3×3 dots (shadow top-left,
                 -- light bottom-right), hour marks are teal with a black shadow;
@@ -327,14 +327,14 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "group" then
                 -- A frame with a title: the edge is half a row lower so that the caption
-                -- sits on it, as in Windows dialogs.
+                -- sits on it, as in classic dialogs.
                 local ty = y + (cell.h - 15) // 2
                 pixels.etched(raster, whole(x), whole(y + cell.h // 2), whole(w), whole(h - cell.h // 2))
                 if font then
                     local title = tostring(node.title or "")
                     local tw = whole(font:measure(title))
                     -- The title 9 px in from the frame's edge, on two pixels of
-                    -- face either side, as in Windows 95.
+                    -- face either side, as in the original.
                     raster:rect(whole(x + 7), whole(y), whole(math.min(w - 14, tw + 4)), whole(cell.h), color.face)
                     raster:text(whole(x + 9), whole(ty), title, {font = font, color = node.disabled and color.shadow or color.face_text})
                 end
@@ -371,7 +371,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                     end
                 end
             elseif node.kind == "gauge" and node.orient == "horizontal" then
-                -- The Windows 95 progress bar: up to 18 px centred in its rows,
+                -- The classic progress bar: up to 18 px centred in its rows,
                 -- a one-pixel sunken edge on the face, and navy blocks 8 px
                 -- wide 2 px apart — the filled share of the blocks that fit
                 -- (`ui.gauge_filled`, the cells' rule too). No caption.
@@ -489,7 +489,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 end
             elseif node.kind == "slider" then
                 -- A trackbar: a sunken 4 px track and an 11 px raised thumb at
-                -- the value, as in Windows 95.
+                -- the value, as in the original.
                 local low, high = whole(node.min or 0), whole(node.max or 0)
                 local value = whole(math.max(low, math.min(high, whole(node.value or low))))
                 local cy = whole(y + h // 2)
@@ -591,7 +591,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 -- An icon grid in pixels: a real 32×32 raster from the package
                 -- (`pixels.icon` falls back to primitives by itself), a two-line caption
                 -- below it, and the blue rectangle HUGS the caption, not the
-                -- column — that is exactly how Windows shows where the name ends.
+                -- column — that is exactly how the original shows where the name ends.
                 raster:rect(whole(x), whole(y), whole(w), whole(h), node.disabled and color.face or color.field)
                 local side = 32
                 for _, spot in ipairs(item.cells or {}) do
@@ -711,7 +711,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 -- `bold` means a bold caption, like the original's keys.
                 local pad = whole(node.inset)
                 local bx, bw = x + pad, w - pad * 2
-                -- A packed button (a dialog row): its Windows 95 width, placed
+                -- A packed button (a dialog row): its classic width, placed
                 -- by the plan inside its own cells.
                 if item.px then bx, bw = item.px.x, item.px.w end
                 local bh = node.fill and whole(h) - pad * 2 or math.min(23, whole(h))
@@ -740,7 +740,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                     raster:blit(picture, whole(bx + (bw - pw) // 2 + shift), whole(by + (bh - ph) // 2 + shift))
                 end
             elseif node.kind == "radio" then
-                -- The Windows 95 radio button, 12×12: an outer ring shadow above
+                -- The classic radio button, 12×12: an outer ring shadow above
                 -- and light below the diagonal, an inner ring black and face, a
                 -- white well, a black dot when chosen; grey when disabled.
                 local top = whole(y + (h - 12) // 2)
@@ -800,7 +800,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 end
             elseif node.kind == "select" then
                 -- A drop-down list: a field up to 24 px, like an input, with the
-                -- Windows 95 arrow button inside its right edge and the chosen
+                -- classic arrow button inside its right edge and the chosen
                 -- option's label, highlighted while focused.
                 local fh = math.min(24, whole(h))
                 y, h = y + (h - fh) // 2, fh
@@ -874,7 +874,7 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
             else menus[#menus + 1] = item end
         end
         -- One drop-down list: the menu's and its open submenu's, by one rule.
-        -- The rows are whole cells (hits are counted by them); the Windows 95
+        -- The rows are whole cells (hits are counted by them); the classic
         -- frame lies inside them. So each item has a BAND — its row, less
         -- the frame where the frame reaches into it (a pixel plan's first
         -- and last row) — and the highlight, the text and the marks are

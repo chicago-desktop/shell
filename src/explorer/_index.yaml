@@ -78,14 +78,14 @@ entries:
       pixel_render: chicago.shell.sdk:render
       pixel_state: chicago.shell.explorer:window
       icon: "▣"
-      # Windows 95's My Computer was about 260×220 px on a 640×480 screen;
+      # The original's My Computer was about 260×220 px on a 640×480 screen;
       # 48×16 cells is the same share of a 1000-px desktop. Every folder opens
       # in a window of its own, cascaded, so they stay small.
       width: 48
       height: 16
       resizable: true
       # NOT shown in "Start" — owner's decision 2026-09-09: "My Computer" is
-      # opened from the desktop, as in Windows, and a shortcut to a hidden
+      # opened from the desktop, as in the original, and a shortcut to a hidden
       # program works (`in_menu` is about the menu, not about launching).
       # `group: ""` is kept in case it is brought back: then it will go to
       # the root, at the top.
@@ -94,7 +94,7 @@ entries:
       group: ""
       # "Properties" in the icon's context menu is "System Properties".
       properties: chicago.shell.sysprops:window
-      comment: A folder window as in Windows 95 — My Computer, a drive, a folder or the Control Panel in four views, a window per folder; an SDK application.
+      comment: A folder window as in the original — My Computer, a drive, a folder or the Control Panel in four views, a window per folder; an SDK application.
     source: file://window.lua
     method: main
     modules:

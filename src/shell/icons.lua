@@ -4,8 +4,8 @@
 -- drawn by TWO parties. The desktop draws it through the compositor, and the
 -- "My Computer" window draws it itself, from inside its own process, into its
 -- own tty. Repeated in the second, it would diverge from the first at the
--- first edit, and diverge in LOOK, not as a failure: inside Windows 95 there
--- would be a different Windows 95, and it would be noticed a week later.
+-- first edit, and diverge in LOOK, not as a failure: inside the classic look there
+-- would be a different one, and it would be noticed a week later.
 --
 -- Hence the shape of the functions: they take the drawing TARGET, not
 -- someone's canvas. Any `tty.canvas` serves as a target, both the one the
@@ -214,7 +214,7 @@ function icons.cell(target, x: any, y: any, item, state)
     target:put(col, row, centered(surface.icon, glyph, span), span)
 
     -- Selection is an inversion of the TEXT, not of the whole column: in the
-    -- Windows 95 explorer the blue rectangle hugs the caption, and it shows
+    -- classic explorer the blue rectangle hugs the caption, and it shows
     -- where the caption ends.
     local caption = broken and surface.broken or surface.text
     if opts.selected then caption = surface.select end

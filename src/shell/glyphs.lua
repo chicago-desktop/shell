@@ -14,7 +14,7 @@
 -- Hence also `glyphs.all()`: the set on which the test measures width and
 -- keeps a wide character out of the set.
 --
--- Windows 95 depth is two one-pixel edges: light on top and left, dark on
+-- Classic depth is two one-pixel edges: light on top and left, dark on
 -- the bottom and right. A terminal cell holds one edge, so the edges are
 -- split across different cells of the frame rather than drawn inside one.
 
@@ -35,10 +35,10 @@ glyphs.bevel = {
 }
 
 -- Fills. `▒` is the "busy" background and the scrollbar, `░` is that very
--- speckled fill of a pressed Windows 95 button.
+-- speckled fill of a pressed classic button.
 --
 -- The block halves here are not for filling but for the etched separator.
--- The real Windows 95 separator is two one-pixel edges, dark above light; a
+-- The original separator is two one-pixel edges, dark above light; a
 -- terminal cell holds one edge, but not one BOUNDARY: a block half paints
 -- the top of the cell with the text color and the bottom with the background
 -- color, and both edges fit in one line.
@@ -52,7 +52,7 @@ glyphs.shade = {
 }
 
 -- Title buttons. Minimize is a bar at the bottom edge, maximize is an empty
--- square, close is a diagonal cross. Three signs that read in Windows 95
+-- square, close is a diagonal cross. Three signs that read in the original
 -- without a caption.
 glyphs.buttons = {
     minimize = "▁",
@@ -93,7 +93,7 @@ glyphs.icons = {
     divider = "─",       -- menu separator
 }
 
--- The outline a move or resize drag shows until the release: Windows 95
+-- The outline a move or resize drag shows until the release: the original
 -- dragged a dotted rectangle, not the window itself.
 glyphs.outline = {
     across = "┄",

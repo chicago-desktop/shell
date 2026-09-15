@@ -2,7 +2,7 @@ version: "1.0"
 namespace: chicago.shell.sysprops
 
 # "System Properties" is the properties window of "My Computer", like System
-# Properties in Windows 95. It opens from the "Properties" item of the icon's
+# Properties in the original. It opens from the "Properties" item of the icon's
 # context menu (`meta.properties` on the explorer entry) and from "Start →
 # Settings".
 

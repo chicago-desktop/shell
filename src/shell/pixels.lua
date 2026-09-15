@@ -38,7 +38,7 @@ local color = palette.exact
 
 local pixels = {}
 
--- Edge thickness. One, not "however many it comes out": in Windows 95 the
+-- Edge thickness. One, not "however many it comes out": in the original the
 -- relief is exactly one pixel of light at the top-left and one of dark at
 -- the bottom-right, and the second edge of large frames is a different
 -- color, not a different thickness.
@@ -105,7 +105,7 @@ function pixels.panel(raster, x: any, y: any, w: any, h: any)
     pixels.bevel(raster, x, y, w, h, true)
 end
 
--- Win95 controls have two distinct edges. Keep the one-pixel bevel for
+-- Classic controls have two distinct edges. Keep the one-pixel bevel for
 -- separators and window trim; a pushbutton/edit field is a different detail.
 local function edge_pair(r: any, x: any, y: any, w: any, h: any, near: any, far: any)
     x, y, w, h = whole(x), whole(y), whole(w), whole(h)
@@ -133,7 +133,7 @@ function pixels.frame_edge(r: any, x: any, y: any, w: any, h: any)
     edge_pair(r, x, y, w, h, color.face, color.frame)
     edge_pair(r, whole(x) + 1, whole(y) + 1, whole(w) - 2, whole(h) - 2, color.light, color.shadow)
 end
--- The Windows 95 size grip (DFCS_SCROLLSIZEGRIP): a GRIP×GRIP square of face
+-- The classic size grip (DFCS_SCROLLSIZEGRIP): a GRIP×GRIP square of face
 -- whose bottom-right pixel is (right, bottom), crossed by three diagonals
 -- running from its bottom-left to its top-right. Counted from the corner,
 -- each is two dark gray lines under a white one, with a line of face between
@@ -164,7 +164,7 @@ function pixels.focus_rect(r: any, x: any, y: any, w: any, h: any)
 end
 
 -- List field: white and sunken. Icons inside a window lie on it, not on the
--- panel face — in the Windows 95 Explorer these are different surfaces.
+-- panel face — in the classic Explorer these are different surfaces.
 function pixels.field(raster, x: any, y: any, w: any, h: any)
     raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
     pixels.edge(raster, x, y, w, h, false)
@@ -340,7 +340,7 @@ function pixels.checkbox(r: any, x: any, y: any, checked: any, disabled: any)
     end
 end
 
--- Menu marks, as Windows 95 draws them in the column before an item's text:
+-- Menu marks, as the original draws them in the column before an item's text:
 -- a 7×7 checkmark (a checked item) and a 6×6 round bullet (the chosen one of
 -- a group). Rows of the checkmark, top to bottom, `#` inked.
 local CHECK_ROWS = {"......#", ".....##", "#...###", "##.###.", "#####..", ".###...", "..#...."}
@@ -363,7 +363,7 @@ end
 
 -- ─── Title button marks ──────────────────────────────────────────────────
 --
--- With primitives, not with the font: in Windows 95 these were small
+-- With primitives, not with the font: in the original these were small
 -- rasters, and drawn with a font they come out a different weight and do
 -- not sit on the grid. They are not taken from a file (`gfx.image`, the
 -- `images` library): a six-pixel mark is simpler to draw with `rect` than to
@@ -434,7 +434,7 @@ function pixels.mark_folder(raster, x: any, y: any, size: any, tint)
     pixels.bevel(raster, left, top + 2, side, side - 3, true)
 end
 
--- Title button marks — like the Windows 95 rasters in a 16×14 button: the
+-- Title button marks — like the classic rasters in a 16×14 button: the
 -- "minimize" bar 6×2 at the bottom left, "maximize" — a 9×9 frame with a
 -- double top edge, "close" — an 8×7 cross with a two-pixel stroke. Computed
 -- from the size of the BUTTON, not from the center of a square: a 12×10
@@ -475,7 +475,7 @@ function pixels.caption_mark(raster, id, x: any, y: any, w: any, h: any, tint)
 end
 
 -- Etched group frame (EDGE_ETCHED): shadow and right under it light —
--- exactly one pixel each, as with Windows 95 dialog frames.
+-- exactly one pixel each, as with classic dialog frames.
 function pixels.etched(r: any, x: any, y: any, w: any, h: any)
     edge_pair(r, x, y, w, h, color.shadow, color.light)
     edge_pair(r, whole(x) + 1, whole(y) + 1, whole(w) - 2, whole(h) - 2, color.light, color.shadow)
@@ -489,7 +489,7 @@ pixels.MARKS = {
 
 -- A row of buttons of the SAME width — by the widest caption.
 --
--- In Windows 95 dialog buttons were one width, and "OK" and "Cancel" of
+-- In the original, dialog buttons were one width, and "OK" and "Cancel" of
 -- different widths are the first thing that gives away a fake. The width is
 -- computed from the MEASURED text and then rounded up to whole cells: the
 -- place of an interactive detail is named in cells, otherwise neighboring
@@ -781,7 +781,7 @@ pixels.MARKS.view_list = pixels.mark_view_list
 pixels.MARKS.view_details = pixels.mark_view_details
 pixels.MARKS.drop = pixels.mark_drop
 
--- A faded Windows 95 mark: gray, with a white copy one pixel lower and to
+-- A faded classic mark: gray, with a white copy one pixel lower and to
 -- the right.
 function pixels.mark_disabled(raster, mark, x: any, y: any, size: any)
     if type(mark) ~= "function" then return end

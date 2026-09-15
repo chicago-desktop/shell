@@ -39,7 +39,7 @@ catalog.MAX_DEPTH = 3
 local NO_ORDER = 1e9
 
 -- The folder for a program that did not name a folder. The root of "Start"
--- is as in Windows: two folders, "Run…" and "Shut Down…"; a program that
+-- is as in the original: two folders, "Run…" and "Shut Down…"; a program that
 -- wants to sit on the root says so explicitly — `group: ""`. Otherwise every
 -- window built by the workshop over HTTP (it has no `meta.group` and nowhere
 -- to get one from) would land on the root, and the root would grow with every
@@ -143,7 +143,7 @@ local function to_program(record: any)
         -- this field by the explorer; the table as is, associations parses it.
         opens = type(meta.opens) == "table" and meta.opens or nil,
         -- A menu separator after this line: this is how "My Computer" on the
-        -- root is separated from the folders below it, as in Windows.
+        -- root is separated from the folders below it, as in the original.
         separator_after = meta.separator_after == true or nil,
         -- `desktop` in the registry is a request to PUT a shortcut on the
         -- desktop on first appearance, not a statement that the shortcut is

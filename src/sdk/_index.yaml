@@ -30,7 +30,7 @@ entries:
 
   - name: filedialog
     kind: library.lua
-    meta: {comment: "Window SDK file dialog. The Windows 95 Open / Save As sheet, pure: the application reads the places it asks for. See docs/sdk.md."}
+    meta: {comment: "Window SDK file dialog. The classic Open / Save As sheet, pure: the application reads the places it asks for. See docs/sdk.md."}
     source: file://filedialog.lua
     imports:
       files: chicago.shell.viewers:files

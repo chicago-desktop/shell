@@ -1,5 +1,5 @@
 -- "System Properties" is the properties window of "My Computer", like
--- System Properties in Windows 95: what the system is, who it belongs to,
+-- System Properties in the original: what the system is, who it belongs to,
 -- what the computer consists of. Three tabs: "General", "Device Manager",
 -- "Performance".
 --

@@ -91,12 +91,12 @@ current data; `update` changes the model on a component's action.
   `padding_top` / `padding_right` / `padding_bottom` / `padding_left`
   override one side. A dialog with buttons at the bottom sets
   `padding_bottom = 0`: below the pixel theme's bottom frame there is already a whole
-  row of cells, and the extra padding pushed the buttons twice as far away as in Windows 95.
+  row of cells, and the extra padding pushed the buttons twice as far away as in the original.
 - A child's `size` is its size along the parent's axis. Without `size` the remaining
   space is divided by `weight` (1 by default). When space runs short, components are
   clipped; the container's size does not grow beyond the viewport.
 - Pixel measures: `size_px` on a child, `padding_px` and `gap_px` on a container
-  name Windows 95 pixels. When the plan draws in pixels (`ui.plan(…, {cell = {w,
+  name the original's pixels. When the plan draws in pixels (`ui.plan(…, {cell = {w,
   h}})`, which `app.run` and the renderer both pass), they are rounded to the
   nearest whole cells per axis — the mouse speaks cells, so a layout is always
   whole cells, and the pixel number picks the closest one (7 px of padding is a
@@ -105,7 +105,7 @@ current data; `update` changes the model on a component's action.
   drawn width: in a row with `align = "right"` such buttons are packed from the
   row's right edge `pack_px` (6) apart, each drawing kept inside its own cells.
   A dialog row gives each button `size_px = 81, width_px = 75` and gets the
-  Windows 95 75×23 buttons 6 px apart; "Display Properties" is the example.
+  original's 75×23 buttons 6 px apart; "Display Properties" is the example.
 - `label`: `text`, does not take focus; `alert = true` — refusal text (red).
   `\n` in the text makes a multi-line label: lines go at the font's step (15 px in
   pixels, one row per line in cells), the block centered in the rectangle; this way
@@ -118,7 +118,7 @@ current data; `update` changes the model on a component's action.
 - `monitor`: `color` — a monitor screen in the desktop color, like the preview in
   "Display Properties"; in pixels a case with a bevel and a stand, in cells
   a face frame and a colored screen. Does not take focus, no `id` needed.
-  `pattern` — eight bit rows of a Windows 95 desktop pattern
+  `pattern` — eight bit rows of a classic desktop pattern
   (`chicago.shell.display:patterns`), set bits black over the screen color;
   pixels only.
 - `image`: `image` (a name from the icon catalog), `icon` (a character for cells),
@@ -139,7 +139,7 @@ current data; `update` changes the model on a component's action.
 - `button`: `id`, `text`, `disabled`, `default`; the `activate` action on releasing the left button inside,
   or on Enter or Space. Releasing outside the button cancels the press.
   A right press on an enabled button is `context` with the button's `id`, at
-  the PRESS, as Windows does it (Minesweeper flags a cell on the right button
+  the PRESS, as the original does it (Minesweeper flags a cell on the right button
   going down). It arms nothing and takes no focus, so its release activates
   nothing; the window decides what the right button means. The middle button
   and passive views get nothing. The compositor sends right and middle presses
@@ -160,7 +160,7 @@ current data; `update` changes the model on a component's action.
   Space or Enter on an unchosen one gives `change` with `value = true`; on the
   chosen one nothing — a radio button is never unchosen by itself, the
   application clears its neighbours (their `checked` follows the model). In
-  pixels the Windows 95 12×12 ring with a dot, in cells `( )` and `(•)`.
+  pixels the classic 12×12 ring with a dot, in cells `( )` and `(•)`.
 - `input`: `id`, `text`, an optional `password` (shows asterisks, one per
   character; the model and `change.value` keep the real text);
   `change.value` returns the new text, `activate.value`
@@ -175,11 +175,11 @@ current data; `update` changes the model on a component's action.
   Enter or Space opens the list straight under the field (over it when more fits
   there), with the cursor on the chosen option; ↑/↓ and Home/End move the cursor,
   Enter, Space or a click on a row chooses, Esc, Tab or a click elsewhere closes.
-  Closed, ↑/↓ and Home/End change the value directly, as in Windows 95. A choice
+  Closed, ↑/↓ and Home/End change the value directly, as in the original. A choice
   is `change` with the option's `value`, only when it differs. The list is an
   overlay, like a menu's; its rectangle is `ui.dropdown`, one for both renderers
   and the hit test.
-- `slider`: `id`, `value`, `min`, `max`, `disabled` — a Windows 95 trackbar. In
+- `slider`: `id`, `value`, `min`, `max`, `disabled` — a classic trackbar. In
   pixels a sunken 4 px track and an 11 px raised thumb; in cells a `─` track
   with a `█` thumb. The thumb's column is `ui.slider_position(node, width)`, the
   hit test's rule too. A click sets the value at the clicked column; ←/↓ and
@@ -253,7 +253,7 @@ current data; `update` changes the model on a component's action.
   Without an `id` it is inert, like a `static` table, and stays at the top.
   `wrap = false` keeps each line whole and the renderer cuts it.
 - `editor`: `id`, `text`, `wrap` (off by default), `tab` (8), `font = "mono"`,
-  `read_only`, `wheel_step` (3) — the multi-line edit control of Windows 95
+  `read_only`, `wheel_step` (3) — the multi-line edit control of the original's
   Notepad ([FR-007 §3](rfcs/007-notepad.md)). `text` is only the first value:
   the document lives in `interaction.editors[id]` (by its `lines`, apart from
   a field's `{cursor, selected}`), and the window reaches it with
@@ -348,7 +348,7 @@ current data; `update` changes the model on a component's action.
   the ceiling is round (`sdk:charts`), the latest measurement on the right.
 - `gauge`: `value`, `ceiling`, `caption`, `orient` — a gauge toward the ceiling.
   The default (`orient = "vertical"`) is Task Manager's LED meter with the caption
-  under it. `orient = "horizontal"` is a Windows 95 progress bar and draws no
+  under it. `orient = "horizontal"` is a classic progress bar and draws no
   caption: in pixels a sunken field up to 18 px tall with navy blocks 8 px wide
   2 px apart, in cells `█` over the face in a sunken field on the middle row. Both
   fill `ui.gauge_filled(node, units)` of their units — value over ceiling,
@@ -374,7 +374,7 @@ current data; `update` changes the model on a component's action.
   clickable — half a tab would be clicked "into nowhere". `pad` is the air on each
   side of a caption in cells (2 by default; 1 fits more tabs). In pixels a tab is
   measured by its caption — 7 px a character, the Liberation Sans 13 average, plus
-  10 px — and rounded up to whole cells, so the four tabs of a Windows 95 dialog fit.
+  10 px — and rounded up to whole cells, so the four tabs of a classic dialog fit.
 - `menu`: `id`, `entries = {{title, accel?, items = {{id, text, accel?,
   disabled?} | {separator = true}, …}}, …}` — the window's menu bar. A click on a
   title or Alt+letter opens the list; it lies on top of everything
@@ -382,12 +382,12 @@ current data; `update` changes the model on a component's action.
   the list gives `activate` with the item's `id` and `menu`, the menu bar's identifier.
   While the list is open, ←/→ move across the titles, ↑/↓ across the rows (separators
   and disabled items are skipped), Enter chooses, Esc and a click outside collapse it,
-  and such a click goes no further. The menu is not part of the Tab ring, as in Windows.
+  and such a click goes no further. The menu is not part of the Tab ring, as in the original.
   F10 opens the first menu, and closes it again.
   A row may also carry `shortcut = "Ctrl+Z"` — drawn right-aligned in a column
   after the widest text, ending a cell before the edge; a list with shortcuts is
   wider by the widest shortcut plus two cells, one without keeps its width —
-  `checked = true` (a checkmark in the left margin: `✓` in cells, the Windows 95
+  `checked = true` (a checkmark in the left margin: `✓` in cells, the classic
   7 px check in pixels) or `bullet = true` (a radio mark: `•`, a 6 px round dot);
   both on one row is refused by `ui.problem`. A row with `items = {…}` (the same
   row shape) opens a submenu to the right of the list, its first item on that
@@ -426,7 +426,7 @@ breaks the upvalues of the whole stack beneath it, and beneath the renderer lies
 ## Styling of standard elements
 
 The pixel SDK uses the shared `shell:pixels` primitives: `button`, `field`,
-`checkbox`, `edge` and `focus_rect`. A button has the two Windows 95 bevels: a light
+`checkbox`, `edge` and `focus_rect`. A button has the two classic bevels: a light
 one at top/left and a gray one with black outside at bottom/right. A pressed button is
 sunken, its caption shifts by a pixel. `default` adds an outer black outline;
 focus is a separate dotted line inside, not yet another sunken frame.
@@ -440,7 +440,7 @@ its setting applies with a plain `raster:text` too. Do not add a white
 backing and do not turn antialiasing off locally for the application's text.
 
 A button, an input field and a field occupy the middle cell row of their rectangle:
-in cells that row, in pixels the control grows around it to the Windows 95 size — a
+in cells that row, in pixels the control grows around it to the classic size — a
 button up to 23 px, an input up to 24 px, a field up to 26 px (a `fill` button takes
 the whole rectangle). The hit rectangle stays an integer number of cells. Text that
 does not fit is cut with "…" in both renderers; each measures in its own unit — cells
@@ -448,7 +448,7 @@ by cell width, pixels by the font — so pixels keep what the proportional font 
 In cells a button wider than its caption fills its room, the caption centred, as in
 pixels. A list and a field have a double sunken bevel; a checkbox is a 13×13 px square.
 A menu's drop-down (the bar's, a submenu, `ui.context_menu`) keeps whole cell rows for
-its hits; in pixels its 3 px Windows 95 frame (face, then white at the top-left; black,
+its hits; in pixels its 3 px classic frame (face, then white at the top-left; black,
 then dark gray at the bottom-right; a pixel of face) lies inside them, so the first
 item's band starts under the frame and the last one's ends over it. The highlight, the
 text and the marks are centred in the band; separators stand 2 px in from the frame.
@@ -630,7 +630,7 @@ GNOME Terminal support for an application that has only a pixel view.
 
 ## File dialog
 
-`chicago.shell.sdk:filedialog` is the Windows 95 common dialog, Open and
+`chicago.shell.sdk:filedialog` is the classic common dialog, Open and
 Save As, as a sheet the window returns from `view` while it is open
 ([FR-007 §5](rfcs/007-notepad.md)). 44×16 cells: `Look in:` with the places
 and `Up One Level` on top, the list (folders first, then the files of the
@@ -837,7 +837,7 @@ keys.
 A window entry names its size in cells (`meta.width`, `meta.height`), and one
 number of cells is a different dialog at every cell size: "Display Properties"
 is 46×24 cells — 460×480 px at a 10×20 cell, 368×384 px at 8×16 — while the
-Windows 95 original is 404×448 px. The layout inside already speaks pixels
+original is 404×448 px. The layout inside already speaks pixels
 (`size_px`, `padding_px`, `width_px`); the record cannot. The fix belongs to the
 base: `meta.width_px` / `meta.height_px`, converted to whole cells by the
 compositor, which is the one that knows the cell. Not started — it is a change

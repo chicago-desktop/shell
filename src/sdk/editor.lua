@@ -61,7 +61,7 @@ end
 --   goal        the display column ↑ and ↓ keep, nil after a sideways move
 --   undo        nil | {lines, caret, anchor, undone} — ONE level: the text
 --               before the last edit; Undo swaps it with the current one, so
---               the next Undo redoes (Windows 95 Notepad)
+--               the next Undo redoes (classic Notepad)
 --   typing      the last edit was typed: more typing joins its undo step
 --   dirty       changed since `mark`
 --   reveal      the plan brings the caret into view once, then clears it
@@ -300,7 +300,7 @@ function editor.select_all(state: any)
 end
 -- undo(state) -> whether there was a step: the text before the last edit
 -- comes back, and the one it replaced becomes the step, so the next Undo
--- redoes — the Windows 95 one-level toggle.
+-- redoes — the classic one-level toggle.
 function editor.undo(state: any): boolean
     local saved: any = state.undo
     if saved == nil then return false end

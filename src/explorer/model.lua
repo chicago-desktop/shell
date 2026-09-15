@@ -11,7 +11,7 @@
 -- The root shows the drives and one folder, `Control Panel` — the catalog's
 -- `Settings` programs (FR-008 §5). For desktop folders opened directly and
 -- for service paths separate source models remain, reachable by path but not
--- listed at the root (Windows 95 had no such folders in My Computer); the
+-- listed at the root (the original had no such folders in My Computer); the
 -- shell reads them for other purposes:
 --
 --   Programs       — the registry catalog, the same one that fills the "Start" menu
@@ -62,7 +62,7 @@ model.CONTROL_TITLE = "Control Panel"
 model.CONTROL_IMAGE = "control_panel"
 model.SETTINGS_GROUP = "Settings"
 
--- How folders open (View → Options…): a window per folder, as Windows 95
+-- How folders open (View → Options…): a window per folder, as the original
 -- did by default, or one window that changes. The first is the default.
 model.BROWSE = {"separate", "single"}
 model.BROWSE_KEY = "explorer_browse"
@@ -115,7 +115,7 @@ end
 -- By the same parsing as `parse`: an "Up" button that computes the path by
 -- its own formula will drift apart from the double click, and they will
 -- drift apart silently.
--- address(path) -> the address string as Windows would show it: `My Computer`,
+-- address(path) -> the address string as the original would show it: `My Computer`,
 -- `My Computer\Programs`, `app:app_fs\src\app`. A drive is named by its
 -- registry entry — it has no other name, and an invented letter would
 -- promise something that does not exist.
@@ -174,7 +174,7 @@ end
 
 -- An object: what is visible (title, icon, detail) and what happens on a
 -- double click (open). Double, not single: a program that starts on one
--- click is a trap, and real Windows does not have it either.
+-- click is a trap, and the original does not have it either.
 --
 -- `open` describes an INTENT, it does not carry it out: the window does not
 -- spawn processes and does not open its neighbours by itself, it asks the
@@ -537,7 +537,7 @@ end
 --
 -- Opening a folder in the separate-window mode. `listing` is the windows of
 -- `desktop.list`: a folder window already open for the same path is focused
--- instead of opening a second one, as Windows 95 raised it. `title`
+-- instead of opening a second one, as the original raised it. `title`
 -- overrides the caption the path alone gives (an ambiguous drive's caption,
 -- a desktop folder's title). A window opened without args is the root.
 function model.open_folder(path: any, listing: any, title: any): any
@@ -587,7 +587,7 @@ local function grouped(digits: string): string
     return out
 end
 
--- size_text(bytes) -> `133KB`: whole kilobytes rounded up, as Windows 95's
+-- size_text(bytes) -> `133KB`: whole kilobytes rounded up, as the original's
 -- Details did (`0KB` for an empty file, `1KB` for a few bytes), thousands
 -- grouped with a comma. nil → "".
 function model.size_text(bytes: any): string

@@ -1,4 +1,4 @@
--- The real Windows 95 icons — rasters from files, not primitives.
+-- The classic icons — rasters from files, not primitives.
 --
 -- A 32×32 icon is a thousand pixels, and it cannot be drawn with primitives:
 -- the silhouette is recognizable, the details are missing. Here the icons
@@ -327,7 +327,7 @@ function images.icon(raster: any, x: any, y: any, item: any, size: any): (any, a
     end
     raster:blit(picture, x, y)
     if overlay then
-        -- In Windows 95 the shortcut arrow sits in the bottom left corner of
+        -- In the original the shortcut arrow sits in the bottom left corner of
         -- the icon.
         local arrow = images.get(overlay, 16)
         if arrow then

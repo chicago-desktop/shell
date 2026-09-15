@@ -68,7 +68,7 @@ function gadget.stat(spec: any): any
 end
 
 -- meter{caption, value, ceiling, unit?} — two rows: the caption at the left
--- and the value at the right, over a horizontal gauge (a Windows 95 progress
+-- and the value at the right, over a horizontal gauge (a classic progress
 -- bar) toward `ceiling` across the whole width. Beside the texts the bar kept
 -- a third of a 20-cell widget, three blocks, which reads as nothing; under
 -- them it has the whole row. The value takes its length plus a cell at the

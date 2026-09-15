@@ -1,6 +1,6 @@
 -- The wallpapers of "Display Properties → Background": the shell's own
 -- pictures, drawn by `tools/wallpapers.py` into assets/wallpaper — original
--- pixel art in the Windows 95 palette, MIT like the weather icons, not
+-- pixel art in the classic palette, MIT like the weather icons, not
 -- Microsoft's. Each carries the way it is meant to be shown: a tile for
 -- "Tile", a picture for "Center". The setting stores the name.
 --

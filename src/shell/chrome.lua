@@ -1,4 +1,4 @@
--- The shell theme: the Windows 95 look under the theme contract (FR-002,
+-- The shell theme: the classic look under the theme contract (FR-002,
 -- section 4).
 --
 -- There is not a single call here that goes out to the runtime: only strings
@@ -126,7 +126,7 @@ function chrome.buttons_for(window)
     local set: any = type(kind) == "string" and chrome.BUTTON_SETS[kind] or nil
     if not set then set = chrome.BUTTONS end
     -- A fixed-size window (`meta.resizable: false`) is not maximized, and it
-    -- has no "maximize" button — like the Windows 95 calculator. The flag is
+    -- has no "maximize" button — like the classic calculator. The flag is
     -- put in by the base's compositor from the entry; the filter is here, and
     -- not a third set in BUTTON_SETS: both ordinary windows and tool windows
     -- fix their size, and starting a set per combination would mean
@@ -204,7 +204,7 @@ chrome.ICON_W = ICON_GRID.w
 chrome.ICON_H = ICON_GRID.h
 chrome.ICON_LEFT = ICON_GRID.left
 
--- The caption along the Start menu. This is NOT Windows: the shell draws the
+-- The caption along the Start menu. This is NOT the original: the shell draws the
 -- wippy stand, and the banner names it. Ten characters, like the original —
 -- exactly as many rows as the panel gives on a short screen.
 --
@@ -340,7 +340,7 @@ end
 -- ─── Chrome geometry ─────────────────────────────────────────────────────
 
 -- The taskbar takes the bottom row and only that. The chrome takes nothing on
--- top: Windows 95 has no window strip, its role is played by the buttons on
+-- top: the original has no window strip, its role is played by the buttons on
 -- the taskbar.
 function chrome.layout(width: any, height: any)
     return {top = 0, bottom = 1}
@@ -585,7 +585,7 @@ function chrome.window(canvas, window, focused)
 end
 
 -- outline(canvas, rect) — the pending rect of a move or resize drag, as
--- Windows 95 showed it: a dotted frame over everything, the window itself
+-- the original showed it: a dotted frame over everything, the window itself
 -- unmoved until the release. `rect` is in cells, from the compositor.
 function chrome.outline(canvas, rect: any)
     local x, y, w, h = whole(rect.x), whole(rect.y), whole(rect.w), whole(rect.h)
@@ -630,7 +630,7 @@ end
 -- items, in their order.
 --
 -- The notification area is the tray items plus the clock, one block at the
--- right edge, as in Windows 95. Tray items are reserved before the window
+-- right edge, as in the original. Tray items are reserved before the window
 -- buttons and the status, so those give way first. An item that does not
 -- fit beside Start and the clock is dropped; the others keep their order.
 -- `plan.tray` is `{{from, to, index}}`, `index` pointing into `metrics.tray`.
@@ -772,8 +772,8 @@ function chrome.bars(canvas, width: any, height: any, state)
     -- The notice takes what is left. It no longer has a row of its own —
     -- the taskbar took the only bottom one — and throwing it away would mean
     -- losing messages like "could not open: …", which are shown nowhere
-    -- else. Only `notice`: `status` used to carry the key hint, and Windows
-    -- 95 has no such text on the taskbar.
+    -- else. Only `notice`: `status` used to carry the key hint, and the
+    -- original has no such text on the taskbar.
     local notice = type(bar.notice) == "string" and bar.notice or ""
     if notice ~= "" and plan.status then
         pad(plan.status.from - 1)
@@ -872,7 +872,7 @@ end
 -- The hint on an empty desktop is a grey plate in the middle of the teal:
 -- white text straight on the desktop reads as wallpaper, not as a message.
 -- The farewell screen after "Shut Down": a black screen and the caption
--- Windows 95 showed when the power could already be turned off. The
+-- the original showed when the power could already be turned off. The
 -- compositor holds it for FAREWELL_HOLD seconds and only then shuts the
 -- application down — this way a shutdown looks like a shutdown, not like a
 -- cut-off.

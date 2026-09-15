@@ -110,7 +110,7 @@ entries:
       type: tui_desktop.window
       title: Notepad
       # The program itself is a notepad with a pencil (w98_notepad); its files
-      # in the explorer are a text document, as in Windows.
+      # in the explorer are a text document, as in the original.
       image: notepad
       file_image: text_document
       icon: "▤"
@@ -127,7 +127,7 @@ entries:
       opens: [txt, md, log, csv, json, yaml, yml, lua, ini, conf, toml, xml, html, css, js, ts, go, py, sh]
       # The Type column of its files in the explorer's Details view.
       file_type: Text Document
-      comment: Notepad as in Windows 95 — a text file up to 64 KB from a registry drive, edited and saved; File, Edit, Search and Help, Open and Save As, Find, Word Wrap; an SDK application.
+      comment: Notepad as in the original — a text file up to 64 KB from a registry drive, edited and saved; File, Edit, Search and Help, Open and Save As, Find, Word Wrap; an SDK application.
     source: file://notepad.lua
     method: main
     modules:

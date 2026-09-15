@@ -1,4 +1,4 @@
--- Windows 95 primitives that know nothing about the screen.
+-- Classic primitives that know nothing about the screen.
 --
 -- A separate library, because TWO draw with it. The theme draws the window
 -- frame and the taskbar; the "My Computer" window draws its menu bar,
@@ -229,7 +229,7 @@ end
 -- button(label, opts) — a raised button in one row.
 --
 -- opts.pressed — pressed (the edges swap places), opts.default — the default
--- button: in Windows 95 it has a black outline on top of the relief, and
+-- button: in the original it has a black outline on top of the relief, and
 -- that is not decoration but the only sign of what Enter will do.
 -- opts.accel — the number of the letter to underline. opts.disabled —
 -- unavailable: the caption is dim (there is no white shadow in cells, etched
@@ -278,7 +278,7 @@ end
 --
 -- A half block paints the top of the cell with the text color and the
 -- bottom with the background color: a dark edge above a light one, that is,
--- a real Windows 95 etched line, not just a thin rule. Two rows per
+-- a real classic etched line, not just a thin rule. Two rows per
 -- separator are not needed.
 function widgets.etched(width: any)
     local w = whole(width)
@@ -352,7 +352,7 @@ end
 -- Returns hits and captions: the caption is needed by whoever will draw, so
 -- as not to assemble it again by the same rules.
 -- `fixed` — button width in cells, one for all: the pixel toolbar draws
--- 23×22 buttons after the Windows 95 model and names their place in cells
+-- 23×22 buttons after the classic model and names their place in cells
 -- itself, not by the length of the caption, which is absent in pixels.
 function widgets.toolbar_hits(x: any, y: any, width: any, buttons, fixed: any?): any
     local hits: any = {}
@@ -377,7 +377,7 @@ function widgets.toolbar_hits(x: any, y: any, width: any, buttons, fixed: any?):
                 id = button.id, text = text, icon = icon, label = label,
                 pressed = button.pressed and true or false,
                 -- An unavailable button is drawn faded, not hidden, as in
-                -- Windows 95: the toolbar does not change shape depending on
+                -- the original: the toolbar does not change shape depending on
                 -- what is selected. A click on it is not an action, and the
                 -- hit says so.
                 disabled = button.disabled and true or false,
@@ -415,12 +415,12 @@ function widgets.toolbar(target, x: any, y: any, width: any, buttons)
 end
 
 -- Address bar: the caption "Address", a sunken field with a folder icon and
--- the path, and on the right a ▾ button that opens the list. As in a Windows
--- 95 folder window (there it is a drop-down list on the toolbar; in 98 — a
--- row of its own).
+-- the path, and on the right a ▾ button that opens the list. As in a classic
+-- folder window (there it is a drop-down list on the toolbar; in the next
+-- release — a row of its own).
 --
 -- Returns hits: `field` — the field itself, `drop` — the button. Both open
--- the list: in Windows a click on the field selects the text, but the text
+-- the list: in the original a click on the field selects the text, but the text
 -- is not editable here, and a field that responds to nothing is worse than
 -- a field that acts as a button.
 widgets.ADDRESS_LABEL = " Address "
@@ -518,7 +518,7 @@ function widgets.statusbar(target, x: any, y: any, width: any, fields)
     target:put(left, row, table.concat(parts), span)
 end
 
--- How many columns a vertical scrollbar takes. The Windows 95 bar is 16 px
+-- How many columns a vertical scrollbar takes. The classic bar is 16 px
 -- wide; in pixels it takes as many whole cells as 16 px needs — two at an 8
 -- or 10 px cell, one from 16 px up — and in cells one (`cell_w` absent or
 -- zero). ONE rule for the SDK and the explorer: the layout reserves these

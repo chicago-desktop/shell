@@ -53,7 +53,7 @@ local ICON_GRID = {w = 12, h = 4, drawn = 3, caption = 2}
 -- The Small Icons grid (`icons` with `small = true`): a 16 px picture with
 -- the caption at its right, one row high, 15 cells a column — the glyph, a
 -- space, twelve cells of caption and a cell of air; 150 px at a 10 px cell,
--- the Windows 95 column. No caption rows: the caption is on the picture's row.
+-- the classic column. No caption rows: the caption is on the picture's row.
 local SMALL_GRID = {w = 15, h = 1, drawn = 1, caption = 0}
 
 function ui.icon_grid(small: any?): any
@@ -236,7 +236,7 @@ end
 -- `cell` (a plan drawn in pixels) measures a tab by its caption in pixels —
 -- 7 px a character, the Liberation Sans 13 average, plus 10 px of air — and
 -- rounds up to whole cells: a caption set in a proportional font is half as
--- wide as one cell per character, and Windows 95's four tabs only fit that way.
+-- wide as one cell per character, and the original's four tabs only fit that way.
 function ui.spans(labels: any, width: any, pad: any, cell: any?): any
     local out, used = {}, 0
     -- Padding on each side: two cells for tabs (edges and air), one for
@@ -262,7 +262,7 @@ end
 -- hit test and both renderers read. Cells draw a box, so the list has a frame
 -- row above and below its items (`lead` 1). A pixel plan (`pixel_rows`) has
 -- none: the frame is pixels inside the item rows, and the first item lies in
--- the row straight under the bar, as the Windows 95 drop-down touches the bar.
+-- the row straight under the bar, as the classic drop-down touches the bar.
 -- A separator stays a whole row: the mouse knows only rows, and a thinner one
 -- would move every item below it off the row its hit is counted by.
 --
@@ -430,14 +430,14 @@ end
 -- `padding_right`, `padding_bottom`, `padding_left` override their own side.
 -- Dialogs need this: the pixel theme already has a whole row of cells under
 -- the bottom frame (the frame is three pixels, but the reserve is a row), and one more
--- cell of padding at the bottom pushed the buttons twice as far from the frame as in Windows 95.
+-- cell of padding at the bottom pushed the buttons twice as far from the frame as in the original.
 -- cells_for(plan, px, fallback, horizontal, least) -> whole cells
 --
 -- A measure named in pixels (`size_px`, `padding_px`, `gap_px`) as whole cells
 -- along one axis, when the plan draws in pixels: rounded to the nearest cell,
 -- never below `least`. The mouse speaks cells, so a layout can only ever be
--- whole cells; the pixel number says which whole number is closest to Windows
--- 95. Without a cell (cells mode) the cell measure `fallback` stands.
+-- whole cells; the pixel number says which whole number is closest to the
+-- original. Without a cell (cells mode) the cell measure `fallback` stands.
 local function cells_for(plan: any, px: any, fallback: any, horizontal: boolean, least: integer): integer
     local cell: any = plan.cell
     if cell == nil or px == nil then return whole(math.max(least, whole(fallback or 0))) end
@@ -456,7 +456,7 @@ local function cells_up(plan: any, px: any, fallback: any, horizontal: boolean, 
     return whole(math.max(least, (whole(px) + unit - 1) // unit))
 end
 -- pack(children, rect, node, plan) — the buttons of a right-aligned row, drawn
--- at their Windows 95 size in pixels: `width_px` wide (75 in a dialog),
+-- at their classic size in pixels: `width_px` wide (75 in a dialog),
 -- `pack_px` apart (6 by default), packed from the row's right edge. Each
 -- drawing is kept inside its own cells: a button's picture in a neighbour's
 -- cell would press the neighbour. So the row gives each button whole cells
@@ -883,7 +883,7 @@ local function add(node: any, rect: any, plan: any, interaction: any)
     end
     plan.items[#plan.items + 1] = item
     if id then plan.by_id[id] = item end
-    -- The menu is not part of the focus ring — as in Windows, it is reached with Alt and F10.
+    -- The menu is not part of the focus ring — as in the original, it is reached with Alt and F10.
     if id and not inert(node) and kind ~= "menu" and not node.disabled then plan.focusable[#plan.focusable + 1] = id end
 end
 -- problem(tree) -> reason | nil
@@ -1004,7 +1004,7 @@ end
 --
 -- The color spectrum of "Display Properties → Settings": at `t` from 0 to 1
 -- the hue sweeps from magenta through blue, cyan, green and yellow to red,
--- as the Windows 95 bar reads left to right. Full saturation and value.
+-- as the classic bar reads left to right. Full saturation and value.
 function ui.spectrum_color(t: any): string
     local at = math.max(0, math.min(1, tonumber(t) or 0))
     local hue = (1 - at) * 5
@@ -1088,7 +1088,7 @@ function ui.plan(tree: any, width: any, height: any, interaction: any, options: 
     if interaction.capture and plan.by_id[interaction.capture.id] == nil then interaction.capture = nil end
     if interaction.armed and plan.by_id[interaction.armed.id] == nil then interaction.armed = nil end
     -- The black "default" outline goes to the focused button, and when the focus is not on
-    -- a button, to the one declared `default`. That is how Windows does it, and that is how Enter does
+    -- a button, to the one declared `default`. That is how the original does it, and that is how Enter does
     -- exactly what is drawn. Decided here once for both renderers.
     local focused = plan.by_id[interaction.focus]
     plan.focus_on_button = focused ~= nil and focused.node.kind == "button"
@@ -1266,7 +1266,7 @@ end
 -- Select: a click on the field, Enter or Space opens the list with the cursor
 -- on the chosen option; while it is open the arrows move the cursor, Enter,
 -- Space or a click on a row chooses, Esc and a click elsewhere close it.
--- Closed, the arrows change the value directly, as in a Windows 95 drop-down
+-- Closed, the arrows change the value directly, as in a classic drop-down
 -- list. A choice is `change` with the option's value, only when it differs.
 local function select_event(item: any, state: any, event: any): any
     local node, id = item.node, item.node.id
@@ -1771,7 +1771,7 @@ function ui.event(plan: any, state: any, original: any): any
                 end
                 return menu_event(item, state, event)
             end
-            -- F10 opens the first menu, as in Windows (and closes it again,
+            -- F10 opens the first menu, as in the original (and closes it again,
             -- in `menu_event`).
             if input.key(event) == "f10" and not open then
                 state.menus[item.node.id] = {index = 1, cursor = 0}
@@ -1800,7 +1800,7 @@ function ui.event(plan: any, state: any, original: any): any
             return tabs_event(item, state, event)
         end
         -- The right button over a button belongs to the window (Minesweeper
-        -- flags a cell with it): `context` at the PRESS, as in Windows. It
+        -- flags a cell with it): `context` at the PRESS, as in the original. It
         -- arms nothing and takes no focus, so its release activates nothing.
         if item.node.kind == "button" and item.node.id and event.action == "press" and event.button == "right" then
             return {type = "context", id = item.node.id}

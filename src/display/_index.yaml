@@ -1,7 +1,7 @@
 version: "1.0"
 namespace: chicago.shell.display
 
-# "Display Properties" is the Windows 95 Display Properties: the desktop
+# "Display Properties" is the classic Display Properties: the desktop
 # color and information about the screen. It opens from the "Properties"
 # item on a right click on the empty desktop and from "Start → Settings".
 
@@ -19,7 +19,7 @@ entries:
   - name: patterns
     kind: library.lua
     meta:
-      comment: The Windows 95 desktop patterns — 8×8 monochrome tiles as bit rows, the list of Display Properties, lookup by name.
+      comment: The classic desktop patterns — 8×8 monochrome tiles as bit rows, the list of Display Properties, lookup by name.
     source: file://patterns.lua
 
   # chicago.shell.display:wallpapers
@@ -71,7 +71,7 @@ entries:
       window_type: dialog
       resizable: false
       # 46×24 cells: at a 10×20 cell the page frame is 420×380 px against the
-      # 386×360 of Windows 95. The record is cells, so at an 8×16 cell the
+      # 386×360 of the original. The record is cells, so at an 8×16 cell the
       # same record is a smaller dialog (a 336×304 px page frame).
       width: 46
       height: 24

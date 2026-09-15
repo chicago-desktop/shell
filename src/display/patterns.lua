@@ -1,12 +1,12 @@
--- The Windows 95 desktop patterns: 8×8 monochrome tiles, one byte per row,
+-- The classic desktop patterns: 8×8 monochrome tiles, one byte per row,
 -- the high bit on the left. A set bit is drawn black, a clear one in the
 -- desktop color — the pattern is laid over the color, not instead of it.
 --
--- The bits are the originals, decoded from the Windows 95/98 pattern
+-- The bits are the originals, decoded from the classic pattern
 -- bitmaps (cs.gettysburg.edu/~duncjo01/archive/patterns/windows): Weave,
--- Quilt, Thatches and Tulip match the values Windows 3.1 kept in
+-- Quilt, Thatches and Tulip match the values the original's predecessor kept in
 -- CONTROL.INI byte for byte, which is how the source was checked. The list
--- and its order are the Display Properties list of Windows 95.
+-- and its order are the Display Properties list of the original.
 --
 -- A pure library: the display window lists the names, the shell looks the
 -- chosen one up and hands its rows to the theme.

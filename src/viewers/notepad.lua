@@ -1,4 +1,4 @@
--- Notepad as in Windows 95 (FR-007 §6): an SDK application.
+-- Notepad as in the original (FR-007 §6): an SDK application.
 --
 -- The shared renderer draws the tree this process publishes (`pixel_render:
 -- chicago.shell.sdk:render`, and this same entry is its state provider);

@@ -1,4 +1,4 @@
--- chicago.shell.viewers:notepad_model — Notepad as Windows 95 had it
+-- chicago.shell.viewers:notepad_model — Notepad as the original had it
 -- (FR-007 §1, §6), pure.
 --
 -- The window's model and its `view`, `update` and `title`: the menus of §1,
@@ -25,7 +25,7 @@ local notepad = {}
 
 -- The editor's id in the window's tree.
 notepad.DOC = "doc"
--- Windows 95 Notepad opened files up to 64 KB and refused larger ones.
+-- Classic Notepad opened files up to 64 KB and refused larger ones.
 notepad.LIMIT = 64 * 1024
 notepad.NAME = "Notepad"
 notepad.UNTITLED = "Untitled"
@@ -266,11 +266,11 @@ local function sheet_update(state: any, context: any, action: any): boolean
         if result.accept then
             if sheet.mode == "open" then return open_path(state, context, result.accept, sheet.dialog) end
             -- A name without an extension under Text Documents is a .txt, as
-            -- Windows saved it.
+            -- the original saved it.
             local place: any = {drive = result.accept.drive, path = result.accept.path}
             if files.ext(place.path) == "" and tostring(sheet.dialog.type or "txt") == "txt" then place.path = place.path .. ".txt" end
             -- A file already there is replaced only when the person says so,
-            -- as Windows 95 asked; No is the default, the question deletes.
+            -- as the original asked; No is the default, the question deletes.
             if state.sys.exists(place.drive, filedialog.clean(place.path)) then
                 state.sheet = {kind = "replace", title = "Save As", image = "notepad", icon = "▤",
                     place = place, back = sheet.dialog,

@@ -20,8 +20,8 @@
 -- Therefore the marker is the coordinates themselves. Empty = nobody named a
 -- place, and the compositor is free to put the icon into a free cell, knowing
 -- the screen width at the moment of the frame. Filled = a person named the
--- place, and it is inviolable, even if it went past the edge: in real
--- Windows 95 an icon that went past the edge does not come back by itself.
+-- place, and it is inviolable, even if it went past the edge: in the
+-- original an icon that went past the edge does not come back by itself.
 --
 -- Existing rows have coordinates, so after the migration they count as
 -- placed and will not be rearranged. That is the conservative outcome, and it

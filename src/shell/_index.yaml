@@ -29,7 +29,7 @@ entries:
   - name: palette
     kind: library.lua
     meta:
-      comment: The palette in exact Windows 95 colors, and the same names as basic ANSI indices as a fallback.
+      comment: The palette in exact classic colors, and the same names as basic ANSI indices as a fallback.
     source: file://palette.lua
 
   # chicago.shell.theme:glyphs
@@ -46,7 +46,7 @@ entries:
   - name: widgets
     kind: library.lua
     meta:
-      comment: Windows 95 bevelled details — edges, panel, sunken field, button, etched separator, menu bar, toolbar, status bar, tabs.
+      comment: Classic bevelled details — edges, panel, sunken field, button, etched separator, menu bar, toolbar, status bar, tabs.
     source: file://widgets.lua
     modules:
       - tty
@@ -81,7 +81,7 @@ entries:
   - name: pixels
     kind: library.lua
     meta:
-      comment: Windows 95 pixel primitives — a one-pixel edge, panel, sunken field, button, marks, icons; paints pixels at a place named in cells, while the caller's layout computes the hits.
+      comment: Classic pixel primitives — a one-pixel edge, panel, sunken field, button, marks, icons; paints pixels at a place named in cells, while the caller's layout computes the hits.
     source: file://pixels.lua
     modules:
       - gfx
@@ -179,7 +179,7 @@ entries:
 
   # chicago.shell.theme:icon_files
   #
-  # The real Windows 95 icons — PNG 32×32 and 16×16 in assets/icons, see
+  # The classic icons — PNG 32×32 and 16×16 in assets/icons, see
   # SOURCE.md in the same place. The folder is declared by the module
   # (`base: module`), not by the application: the icons are part of the look,
   # and the application should not have to know about them. Read only, so
@@ -188,7 +188,7 @@ entries:
   - name: icon_files
     kind: fs.directory
     meta:
-      comment: Windows 95 icons from shell32.dll as PNG — they arrive in gfx as bytes, not as a path.
+      comment: Classic icons from shell32.dll as PNG — they arrive in gfx as bytes, not as a path.
     base: module
     directory: ./assets/icons
     auto_init: false
@@ -201,7 +201,7 @@ entries:
   - name: images
     kind: library.lua
     meta:
-      comment: Real Windows 95 icons from PNG — decoded with gfx.image, laid down with blit, one "kind → name" table; a failure goes to the log once per icon.
+      comment: Classic icons from PNG — decoded with gfx.image, laid down with blit, one "kind → name" table; a failure goes to the log once per icon.
     source: file://images.lua
     modules:
       - fs

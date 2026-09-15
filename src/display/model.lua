@@ -8,7 +8,7 @@ local model = {}
 
 model.DEFAULT = "#008080"
 
--- Desktop colors: the set of the standard Windows 95 palette, teal first,
+-- Desktop colors: the set of the standard classic palette, teal first,
 -- since it is the default desktop. A user color from the database that is
 -- not here is shown as a separate "Other" line rather than replaced by the
 -- nearest one.
@@ -57,7 +57,7 @@ function model.resolution(screen: any, cell: any): string
     local c: any = type(cell) == "table" and cell or {}
     local cols, rows = whole(s.width), whole(s.height)
     if cols < 1 or rows < 1 then return "unknown" end
-    -- In Windows 95's words: "640 by 480 pixels".
+    -- In the original's words: "640 by 480 pixels".
     local text = string.format("%d by %d cells", cols, rows)
     if whole(c.w) > 0 and whole(c.h) > 0 then
         text = text .. string.format(", %d by %d pixels", cols * whole(c.w), rows * whole(c.h))

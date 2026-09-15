@@ -1,6 +1,6 @@
 -- "My Computer" and every folder window (FR-008) — an SDK application.
 --
--- A Windows 95 folder window: the menu bar `File Edit View Help`, an optional
+-- A classic folder window: the menu bar `File Edit View Help`, an optional
 -- toolbar, the objects in one of four views, and a status bar. Every folder
 -- opens in its own window (the default browse mode); a folder whose window is
 -- already open raises that window. The other mode, one window that changes, is
@@ -35,7 +35,7 @@ definition.VIEWS = {"large", "small", "list", "details"}
 local VIEW_TEXT: any = {large = "Large Icons", small = "Small Icons", list = "List", details = "Details"}
 local SORT_TEXT: any = {name = "by Name", type = "by Type", size = "by Size", date = "by Date"}
 
--- The browse options, verbatim from Windows 95's View → Options… → Folder.
+-- The browse options, verbatim from the original's View → Options… → Folder.
 definition.BROWSE_TEXT = {
     separate = "Browse folders using a separate window for each folder.",
     single = "Browse folders by using a single window that changes as you open each folder.",
@@ -297,7 +297,7 @@ local function menu_bar(state: any): any
         {title = "Help", accel = 1, items = {
             {id = "help_topics", text = "Help Topics"},
             SEP,
-            {id = "help_about", text = "About Windows"},
+            {id = "help_about", text = "About Chicago"},
         }},
     }}
 end
@@ -305,7 +305,7 @@ end
 -- The toolbar, when on: the folder combo, Up One Level, then the buttons of
 -- the original. The pack has no pictures for Cut … Details yet, so they carry
 -- their captions; what does not fit the width is not drawn (the SDK clips a
--- row), as a narrow Windows 95 window lost its last buttons.
+-- row), as a narrow classic window lost its last buttons.
 local function toolbar(state: any): any
     local function tool(id: string, text: string, extra: any?): any
         local node: any = {kind = "button", id = id, size = #text + 2, text = text}
@@ -490,7 +490,7 @@ local function command(state: any, id: any, context: any): boolean
     elseif id == "help_topics" then
         return message(state, {title = "Help", icon = "?", image = "help", lines = {"Help is not available."}})
     elseif id == "help_about" then
-        return message(state, {title = "About Windows", image = "windows", icon = "▩", lines = {
+        return message(state, {title = "About Chicago", image = "windows", icon = "▩", lines = {
             "The Chicago shell for Wippy (chicago/shell).",
             "Icons: an interim set, being replaced with original pixel art (chicago-desktop/shell#1).",
         }})
@@ -578,7 +578,7 @@ function definition.update(state: any, action: any, context: any): any
     if state.sheet then return sheet_update(state, action) end
 
     -- An action from the popup is its choice; any other pointer or key action
-    -- dismisses it, as a click elsewhere does in Windows.
+    -- dismisses it, as a click elsewhere does in the original.
     local from_popup = action.menu == "context"
     if state.popup and not from_popup and kind ~= "key" then state.popup = nil end
 

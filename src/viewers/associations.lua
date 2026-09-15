@@ -1,6 +1,6 @@
 -- File-type registry: which program opens which extension.
 --
--- In Windows this is HKEY_CLASSES_ROOT — a separate branch that programs
+-- In the original this is HKEY_CLASSES_ROOT — a separate branch that programs
 -- fill in at installation. Here there is no separate branch, and none is
 -- needed: **a program declares by itself what it opens**, with the field
 -- `meta.opens` in its registry entry, and the table is assembled from the
@@ -73,7 +73,7 @@ function associations.table(programs: any): (any, any)
         if id then
             for _, ext in ipairs(opens_of(item)) do
                 local list: any = claims[ext] or {}
-                -- The program's icon becomes the icon of its files: in Windows
+                -- The program's icon becomes the icon of its files: in the original
                 -- a file type carries both the program and the picture, and
                 -- that is one record, not two. But Notepad has its own icon (a
                 -- notepad with a pencil), while its files have a text
@@ -82,7 +82,7 @@ function associations.table(programs: any): (any, any)
                 -- and on the desktop keeps `image`.
                 local image = field(item, "file_image")
                 if type(image) ~= "string" or image == "" then image = field(item, "image") end
-                -- The name of the program's documents, as Windows' Type column
+                -- The name of the program's documents, as the original's Type column
                 -- showed it ("Text Document"): `meta.file_type`, one per program.
                 local file_type = field(item, "file_type")
                 list[#list + 1] = {
@@ -141,7 +141,7 @@ end
 --
 -- The request has the same form as a desktop shortcut and a menu item:
 -- `open_window` with the entry, title, size and argument. The title is the
--- file name, as in Windows: the window is named after what is open in it.
+-- file name, as in the original: the window is named after what is open in it.
 function associations.open(programs: any, drive: any, path: any): (any, any)
     local program, why = associations.find(programs, path)
     if not program then return nil, why end

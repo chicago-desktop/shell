@@ -100,7 +100,7 @@ function chrome_pixels.renders(reference)
     return VIEWS[tostring(reference)] ~= nil
 end
 
--- The title metrics follow Windows 95, in pixels: above the blue bar, two rows
+-- The title metrics follow the original, in pixels: above the blue bar, two rows
 -- of the frame (face and light), the bar itself 18 px, buttons 16×14 two
 -- pixels from its edges, the window frame four pixels.
 --
@@ -310,7 +310,7 @@ end
 
 -- ─── desktop pattern ─────────────────────────────────────────────────────
 --
--- The Windows 95 pattern ("Display Properties → Background"): an 8×8 tile,
+-- The classic pattern ("Display Properties → Background"): an 8×8 tile,
 -- set bits black over the desktop color (`chrome.use_pattern`). Without a
 -- pattern the desktop stays cells, as before, and costs nothing.
 --
@@ -465,7 +465,7 @@ end
 -- correct.
 --
 -- Selection is an inversion over the TEXT, not over the whole column: in
--- Windows 95 the blue rectangle hugs the caption, and it shows where the
+-- the original the blue rectangle hugs the caption, and it shows where the
 -- caption ends.
 function chrome_pixels.draw_icon(raster, box: any, item: any, selected)
     local side = 32
@@ -482,7 +482,7 @@ function chrome_pixels.draw_icon(raster, box: any, item: any, selected)
         local from = box.x + (box.w - width) // 2
         if selected then raster:rect(from - 2, at - 1, width + 4, 15, color.select_bg)
         -- Over a pattern or a wallpaper the caption stands on the desktop
-        -- color, as in Windows 95: the picture under the letters would eat them.
+        -- color, as in the original: the picture under the letters would eat them.
         elseif backdrop_on() then raster:rect(from - 2, at - 1, width + 4, 15, color.desktop) end
         local tint = selected and color.select_fg or color.desktop_text
         if item.broken and not selected then tint = color.desktop_broken end
@@ -559,7 +559,7 @@ end
 local widget_seen: any = {ids = {}}
 
 -- The frame over the ring of padding around the body: the raised 2-px edge
--- of a Windows 95 panel, and with a title a group's etched frame inside the
+-- of a classic panel, and with a title a group's etched frame inside the
 -- ring with the caption on its top line, the way the SDK draws a `group`.
 local function paint_widget_frame(raster: any, cell: any, fonts: any, title: string)
     local rw, rh = raster:size()
@@ -689,7 +689,7 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
     if dirty then
         local width, height = w * cell.w, head_rows * cell.h
         head:fill(inside)
-        -- The Windows 95 frame: face and black outside, light and shadow
+        -- The classic frame: face and black outside, light and shadow
         -- inside — the order is the reverse of a button's, which has the
         -- light outside.
         head:rect(1, 1, width, TITLE_TOP - 1 + title_height(), color.face)
@@ -743,7 +743,7 @@ local function paint_window(cell: any, window: any, focused, fonts: any, out)
             x = side == "left" and window.x or window.x + w - 1,
             y = window.y + head_rows, cols = 1, rows = body}
     end
-    -- A resizable window's frame ends in the Windows 95 size grip, inside the
+    -- A resizable window's frame ends in the classic size grip, inside the
     -- raised edge, over the last two cells of the bottom row: exactly where
     -- the base starts a resize drag, by the same `resizable ~= false`.
     local grip = window.resizable ~= false
@@ -798,7 +798,7 @@ local function text_width(role: string, text: any): integer
 end
 
 -- Taskbar measures in pixels: a window button of 16 cells (160 px at a 10 px
--- cell, as in Windows 95), a clock of 9 cells and one cell of gap before it.
+-- cell, as in the original), a clock of 9 cells and one cell of gap before it.
 -- The layout rules are `chrome.taskbar_layout`'s, shared with the cell theme.
 local TASK_SPAN = 16
 local CLOCK_SPAN = 9
@@ -816,7 +816,7 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
     local face: any = type(fonts) == "table" and fonts.face or nil
     local bold: any = type(fonts) == "table" and fonts.bold or face
     -- Only `notice` is drawn: `status` used to carry the key hint, and
-    -- Windows 95 has no such text on the taskbar (owner's rule, 2026-09-11).
+    -- the original has no such text on the taskbar (owner's rule, 2026-09-11).
     local notice = type(state.notice) == "string" and state.notice or ""
     local key = {tostring(w), tostring(state.clock or ""), tostring(state.focused_id or ""),
                  (state.menu and not state.menu.anchor) and "open" or "closed", notice}
@@ -893,7 +893,7 @@ local function paint_bars(cell: any, state: any, fonts: any, out, hits)
         end
     end
     -- The notification area: one sunken box around the tray items and the
-    -- clock, as in Windows 95, with each caption in its own cells.
+    -- clock, as in the original, with each caption in its own cells.
     local clock: any = plan.clock
     local first: any = plan.tray[1]
     local last: any = plan.tray[#plan.tray]
@@ -1023,7 +1023,7 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
         local area = pixels.box(1, 1, box.w, box.h, cell)
         pixels.panel(raster, 1, 1, area.w, area.h)
 
-        -- The vertical "Windows 95" caption is a ROTATED STRING, not a
+        -- The vertical banner caption is a ROTATED STRING, not a
         -- column of letters.
         --
         -- In cells it could not be otherwise: there a letter takes a cell,
@@ -1084,7 +1084,7 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
             local inset = line_h >= 28 and 4 or 2
 
             -- Selection is a strip across the whole list width, as in
-            -- Windows 95: in a menu the blue rectangle hugs the whole row,
+            -- the original: in a menu the blue rectangle hugs the whole row,
             -- not the caption, unlike an icon on the desktop.
             local tint = color.face_text
             if line.selected then
@@ -1101,7 +1101,7 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
             -- Root entries use their native 32px frame; submenus use 16px.
             local mark_size = whole(box.banner) > 0 and 32 or 16
             local mark_top = top + (line_h - mark_size) // 2
-            -- The context menu has no icons, as in Windows 95.
+            -- The context menu has no icons, as in the original.
             if box.context then
                 mark_size = 0
             elseif line.kind == "group" then
@@ -1125,9 +1125,9 @@ local function paint_menu_panel(cell: any, box: any, id, fonts: any)
                     {font = font, color = tint})
 
                 -- The submenu arrow — with the same primitive and at the
-                -- right edge of the list, as in Windows 95.
+                -- right edge of the list, as in the original.
                 if line.arrow then
-                    -- At the panel's right edge, as in Windows 95: 4 px to the
+                    -- At the panel's right edge, as in the original: 4 px to the
                     -- edge.
                     pixels.mark_submenu(raster, area.w - 3 - 4 - 8, top + (line_h - 8) // 2, 8, tint)
                 end
@@ -1168,7 +1168,7 @@ local function visible_placements(list: any, windows: any, menus: any, cell: any
 end
 
 -- The outline of a move or resize drag (the compositor's `outline`), as
--- Windows 95 drew it: a 3-px band of alternating black and white dashes along
+-- the original drew it: a 3-px band of alternating black and white dashes along
 -- the pending rect, over everything. Four overlay placements, transparent but
 -- for the band: the windows and the text under them stay visible, and the
 -- compositor leaves their cells unblanked. They are drawn into on every frame

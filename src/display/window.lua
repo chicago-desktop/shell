@@ -1,7 +1,7 @@
--- "Display Properties", like Display Properties in Windows 95: four tabs,
+-- "Display Properties", like Display Properties in the original: four tabs,
 -- Background, Screen Saver, Appearance and Settings.
 --
--- The Windows 95 dialog, measured on a screenshot of the real one (the
+-- The classic dialog, measured on a screenshot of the real one (the
 -- Settings tab, 404×448 px with its frame and title bar):
 --   * the dialog's margins are 7 px; the tabs are 18 px tall, the active one
 --     2 px taller; the page frame is 386×360 px;
@@ -12,13 +12,13 @@
 --     dialog's bottom edge.
 -- The tree names these numbers in pixels (`size_px`, `padding_px`, `gap_px`,
 -- `width_px`). The SDK rounds them to whole cells — the mouse speaks cells —
--- and draws the buttons at their Windows 95 size inside their cells. The cell
+-- and draws the buttons at their classic size inside their cells. The cell
 -- numbers (`size`, `padding`, `gap`) are the same tree in character mode.
 --
--- "Background" is the pattern: the Windows 95 8×8 tiles
+-- "Background" is the pattern: the classic 8×8 tiles
 -- (`chicago.shell.display:patterns`), tiled by the pixel theme over the
 -- desktop color. The wallpaper group stands there disabled until wallpapers
--- exist. "Appearance" holds the desktop color, where Windows 95 kept it: the
+-- exist. "Appearance" holds the desktop color, where the original kept it: the
 -- color of the Desktop item. "Screen Saver" says it is not available.
 -- "Apply" and "OK" write the choice into the shell settings and ask the
 -- compositor to reread the desktop (`desktop.refresh`), which repaints the
@@ -105,7 +105,7 @@ local function monitor(color: any, pattern: any, wallpaper: any, mode: any): any
 end
 
 -- A group's own button, under its list at the group's right edge: 92×23 px,
--- the width of "Edit Pattern…" and "Browse…" in Windows 95.
+-- the width of "Edit Pattern…" and "Browse…" in the original.
 local function group_button(id: string, text: string): any
     return {kind = "row", size = 2, size_px = 30, align = "right", children = {
         {kind = "button", id = id, size = 16, size_px = 98, width_px = 92, text = text, disabled = true},
@@ -152,7 +152,7 @@ local function screen_saver(state: any): any
     }}
 end
 
--- Appearance: the desktop color is the one live item — Windows 95 kept it
+-- Appearance: the desktop color is the one live item — the original kept it
 -- here, as the color of the Desktop.
 local function appearance(state: any): any
     return {kind = "column", gap = 0, children = {
@@ -168,10 +168,10 @@ local function appearance(state: any): any
     }}
 end
 
--- Settings, as the Windows 95 tab: the monitor, then "Color palette" (the
+-- Settings, as the classic tab: the monitor, then "Color palette" (the
 -- palette in a drop-down list, read-only — the runtime forces TrueColor — and
 -- the spectrum under it), "Desktop area" (a Less–More slider, disabled — the
--- terminal sets the size — and the resolution in Windows 95's words under it),
+-- terminal sets the size — and the resolution in the original's words under it),
 -- a disabled "Font size" and a disabled "Change Display Type…".
 local function settings(state: any): any
     local info: any = state.info or {}
@@ -214,7 +214,7 @@ end
 local PAGES: any = {background, screen_saver, appearance, settings}
 
 function definition.view(state: any, context: any): any
-    -- In cells a caption is a cell per character: four tabs of Windows 95
+    -- In cells a caption is a cell per character: four tabs of the original
     -- need 48 cells, and the page has 42. So the tabs there take one cell of
     -- air instead of two, and "Screen Saver" is "Saver" — the one place this
     -- window asks which backend draws it.

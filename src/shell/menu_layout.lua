@@ -26,7 +26,7 @@ local MENU_MIN = 22
 -- From this width on the vertical caption fits in the menu.
 --
 -- It was 26, and that turned out to be more than our panels ever are: the
--- caption was practically never shown, while on the Windows 95 reference frame
+-- caption was practically never shown, while on the classic reference frame
 -- it is always there. The threshold is kept, but lowered to the width at
 -- which the panel does not yet look squeezed.
 local MENU_BANNER_AT = 18
@@ -96,7 +96,7 @@ end
 
 -- The rows of one panel: folders and programs TOGETHER, by `order`; a folder
 -- stands where its earliest program is. Folders used to always go first, and
--- "My Computer" could not be put above "Programs", as in Windows. Between
+-- "My Computer" could not be put above "Programs", as in the original. Between
 -- equals — a folder before a program, then the alphabet. There are no indents
 -- ON PURPOSE: nesting is shown by a separate panel, not by a shift to the
 -- right. With indents the tree reads as a list, and that was no trifle — a
@@ -138,7 +138,7 @@ local function line_text(line)
     if line.kind == "item" then
         local item = line.item
         -- Digits before the item WERE here and were removed on purpose.
-        -- Windows 95 did not have them, and a person opening programs with
+        -- The original did not have them, and a person opening programs with
         -- the mouse reads a column of digits as the question "what are they
         -- for". They appeared not by design but because of a tool: the probe
         -- could not do the mouse, and there was no other way to open a window
@@ -455,7 +455,7 @@ function menu_layout.layout(width: any, height: any, items, failure, open, curso
                 image = line.item and line.item.image or line.image,
                 separator_before = line.separator_before,
                 arrow = line.kind == "group",
-                -- Folder labels have the same weight as applications in Win95;
+                -- Folder labels have the same weight as applications in the original;
                 -- the user name at the top is bold, like a caption.
                 bold = line.kind == "user" or nil,
                 selected = under_cursor or expanded,

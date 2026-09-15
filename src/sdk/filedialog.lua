@@ -1,4 +1,4 @@
--- chicago.shell.sdk:filedialog — the Windows 95 common file dialog,
+-- chicago.shell.sdk:filedialog — the classic common file dialog,
 -- Open and Save As, as a sheet inside the window (FR-007 §5).
 --
 -- Pure, like the rest of the SDK: `sheet` builds the tree from the dialog's
@@ -53,7 +53,7 @@ local BUTTON = 10  -- the dialog buttons, as wide as `ui.message`'s
 
 -- clean(path) -> "/" or "/a/b"
 --
--- A path inside a drive: `\` is read as `/` (a person from Windows types it),
+-- A path inside a drive: `\` is read as `/` (a person used to DOS paths types it),
 -- `.` is dropped and `..` goes one level up but never above the drive's root.
 function filedialog.clean(path: any): string
     local parts: {string} = {}
@@ -167,7 +167,7 @@ end
 --
 -- What the application calls with the place it read for `{read = …}`. The
 -- selection goes (it named a row of the old folder); the File name stays, as
--- in Windows 95. `objects == nil` shows `notice` where the list was: a folder
+-- in the original. `objects == nil` shows `notice` where the list was: a folder
 -- that could not be read is not an empty folder.
 function filedialog.arrive(state: any, place: any, objects: any, notice: any): any
     state.place = {drive = place and place.drive, path = filedialog.clean(place and place.path)}
@@ -328,7 +328,7 @@ function filedialog.update(state: any, action: any): (any, any)
             return open(state, object)
         end
         state.selected = tostring(object.id)
-        -- A click on a file names it; a folder is only selected, as in Windows 95.
+        -- A click on a file names it; a folder is only selected, as in the original.
         if object.kind ~= "directory" then state.name = tostring(object.title or object.id) end
         return state, nil
     end
