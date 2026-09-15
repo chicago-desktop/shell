@@ -86,11 +86,17 @@ function font_set.load(store: string, cell_h: any, log: any?)
 
     -- Thresholding small TrueType glyphs erases thin strokes. Set smoothing
     -- once on each face so the shell and every client share readable text.
+    -- Kerning off, as the bitmap system fonts of the era had none: Liberation
+    -- Sans pulls "To" in by 4 px of an 8-px T at 13 px, and the pair reads as
+    -- one glyph. A runtime without the option ignores it and keeps kerning.
     local size = font_set.SIZE
-    if mono_data then mono = gfx.font(mono_data, {size = size, smooth = true}) end
-    return {face = gfx.font(face_data, {size = size, smooth = true}),
-            bold = gfx.font(bold_data, {size = size, smooth = true}),
-            display = gfx.font(bold_data, {size = font_set.display_size(cell_h), smooth = true}),
+    local function open(data: string, px: number): any
+        return gfx.font(data, {size = px, smooth = true, kerning = false})
+    end
+    if mono_data then mono = open(mono_data, size) end
+    return {face = open(face_data, size),
+            bold = open(bold_data, size),
+            display = open(bold_data, font_set.display_size(cell_h)),
             mono = mono}, nil
 end
 
