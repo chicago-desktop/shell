@@ -1282,6 +1282,23 @@ local function define_tests()
             local cl, cr = in_cells.by_id.left.rect, in_cells.by_id.right.rect
             test.eq(cl.w .. "+" .. (cr.x - cl.x - cl.w), "5+2", "cells: size 5, gap 2")
         end)
+        test.it("an image's size_px rounds UP to the cells that hold it, other measures to the nearest", function()
+            -- 32 px at a 10 px cell: the nearest is three cells (30 px) and the
+            -- renderer would drop the picture; the image gets four.
+            local tree = {kind = "row", children = {
+                {kind = "image", id = "icon", size = 3, size_px = 32, image = "run"},
+                {kind = "label", id = "text", size = 3, size_px = 32, text = "a"},
+                {kind = "label", text = "rest"},
+            }}
+            local plan = ui.plan(tree, 40, 4, ui.interaction(), {cell = {w = 10, h = 20}})
+            test.eq(plan.by_id.icon.rect.w, 4, "the image holds its 32 px in four 10 px cells")
+            test.eq(plan.by_id.text.rect.w, 3, "a label with the same size_px rounds to the nearest, three")
+            local column = ui.plan({kind = "column", children = {
+                {kind = "image", id = "icon", size = 2, size_px = 32, image = "run"},
+                {kind = "label", text = "rest"},
+            }}, 20, 6, ui.interaction(), {cell = {w = 10, h = 20}})
+            test.eq(column.by_id.icon.rect.h, 2, "32 px tall is two 20 px rows")
+        end)
         test.it("a right-aligned row packs 75 px buttons 6 px apart from its right edge, each inside its own cells", function()
             local row = {kind = "row", size = 2, size_px = 30, align = "right", children = {
                 {kind = "button", id = "a", size = 10, size_px = 81, width_px = 75, text = "A"},

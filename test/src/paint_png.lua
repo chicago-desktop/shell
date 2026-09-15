@@ -453,7 +453,7 @@ local function main(spec)
         say("desktop widgets: " .. #painted.placements .. " placements → widgets.png")
     end
 
-    -- Sample data goes through the same Task Manager renderer as live windows.
+
 
     -- Real shell chrome with a sample of the cell text layer represented in PNG.
     do

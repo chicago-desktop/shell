@@ -211,24 +211,6 @@ entries:
       resources: "*"
       effect: allow
 
-  # Provider of the registry viewer: the same as a view, plus READING the
-  # registry. `registry.apply` is not here and will not be (FR-004 §3.4): the
-  # viewer changes nothing, and editing an entry is the business of the
-  # control panel under its own actor.
-  - name: regedit_state
-    kind: security.policy
-    meta:
-      comment: Permissions of the registry viewer provider — context, sending to the compositor, and reading the registry; no writing to the registry, on purpose.
-    policy:
-      actions:
-        - process.context
-        - process.registry
-        - process.send
-        - registry.get
-        - registry.find
-      resources: "*"
-      effect: allow
-
   - name: shell_endpoint_access
     kind: security.policy
     meta:

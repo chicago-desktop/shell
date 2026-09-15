@@ -56,7 +56,7 @@ like `desktop.tray`. The owner chose the registry, and the reasons hold:
     width: 20                      # cells; default 20, limits 10..40
     height: 6                      # cells; default 5, limits 2..16
     order: 20                      # position in the column; lower first; default 100
-    opens: windows.shell.taskman:window   # optional: a click opens or raises it
+    opens: windows.taskman:window   # optional: a click opens or raises it
     comment: Heap in use and its history, sampled every two seconds.
   source: file://memory.lua
   modules: [system, time]
@@ -125,7 +125,7 @@ both, `widgets` is a list in display order, each item shaped like a view
 window so that the SDK renderer can take it as it is:
 
 ```lua
-{id = "g1", entry = "app.monitor:memory", title = "Memory", opens = "windows.shell.taskman:window",
+{id = "g1", entry = "app.monitor:memory", title = "Memory", opens = "windows.taskman:window",
  w = 20, h = 6, waiting = false, stopped = false,
  content_state = {sdk = 1, revision = 17, ui = <tree>, interaction = {…}}, state_revision = 17}
 ```
@@ -142,7 +142,7 @@ A widget produces one hit record per row of its rectangle in
 `hits.desktop[]`, the same shape as an icon row plus `widget`:
 
 ```lua
-{row = 4, from = 79, to = 98, widget = "g1", entry = "windows.shell.taskman:window", title = "Memory"}
+{row = 4, from = 79, to = 98, widget = "g1", entry = "windows.taskman:window", title = "Memory"}
 ```
 
 `entry` here is what a click opens (`meta.opens`), the field name kept as in
@@ -244,7 +244,7 @@ Three entries, each a widget of §3:
 - **`app.monitor:memory`** — every 2 s reads `memory` through
   `windows.shell.config:system` (`facts.read`), keeps 60 samples; heap in
   use as `meter` against a round ceiling (`charts.round_ceiling`) plus
-  `history`. `opens: windows.shell.taskman:window`.
+  `history`. `opens: windows.taskman:window`.
 - **`app.monitor:goroutines`** — same sampling for `goroutines`; `stat` +
   `history`.
 

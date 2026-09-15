@@ -444,6 +444,17 @@ local function cells_for(plan: any, px: any, fallback: any, horizontal: boolean,
     local unit = whole(horizontal and cell.w or cell.h)
     return whole(math.max(least, (whole(px) * 2 + unit) // (unit * 2)))
 end
+-- The cells that HOLD a drawing of `px` pixels: rounded up, never to the
+-- nearest. A 32 px picture at a 10 px cell needs four cells; the nearest
+-- three would be 30 px, and the renderer, which never draws past its cells,
+-- would drop the picture — the Run… dialog lost its icon that way on a
+-- 10×20 terminal while it kept it at 8×18.
+local function cells_up(plan: any, px: any, fallback: any, horizontal: boolean, least: integer): integer
+    local cell: any = plan.cell
+    if cell == nil or px == nil then return whole(math.max(least, whole(fallback or 0))) end
+    local unit = whole(horizontal and cell.w or cell.h)
+    return whole(math.max(least, (whole(px) + unit - 1) // unit))
+end
 -- pack(children, rect, node, plan) — the buttons of a right-aligned row, drawn
 -- at their Windows 95 size in pixels: `width_px` wide (75 in a dialog),
 -- `pack_px` apart (6 by default), packed from the row's right edge. Each
@@ -581,7 +592,10 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         -- A child's fixed size: `size_px` rounded to cells when the plan draws
         -- in pixels, `size` otherwise; nil for a flexible child.
         local function fixed_size(child: any): any
-            if plan.cell ~= nil and child.size_px ~= nil then return cells_for(plan, child.size_px, child.size, horizontal, 1) end
+            if plan.cell ~= nil and child.size_px ~= nil then
+                if child.kind == "image" then return cells_up(plan, child.size_px, child.size, horizontal, 1) end
+                return cells_for(plan, child.size_px, child.size, horizontal, 1)
+            end
             if child.size ~= nil then return whole(math.max(0, whole(child.size))) end
             return nil
         end

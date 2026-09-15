@@ -733,7 +733,7 @@ keyboard, no title buttons and no frame of its own to drag.
     width: 20                                   # cells; default 20, limits 10..40
     height: 8                                   # cells; default 5, limits 2..16
     order: 20                                   # place in the column, lower first; default 100
-    opens: windows.shell.taskman:window    # optional: a click opens or raises it
+    opens: windows.taskman:window    # optional: a click opens or raises it
   source: file://memory.lua
   method: main
   modules: [system, time]
