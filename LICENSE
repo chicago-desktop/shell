@@ -22,8 +22,8 @@ SOFTWARE.
 
 ---
 
-The icons in `assets/icons` are Microsoft artwork. The source repository has
-no license at all. The module is declared MIT, and the icons do not fall under
-it. The directory is suitable for a local test stand and is not part of the
-published module: `wippy.yaml` excludes `assets/icons/**/*.png`. Details:
-docs/icons.md, section "License", and assets/icons/SOURCE.md.
+The icons in `assets/icons` are an interim set taken from an old operating
+system's resources; they are not covered by this licence and are being
+replaced with original pixel art drawn for the project (issue #1). The
+wallpapers in `assets/wallpaper` are original and MIT. Details:
+assets/icons/SOURCE.md.
