@@ -27,7 +27,7 @@ is not in the release. The message explains nothing (`node with ID … not
 found`); details are in [docs/traps.md](docs/traps.md#with-the-release-runtime-the-module-no-longer-loads).
 
 ```bash
-WIPPY=~/repos/wippy/runtime/dist/wippy-linux-amd64   # build with gfx
+WIPPY=~/repos/wippy/chicago-desktop/runtime/dist/wippy-linux-amd64   # build with gfx
 
 # in cells — works in any terminal
 $WIPPY run --host chicago.shell:terminal chicago
@@ -772,7 +772,7 @@ evidence for the eye: no test compares them, so a snapshot that did not change
 is not a check that passed.
 
 A full `make verify` requires a local runtime build with `gfx` and the base in
-`../kickside-module`, so it does not run in CI: GitHub Actions
+`../tui-desktop`, so it does not run in CI: GitHub Actions
 (`.github/workflows/verify.yml`) checks only `make check` and late `local`s.
 
 Tests live in `test/` and bring the module up as a separate application. The shell
