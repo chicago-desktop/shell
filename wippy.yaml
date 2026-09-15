@@ -29,3 +29,10 @@ exclude:
   # made every repository and every Hub module public, so the package carries
   # the same files as the repository. Without the PNGs the shell would draw
   # the icons with primitives (`images.get` refuses with a reason).
+# Module directories are not packed by themselves: `wippy publish` packs the
+# entries of src/ and embeds only the fs.directory entries named here (they
+# become fs.embed in the package). Without this list the published shell would
+# have no icons and no wallpapers.
+embed:
+  - windows.shell.theme:icon_files
+  - windows.shell.display:wallpaper_files
