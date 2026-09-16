@@ -18,6 +18,7 @@ local library = require("library")
 local chrome = require("chrome")
 local chrome_pixels = require("chrome_pixels")
 local catalog = require("catalog")
+local desktop_menu = require("desktop_menu")
 local defaults = require("defaults")
 local seed = require("seed")
 local view = require("view")
@@ -421,7 +422,7 @@ local function main()
         move_desktop_item = move_desktop_item,
         -- "Properties" on a right-click on the empty desktop is "Display
         -- Properties".
-        desktop_properties = "chicago.shell.display:window",
+        desktop_menu = desktop_menu.read,
         -- Windows built by the base's workshop are returned to the registry
         -- at startup. The shell often comes up alone, and without restoring
         -- them its menu would show a catalog without them, without explaining

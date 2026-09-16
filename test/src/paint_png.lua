@@ -29,7 +29,6 @@ local chrome_pixels = require("chrome_pixels")
 local ui = require("ui")
 local explorer_window = require("explorer_window")
 local sysprops_window = require("sysprops_window")
-local display_window = require("display_window")
 local sdk_render = require("sdk_render")
 local widget_scene = require("widget_scene")
 
@@ -624,15 +623,6 @@ local function main(spec)
         context.selection = {["README.md"] = true}
         context.popup = {x = 20, y = 7, target = "object"}
         shot("folder-context", context, 46, 14)
-    end
-    -- "Display Properties": the four tabs at the entry's 46×24, the client
-    -- inside the pixel frame; the Background with a pattern chosen.
-    for tab = 1, 4 do
-        local state: any = {tab = tab, chosen = "#008080", saved = "#008080", pattern = "Weave", pattern_saved = "(None)",
-            info = {screen = {width = 100, height = 28}, cell = {w = cell.w, h = cell.h}, pixels = true},
-            persist = function() return true, nil end}
-        view_shot("display-" .. tab, sdk_render, {id = "shot", state_revision = tab, content_state = {sdk = 1, revision = tab,
-            interaction = ui.interaction(), ui = display_window.definition.view(state, {width = 44, height = 22, native = true})}}, 44, 22)
     end
     -- The farewell screen: the large font is computed from the cell height, as
     -- in the shell.

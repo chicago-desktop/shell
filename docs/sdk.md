@@ -1115,3 +1115,31 @@ A new shared component is first added to the SDK with one layout, input handling
 and two renderers; then windows use it. Add a behavior test
 and a description of the contract to this file. The [migration audit](sdk-audit-2026-09-08.md)
 shows which existing windows use the specialized level.
+
+## Inline pictures and independent graphics modules
+
+A module can render its own raster in its window process and publish an encoded
+PNG in the ordinary `picture` component. Userdata never crosses the window API:
+
+```lua
+{kind = "picture", id = "preview", png = encoded_png,
+ fit = "contain", fill = true, background = "#000000",
+ text = "Preview requires pixel graphics"}
+```
+
+`png` is the string returned by `base64.encode(raster:encode("png"))`; declare
+`gfx` and `base64` in the provider's modules. Omit `image` for an inline source.
+`fit = "contain"` scales either an inline or pack picture into its rectangle,
+centers it and preserves aspect ratio. Without `fit`, pictures keep the existing
+1:1 clipped behavior. `fill = true` shares remaining layout space; otherwise
+natural dimensions and explicit sizes retain their existing behavior.
+
+Only PNG is accepted, up to 1,400,000 base64 characters and 1024×1024 pixels.
+The decoder retains at most eight sources per process, including failures.
+Invalid sources use the node's text fallback. Cell mode shows the same text.
+Use `context.native` to avoid rendering frames for a cell-only window, cache
+encoded frames in the model, and return false from update when nothing changed.
+Do not publish a new raster or encode an unchanged frame on every view call.
+
+This supports independent charts, simulations and previews without per-app
+imports in shell. For desktop menu registration see [desktop-menu.md](desktop-menu.md).

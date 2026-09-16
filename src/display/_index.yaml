@@ -1,20 +1,8 @@
 version: "1.0"
 namespace: chicago.shell.display
 
-# "Display Properties" is the classic Display Properties: the desktop
-# color and information about the screen. It opens from the "Properties"
-# item on a right click on the empty desktop and from "Start → Settings".
-
+# Shared appearance assets used by the desktop compositor.
 entries:
-  # chicago.shell.display:model
-  - name: model
-    kind: library.lua
-    meta:
-      comment: The pure model of "Display Properties" — desktop colors, color format check, resolution and palette captions.
-    source: file://model.lua
-    imports:
-      geometry: chicago.tui_desktop.desktop:geometry
-
   # chicago.shell.display:patterns
   - name: patterns
     kind: library.lua
@@ -40,57 +28,3 @@ entries:
     base: module
     directory: ./assets/wallpaper
     auto_init: false
-
-  # Permissions: read and write a setting in the shell database (`db.get` on
-  # the resource), ask and nudge the compositor. The database name comes from
-  # the migration entry, read by the repository under
-  # chicago.shell.security:layout_target — no environment.
-  - name: window_scope
-    kind: security.policy
-    meta:
-      comment: Permissions of "Display Properties" — read and write the shell settings in the database, ask the compositor and ask it to reread the desktop.
-    policy:
-      actions:
-        - process.context
-        - process.registry
-        - process.send
-        - db.get
-      resources: "*"
-      effect: allow
-
-  # chicago.shell.display:window
-  - name: window
-    kind: process.lua
-    meta:
-      type: tui_desktop.window
-      title: "Display Properties"
-      image: display_properties
-      icon: "▭"
-      group: Settings
-      order: 140
-      window_type: dialog
-      resizable: false
-      # 46×24 cells: at a 10×20 cell the page frame is 420×380 px against the
-      # 386×360 of the original. The record is cells, so at an 8×16 cell the
-      # same record is a smaller dialog (a 336×304 px page frame).
-      width: 46
-      height: 24
-      pixel_render: chicago.shell.sdk:render
-      pixel_state: chicago.shell.display:window
-      comment: Display Properties — the desktop pattern and color with a preview, applied through the shell settings; resolution and palette are read-only; a window on the shell SDK.
-    source: file://window.lua
-    method: main
-    modules:
-      - sql
-      - time
-      - uuid
-    security:
-      policies: [chicago.shell.display:window_scope, chicago.shell.security:layout_target]
-    imports:
-      geometry: chicago.tui_desktop.desktop:geometry
-      app: chicago.shell.sdk:app
-      desktop: chicago.tui_desktop.desktop:window_api
-      repo: chicago.shell.persist:repo
-      model: chicago.shell.display:model
-      patterns: chicago.shell.display:patterns
-      wallpapers: chicago.shell.display:wallpapers

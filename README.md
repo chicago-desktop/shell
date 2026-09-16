@@ -271,10 +271,13 @@ drifted from "Start" on the first edit.
 
 ### Display Properties
 
-A right click on the empty desktop gives "Properties" (named to the compositor as
-`desktop_properties`), and the same window is in "Start → Settings": the Windows 95
-Display Properties in four tabs, laid out by the Windows 95 dialog's measured
-pixels (the numbers are in `src/display/window.lua`).
+Display Properties now belongs to the optional **chicago/display** module
+(`chicago.display:window`). Install it alongside shell to get **Start → Settings →
+Display Properties** and **desktop right-click → Properties**. The latter is a
+[registry contribution](docs/desktop-menu.md), with no Display import in shell.
+The four tabs retain the Windows 95 dialog's measured layout. Update integrations
+and saved shortcuts from `chicago.shell.display:window` to the new entry; existing
+appearance settings stay in the same repository.
 
 - **Background** — the desktop pattern: the twenty Windows 95 8×8 tiles
   (`chicago.shell.display:patterns`, the original bits) in a list, and a monitor
@@ -287,7 +290,7 @@ pixels (the numbers are in `src/display/window.lua`).
   `gfx` has no scaling — so a centred picture shows its middle.
 - **Appearance** — the desktop color, where Windows 95 kept it: the color of the
   Desktop item.
-- **Screen Saver** — says it is not available.
+- **Screen Saver** — manual 3D Pipes preview with Pause, New pipes and Close; automatic idle activation is not enabled.
 - **Settings** — resolution (cells and pixels from `screen` and `cell` in
   `desktop.list`) and palette, read-only: the size is set by the terminal, TrueColor
   is forced by the runtime.

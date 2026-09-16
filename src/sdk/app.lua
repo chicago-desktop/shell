@@ -34,6 +34,7 @@ local cells = require("cells")
 local widgets = require("widgets")
 local editor = require("editor")
 local images = require("images")
+local bitmap = require("bitmap")
 local app = {}
 
 -- The tree shown in place of a crashed application. Without it the window
@@ -251,7 +252,7 @@ end
 function app.measure(tree: any)
     if type(tree) ~= "table" then return end
     if tree.kind == "picture" then
-        local found: any = type(tree.image) == "string" and images.picture(tree.image) or nil
+        local found: any = tree.png ~= nil and bitmap.source(tree.png) or (type(tree.image) == "string" and images.picture(tree.image) or nil)
         if found then
             local w, h = found:size()
             tree.natural_w, tree.natural_h = w, h

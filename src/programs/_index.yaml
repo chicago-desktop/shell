@@ -123,3 +123,9 @@ entries:
       - time
     imports:
       startup: chicago.shell.programs:startup
+
+  - name: desktop_menu
+    kind: library.lua
+    source: file://desktop_menu.lua
+    modules: [registry]
+    meta: {comment: "Desktop context-menu contributions from chicago.desktop_menu registry entries."}

@@ -467,6 +467,7 @@ end
 -- may not read the pack) it is its text: `size`, else one row. Across a row it
 -- is `size`, else the natural width in pixels, else it shares the rest.
 local function picture_size(plan: any, node: any, horizontal: boolean): any
+    if node.fill == true then return nil end
     if horizontal then
         if node.size ~= nil then return whole(math.max(0, whole(node.size))) end
         if plan.cell ~= nil and node.natural_w ~= nil then return cells_up(plan, node.natural_w, nil, true, 1) end

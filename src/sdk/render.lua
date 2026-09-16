@@ -6,6 +6,7 @@ local geometry = require("geometry")
 local editor = require("editor")
 local pixels = require("pixels")
 local images = require("images")
+local bitmap = require("bitmap")
 local gfx = require("gfx")
 local widgets = require("widgets")
 local palette = require("palette")
@@ -482,10 +483,18 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 -- picture is cut to it (gfx blits whole rasters, so the cut is
                 -- a raster of the rect's size). A picture that is not there, or
                 -- does not decode, is its `text` in bold — never a hole.
-                local found: any = type(node.image) == "string" and images.picture(node.image) or nil
+                local found: any = node.png ~= nil and bitmap.source(node.png) or (type(node.image) == "string" and images.picture(node.image) or nil)
                 if found then
                     local picture = found :: gfx.Raster
                     local pw, ph = picture:size()
+                    if node.fit == "contain" and w > 0 and h > 0 then
+                        local scale = math.min(w/pw,h/ph)
+                        local sw,sh = whole(math.max(1,math.floor(pw*scale))),whole(math.max(1,math.floor(ph*scale)))
+                        if sw ~= pw or sh ~= ph then picture = picture:scaled(sw,sh,{smooth = scale < 1}) end
+                        raster:rect(whole(x),whole(y),whole(w),whole(h),node.background or color.face)
+                        x,y = x+(w-sw)//2,y+(h-sh)//2
+                        pw,ph = sw,sh
+                    end
                     local cut_w, cut_h = whole(math.min(pw, w)), whole(math.min(ph, h))
                     if cut_w == pw and cut_h == ph then
                         raster:blit(picture, whole(x), whole(y))
@@ -1049,7 +1058,7 @@ local function item_sig(item: any, plan: any, interaction: any): string
         node.kind == "button" and tostring(plan.focus_on_button) or "",
         -- A picture's raster by identity: a file replaced in its pack is a new
         -- raster under the same node, and its rows must be painted again.
-        node.kind == "picture" and tostring((images.picture(node.image))) or "",
+        node.kind == "picture" and tostring(node.png or (images.picture(node.image))) or "",
     }, ";")
 end
 -- The entry a list-like item draws in one row, and whether it is selected.

@@ -86,15 +86,14 @@ local function define_tests()
             local shown, err = sources.list("control", {})
             test.is_nil(err)
             test.eq(shown.title, "Control Panel")
-            local display = by_id(shown.objects, "chicago.shell.display:window")
-            test.not_nil(display, "Display Properties is a Settings program")
-            test.not_nil(by_id(shown.objects, "chicago.shell.sysprops:window"), "so is System Properties")
+            local properties = by_id(shown.objects, "chicago.shell.sysprops:window")
+            test.not_nil(properties, "System Properties is a Settings program")
             test.is_nil(by_id(shown.objects, "chicago.shell.explorer:window"), "My Computer is not a Settings program")
-            test.eq(display.open.action, "open_window")
-            test.eq(display.open.entry, "chicago.shell.display:window")
-            test.is_true(type(display.comment) == "string" and display.comment ~= "",
+            test.eq(properties.open.action, "open_window")
+            test.eq(properties.open.entry, "chicago.shell.sysprops:window")
+            test.is_true(type(properties.comment) == "string" and properties.comment ~= "",
                 "the Comment column is the entry's meta.comment")
-            test.eq(display.detail, display.comment)
+            test.eq(properties.detail, properties.comment)
             local previous = ""
             for _, object in ipairs(shown.objects) do
                 test.eq(object.kind, "program")

@@ -333,7 +333,6 @@ entries:
       sdk_render: chicago.shell.sdk:render
       sysprops_window: chicago.shell.sysprops:window
       sysprops_model: chicago.shell.sysprops:model
-      display_window: chicago.shell.display:window
       images: chicago.shell.theme:images
       catalog: chicago.shell.programs:catalog
       desktop_view: chicago.shell.programs:desktop_view
@@ -551,26 +550,6 @@ entries:
       test: wippy.test:test
       font_set: chicago.shell.theme:font_set
 
-  - name: display_test
-    kind: function.lua
-    meta:
-      type: test
-      comment: Display properties — the color shape and the resolution label, four tabs without overlaps in cells and at 8×16 and 10×20, the Windows 95 metrics, choosing a color and a pattern and applying through a substituted entry, OK after a successful write; the theme repaints the desktop through a single point.
-      group: Windows Shell
-      suite: chicago_shell
-    source: file://display_test.lua
-    modules: [sql, env, time, uuid, tty]
-    imports:
-      test: wippy.test:test
-      model: chicago.shell.display:model
-      ui: chicago.shell.sdk:ui
-      render: chicago.shell.sdk:render
-      display_window: chicago.shell.display:window
-      chrome: chicago.shell.theme:chrome
-      chrome_pixels: chicago.shell.theme:chrome_pixels
-      widgets: chicago.shell.theme:widgets
-      palette: chicago.shell.theme:palette
-    method: run
 
   - name: sysprops_test
     kind: function.lua
@@ -1175,3 +1154,25 @@ entries:
     data:
       entry: chicago.shell.explorer:window
       args: wippy
+
+
+  - name: desktop_menu_test
+    kind: function.lua
+    source: file://desktop_menu_test.lua
+    method: run
+    meta: {type: test, suite: chicago_shell, group: Desktop}
+    imports:
+      test: wippy.test:test
+      menu: chicago.shell.programs:desktop_menu
+
+  - name: bitmap_test
+    kind: function.lua
+    source: file://bitmap_test.lua
+    method: run
+    meta: {type: test, suite: chicago_shell, group: SDK}
+    modules: [gfx, base64]
+    imports:
+      test: wippy.test:test
+      bitmap: chicago.shell.sdk:bitmap
+      app: chicago.shell.sdk:app
+      ui: chicago.shell.sdk:ui
