@@ -108,6 +108,50 @@ local function has_bold(row: any): boolean
 end
 
 local function define_tests()
+    test.describe("group — the sunken pane, and a centred picture", function()
+        test.it("draws a sunken pane on its own background, with no title", function()
+            -- Compared with a raster built by hand: the face, the pane's
+            -- colour over the group's rect, a field's sunken double bevel.
+            local tree = {kind = "column", children = {
+                {kind = "group", style = "sunken", background = "info", title = "never drawn", children = {}},
+            }}
+            test.is_nil(ui.problem(tree))
+            local out = gfx.raster(10 * CELL.w, 4 * CELL.h)
+            out:fill(FACE)
+            out:rect(1, 1, 10 * CELL.w, 4 * CELL.h, "#ffffe1")
+            pixels.edge(out, 1, 1, 10 * CELL.w, 4 * CELL.h, false)
+            test.is_true(drawn(tree, 10, 4, fonts()) == assert(out:encode("png")),
+                "the pale yellow pane in a sunken bevel, and no caption on it")
+        end)
+
+        test.it("names a background or a style it does not know instead of drawing a guess", function()
+            test.eq(ui.pane_color(nil), "#ffffff", "a field's white by default")
+            test.eq(ui.pane_color("info"), "#ffffe1")
+            test.eq(ui.pane_color("#AABBCC"), "#aabbcc")
+            test.is_nil(ui.pane_color("yellow"))
+            local bad = ui.problem({kind = "group", style = "sunken", background = "yellow", children = {}})
+            test.is_true(tostring(bad):find("background", 1, true) ~= nil, tostring(bad))
+            local odd = ui.problem({kind = "group", style = "raised", children = {}})
+            test.is_true(tostring(odd):find("style", 1, true) ~= nil, tostring(odd))
+            local tilted = ui.problem({kind = "picture", image = BANNER, align = "right"})
+            test.is_true(tostring(tilted):find("align", 1, true) ~= nil, tostring(tilted))
+        end)
+
+        test.it("centres a picture narrower than its rect, 1:1", function()
+            images.forget()
+            local shown = {kind = "picture", image = BANNER, text = "Banner", align = "center"}
+            local tree = {kind = "column", children = {shown}}
+            app.measure(tree)
+            local banner = assert(images.picture(BANNER))
+            local out = gfx.raster(10 * CELL.w, 2 * CELL.h)
+            out:fill(FACE)
+            -- 80 px of rect, a 40 px banner: 20 px in from the left.
+            out:blit(banner, 21, 1)
+            test.is_true(drawn(tree, 10, 2) == assert(out:encode("png")),
+                "the banner in the middle of its row")
+        end)
+    end)
+
     test.describe("picture — the pack's pictures folder", function()
         test.it("reads a picture of any size from pictures/, beside the square sizes, and names what is missing", function()
             images.forget()

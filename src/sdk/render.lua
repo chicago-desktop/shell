@@ -326,6 +326,13 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 end
                 pixels.scrollbar(raster, x + w - bar_w, y, bar_w, h, item.bar, cell.h, math.min(bar_w, cell.h))
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
+            elseif node.kind == "group" and node.style == "sunken" then
+                -- A sunken pane — the Welcome tip's: a background of its own
+                -- inside a field's double bevel, and no title. It is drawn
+                -- before its children, and they paint only their text and
+                -- pictures, so the background shows between them.
+                raster:rect(whole(x), whole(y), whole(w), whole(h), ui.pane_color(node.background) or color.field)
+                pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
             elseif node.kind == "group" then
                 -- A frame with a title: the edge is half a row lower so that the caption
                 -- sits on it, as in classic dialogs.
@@ -494,6 +501,13 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                         raster:rect(whole(x),whole(y),whole(w),whole(h),node.background or color.face)
                         x,y = x+(w-sw)//2,y+(h-sh)//2
                         pw,ph = sw,sh
+                    end
+                    -- `align = "center"`: across the rect's width, when it is
+                    -- narrower than the rect — the Welcome illustration under
+                    -- its text. A wider picture is cut from the left as before.
+                    if node.align == "center" and node.fit ~= "contain" and pw < w then
+                        x = x + (w - pw) // 2
+                        w = w - (w - pw) // 2
                     end
                     local cut_w, cut_h = whole(math.min(pw, w)), whole(math.min(ph, h))
                     if cut_w == pw and cut_h == ph then

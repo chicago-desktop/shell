@@ -120,10 +120,12 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
         local focused = interaction.focus == node.id
         if node.kind == "group" then
             -- A frame with its title in the top edge — like the Task Manager's boxes.
+            -- A sunken pane has the same box and no title: in cells there is
+            -- no background to give it, the frame is what says "a pane".
             local title = " " .. tostring(node.title or "") .. " "
             local top = widgets.edge_top(r.w, false)
             canvas:put(whole(r.x), whole(r.y), top, whole(r.w))
-            if r.w > widgets.cells(title) + 2 then
+            if node.style ~= "sunken" and r.w > widgets.cells(title) + 2 then
                 canvas:put(whole(r.x + 1), whole(r.y), (node.disabled and styles.face_dim or styles.face_bold):render(title),
                     whole(widgets.cells(title)))
             end

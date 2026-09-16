@@ -348,7 +348,12 @@ current data; `update` changes the model on a component's action.
 - `clock`: `hour`, `minute`, `second` — an analog clock in pixels,
   digital time in cells; read-only.
 - `group`: `title`, `children`, `padding`, `gap` — a frame with a title, the children
-  inside, one cell from the edge; takes no input.
+  inside, one cell from the edge; takes no input. `style = "sunken"` makes it a
+  pane instead: no title, a field's double sunken bevel and a background of its
+  own — `background = "field"` (white, the default), `"info"` (the pale yellow
+  of the Welcome tip and the original's tooltips) or `"#rrggbb"`. The children
+  draw only their text and pictures over it. In cells it is the same box
+  without a title.
 - `graph`: `values`, `unit`, `ceiling?` — the history of a number, green on black;
   the ceiling is round (`sdk:charts`), the latest measurement on the right.
 - `gauge`: `value`, `ceiling`, `caption`, `orient` — a gauge toward the ceiling.
@@ -436,7 +441,9 @@ packs of other modules"): a 360×40 heading, a 180×120 illustration — any wid
 and height, not only a square.
 
 - In pixels it is drawn at 1:1, left-aligned at the top of its rect, never
-  scaled; what does not fit the rect is cut off. While the file is missing or
+  scaled; `align = "center"` centres a picture narrower than its rect across
+  the rect's width (the Welcome illustration under its text). What does not
+  fit the rect is cut off. While the file is missing or
   does not decode it is `text` in bold at the same place: a missing picture is
   never an error and never an empty hole.
 - In cells it is always `text`, bold, at the top left of its rect.

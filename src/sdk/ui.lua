@@ -547,6 +547,18 @@ local function shape_problem(node: any): any
     if kind == "gauge" and node.orient ~= nil and node.orient ~= "horizontal" and node.orient ~= "vertical" then
         return "SDK gauge orient must be \"horizontal\" or \"vertical\": " .. tostring(node.orient)
     end
+    -- A group is the etched frame with a title, or a sunken pane with a
+    -- background of its own (the Welcome tip). An unknown style would draw as
+    -- the frame and look like a choice that was honoured.
+    if kind == "group" and node.style ~= nil and node.style ~= "etched" and node.style ~= "sunken" then
+        return "SDK group style must be \"etched\" or \"sunken\": " .. tostring(node.style)
+    end
+    if kind == "group" and node.background ~= nil and ui.pane_color(node.background) == nil then
+        return "SDK group background must be \"field\", \"info\" or #rrggbb: " .. tostring(node.background)
+    end
+    if kind == "picture" and node.align ~= nil and node.align ~= "left" and node.align ~= "center" then
+        return "SDK picture align must be \"left\" or \"center\": " .. tostring(node.align)
+    end
     -- The editor is fixed-pitch only: its columns are the plan's, and a
     -- proportional face would put the caret between the letters it drew.
     if kind == "editor" and node.font ~= nil and node.font ~= "mono" then
@@ -913,6 +925,25 @@ local function add(node: any, rect: any, plan: any, interaction: any)
     -- The menu is not part of the focus ring — as in the original, it is reached with Alt and F10.
     if id and not inert(node) and kind ~= "menu" and not node.disabled then plan.focusable[#plan.focusable + 1] = id end
 end
+-- The named backgrounds of a sunken pane: the field's white, and the pale
+-- yellow of an information pane — the original's tooltips and the Welcome
+-- tip's panel.
+ui.PANE_COLORS = {field = "#ffffff", info = "#ffffe1"}
+
+-- pane_color(value) -> "#rrggbb" | nil
+--
+-- A group's `background`: a named one, or a colour written out. Nil for
+-- anything else, so `problem` refuses it by name rather than the renderer
+-- drawing something nobody asked for.
+function ui.pane_color(value: any): any
+    if value == nil then return ui.PANE_COLORS.field end
+    if type(value) ~= "string" then return nil end
+    local named = ui.PANE_COLORS[value]
+    if named then return named end
+    if string.match(value, "^#%x%x%x%x%x%x$") then return string.lower(value) end
+    return nil
+end
+
 -- problem(tree) -> reason | nil
 --
 -- Why `ui.plan` will not lay out this tree — by the same rules as `add`, but
