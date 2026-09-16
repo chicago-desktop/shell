@@ -217,7 +217,7 @@ local function define_tests()
         test.it("declares a dependency on the base as its GitHub repository, from the supported tag", function()
             local dep = get("chicago.shell:dep.chicago.tui_desktop")
             test.eq(data_of(dep).component, "github.com/chicago-desktop/tui-desktop")
-            test.eq(data_of(dep).version, ">=0.2.2")
+            test.eq(data_of(dep).version, ">=0.2.3")
         end)
 
         test.it("carries the layout migration", function()

@@ -1341,6 +1341,8 @@ local function paint_outline(cell: any, rect: any, out: any)
     end
 end
 
+-- Full-screen passive previews are a compositor contract, independent of the app.
+chrome_pixels.presentation = true
 function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     -- A size given here wins; none given — the one use_cell_size named.
     if cell_w ~= nil or cell_h ~= nil then chrome_pixels.use_cell_size(cell_w, cell_h) end
@@ -1353,6 +1355,16 @@ function chrome_pixels.paint(state: any, cell_w: any, cell_h: any)
     store.begin()
     local out = {}
     local hits: any = {desktop = {}, bars = {}, menu = {}}
+
+    if type(view.presentation) == "table" then
+        local window = view.presentation
+        if window.content == "pixels" then
+            paint_view(cell,window,fonts,out,{x=1,y=1,cols=view.width,rows=view.height})
+        end
+        for _, placed in ipairs(out) do store.place(placed.id,placed.x,placed.y) end
+        store.frame(cell)
+        return {placements=out,hits=hits}
+    end
 
     -- The desktop pattern and wallpaper go first of all: under the icons and everything.
     if backdrop_on() and not view.bare then

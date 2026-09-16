@@ -36,8 +36,9 @@ entries:
   # Resolved from GitHub by tag (v0.2.0 is the first); the lock still names it chicago/tui-desktop.
   # 0.2.1 brings the balloon, flash and notice commands and state that the
   # themes draw and chicago.shell.sdk:notify sends.
-  # 0.2.2 adds the dynamic empty-desktop context menu callback.
-  - version: ">=0.2.2"
+  # 0.2.2 adds the dynamic empty-desktop context menu callback;
+  # 0.2.3 adds full-screen passive presentations.
+  - version: ">=0.2.3"
     name: dep.chicago.tui_desktop
     kind: ns.dependency
     meta:

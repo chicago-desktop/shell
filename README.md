@@ -290,7 +290,7 @@ appearance settings stay in the same repository.
   `gfx` has no scaling — so a centred picture shows its middle.
 - **Appearance** — the desktop color, where Windows 95 kept it: the color of the
   Desktop item.
-- **Screen Saver** — manual 3D Pipes preview with Pause, New pipes and Close; automatic idle activation is not enabled.
+- **Screen Saver** — full-screen 3D Pipes preview with perspective and rounded elbows; any key or mouse movement returns to Display. Automatic idle activation is not enabled.
 - **Settings** — resolution (cells and pixels from `screen` and `cell` in
   `desktop.list`) and palette, read-only: the size is set by the terminal, TrueColor
   is forced by the runtime.

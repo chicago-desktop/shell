@@ -1143,3 +1143,23 @@ Do not publish a new raster or encode an unchanged frame on every view call.
 
 This supports independent charts, simulations and previews without per-app
 imports in shell. For desktop menu registration see [desktop-menu.md](desktop-menu.md).
+
+## Full-screen presentations
+
+Declare `meta.presentation: true` on a passive preview window. It uses every
+terminal cell with no frame, title bar, taskbar or cursor. The compositor sends
+the complete viewport to the standard SDK and keeps it full-screen on resize.
+Use a flexible picture or other ordinary SDK tree; the shell needs no app import.
+
+The compositor closes the presentation on a key press, mouse press, wheel, or
+pointer movement to a different cell. Key releases, the mouse release that
+opened it and duplicate pointer reports are ignored. The dismissal is consumed
+before desktop shortcuts or underlying windows can handle it. The window follows
+its opener's lifetime and gives focus back when dismissed. It receives the normal
+close event, with forced cleanup after the existing grace period if it stops
+responding. Use this for previews that hold no unsaved edits, not for editors.
+
+A pixel theme opts in with `presentation = true` and paints `state.presentation`
+as full-screen client content. Other pixel themes refuse the open with a reason;
+cell mode supports the same lifecycle and full viewport without a theme hook.
+This mode does not track idle time and is not a lock screen.
