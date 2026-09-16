@@ -26,7 +26,7 @@ local function define_tests()
                 {id = "demo:bad", meta = {type = "chicago.drive"}, data = {}},
                 {id = "demo:fs", kind = "fs.directory"},
             })
-            test.eq(#root, 2)
+            test.eq(#root, 3, "D:, the module's disk and the Control Panel")
             test.eq(root[2].open.entry, "demo:window")
             test.eq(root[2].open.action, "open_window")
             test.eq(root[2].kind, "drive")
@@ -34,13 +34,17 @@ local function define_tests()
 
         test.it("shows the Wippy disk even when it has no filesystem resources", function()
             local root = model.root({})
-            test.eq(#root, 1)
+            test.eq(#root, 2, "D: and the Control Panel")
             test.eq(root[1].id, model.WIPPY)
             test.eq(root[1].open.path, model.WIPPY)
+            test.eq(root[1].title, "Wippy (D:)", "the label, then the letter, as the original wrote it")
+            test.eq(root[1].image, "cdrom", "D: was the disc")
+            test.eq(root[1].letter, "D")
             test.eq(model.parse(model.WIPPY).view, "wippy")
             test.eq(model.parent(model.WIPPY), model.ROOT)
-            test.eq(model.folder_title(model.WIPPY), "D: (Wippy)")
-            test.eq(model.folder_image(model.WIPPY), "drive")
+            test.eq(model.address(model.WIPPY), "D:\\")
+            test.eq(model.folder_title(model.WIPPY), "Wippy (D:)")
+            test.eq(model.folder_image(model.WIPPY), "cdrom")
         end)
 
         test.it("makes a drive of every fs entry without creating anything itself", function()
@@ -80,20 +84,33 @@ local function define_tests()
                 "there is no point in lengthening an unambiguous name")
         end)
 
-        test.it("shows filesystem folders and Control Panel inside Wippy", function()
-            local root = model.wippy({{id = "app:probe", kind = "fs.directory"}})
-            test.eq(#root, 2)
-            test.eq(root[1].id, "app:probe")
-            test.eq(root[1].kind, "folder")
-            test.eq(root[1].image, "folder")
-            test.eq(root[1].type_name, "File Folder")
-            local control = root[2]
-            test.eq(control.id, model.CONTROL, "the Control Panel comes after the drives")
+        test.it("keeps the Control Panel in My Computer, beside the disks, not on D:", function()
+            -- In the original the Control Panel stood in My Computer next to
+            -- A:, C: and D:. It is not a folder of any disk, and "Up" from it
+            -- is My Computer.
+            local inside = model.wippy({{id = "app:probe", kind = "fs.directory"}})
+            test.eq(#inside, 1, "D: holds the filesystems and nothing else")
+            test.is_nil(by_id(inside, model.CONTROL))
+            test.eq(model.parent("control"), model.ROOT)
+            test.eq(model.address("control"), "My Computer\\Control Panel")
+
+            local root = model.root({})
+            local control = root[#root]
+            test.eq(control.id, model.CONTROL, "the Control Panel comes after the disks")
             test.eq(control.kind, "folder")
             test.eq(control.title, "Control Panel")
             test.eq(control.image, "control_panel", "the pack has its own picture")
             test.eq(control.open.action, "folder")
             test.eq(control.open.path, "control")
+        end)
+
+        test.it("shows filesystem folders inside Wippy", function()
+            local root = model.wippy({{id = "app:probe", kind = "fs.directory"}})
+            test.eq(#root, 1)
+            test.eq(root[1].id, "app:probe")
+            test.eq(root[1].kind, "folder")
+            test.eq(root[1].image, "folder")
+            test.eq(root[1].type_name, "File Folder")
             for _, name in ipairs({"programs", "desktop", "windows"}) do
                 test.is_nil(by_id(root, name), "Windows 95 had no " .. name .. " folder in My Computer")
             end
@@ -143,14 +160,15 @@ local function define_tests()
             -- it without asking the registry where they are.
             local root = model.root({
                 {id = "app.c:c", kind = "registry.entry",
-                 meta = {type = "chicago.drive", title = "C:", comment = "the running system"},
+                 meta = {type = "chicago.drive", title = "(C:)", comment = "the running system"},
                  data = {fs = "app.c:drive_c", letter = "C"}},
             })
-            test.eq(#root, 2, "the collection and the lettered disk")
+            test.eq(#root, 3, "the collection, the lettered disk and the Control Panel")
 
             local disk = by_id(root, "app.c:c")
             test.not_nil(disk, "a disk declared with a filesystem appears at the root")
-            test.eq(disk.title, "C:")
+            test.eq(disk.title, "(C:)")
+            test.eq(disk.letter, "C")
             test.eq(disk.type_name, "Local Disk")
             test.eq(disk.open.action, "folder",
                 "it is browsed by the folder window, not by a window of its own")
@@ -178,6 +196,30 @@ local function define_tests()
             test.eq(model.parent("disk/C/app.c:drive_c/PROGRAMS/CHICAGO"), "disk/C/app.c:drive_c/PROGRAMS")
         end)
 
+        test.it("lists the disks by letter, A: before C: before D:", function()
+            -- By caption "(C:)" would come before "3½ Floppy (A:)"; the
+            -- original listed its disks by letter, whatever the sort key.
+            local root = model.root({
+                {id = "app.c:c", kind = "registry.entry",
+                 meta = {type = "chicago.drive", title = "(C:)"}, data = {fs = "app.c:drive_c"}},
+                {id = "demo:floppy", kind = "registry.entry",
+                 meta = {type = "chicago.drive", title = "3½ Floppy (A:)", image = "floppy"},
+                 data = {entry = "demo:window"}},
+                {id = "demo:nameless", kind = "registry.entry",
+                 meta = {type = "chicago.drive", title = "No letter"}, data = {fs = "demo:fs"}},
+            })
+            test.is_nil(by_id(root, "demo:nameless"),
+                "a filesystem disk with no letter anywhere is not given one")
+            test.eq(by_id(root, "app.c:c").letter, "C", "the letter the caption carries")
+            test.eq(by_id(root, "demo:floppy").image, "floppy")
+            for _, key in ipairs({"name", "type", "size", "date"}) do
+                local titles = {}
+                for _, item in ipairs(model.sort(root, key)) do titles[#titles + 1] = item.title end
+                test.eq(table.concat(titles, "|"), "3½ Floppy (A:)|(C:)|Wippy (D:)|Control Panel",
+                    "by letter under the key " .. key)
+            end
+        end)
+
         test.it("reads a path the same way for a click and for the \"Up\" button", function()
             -- Were they to diverge, "Up" would lead somewhere other than where
             -- a double click leads, and they would diverge silently.
@@ -191,13 +233,13 @@ local function define_tests()
             test.eq(model.parse("something else").view, "unknown",
                 "a silent fallback to the root would turn a typo into a navigation")
             test.eq(model.parse("control").view, "control")
-            test.eq(model.address("control"), "D:\\Control Panel")
+            test.eq(model.address("control"), "My Computer\\Control Panel")
         end)
 
         test.it("goes one level up, not straight to the root", function()
             test.is_nil(model.parent(model.ROOT), "there is nowhere above the root")
             test.eq(model.parent("programs"), model.ROOT)
-            test.eq(model.parent("control"), model.WIPPY)
+            test.eq(model.parent("control"), model.ROOT)
             test.eq(model.parent("desktop/f1"), "desktop")
             test.eq(model.parent("drive/app:fs"), model.WIPPY)
             test.eq(model.parent("drive/app:fs/ui"), "drive/app:fs")
@@ -229,7 +271,7 @@ local function define_tests()
                 {id = "app:settings", kind = "registry.entry"},
                 {id = "app:database", kind = "db.sql.sqlite"},
             })
-            test.eq(#root, 3, "two drives and the Control Panel")
+            test.eq(#root, 2, "two drives")
             test.not_nil(by_id(root, "app:files"))
             test.not_nil(by_id(root, "app:embedded"))
         end)

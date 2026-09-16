@@ -22,7 +22,13 @@ model.WIPPY = "wippy"
 -- declares as one, with its own letter (`model.disk_path`). The collection
 -- is what it always was: the fonts, the wallpapers, the icon packs and the
 -- declarations, each folder something the system really reads.
-model.WIPPY_TITLE = "D: (Wippy)"
+--
+-- The caption follows the original's form — the label, then the letter in
+-- brackets, "3½ Floppy (A:)" — and the picture is the CD-ROM's: D: was the
+-- disc on those machines, and this one is the disc the software came on.
+model.WIPPY_TITLE = "Wippy (D:)"
+model.WIPPY_LETTER = "D"
+model.WIPPY_IMAGE = "cdrom"
 
 -- Filesystem kinds supported by the installed runtime. Discovery and object
 -- construction share this list, so non-filesystem registry entries stay out.
@@ -134,12 +140,14 @@ end
 function model.address(path: any): string
     local where: any = model.parse(path)
     if where.view == "root" then return "My Computer" end
-    if where.view == "wippy" then return model.WIPPY_TITLE end
+    if where.view == "wippy" then return model.WIPPY_LETTER .. ":\\" end
     if where.view == "programs" then return "My Computer\\Programs" end
     if where.view == "desktop" then return "My Computer\\Desktop" end
     if where.view == "desktop_folder" then return "My Computer\\Desktop\\" .. tostring(where.id) end
     if where.view == "windows" then return "My Computer\\Open Windows" end
-    if where.view == "control" then return "D:\\" .. model.CONTROL_TITLE end
+    -- The Control Panel is not on a disk: it stands in My Computer beside the
+    -- disks, as it did in the original.
+    if where.view == "control" then return "My Computer\\" .. model.CONTROL_TITLE end
     if where.view == "drive" then
         local text = "D:\\" .. tostring(where.id)
         if where.sub then text = text .. "\\" .. tostring(where.sub):gsub("/", "\\") end
@@ -182,7 +190,7 @@ function model.parent(path: any)
 
     if where.view == "root" then return nil end
     if where.view == "desktop_folder" then return "desktop" end
-    if where.view == "control" then return model.WIPPY end
+    if where.view == "control" then return model.ROOT end
 
     if where.view == "drive" then
         if not where.sub then return model.WIPPY end
@@ -218,6 +226,9 @@ local function object(fields: any)
         title = fields.title,
         icon = fields.icon,
         image = fields.image, entry = fields.entry, broken = fields.broken,
+        -- A disk's letter: My Computer lists its disks by letter, A: before C:,
+        -- not by caption, where "(C:)" would sort before "3½ Floppy (A:)".
+        letter = fields.letter,
         detail = fields.detail,
         open = fields.open,
         -- The Details columns (FR-008 §4): bytes, Unix seconds, the Type
@@ -419,33 +430,51 @@ function model.wippy(records: any)
         item.image = item.image or "folder"
         item.type_name = "File Folder"
     end
-    out[#out + 1] = model.control_folder()
     return out
 end
 
--- A logical disk backed by the registry filesystem collection.
+-- letter_of(caption) -> "A" for "3½ Floppy (A:)" | nil
+--
+-- The letter a caption already carries, for a disk that does not name one
+-- in `data.letter`. A disk with no letter anywhere is not given one: an
+-- invented letter would be a path that points at nothing.
+local function letter_of(caption: any): any
+    local found = string.match(tostring(caption or ""), "%((%a):%)")
+    if found then return string.upper(found) end
+    return nil
+end
+
+-- My Computer: the disks, then the Control Panel.
+--
+-- D: is the collection of the registry's filesystems. The other disks are
+-- declared by modules (`meta.type: chicago.drive`). The Control Panel stands
+-- here, beside the disks, as it did in the original — it is not a folder on
+-- any disk.
 function model.root(records: any)
     local out = {object({
-        id = model.WIPPY, kind = "drive", title = model.WIPPY_TITLE,
-        icon = model.DRIVE_ICON, image = "drive", detail = "Wippy filesystems",
-        type_name = "Local Disk", open = {action = "folder", path = model.WIPPY},
+        id = model.WIPPY, kind = "drive", title = model.WIPPY_TITLE, letter = model.WIPPY_LETTER,
+        icon = model.DRIVE_ICON, image = model.WIPPY_IMAGE,
+        detail = "Wippy filesystems — what the installed modules brought",
+        type_name = "CD-ROM Disc", open = {action = "folder", path = model.WIPPY},
     })}
     for _, record in ipairs(type(records) == "table" and records or {}) do
         local meta, data = record.meta or {}, record.data or {}
+        local letter = type(data.letter) == "string" and data.letter ~= "" and string.upper(data.letter)
+            or letter_of(meta.title)
         if meta.type == "chicago.drive" and type(data.entry) == "string" and data.entry ~= "" then
             out[#out + 1] = object({
-                id = record.id, kind = "drive", title = tostring(meta.title or record.id),
+                id = record.id, kind = "drive", title = tostring(meta.title or record.id), letter = letter,
                 icon = model.DRIVE_ICON, image = meta.image or "drive", detail = tostring(meta.comment or meta.title or record.id),
                 type_name = "Removable Disk", open = {action = "open_window", entry = data.entry, args = data.args},
             })
         -- The other kind of disk: a filesystem shown as a disk of its own,
-        -- with a letter, browsed by the same folder window as everything
-        -- else. `data.fs` names the filesystem entry; `data.letter` (or the
-        -- first character of the caption) is the letter its paths carry.
-        elseif meta.type == "chicago.drive" and type(data.fs) == "string" and data.fs ~= "" then
-            local letter = tostring(data.letter or tostring(meta.title or "C"):sub(1, 1))
+        -- browsed by the same folder window as everything else. `data.fs`
+        -- names the filesystem entry; the letter is `data.letter` or the one
+        -- the caption carries. Without a letter it has no path, and it is not
+        -- shown rather than shown under a letter nobody gave it.
+        elseif meta.type == "chicago.drive" and type(data.fs) == "string" and data.fs ~= "" and letter then
             out[#out + 1] = object({
-                id = record.id, kind = "drive", title = tostring(meta.title or record.id),
+                id = record.id, kind = "drive", title = tostring(meta.title or record.id), letter = letter,
                 icon = model.DRIVE_ICON, image = meta.image or "drive",
                 detail = tostring(meta.comment or data.fs),
                 type_name = "Local Disk",
@@ -453,6 +482,7 @@ function model.root(records: any)
             })
         end
     end
+    out[#out + 1] = model.control_folder()
     return out
 end
 
@@ -625,7 +655,7 @@ function model.folder_image(path: any): string
     local where: any = model.parse(path)
     if where.view == "root" then return "my_computer" end
     if where.view == "control" then return model.CONTROL_IMAGE end
-    if where.view == "wippy" then return "drive" end
+    if where.view == "wippy" then return model.WIPPY_IMAGE end
     -- The root of a lettered disk is a disk; a folder inside it is a folder.
     if where.view == "disk" and not where.sub then return "drive" end
     return "folder_open"
@@ -758,6 +788,13 @@ function model.sort(objects: any, key: any): any
         local a, b = left.item, right.item
         local ra, rb = rank(a), rank(b)
         if ra ~= rb then return ra < rb end
+        -- Disks go by letter whatever the key, as the original listed them:
+        -- A:, C:, D:. A disk without a letter goes after the lettered ones.
+        if ra == 0 and (a.letter or b.letter) and a.letter ~= b.letter then
+            if not a.letter then return false end
+            if not b.letter then return true end
+            return tostring(a.letter) < tostring(b.letter)
+        end
         if by == "type" then
             local ta, tb = type_of(a):lower(), type_of(b):lower()
             if ta ~= tb then return ta < tb end
