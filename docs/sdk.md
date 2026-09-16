@@ -364,6 +364,10 @@ current data; `update` changes the model on a component's action.
   fill `ui.gauge_filled(node, units)` of their units — value over ceiling,
   clamped to 0..1, to the nearest block or cell. Any other `orient` is refused by
   `ui.problem`.
+- `separator` — the etched horizontal line a wizard or a property sheet draws
+  above its buttons: in pixels a dark row over a light one across its rect, in
+  the middle of its first row; in cells a row of `─`. It takes no input and
+  needs no `id`; down a column it is one row unless `size` says otherwise.
 - `field`: `text`, `align` — a sunken read-only field (a display).
 - `table.header = false` — a table without the header row ("name — value" pairs).
 - `button.ink` is the caption color in pixels; `button.pressed` — pressed by force

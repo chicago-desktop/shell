@@ -11,10 +11,10 @@ local leaves = {label = true, button = true, input = true, list = true, table = 
     statusbar = true, tabs = true, menu = true, image = true, field = true,
     group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true, monitor = true,
     icons = true, select = true, slider = true, spectrum = true, radio = true, text = true, editor = true,
-    picture = true}
+    picture = true, separator = true}
 -- Only the ones that take no input can live without an `id`.
 local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
-    calendar = true, clock = true, monitor = true, spectrum = true, picture = true}
+    calendar = true, clock = true, monitor = true, spectrum = true, picture = true, separator = true}
 -- A node that takes no input: a passive kind, or a table declared `static` —
 -- pairs of "name — value" on a properties sheet, which nobody selects. Such a
 -- table needs no `id`, takes no focus and no clicks, and keeps no scroll offset.
@@ -631,6 +631,11 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         local function fixed_size(child: any): any
             -- A picture's `size_px` is its height, not a length along any axis.
             if type(child) == "table" and child.kind == "picture" then return picture_size(plan, child, horizontal) end
+            -- A separator is one row down a column unless it says otherwise:
+            -- a line that took the rest would push the buttons under it away.
+            if type(child) == "table" and child.kind == "separator" and child.size == nil and not horizontal then
+                return 1
+            end
             if plan.cell ~= nil and child.size_px ~= nil then
                 if child.kind == "image" then return cells_up(plan, child.size_px, child.size, horizontal, 1) end
                 return cells_for(plan, child.size_px, child.size, horizontal, 1)

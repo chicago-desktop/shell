@@ -326,6 +326,13 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 end
                 pixels.scrollbar(raster, x + w - bar_w, y, bar_w, h, item.bar, cell.h, math.min(bar_w, cell.h))
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
+            elseif node.kind == "separator" then
+                -- The etched line a wizard draws above its buttons: a dark
+                -- pixel row over a light one, across the rect, in the middle
+                -- of its first row.
+                local ly = y + cell.h // 2 - 1
+                raster:rect(whole(x), whole(ly), whole(w), 1, color.shadow)
+                raster:rect(whole(x), whole(ly + 1), whole(w), 1, color.light)
             elseif node.kind == "group" and node.style == "sunken" then
                 -- A sunken pane — the Welcome tip's: a background of its own
                 -- inside a field's double bevel, and no title. It is drawn

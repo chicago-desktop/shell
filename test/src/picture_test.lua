@@ -137,6 +137,28 @@ local function define_tests()
             test.is_true(tostring(tilted):find("align", 1, true) ~= nil, tostring(tilted))
         end)
 
+        test.it("draws a separator as an etched line one row high", function()
+            -- A column of 4 rows with a one-row label after the line: a
+            -- flexible separator would take the other three. It takes one;
+            -- the line is a dark row over a light one in its middle.
+            local line = {kind = "separator"}
+            local after = {kind = "label", text = "", size = 1}
+            local tree = {kind = "column", children = {line, after}}
+            test.is_nil(ui.problem(tree), "a separator needs no id")
+            local plan = ui.plan(tree, 10, 4, ui.interaction(), {cell = CELL})
+            test.eq(rect_of(plan, line).h, 1, "one row, not the rest")
+            test.eq(rect_of(plan, after).y, 2)
+            local out = gfx.raster(10 * CELL.w, 4 * CELL.h)
+            out:fill(FACE)
+            local ly = 1 + CELL.h // 2 - 1
+            out:rect(1, ly, 10 * CELL.w, 1, palette.exact.shadow)
+            out:rect(1, ly + 1, 10 * CELL.w, 1, palette.exact.light)
+            test.is_true(drawn(tree, 10, 4) == assert(out:encode("png")), "the etched line across the row")
+            local interaction = ui.interaction()
+            local rows = cells.rows(ui.plan(tree, 10, 4, interaction), interaction, 10, 4)
+            test.is_true(plain(rows[1]) == string.rep("─", 10), "in cells a row of rules: " .. plain(rows[1]))
+        end)
+
         test.it("centres a picture narrower than its rect, 1:1", function()
             images.forget()
             local shown = {kind = "picture", image = BANNER, text = "Banner", align = "center"}

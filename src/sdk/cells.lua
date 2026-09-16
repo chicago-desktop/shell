@@ -244,6 +244,11 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
             local track = string.rep("─", at) .. "█" .. string.rep("─", whole(math.max(0, r.w - at - 1)))
             local style = node.disabled and styles.face_dim or (focused and styles.select or styles.face)
             put(r.x, r.y + r.h // 2, track, r.w, style)
+        elseif node.kind == "separator" then
+            -- The etched line: a row of rules in the shadow colour.
+            if r.w >= 1 then
+                canvas:put(whole(r.x), whole(r.y), styles.shadow:render(string.rep("─", r.w)), whole(r.w))
+            end
         elseif node.kind == "statusbar" then
             widgets.statusbar(canvas, r.x, r.y + r.h - 1, r.w, node.fields or {})
         elseif node.kind == "tabs" then
