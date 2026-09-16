@@ -1174,3 +1174,14 @@ A pixel theme opts in with `presentation = true` and paints `state.presentation`
 as full-screen client content. Other pixel themes refuse the open with a reason;
 cell mode supports the same lifecycle and full viewport without a theme hook.
 This mode does not track idle time and is not a lock screen.
+
+### Interactive full-screen windows
+
+With tui-desktop 0.2.4 or newer, add `meta.presentation_interactive: true`
+alongside `meta.presentation: true` for games and other interactive full-screen
+content. Keys and client mouse events go to the window; desktop shortcuts are
+suppressed. **Esc** closes it and restores the underlying desktop. Key releases
+do not dismiss it. The full viewport follows terminal resize and the window
+follows its opener's lifetime, just like a passive presentation. Existing
+presentations without this flag still dismiss on input. Use this mode only when
+closing on Esc can safely discard the current activity.
