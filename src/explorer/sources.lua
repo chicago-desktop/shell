@@ -147,12 +147,25 @@ end
 -- `notice` is a third state between them: read, but not everything. A notice
 -- does not hide objects and does not pass itself off as a failure.
 --
+-- disks() -> the registry entries declared as disks (`meta.type: chicago.drive`)
+--
+-- Read in ONE place: the root lists them, and so do the folder combo and the
+-- status line of a lettered disk. Two searches of the same thing answer
+-- differently the first time one of them is changed, and nobody sees it.
+function sources.disks(): (any, any)
+    local found, err = registry.find({[".kind"] = "registry.entry", ["meta.type"] = "chicago.drive"})
+    if err or type(found) ~= "table" then
+        return nil, "disks not read: " .. tostring(err or "invalid registry response")
+    end
+    return found, nil
+end
+
 function sources.list(path, context: any)
     local where = model.parse(path)
 
     if where.view == "root" then
-        local disks, err = registry.find({[".kind"] = "registry.entry", ["meta.type"] = "chicago.drive"})
-        if err or type(disks) ~= "table" then return nil, "disks not read: " .. tostring(err or "invalid registry response") end
+        local disks, err = sources.disks()
+        if err or not disks then return nil, err or "disks not read" end
         return {objects = model.root(disks), title = "My Computer"}, nil
     end
 
@@ -232,12 +245,18 @@ function sources.list(path, context: any)
         }, nil
     end
 
-    if where.view == "drive" then
+    -- Both kinds of filesystem folder are read the same way: a folder of the
+    -- D: collection and a folder of a lettered disk differ in their address,
+    -- not in how the bytes come back. Reading them by two paths would mean
+    -- two places to fix when reading changes.
+    if where.view == "drive" or where.view == "disk" then
         local entries, err, cut = read_drive(where.id, where.sub)
         if err or not entries then return nil, err or "drive not read" end
 
         local title = tostring(where.id)
         if where.sub then title = title .. "/" .. tostring(where.sub) end
+        -- A lettered disk says where it is the way a person reads it.
+        if where.view == "disk" then title = model.address(path) end
 
         -- The catalog is needed by the files: the program for an extension
         -- and its icon come from the file type registry. A catalog failure

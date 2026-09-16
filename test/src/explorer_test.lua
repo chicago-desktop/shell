@@ -39,7 +39,7 @@ local function define_tests()
             test.eq(root[1].open.path, model.WIPPY)
             test.eq(model.parse(model.WIPPY).view, "wippy")
             test.eq(model.parent(model.WIPPY), model.ROOT)
-            test.eq(model.folder_title(model.WIPPY), "C: (Wippy)")
+            test.eq(model.folder_title(model.WIPPY), "D: (Wippy)")
             test.eq(model.folder_image(model.WIPPY), "drive")
         end)
 
@@ -99,6 +99,85 @@ local function define_tests()
             end
         end)
 
+        test.it("lets a module caption and picture its folder on D:", function()
+            -- The Control Panel has a caption and a picture of its own; a
+            -- filesystem a module declares gets them the same way, from the
+            -- entry's `meta`. Without it a person reads `program_files`
+            -- where the original read "Program Files" — and the entry name
+            -- cannot be that caption: it has no space in it.
+            local root = model.wippy({
+                {id = "app.c:windows", kind = "fs.directory",
+                 meta = {title = "Windows", image = "windows"}},
+                {id = "app.c:program_files", kind = "fs.directory",
+                 meta = {title = "Program Files"}},
+                {id = "chicago.taskman:images", kind = "fs.directory"},
+            })
+
+            local named = by_id(root, "app.c:windows")
+            test.eq(named.title, "Windows", "the caption is the module's, not the entry name")
+            test.eq(named.image, "windows", "and so is the picture")
+            test.eq(named.open.path, "drive/app.c:windows",
+                "the caption is for reading; the entry id stays the address")
+            test.eq(by_id(root, "app.c:program_files").image, "folder",
+                "a caption without a picture keeps the plain folder")
+
+            local plain = by_id(root, "chicago.taskman:images")
+            test.eq(plain.title, "images", "a folder that named nothing keeps its entry name")
+            test.eq(plain.image, "folder")
+
+            -- A named folder is no longer told apart by its entry name, so it
+            -- is not a collision either: lengthening the neighbour because of
+            -- it would explain nothing.
+            local pair = model.drives({
+                {id = "keeper:images", kind = "fs.directory", meta = {title = "Windows"}},
+                {id = "app:images", kind = "fs.directory"},
+            })
+            test.eq(by_id(pair, "app:images").title, "images",
+                "the neighbour of a named folder is not lengthened")
+        end)
+
+        test.it("shows a filesystem declared as a disk of its own, under its letter", function()
+            -- C: is ONE filesystem shown as a disk beside D:, not a folder
+            -- inside it. Its letter is in the path, so the address bar, the
+            -- window title and "Up" — three pure functions of a path — read
+            -- it without asking the registry where they are.
+            local root = model.root({
+                {id = "app.c:c", kind = "registry.entry",
+                 meta = {type = "chicago.drive", title = "C:", comment = "the running system"},
+                 data = {fs = "app.c:drive_c", letter = "C"}},
+            })
+            test.eq(#root, 2, "the collection and the lettered disk")
+
+            local disk = by_id(root, "app.c:c")
+            test.not_nil(disk, "a disk declared with a filesystem appears at the root")
+            test.eq(disk.title, "C:")
+            test.eq(disk.type_name, "Local Disk")
+            test.eq(disk.open.action, "folder",
+                "it is browsed by the folder window, not by a window of its own")
+            test.eq(disk.open.path, "disk/C/app.c:drive_c")
+
+            local where = model.parse(disk.open.path)
+            test.eq(where.view, "disk")
+            test.eq(where.letter, "C")
+            test.eq(where.id, "app.c:drive_c", "the entry id keeps its colon")
+            test.is_nil(where.sub)
+            test.eq(model.parse("disk/C/app.c:drive_c/PROGRAMS/CHICAGO").sub, "PROGRAMS/CHICAGO")
+
+            test.eq(model.address(disk.open.path), "C:\\")
+            test.eq(model.address("disk/C/app.c:drive_c/PROGRAMS/CHICAGO"), "C:\\PROGRAMS\\CHICAGO")
+            test.eq(model.folder_title(disk.open.path), "C:\\")
+            test.eq(model.folder_title("disk/C/app.c:drive_c/PROGRAMS/CHICAGO"), "CHICAGO")
+            test.eq(model.folder_image(disk.open.path), "drive")
+            test.eq(model.folder_image("disk/C/app.c:drive_c/PROGRAMS"), "folder_open")
+
+            -- Above the root of a lettered disk is My Computer, NOT the
+            -- collection: "Up" that led into D: would put a person somewhere
+            -- they had never been.
+            test.eq(model.parent(disk.open.path), model.ROOT)
+            test.eq(model.parent("disk/C/app.c:drive_c/PROGRAMS"), "disk/C/app.c:drive_c")
+            test.eq(model.parent("disk/C/app.c:drive_c/PROGRAMS/CHICAGO"), "disk/C/app.c:drive_c/PROGRAMS")
+        end)
+
         test.it("reads a path the same way for a click and for the \"Up\" button", function()
             -- Were they to diverge, "Up" would lead somewhere other than where
             -- a double click leads, and they would diverge silently.
@@ -112,7 +191,7 @@ local function define_tests()
             test.eq(model.parse("something else").view, "unknown",
                 "a silent fallback to the root would turn a typo into a navigation")
             test.eq(model.parse("control").view, "control")
-            test.eq(model.address("control"), "C:\\Control Panel")
+            test.eq(model.address("control"), "D:\\Control Panel")
         end)
 
         test.it("goes one level up, not straight to the root", function()

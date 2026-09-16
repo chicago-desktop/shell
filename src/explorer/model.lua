@@ -17,7 +17,12 @@ local model = {}
 
 model.ROOT = ""
 model.WIPPY = "wippy"
-model.WIPPY_TITLE = "C: (Wippy)"
+-- The collection of filesystems the running modules declare. It is D:, not
+-- C:, because C: is now a disk of its own — a single filesystem a module
+-- declares as one, with its own letter (`model.disk_path`). The collection
+-- is what it always was: the fonts, the wallpapers, the icon packs and the
+-- declarations, each folder something the system really reads.
+model.WIPPY_TITLE = "D: (Wippy)"
 
 -- Filesystem kinds supported by the installed runtime. Discovery and object
 -- construction share this list, so non-filesystem registry entries stay out.
@@ -64,9 +69,26 @@ model.SORT_KEYS = {"name", "type", "size", "date"}
 --   "control"             the Control Panel
 --   "drive/<entry>"       the root of a filesystem from the registry
 --   "drive/<entry>/<path>"  a directory inside it
+--   "disk/<letter>/<entry>"        a lettered disk of its own (C:)
+--   "disk/<letter>/<entry>/<path>" a directory inside it
+--
+-- A lettered disk is one filesystem a module declares as a disk rather than
+-- as a folder of the collection: it stands at the root beside D:, its
+-- address reads `C:\...`, and "Up" from its root is My Computer.
 --
 -- A registry entry id is always `namespace:name`, and there can be no slash
 -- in it; parsing the path inside a drive relies on exactly that.
+
+-- disk_path(letter, entry, sub?) -> the path of a lettered disk.
+--
+-- Built in ONE place because three pure functions read it back — the address
+-- bar, the window title and the "Up" button. A second formula would drift
+-- from this one, and silently.
+function model.disk_path(letter: any, entry: any, sub: any): string
+    local text = "disk/" .. string.upper(tostring(letter or "")) .. "/" .. tostring(entry or "")
+    if type(sub) == "string" and sub ~= "" then text = text .. "/" .. sub end
+    return text
+end
 function model.parse(path: any)
     local text = type(path) == "string" and path or ""
 
@@ -79,6 +101,17 @@ function model.parse(path: any)
 
     local folder = string.match(text, "^desktop/(.+)$")
     if folder then return {view = "desktop_folder", id = folder} end
+
+    -- A lettered disk carries its letter IN the path, before the entry id.
+    -- The alternative was to look the letter up in the registry, and then
+    -- the address bar, the window title and the "Up" button — three pure
+    -- functions of a path — would each need the registry to say where they
+    -- are. A path that cannot be read on its own is not a path.
+    local letter, disk, tail = string.match(text, "^disk/(%a)/([^/]+)(.*)$")
+    if letter and disk then
+        local inside = string.match(tostring(tail), "^/(.+)$")
+        return {view = "disk", letter = letter, id = disk, sub = inside}
+    end
 
     local drive, rest = string.match(text, "^drive/([^/]+)(.*)$")
     if drive then
@@ -106,10 +139,18 @@ function model.address(path: any): string
     if where.view == "desktop" then return "My Computer\\Desktop" end
     if where.view == "desktop_folder" then return "My Computer\\Desktop\\" .. tostring(where.id) end
     if where.view == "windows" then return "My Computer\\Open Windows" end
-    if where.view == "control" then return "C:\\" .. model.CONTROL_TITLE end
+    if where.view == "control" then return "D:\\" .. model.CONTROL_TITLE end
     if where.view == "drive" then
-        local text = "C:\\" .. tostring(where.id)
+        local text = "D:\\" .. tostring(where.id)
         if where.sub then text = text .. "\\" .. tostring(where.sub):gsub("/", "\\") end
+        return text
+    end
+    -- A lettered disk reads as a disk: `C:\PROGRAMS\CHICAGO`. The entry id
+    -- is not in the address — the letter is what the person was given, and
+    -- the id is in the status line, as it is for the collection's folders.
+    if where.view == "disk" then
+        local text = string.upper(tostring(where.letter)) .. ":\\"
+        if where.sub then text = text .. tostring(where.sub):gsub("/", "\\") end
         return text
     end
     return tostring(path or "")
@@ -148,6 +189,15 @@ function model.parent(path: any)
         local up = string.match(tostring(where.sub), "^(.+)/[^/]+$")
         if up then return "drive/" .. tostring(where.id) .. "/" .. up end
         return "drive/" .. tostring(where.id)
+    end
+
+    -- A lettered disk stands at the root, beside the collection: above C:
+    -- is "My Computer", not D:. Sending it up into the collection would put
+    -- a person somewhere they have never been.
+    if where.view == "disk" then
+        if not where.sub then return model.ROOT end
+        local up = string.match(tostring(where.sub), "^(.+)/[^/]+$")
+        return model.disk_path(where.letter, where.id, up)
     end
 
     return model.ROOT
@@ -211,9 +261,24 @@ function model.drives(records: any)
         if type(record.id) == "string" and record.id ~= "" and drive_kinds[record.kind] then
             local space, name = string.match(record.id, "^([^:]*):(.+)$")
             if not name then space, name = "", record.id end
-            seen[name] = (seen[name] or 0) + 1
+
+            -- A caption and a picture of the module's own, the same way the
+            -- Control Panel has them: `meta.title` is what the person is
+            -- meant to read ("Program Files"), while the entry name stays the
+            -- address. Without them the name IS the caption, as before.
+            local meta: any = type(record.meta) == "table" and record.meta or {}
+            local caption: any = nil
+            if type(meta.title) == "string" and meta.title ~= "" then caption = meta.title end
+            local picture: any = nil
+            if type(meta.image) == "string" and meta.image ~= "" then picture = meta.image end
+
+            -- Only unnamed folders count towards a collision: a named one is
+            -- no longer told apart by its entry name, and lengthening the
+            -- neighbour because of it would explain nothing.
+            if not caption then seen[name] = (seen[name] or 0) + 1 end
             drives[#drives + 1] = {
                 id = record.id, name = name, space = space, kind = record.kind,
+                caption = caption, image = picture,
             }
         end
     end
@@ -229,8 +294,9 @@ function model.drives(records: any)
         out[#out + 1] = object({
             id = drive.id,
             kind = "drive",
-            title = ambiguous and (drive.space .. " " .. drive.name) or drive.name,
+            title = drive.caption or (ambiguous and (drive.space .. " " .. drive.name) or drive.name),
             icon = model.DRIVE_ICON,
+            image = drive.image,
             -- The entry kind is the answer to "why doesn't it open": `fs.embed`
             -- is frozen into the module and is read-only, `fs.directory` is a
             -- real directory on disk.
@@ -347,7 +413,10 @@ function model.wippy(records: any)
     for _, item in ipairs(out) do
         item.kind = "folder"
         item.icon = model.DIR_ICON
-        item.image = "folder"
+        -- A picture the entry asked for stays: `meta.image` is how a module
+        -- says "this folder is not a plain one". The rest get the plain
+        -- folder, as they did.
+        item.image = item.image or "folder"
         item.type_name = "File Folder"
     end
     out[#out + 1] = model.control_folder()
@@ -368,6 +437,19 @@ function model.root(records: any)
                 id = record.id, kind = "drive", title = tostring(meta.title or record.id),
                 icon = model.DRIVE_ICON, image = meta.image or "drive", detail = tostring(meta.comment or meta.title or record.id),
                 type_name = "Removable Disk", open = {action = "open_window", entry = data.entry, args = data.args},
+            })
+        -- The other kind of disk: a filesystem shown as a disk of its own,
+        -- with a letter, browsed by the same folder window as everything
+        -- else. `data.fs` names the filesystem entry; `data.letter` (or the
+        -- first character of the caption) is the letter its paths carry.
+        elseif meta.type == "chicago.drive" and type(data.fs) == "string" and data.fs ~= "" then
+            local letter = tostring(data.letter or tostring(meta.title or "C"):sub(1, 1))
+            out[#out + 1] = object({
+                id = record.id, kind = "drive", title = tostring(meta.title or record.id),
+                icon = model.DRIVE_ICON, image = meta.image or "drive",
+                detail = tostring(meta.comment or data.fs),
+                type_name = "Local Disk",
+                open = {action = "folder", path = model.disk_path(letter, data.fs)},
             })
         end
     end
@@ -528,6 +610,12 @@ function model.folder_title(path: any): string
         if where.sub then return tostring(where.sub):match("([^/]+)$") or tostring(where.sub) end
         return tostring(where.id):match(":(.+)$") or tostring(where.id)
     end
+    -- A lettered disk is titled by its letter at the root and by the folder
+    -- name inside it — `C:\` and then `PROGRAMS`, as the original titled them.
+    if where.view == "disk" then
+        if where.sub then return tostring(where.sub):match("([^/]+)$") or tostring(where.sub) end
+        return string.upper(tostring(where.letter)) .. ":\\"
+    end
     return tostring(path or "")
 end
 
@@ -538,6 +626,8 @@ function model.folder_image(path: any): string
     if where.view == "root" then return "my_computer" end
     if where.view == "control" then return model.CONTROL_IMAGE end
     if where.view == "wippy" then return "drive" end
+    -- The root of a lettered disk is a disk; a folder inside it is a folder.
+    if where.view == "disk" and not where.sub then return "drive" end
     return "folder_open"
 end
 

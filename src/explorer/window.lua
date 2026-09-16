@@ -93,6 +93,17 @@ local function places(state: any): any
         seen[model.WIPPY] = true
         out[#out + 1] = {value = model.WIPPY, label = "  " .. model.WIPPY_TITLE}
     end
+    -- The lettered disks stand beside the collection, as the original's list
+    -- put C: beside the others: a person on C:\PROGRAMS gets back to D: and
+    -- to C: from the same list.
+    for _, entry in ipairs(state.disks or {}) do
+        local disk: any = entry
+        local path = disk.open and disk.open.path
+        if type(path) == "string" and path:sub(1, 5) == "disk/" and not seen[path] then
+            seen[path] = true
+            out[#out + 1] = {value = path, label = "  " .. tostring(disk.title)}
+        end
+    end
     for _, entry in ipairs(state.drives) do
         local drive: any = entry
         local path = "drive/" .. tostring(drive.id)
@@ -203,7 +214,11 @@ local function properties(state: any): boolean
     local chosen = selected_objects(state)
     local where: any = model.parse(state.path)
     if #chosen == 0 then
-        if where.view == "root" or where.view == "wippy" then
+        -- A disk's properties are the system's, as they were in the original:
+        -- My Computer, the D: collection and the root of a lettered disk all
+        -- open System Properties. A folder inside any of them does not.
+        if where.view == "root" or where.view == "wippy"
+            or (where.view == "disk" and not where.sub) then
             return perform(state, {action = "open_window", entry = definition.SYSPROPS})
         end
         local parent = model.parent(state.path)
@@ -383,6 +398,15 @@ local function right_field(state: any): string
             if drive.id == where.id then return tostring(drive.detail or "") end
         end
     end
+    -- A lettered disk says what it is the same way, from the entry that
+    -- declared it: the letter is on the icon, the filesystem behind it is
+    -- here.
+    if where.view == "disk" and not where.sub then
+        for _, entry in ipairs(state.disks or {}) do
+            local disk: any = entry
+            if disk.open and disk.open.path == state.path then return tostring(disk.detail or "") end
+        end
+    end
     return ""
 end
 
@@ -448,7 +472,7 @@ function definition.init(args: any, context: any): any
     local path, notice = model.start(args)
     local browse, why = definition.deps.sources.browse()
     local state: any = {
-        path = path, objects = {}, selection = {}, drives = {},
+        path = path, objects = {}, selection = {}, drives = {}, disks = {},
         view = "large", sort = "name", toolbar = false, statusbar = true,
         browse = browse, notice = notice or why,
         sheet = nil, popup = nil, pending = nil, last_click = nil,
@@ -457,6 +481,11 @@ function definition.init(args: any, context: any): any
     if replies then context.watch(replies) else state.replies_error = tostring(rerr or "no reply channel") end
     local records = definition.deps.sources.drives()
     state.drives = model.drives(records or {})
+    -- The disks of "My Computer" — the D: collection and every lettered disk
+    -- a module declares. Read here, once, because two readers of the same
+    -- list answer differently the first time one of them changes.
+    local declared = definition.deps.sources.disks()
+    state.disks = model.root(declared or {})
     load(state)
     return state
 end

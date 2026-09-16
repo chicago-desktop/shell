@@ -29,6 +29,12 @@ local PROGRAMS = {
 }
 local RECORDS = {{id = "app:docs", kind = "fs.directory"}, {id = "app:other", kind = "fs.embed"}}
 
+-- A filesystem declared as a disk of its own: it stands at the root beside
+-- the D: collection, and its paths carry the letter.
+local DISKS = {{id = "app.c:c", kind = "registry.entry",
+    meta = {type = "chicago.drive", title = "C:", comment = "the running system"},
+    data = {fs = "app:docs", letter = "C"}}}
+
 local function listing(path: any): any
     if path == "" then return {objects = model.root(RECORDS), title = "My Computer"} end
     if path == model.WIPPY then return {objects = model.wippy(RECORDS), title = model.WIPPY_TITLE} end
@@ -50,6 +56,14 @@ local function listing(path: any): any
                 modified = 804850000 + index}
         end
         return {objects = model.files(names, "drive/app:docs/many", "app:docs", "many", PROGRAMS), title = "app:docs/many"}
+    end
+    -- The same filesystem reached as a lettered disk: the bytes come back
+    -- the same way, only the address differs.
+    if path == "disk/C/app:docs" then
+        return {objects = model.files({
+            {name = "readme.txt", type = "file", size = 2048, modified = 804850200},
+            {name = "letters", type = "directory", modified = 804850000},
+        }, "disk/C/app:docs", "app:docs", nil, PROGRAMS), title = "C:\\"}
     end
     if path == "control" then
         return {objects = model.control({{entry = "app:display", title = "Display", group = {"Settings"},
@@ -98,6 +112,7 @@ local function start(args: any, opts: any?): (any, any, any, any)
                 return true, nil
             end,
             drives = function(): (any, any) return RECORDS, nil end,
+            disks = function(): (any, any) return DISKS, nil end,
         },
     }
     local context = app.context({width = 48, height = 16})
@@ -181,7 +196,7 @@ local function define_tests()
             test.eq(state.path, "")
             test.eq(definition.title(state), "My Computer")
             test.eq(definition.image(state), "my_computer", "the title bar's picture")
-            test.eq(titles(state), "C: (Wippy)", "My Computer lists logical disks")
+            test.eq(titles(state), "D: (Wippy)", "My Computer lists logical disks")
             test.eq(#context.watched, 1, "the compositor's reply channel is watched")
             test.eq(#state.drives, 2)
             state = start("drive/app:docs")
@@ -333,7 +348,7 @@ local function define_tests()
             test.eq(state.sheet.spec.title, "readme.txt")
             test.is_true(lines:find("Type: Text Document", 1, true) ~= nil, lines)
             test.is_true(lines:find("Size: 2KB", 1, true) ~= nil, lines)
-            test.is_true(lines:find("Location: C:\\app:docs", 1, true) ~= nil, lines)
+            test.is_true(lines:find("Location: D:\\app:docs", 1, true) ~= nil, lines)
             finish()
         end)
 
@@ -469,7 +484,12 @@ local function define_tests()
             local tree = definition.view(state, context)
             local values = {}
             for _, option in ipairs(node_of(tree, "tb_places").options) do values[#values + 1] = (option :: any).value end
-            test.eq(table.concat(values, "|"), "|wippy|drive/app:docs|drive/app:other", "the way here, then the drives")
+            -- The way here (My Computer, D:, this folder), then the lettered
+            -- disks, then the folders of the collection: a person standing in
+            -- C:\PROGRAMS gets back to both disks from the same list.
+            test.eq(table.concat(values, "|"),
+                "|wippy|drive/app:docs|disk/C/app:docs|drive/app:other",
+                "the way here, then the disks, then the drives")
             test.is_true(node_of(tree, "tb_large").pressed == true)
             for _, id in ipairs({"tb_cut", "tb_copy", "tb_paste", "tb_undo", "tb_delete"}) do
                 test.is_true(node_of(tree, id).disabled == true, id)
@@ -592,7 +612,7 @@ local function define_tests()
             end
             test.is_true(shown:find("File", 1, true) ~= nil and shown:find("Help", 1, true) ~= nil, "the menu bar:\n" .. shown)
             -- The logical disk is visible in the real cell renderer.
-            test.is_true(shown:find("C:", 1, true) ~= nil and shown:find("Wippy", 1, true) ~= nil,
+            test.is_true(shown:find("D:", 1, true) ~= nil and shown:find("Wippy", 1, true) ~= nil,
                 "the root's Wippy disk:\n" .. shown)
             test.is_true(shown:find("object(s)", 1, true) ~= nil, "the status bar:\n" .. shown)
             view:send({type = "close"})
