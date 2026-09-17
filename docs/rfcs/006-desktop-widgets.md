@@ -1,5 +1,8 @@
 # FR-006. Desktop widgets
 
+> Historical initial design. Definition/instance discovery and lifecycle are
+> superseded by [Widgets SDK v1](../sdk.md#desktop-widgets) (app epic #15).
+
 **Genre:** component specification. Reader: the implementer, an agent or a
 human.
 **Status:** proposed, 2026-09-13; revised the same day after the owner's

@@ -194,6 +194,23 @@ local function define_tests()
     end)
 
     test.describe("desktop widgets: pixels", function()
+        test.it("renders changed panel sizes and removes stale rows after shrinking", function()
+            use_fonts()
+            local state = scene.state()
+            state.widgets[1].w, state.widgets[1].h = 28, 9
+            local large = chrome_pixels.paint(state, 10, 20)
+            assert(assert(fs.get("app:shots")):writefile("widgets-resized.png",
+                assert(scene.compose(large, state, {w = 10, h = 20}):encode("png"))))
+            state.widgets[1].w, state.widgets[1].h = 20, 7
+            local small = chrome_pixels.paint(state, 10, 20)
+            local count = 0
+            for _, placement in ipairs(small.placements) do
+                if tostring(placement.id):find("widget:g1:row:", 1, true) == 1 then count = count + 1 end
+            end
+            test.eq(count, 7, "the complete placement list contains only the new seven rows")
+            chrome_pixels.fonts = nil
+        end)
+
         test.it("gives a placement per row on the desktop layer, under the icons, cut by the window over it", function()
             use_fonts()
             local state = scene.state()
@@ -397,6 +414,53 @@ local function define_tests()
             end
             test.eq(table.concat(out, " "),
                 "app:b|B|30|8|20|app:x app:c|nil|wide|5|20|nil app:a|nil|20|5|100|nil app:d|nil|20|5|100|nil")
+        end)
+
+        test.it("resolves independent explicit instances and rejects invalid compositions atomically", function()
+            local definitions = {{id = "app:definition", kind = "process.lua", meta = {
+                type = "chicago.widget", width = 20, height = 7, min_width = 12, title = "Default"}}}
+            local function instance(id: string, data: any): any return {id = id, data = data} end
+            local entries = {
+                instance("app:b", {widget = "app:definition", width = 24, config = {value = "B"}}),
+                instance("app:a", {widget = "app:definition", config = {value = "A"}}),
+                instance("app:off", {widget = "app:definition", enabled = false}),
+            }
+            local list, err = catalog.widget_instances(definitions, entries)
+            test.is_nil(err)
+            test.eq(#list, 2)
+            test.eq(list[1].instance, "app:a")
+            test.eq(list[2].instance, "app:b")
+            test.eq(list[1].entry, list[2].entry)
+            test.eq(list[1].w, 20)
+            test.eq(list[2].w, 24)
+            test.eq(list[1].config.value, "A")
+            test.eq(list[2].config.value, "B")
+            test.eq(#assert(catalog.widget_instances(definitions, {})), 0, "no automatic definition instances")
+            for _, bad in ipairs({
+                {widget = "app:missing"}, {widget = "app:definition", width = 11},
+                {widget = "app:definition", width = "20"}, {widget = "app:definition", enabled = "false"},
+                {widget = "app:definition", config = {value = function() end}},
+                {widget = "app:definition", order = 1.5},
+            }) do
+                local result, why = catalog.widget_instances(definitions, {entries[1], instance("app:bad", bad)})
+                test.is_nil(result)
+                test.is_true(tostring(why):find("app:bad", 1, true) ~= nil)
+            end
+            local result, why = catalog.widget_instances(definitions, {entries[1], entries[1]})
+            test.is_nil(result)
+            test.not_nil(why)
+        end)
+
+        test.it("gives providers the exact content width used by the frame on narrow screens", function()
+            local instance = widget("g1", 40, 8, label("adaptive"))
+            for _, screen in ipairs({30, 60, 120}) do
+                local geometry = gadgets.geometry(instance, screen)
+                local spots = gadgets.layout({instance}, screen, 1, 24)
+                test.eq(geometry.width, spots[1].w - 2)
+                test.eq(geometry.height, spots[1].h - 2)
+                test.eq(chrome.widget_geometry(instance, screen).width, geometry.width)
+                test.eq(chrome_pixels.widget_geometry(instance, screen).width, geometry.width)
+            end
         end)
 
         test.it("finds the harness's widget entry in the real registry, and not among the programs", function()

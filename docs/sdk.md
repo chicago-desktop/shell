@@ -862,12 +862,101 @@ keyboard, no title buttons and no frame of its own to drag.
     policies: [chicago.taskman:widget_scope]
 ```
 
-The shell reads these entries (`catalog.widgets()`, `meta.order` then the
-entry id) at desktop start and on `desktop.refresh`, and hands the list to the
-base as `options.widgets`. The base checks the limits and refuses a size
-outside them by name — it does not clamp: a tree laid out for another size
-would be another widget — and spawns each entry as a state provider, with the
-widget's id (`g<n>`) where a window gets its window id.
+### Desktop instances (Widgets SDK v1)
+
+A `chicago.widget` process entry is an available **definition**, not an instruction
+to launch it. The host selects instances with `registry.entry` declarations of
+`meta.type: chicago.widget.instance`. Each enabled instance runs in its own process
+in each logged-on desktop session, even when two instances reference the same
+process definition. Installation alone starts no widgets; no declarations means
+an empty composition. There is no automatic legacy fallback.
+
+```yaml
+version: "1.0"
+namespace: app.desktop.widgets
+entries:
+  - name: memory
+    kind: registry.entry
+    meta: {type: chicago.widget.instance}
+    data:
+      widget: chicago.taskman:memory
+      enabled: true
+      width: 24
+      height: 8
+      order: 20
+      config: {}
+```
+
+The stable identity is `app.desktop.widgets:memory`. `widget` is the exact process
+entry ID. `enabled` defaults to true; false keeps the declaration without running
+it. Width, height, title, order and opens inherit the definition's metadata when
+omitted. Empty title/opens explicitly clears that value. Width and height are
+integer **outer panel cells**, within 10..40 and 2..16; definitions may narrow
+these bounds with `min_width`, `max_width`, `min_height`, `max_height`.
+`order` is an integer; ties sort by stable instance ID. `config` defaults to `{}`
+and must be plain finite data. The widget validates its own supported settings in
+`init(config, context)`; do not put callbacks or resource handles in configuration.
+
+Discovery uses kind and metadata together; referenced definitions are loaded by
+exact ID and must be `process.lua` with `meta.type: chicago.widget`. The catalog
+validates the complete composition, including disabled declarations, before
+returning enabled instances. A missing dependency must be corrected or its
+instance declaration removed. Read/validation failure returns no list and a
+reason, leaving the current composition intact. A successful empty list removes
+all instances. Provider initialization/spawn errors are runtime failures and do
+not roll back unrelated valid instances.
+
+The shell reads the registry after logon and on `desktop.refresh`. File edits
+alone do not update the running registry: upload the instance namespace through
+the host's registry synchronization, then request `desktop.refresh`. If replacing
+SDK/compositor Lua code, open a new desktop session to load that code; refresh only
+reconciles declarations and does not hot-reload a running compositor's libraries.
+The app's `tools/live-update.sh app.desktop.widgets` uploads its instance namespace;
+a subsequent desktop refresh is still required.
+
+| Change | Process behavior |
+| --- | --- |
+| Add / re-enable | Start one process for the instance under the desktop actor |
+| Unchanged / order / title / opens | Keep PID and state |
+| Width / height / terminal size | Deliver actual content geometry through `resize`; keep PID |
+| Config / definition reference | Close the old provider and start a replacement with a new transient ID |
+| Disable / remove | Detach immediately; send SDK `close`; force termination after 3 seconds if needed |
+| Process exit | Retain last tree marked stopped; explicit refresh retries it |
+| Registry read / declaration validation error | Preserve current providers and report the error |
+
+Replacement processes may overlap briefly during the old provider's close grace;
+only the current provider can publish. Stable instance IDs remain unchanged while
+PIDs and transient `g<n>` IDs may change. A stopped provider retried without a
+configuration change keeps its transient ID. Whole-desktop shutdown guarantees
+termination; individual disable/remove/config replacement provides the cleanup
+grace. Widgets should release subscriptions in SDK `dispose` and must not rely
+on cleanup running after forced termination.
+
+`desktop.list.widgets` includes `instance`, `id`, `entry`, `pid`, requested `w/h`,
+`content_width/content_height`, revision, waiting and stopped flags. When the theme exposes `widget_layout`, status also reports `visible`, and the
+visible panel's x/y and rendered_width/rendered_height. Configuration is not returned. `widget_failure` describes the last reconciliation error;
+`desktop.refresh` also returns `ok = false` and `error` for widget reconciliation
+failure. Successful refresh clears `widget_failure`.
+
+The theme's `widget_geometry(widget, screen_width)` returns actual content width
+and height, using the same width cap and frame inset as drawing. These dimensions
+reach SDK init and resize, including on a terminal resize. The Chicago frame takes
+one cell on each side: a 20×8 panel has an 18×6 body. On a narrow desktop the body
+may be smaller than the requested minimum; views must adapt to the supplied size.
+A 2-row panel has zero content rows. Column overflow still hides a widget without
+stopping its process; status reports `visible = false`. Layout controls remain
+follow-up work. A theme without `widget_geometry` treats the full requested size as content.
+
+### Migration
+
+Hosts upgrading from automatic `chicago.widget` discovery must declare their
+intended instances before opening a new desktop. The app provides Weather, Memory
+and Goroutines in `src/app/widgets/_index.yaml`; dependency process declarations
+remain reusable and require no copies. These built-ins currently expose no
+instance-specific configuration settings: use `config: {}`. In particular,
+Weather still reads its shared forecast service's location; separate processes
+do not imply independently configurable cities. Per-city service support is a
+separate migration enhancement, not a field that can be enabled by YAML alone.
 
 ### The process
 
@@ -895,7 +984,7 @@ return {main = app.main(definition), definition = definition}
 The interval arrives as `update(model, {type = "tick"})`; a widget without
 `update` is still redrawn on every tick. `view` publishes through
 `desktop.state` exactly as a window's does, and the runner closes the widget's
-id when the process ends. No input ever arrives: a tree with focusable
+id when the process ends. No pointer or keyboard input arrives (resize and close still do): a tree with focusable
 components is laid out and drawn, nothing in it is drawn focused, and it never
 gets an event. Until the first state the panel shows its title over an empty
 body; a widget whose process stopped keeps its last tree with "stopped" in the

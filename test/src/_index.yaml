@@ -1176,3 +1176,9 @@ entries:
       bitmap: chicago.shell.sdk:bitmap
       app: chicago.shell.sdk:app
       ui: chicago.shell.sdk:ui
+
+  - name: widget_probe_instance
+    kind: registry.entry
+    meta: {type: chicago.widget.instance}
+    data:
+      widget: app:widget_probe

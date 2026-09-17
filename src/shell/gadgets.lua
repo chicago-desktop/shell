@@ -32,6 +32,13 @@ local LEAST_W, LEAST_H = 3, 2
 
 -- layout(list, width, top, bottom) -> {{id, x, y, w, h, widget}, …}
 --
+-- Effective content geometry shared with the compositor's SDK resize path.
+function gadgets.geometry(widget: any, screen: any): any
+    local outer = math.max(0, math.min(whole(widget.w), whole(screen) // 3))
+    return {width = math.max(0, outer - 2 * gadgets.INSET),
+        height = math.max(0, whole(widget.h) - 2 * gadgets.INSET)}
+end
+
 -- `list` is `state.widgets` in display order, `top` and `bottom` the first
 -- and the last row of the desktop. A widget wider than a third of the screen
 -- stands at a third, and its tree is laid out at that width. Widgets go down
@@ -44,13 +51,12 @@ function gadgets.layout(list: any, width: any, top: any, bottom: any): any
     local screen = whole(width)
     local first, last = whole(math.max(1, whole(top))), whole(bottom)
     if screen < LEAST_W or last < first then return out end
-    local cap = screen // 3
     local column: any = {index = 1, right = screen - gadgets.GAP, y = first + gadgets.GAP, widest = 0}
     for _, entry in ipairs(type(list) == "table" and list or {}) do
         local widget: any = entry
         local id: any = type(widget) == "table" and widget.id or nil
         if type(id) == "string" and id ~= "" then
-            local w = whole(math.min(whole(widget.w), cap))
+            local w = whole(gadgets.geometry(widget, screen).width + 2 * gadgets.INSET)
             local h = whole(widget.h)
             if w >= LEAST_W and h >= LEAST_H then
                 if column.y + h - 1 > last and column.widest > 0 and column.index < gadgets.COLUMNS then

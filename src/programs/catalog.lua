@@ -328,14 +328,102 @@ function catalog.widget_list(records: any): any
     return out
 end
 
--- widgets() -> (list, nil) | (nil, reason). As with `list`, the first value
--- tells the outcomes apart: no widgets is an empty table, an unreadable
--- registry is nil.
+-- Host-owned instances select definitions; installing a definition never starts it.
+catalog.WIDGET_INSTANCE_TYPE = "chicago.widget.instance"
+
+local function plain_config(value: any, seen: any): boolean
+    local kind = type(value)
+    if kind == "number" then return value == value and value ~= math.huge and value ~= -math.huge end
+    if kind == "string" or kind == "boolean" then return true end
+    if kind ~= "table" or seen[value] then return false end
+    seen[value] = true
+    for key, child in pairs(value) do
+        if (type(key) ~= "string" and (type(key) ~= "number" or math.tointeger(key) == nil))
+            or not plain_config(child, seen) then return false end
+    end
+    seen[value] = nil
+    return true
+end
+
+-- Pure resolution for tests and callers with already loaded declarations.
+-- Validate the entire composition before returning anything, including disabled entries.
+function catalog.widget_instances(definitions: any, instances: any): (any, any)
+    local by_id: any = {}
+    for _, definition in ipairs(definitions) do by_id[definition.id] = definition end
+    local out, seen = {}, {}
+    for _, instance in ipairs(instances) do
+        local id: any = instance.id
+        local data: any = instance.data
+        if type(id) ~= "string" or id == "" or seen[id] then return nil, "invalid or duplicate widget instance id" end
+        seen[id] = true
+        if type(data) ~= "table" then return nil, id .. ": data must be a table" end
+        local definition: any = type(data.widget) == "string" and by_id[data.widget] or nil
+        if not definition or definition.kind ~= "process.lua" or type(definition.meta) ~= "table"
+            or definition.meta.type ~= catalog.WIDGET_TYPE then
+            return nil, id .. ": widget must reference a chicago.widget process"
+        end
+        if data.enabled ~= nil and type(data.enabled) ~= "boolean" then return nil, id .. ": enabled must be boolean" end
+        if data.config ~= nil and (type(data.config) ~= "table" or not plain_config(data.config, {})) then
+            return nil, id .. ": config must contain only plain finite data"
+        end
+        local spec: any = catalog.widget_list({definition})[1]
+        for _, field in ipairs({"title", "opens"}) do
+            if data[field] ~= nil then
+                if type(data[field]) ~= "string" then return nil, id .. ": " .. field .. " must be a string" end
+                spec[field] = data[field] ~= "" and data[field] or nil
+            end
+        end
+        for _, field in ipairs({"width", "height"}) do
+            local key = field == "width" and "w" or "h"
+            local low, high = field == "width" and 10 or 2, field == "width" and 40 or 16
+            local meta: any = definition.meta
+            local minimum, maximum = meta["min_" .. field], meta["max_" .. field]
+            if minimum ~= nil then
+                if type(minimum) ~= "number" or not math.tointeger(minimum) or minimum < low or minimum > high then
+                    return nil, id .. ": invalid min_" .. field
+                end
+                low = minimum
+            end
+            if maximum ~= nil then
+                if type(maximum) ~= "number" or not math.tointeger(maximum) or maximum < low or maximum > high then
+                    return nil, id .. ": invalid max_" .. field
+                end
+                high = maximum
+            end
+            local value: any = data[field] == nil and spec[key] or data[field]
+            if type(value) ~= "number" or not math.tointeger(value) or value < low or value > high then
+                return nil, id .. ": " .. field .. " must be whole cells from " .. low .. " to " .. high
+            end
+            spec[key] = value
+        end
+        local order: any = data.order == nil and spec.order or data.order
+        if type(order) ~= "number" or not math.tointeger(order) then return nil, id .. ": order must be an integer" end
+        spec.instance, spec.order, spec.config = id, order, data.config or {}
+        if data.enabled ~= false then out[#out + 1] = spec end
+    end
+    table.sort(out, function(a: any, b: any): boolean
+        if a.order ~= b.order then return a.order < b.order end
+        return a.instance < b.instance
+    end)
+    return out, nil
+end
+
+-- Empty success means remove all; any read/validation failure preserves the live set.
 function catalog.widgets(): (any, any)
-    local found, err = registry.find({["meta.type"] = catalog.WIDGET_TYPE})
-    if err then return nil, "widgets not read: " .. tostring(err) end
-    if type(found) ~= "table" then return nil, "widgets not read: the registry answered with something other than a list" end
-    return catalog.widget_list(found), nil
+    local instances, err = registry.find({[".kind"] = "registry.entry", ["meta.type"] = catalog.WIDGET_INSTANCE_TYPE})
+    if err or type(instances) ~= "table" then return nil, "widget instances not read: " .. tostring(err) end
+    local definitions, seen = {}, {}
+    for _, instance in ipairs(instances) do
+        local data: any = instance.data
+        local id: any = type(data) == "table" and data.widget or nil
+        if type(id) == "string" and not seen[id] then
+            local entry, why = registry.get(id)
+            if why or not entry then return nil, tostring(instance.id) .. ": widget not read: " .. tostring(why or id) end
+            definitions[#definitions + 1], seen[id] = entry, true
+        end
+    end
+    local result, failure = catalog.widget_instances(definitions, instances)
+    return result, failure
 end
 
 -- list() -> (catalog, nil) | (nil, reason)

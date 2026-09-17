@@ -220,18 +220,18 @@ local function main()
         return view.join(items or {}, found), nil
     end
 
-    -- Desktop widgets (FR-006): the registry's `chicago.widget` entries,
+    -- Desktop widgets (FR-006): the registry's explicit `chicago.widget.instance` entries,
     -- read when the compositor asks — at desktop start and on
     -- `desktop.refresh` — so a widget added to the registry appears without
     -- a restart. The base spawns and stops them and does not read the
     -- registry itself. A registry failure is the second value and the list
-    -- stays empty: "no widgets" and "could not look" are different
+    -- stays nil: "no widgets" and "could not look" are different
     -- statements, and the log names the second.
     local function widget_catalog()
         local found, err = catalog.widgets()
         if err or not found then
             log:warn("widgets not read", {error = tostring(err)})
-            return {}, err or "widgets not read"
+            return nil, err or "widgets not read"
         end
         return found, nil
     end

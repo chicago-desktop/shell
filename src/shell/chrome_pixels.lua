@@ -1530,4 +1530,7 @@ function chrome_pixels.use_fonts(face, bold, display, mono)
     chrome_pixels.fonts = {face = face, bold = bold or face, display = display or bold or face, mono = mono}
 end
 
+chrome_pixels.widget_geometry = gadgets.geometry
+chrome_pixels.widget_layout = gadgets.layout
+
 return chrome_pixels

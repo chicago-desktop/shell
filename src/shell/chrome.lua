@@ -1050,4 +1050,7 @@ function chrome.empty_desktop(canvas, width: any, height: any, text)
     panel(canvas, left, top, box_w, {fit(styles.face, " " .. message, box_w - 2)}, false)
 end
 
+chrome.widget_geometry = gadgets.geometry
+chrome.widget_layout = gadgets.layout
+
 return chrome
