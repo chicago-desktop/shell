@@ -407,10 +407,23 @@ local function define_tests()
             test.eq(probe(shown.right.raster, 7, 1), CLEAR)
             test.eq(probe(shown.left.raster, 1, 1), BLACK)
             test.eq(probe(shown.left.raster, 4, 1), CLEAR)
+            -- A still or merely moved outline keeps its rasters and versions: the
+            -- surface frames the same encoding at the new place, and it resends
+            -- the outline itself whenever a picture under it goes out.
             local raster, version = shown.top.raster, shown.top.raster:version()
+            local side_version = shown.left.raster:version()
             local again = strips(chrome_pixels.paint(scene, 10, 20))
-            test.is_true(again.top.raster ~= raster or again.top.raster:version() ~= version,
-                "repainted every frame: a window under it resent on its tick must not lie over it")
+            test.is_true(again.top.raster == raster and again.top.raster:version() == version,
+                "a still outline is not redrawn")
+            scene.outline = {x = 31, y = 7, w = 12, h = 6}
+            local moved = strips(chrome_pixels.paint(scene, 10, 20))
+            test.eq(place(moved.top), "31,7,12,1")
+            test.is_true(moved.top.raster:version() == version and moved.left.raster:version() == side_version,
+                "a moved outline is not redrawn")
+            scene.outline = {x = 31, y = 7, w = 14, h = 6}
+            local wider = strips(chrome_pixels.paint(scene, 10, 20))
+            test.eq(probe(wider.top.raster, 5, 1), BLACK, "a resized outline is drawn again")
+            test.is_true(probe(wider.top.raster, 140, 12) ~= CLEAR, "with its right side at the new width")
         end)
 
         test.it("the taskbar and tall menu items are pressable over their whole drawn height", function()
@@ -1381,6 +1394,18 @@ local function define_tests()
         -- window dragged over it re-sends only the strips of the rows it
         -- covers. The numbers go to shots/pattern-cost.txt for the report.
         test.it("a desktop pattern is a strip per row, and a dragged window re-sends only its own rows", function()
+            -- The pieces of row 2 (no window there): three of 32, 32 and 16
+            -- columns covering the 80-column row.
+            local function second_width_check(placed: any): integer
+                local cols, pieces = 0, 0
+                for _, item in ipairs(placed) do
+                    if tostring(item.id):match("^desk:pattern:2:%d+$") then
+                        cols, pieces = cols + item.cols, pieces + 1
+                    end
+                end
+                test.eq(pieces, 3, "a row is cut in pieces")
+                return cols
+            end
             use_fonts()
             test.is_true(chrome.use_pattern({136, 84, 34, 69, 136, 21, 34, 81}))
             local state: any = {width = 80, height = 24, top = 1, bottom = 22, clock = "12:00",
@@ -1398,6 +1423,7 @@ local function define_tests()
                 end
             end
             test.is_true(placements_first >= 22, "every desktop row has its strip, the covered rows their crops")
+            test.eq(second_width_check(first.placements), 80, "the pieces of a row cover the whole row")
             state.windows[1].x = 40
             local second = chrome_pixels.paint(state, 10, 20)
             local resent, resent_px = 0, 0
@@ -1417,6 +1443,14 @@ local function define_tests()
                 "10x20 cells, 80x24 screen, Weave: first frame %d pattern placements, %d px; "
                 .. "a 20x8 window dragged 30 columns: %d placements re-sent, %d px\n",
                 placements_first, first_px, resent, resent_px)))
+            -- Kitty keeps a row whole: a re-sent picture is a put by id there.
+            chrome_pixels.use_protocol("kitty")
+            local kitty_row = 0
+            for _, item in ipairs(chrome_pixels.paint(state, 10, 20).placements) do
+                if tostring(item.id):match("^desk:pattern:2:%d+$") then kitty_row = kitty_row + 1 end
+            end
+            chrome_pixels.use_protocol("sixel")
+            test.eq(kitty_row, 1, "kitty: one strip per row")
             test.is_true(chrome.use_pattern(nil))
             for _, item in ipairs(chrome_pixels.paint(state, 10, 20).placements) do
                 test.is_nil(tostring(item.id):find("desk:pattern:", 1, true), "no pattern, no strips: " .. item.id)
@@ -1442,7 +1476,7 @@ local function define_tests()
                 local strips, first_px = 0, 0
                 for _, item in ipairs(first.placements) do
                     before[item.id] = {raster = item.raster, version = item.raster:version()}
-                    local line = tostring(item.id):match("^desk:pattern:(%d+)$")
+                    local line = tostring(item.id):match("^desk:pattern:(%d+):1$")
                     if line then strip_png[math.tointeger(tonumber(line))] = assert(item.raster:encode("png")) end
                     if tostring(item.id):find("desk:pattern:", 1, true) == 1 then
                         strips = strips + 1
@@ -1468,6 +1502,7 @@ local function define_tests()
                         resent_px = resent_px + item.cols * item.rows * 200
                         local line = math.tointeger(tonumber(id:match("^desk:pattern:(%d+)")))
                         test.is_true(line ~= nil and line >= 5 and line <= 12, mode .. ": only the window's rows are re-sent: " .. id)
+                        test.is_nil(id:match("^desk:pattern:%d+:3"), mode .. ": nor the piece right of columns 10-59: " .. id)
                     end
                 end
                 test.is_true(resent > 0, mode .. ": the rows under the window change")

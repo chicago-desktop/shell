@@ -194,6 +194,40 @@ local function define_tests()
             test.is_true(before["win:keys-a:sdk:row:2"] ~= after["win:keys-b:sdk:row:2"], "row 2 is repainted")
         end)
 
+        test.it("typing reuses the client raster instead of allocating one per frame", function()
+            local fonts = {face = font_of("LiberationSans-Regular.ttf"), mono = font_of("LiberationMono-Regular.ttf")}
+            local store = rasters.store()
+            local inner = {x = 1, y = 1, cols = 20, rows = 6}
+            local function frame(text: string, revision: integer): any
+                local interaction = ui.interaction()
+                interaction.editors.doc = editor.new(text)
+                interaction.focus = "doc"
+                store.begin()
+                local placed = assert(render.rows({id = "reuse", state_revision = revision, content_state = {sdk = 1,
+                    revision = revision, ui = doc(""), interaction = interaction}}, inner, CELL, fonts, store))
+                for _, item in ipairs(placed) do store.place(item.id, item.x, item.y) end
+                store.frame(CELL)
+                return placed
+            end
+            local real = gfx.raster
+            local whole_client = 0
+            local ok, failure = pcall(function()
+                (gfx :: any).raster = function(w: any, h: any): any
+                    if w == inner.cols * CELL.w and h == inner.rows * CELL.h then whole_client = whole_client + 1 end
+                    return real(w, h)
+                end
+                frame("l1\nl2", 1)
+                test.eq(whole_client, 1, "the first frame makes the client raster")
+                local row2 = frame("l1\nlX", 2)[2].raster:version()
+                frame("l1\nlXY", 3)
+                test.eq(whole_client, 1, "later keystrokes reuse it")
+                test.is_true(frame("l1\nlXYZ", 4)[2].raster:version() ~= row2, "and the typed row is still repainted")
+            end)
+            ;(gfx :: any).raster = real
+            render.forget("reuse")
+            test.is_true(ok, tostring(failure))
+        end)
+
         test.it("the shell keeps the fixed-pitch face it is given, and none when there is none", function()
             local face, mono = font_of("LiberationSans-Regular.ttf"), font_of("LiberationMono-Regular.ttf")
             chrome_pixels.use_fonts(face, face, face, mono)

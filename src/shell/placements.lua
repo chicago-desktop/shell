@@ -46,34 +46,64 @@ end
 -- A piece of the window that is not under the menu cannot lie over the menu.
 function placements.visible(list: any, windows: any, menus: any): any
     local out = {}
-    for _, source in ipairs(list) do
-        local covers: any = {}
+    -- The covers depend only on the layer and on whether the source is the
+    -- menu: built once per kind, not once per picture. A wallpaper cut in
+    -- pieces is hundreds of pictures on one layer.
+    local cached: any = {}
+    local function covers_of(source: any): any
+        local key = (source.layer ~= nil and tostring(whole(source.layer)) or "-") .. (source.top and "t" or "")
+        local found: any = cached[key]
+        if found ~= nil then return found end
+        found = {}
         if source.layer ~= nil then
             for index = whole(source.layer) + 1, #windows do
                 local cover = windows[index]
-                if not cover.minimized then covers[#covers + 1] = cover end
+                if not cover.minimized then
+                    found[#found + 1] = {x = whole(cover.x), y = whole(cover.y), w = whole(cover.w), h = whole(cover.h)}
+                end
             end
         end
         if not source.top then
-            for _, cover in ipairs(menus) do covers[#covers + 1] = cover end
-        end
-        local pieces = {source}
-        for _, cover in ipairs(covers) do
-            local next_pieces = {}
-            for _, piece in ipairs(pieces) do
-                for _, kept in ipairs(placements.subtract(piece, cover)) do next_pieces[#next_pieces + 1] = kept end
+            for _, cover in ipairs(menus) do
+                found[#found + 1] = {x = whole(cover.x), y = whole(cover.y), w = whole(cover.w), h = whole(cover.h)}
             end
-            pieces = next_pieces
         end
-        for _, piece in ipairs(pieces) do
-            -- A piece that is the source itself (nothing covered it) is
-            -- shown whole; any other is a crop. Identity, not equality:
-            -- `subtract` returns the very rectangle it was given when the
-            -- cover misses it.
-            if piece == source then
-                out[#out + 1] = {source = source}
-            else
-                out[#out + 1] = {source = source, piece = piece}
+        cached[key] = found
+        return found
+    end
+    for _, source in ipairs(list) do
+        local covers = covers_of(source)
+        -- Most pictures are covered by nothing: no pieces, no tables.
+        local x, y = whole(source.x), whole(source.y)
+        local right, bottom = x + whole(source.cols), y + whole(source.rows)
+        local hit = false
+        for _, cover in ipairs(covers) do
+            if cover.x < right and x < cover.x + cover.w and cover.y < bottom and y < cover.y + cover.h then
+                hit = true
+                break
+            end
+        end
+        if not hit then
+            out[#out + 1] = {source = source}
+        else
+            local pieces = {source}
+            for _, cover in ipairs(covers) do
+                local next_pieces = {}
+                for _, piece in ipairs(pieces) do
+                    for _, kept in ipairs(placements.subtract(piece, cover)) do next_pieces[#next_pieces + 1] = kept end
+                end
+                pieces = next_pieces
+            end
+            for _, piece in ipairs(pieces) do
+                -- A piece that is the source itself (nothing covered it) is
+                -- shown whole; any other is a crop. Identity, not equality:
+                -- `subtract` returns the very rectangle it was given when the
+                -- cover misses it.
+                if piece == source then
+                    out[#out + 1] = {source = source}
+                else
+                    out[#out + 1] = {source = source, piece = piece}
+                end
             end
         end
     end

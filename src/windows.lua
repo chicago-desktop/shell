@@ -312,6 +312,7 @@ local function main()
             else
                 chrome_pixels.use_fonts(fonts.face, fonts.bold, fonts.display, fonts.mono)
                 chrome_pixels.use_cell_size(width, height)
+                chrome_pixels.use_protocol(protocol)
                 theme = chrome_pixels
                 cell_size = function()
                     local w, h = gfx.cell_size()

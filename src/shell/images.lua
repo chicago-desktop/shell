@@ -340,7 +340,9 @@ function images.wallpaper(file: any): (any, any)
         cache[key] = false
         return nil, "wallpaper " .. file .. " not read: " .. tostring(read_err)
     end
-    local raster, decode_err = gfx.image(data :: string)
+    -- Reduced to 256 colours once, here: a many-colour picture is otherwise
+    -- quantized again by the sixel encoder for every strip on every send.
+    local raster, decode_err = gfx.image(data :: string, {colors = 256})
     if not raster then
         cache[key] = false
         return nil, "wallpaper " .. file .. " not decoded: " .. tostring(decode_err)

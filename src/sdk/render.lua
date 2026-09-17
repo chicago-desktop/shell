@@ -1035,6 +1035,11 @@ end
 -- full raster taken but never placed would come back new and be repainted
 -- every frame.
 local memo: any = {}
+-- The scratch raster of each client or widget, kept between frames. `paint`
+-- fills it whole before drawing, so a kept one is as good as a new one, and a
+-- keystroke no longer allocates (and leaves to the collector) a raster the
+-- size of the window.
+local scratch: any = {}
 local LINES: any = {list = true, table = true, tree = true}
 -- sig(value, skip) — a stable text of plain data, keys sorted; `children`
 -- is left out (a container's children are items of their own).
@@ -1174,7 +1179,14 @@ local function cut(spec: any): any
         if dirty then
             if full == nil then
                 if plan == nil then plan, interaction = spec.lay() end
-                full = gfx.raster(cols * cw, count * ch)
+                local width, height = cols * cw, count * ch
+                local kept: any = scratch[spec.memo]
+                if kept ~= nil and kept.width == width and kept.height == height then
+                    full = kept.raster
+                else
+                    full = gfx.raster(width, height)
+                    scratch[spec.memo] = {raster = full, width = width, height = height}
+                end
                 paint(full, plan, interaction, cell, fonts)
                 if spec.decorate ~= nil then spec.decorate(full) end
             end
@@ -1236,6 +1248,7 @@ end
 -- forget(id) — the row keys of a closed window or of a widget that is gone.
 function render.forget(id: any)
     memo[tostring(id)] = nil
+    scratch[tostring(id)] = nil
 end
 -- remembered(id) — whether row keys are kept for `id`; for the tests of
 -- whoever must call `forget`.

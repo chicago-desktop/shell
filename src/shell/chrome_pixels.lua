@@ -396,24 +396,45 @@ local function backdrop(raster: any, x0: any, y0: any, view: any, cell: any)
         raster:blit(picture, cx - whole(x0) + 1, cy - whole(y0) + 1)
     end
 end
+-- Columns per desktop strip piece. Over sixel a row of wallpaper is cut in
+-- pieces, so that text or a vacated outline cell re-sends the piece it
+-- touches, not the whole screen-wide row (app#8): a window drag over a tiled
+-- wallpaper sent ~400 KB a frame when every row under the outline went out
+-- whole, ~125 KB in pieces. Kitty re-sends a picture as a short put by id, so
+-- there the pieces cost only their bookkeeping (~10 ms a frame at 190x50) and
+-- a row stays whole. `use_protocol` chooses.
+local WHOLE_ROW = 1000000
+chrome_pixels.strip_cols = 32
+
+-- use_protocol(protocol) — the graphics protocol of the terminal ("sixel",
+-- "kitty"), which decides how the desktop strips are cut.
+function chrome_pixels.use_protocol(protocol: any)
+    chrome_pixels.strip_cols = protocol == "sixel" and 32 or WHOLE_ROW
+end
 local function desktop_strips(cell: any, view: any): any
     local w = whole(view.width)
     local top, bottom = math.max(1, whole(view.top)), whole(view.bottom)
     local out = {}
     if w < 1 or bottom < top then return out end
-    local ch = whole(cell.h)
-    if chrome.pattern ~= nil then pattern_raster(chrome.pattern, w * whole(cell.w)) end
+    local cw, ch = whole(cell.w), whole(cell.h)
+    if chrome.pattern ~= nil then pattern_raster(chrome.pattern, w * cw) end
     local key = backdrop_key(view)
+    local step = math.max(1, whole(chrome_pixels.strip_cols))
     for line = top, bottom do
-        -- The id keeps its first name: these strips were the pattern's, and
-        -- tests and the placement log read them by it.
-        local id = "desk:pattern:" .. line
-        local strip, dirty = store.take(id, w, 1, cell, key)
-        if dirty then
-            strip:fill(color.desktop)
-            backdrop(strip, 1, (line - 1) * ch + 1, view, cell)
+        local piece = 0
+        for from = 1, w, step do
+            piece = piece + 1
+            local cols = math.min(step, w - from + 1)
+            -- The id keeps its first name: these strips were the pattern's, and
+            -- tests and the placement log read them by it.
+            local id = "desk:pattern:" .. line .. ":" .. piece
+            local strip, dirty = store.take(id, cols, 1, cell, key)
+            if dirty then
+                strip:fill(color.desktop)
+                backdrop(strip, (from - 1) * cw + 1, (line - 1) * ch + 1, view, cell)
+            end
+            out[#out + 1] = {id = id, raster = strip, x = from, y = line, cols = cols, rows = 1, layer = 0}
         end
-        out[#out + 1] = {id = id, raster = strip, x = 1, y = line, cols = w, rows = 1, layer = 0}
     end
     return out
 end
@@ -1295,10 +1316,11 @@ end
 -- the original drew it: a 3-px band of alternating black and white dashes along
 -- the pending rect, over everything. Four overlay placements, transparent but
 -- for the band: the windows and the text under them stay visible, and the
--- compositor leaves their cells unblanked. They are drawn into on every frame
--- the outline is up, dirty or not, so their version moves and the surface
--- resends them after the windows — sixel has no z order, and a window under
--- an unchanged outline, resent on its tick, would lie over it.
+-- compositor leaves their cells unblanked. They are drawn only when their size
+-- changes: a strip that only moved keeps its version, and the surface frames
+-- the same encoding at the new place. Sixel has no z order, but the surface
+-- resends whatever a newly sent picture would cover, so a window resent on
+-- its tick under the outline brings the outline along.
 local OUTLINE_PX = 3
 local OUTLINE_DASH = 2
 
@@ -1316,28 +1338,38 @@ local function paint_outline(cell: any, rect: any, out: any)
             else raster:rect(left, top + offset, OUTLINE_PX, dash, tint) end
         end
     end
+    -- strip(...) -> the raster, or nil when the kept one is still right: the
+    -- drawing depends only on the strip's size and the two colors.
+    local key = "outline\30" .. tostring(color.frame) .. "\30" .. tostring(color.light)
     local function strip(name: string, col: integer, row: integer, cols: integer, rows: integer): any
         local id = "outline:" .. name
-        local raster = store.take(id, cols, rows, cell, "outline")
-        raster:fill("#00000000")
+        local raster, dirty = store.take(id, cols, rows, cell, key)
         out[#out + 1] = {id = id, raster = raster, x = col, y = row, cols = cols, rows = rows, overlay = true}
+        if not dirty then return nil end
+        raster:fill("#00000000")
         return raster
     end
     local width, right = w * cw, w * cw - OUTLINE_PX + 1
     -- The top and bottom rows carry their corners: the side bands run down
     -- the whole corner cell there. The side strips start a row lower and end
     -- a row higher, so without this every corner lacked its side for a cell.
-    local top = strip("top", x, y, w, 1)
-    band(top, 1, 1, width, true)
-    band(top, 1, 1, ch, false)
-    band(top, right, 1, ch, false)
-    local bottom = strip("bottom", x, y + h - 1, w, 1)
-    band(bottom, 1, ch - OUTLINE_PX + 1, width, true)
-    band(bottom, 1, 1, ch, false)
-    band(bottom, right, 1, ch, false)
+    local top: any = strip("top", x, y, w, 1)
+    if top ~= nil then
+        band(top, 1, 1, width, true)
+        band(top, 1, 1, ch, false)
+        band(top, right, 1, ch, false)
+    end
+    local bottom: any = strip("bottom", x, y + h - 1, w, 1)
+    if bottom ~= nil then
+        band(bottom, 1, ch - OUTLINE_PX + 1, width, true)
+        band(bottom, 1, 1, ch, false)
+        band(bottom, right, 1, ch, false)
+    end
     if h > 2 then
-        band(strip("left", x, y + 1, 1, h - 2), 1, 1, (h - 2) * ch, false)
-        band(strip("right", x + w - 1, y + 1, 1, h - 2), cw - OUTLINE_PX + 1, 1, (h - 2) * ch, false)
+        local left: any = strip("left", x, y + 1, 1, h - 2)
+        if left ~= nil then band(left, 1, 1, (h - 2) * ch, false) end
+        local right_side: any = strip("right", x + w - 1, y + 1, 1, h - 2)
+        if right_side ~= nil then band(right_side, cw - OUTLINE_PX + 1, 1, (h - 2) * ch, false) end
     end
 end
 
