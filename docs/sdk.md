@@ -952,11 +952,18 @@ follow-up work. A theme without `widget_geometry` treats the full requested size
 Hosts upgrading from automatic `chicago.widget` discovery must declare their
 intended instances before opening a new desktop. The app provides Weather, Memory
 and Goroutines in `src/app/widgets/_index.yaml`; dependency process declarations
-remain reusable and require no copies. These built-ins currently expose no
-instance-specific configuration settings: use `config: {}`. In particular,
-Weather still reads its shared forecast service's location; separate processes
-do not imply independently configurable cities. Per-city service support is a
-separate migration enhancement, not a field that can be enabled by YAML alone.
+remain reusable and require no copies. Weather 0.3.0 accepts `config.place`
+(the selected geocoder result) and requests that location independently; empty
+config retains the shared city used by the tray and Weather window. Task Manager
+0.3.0 accepts `config.show_history` for each Memory/Goroutines instance.
+
+Definitions declare their own editor fields in `meta.settings.fields`. The host
+renders these in a separate Properties window and persists values in that
+instance's `config`; widget processes still own domain validation. See the
+[host settings contract](https://github.com/chicago-desktop/app/blob/main/docs/widget-settings.md)
+for field types, lookup providers and compatibility. Host size presets range
+from 1 x 1 to 3 x 3, mapping to 10 columns by 4 rows per unit; legacy sizes remain
+unchanged until a preset is selected. The SDK's final geometry limits still apply.
 
 ### The process
 
