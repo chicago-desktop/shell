@@ -24,10 +24,21 @@ local whole = geometry.whole
 local function draw_glyph(raster: any, char: any, gx: any, ry: any, cell: any, mono: any, ink: any)
     local shape: any = glyphs.shape(char)
     if shape ~= nil then
+        -- A block element fills its cell edge to edge. An icon is drawn in a
+        -- square centred in the cell instead: a cell is taller than it is
+        -- wide, and a square given in fractions of it is a tall bracket.
+        local across, downwards = ui.MONO_PX, whole(cell.h)
+        local from_x, from_y = gx, ry
+        if shape.square then
+            local side = math.max(2, math.min(across, downwards) - 2)
+            from_x = gx + (across - side) // 2
+            from_y = ry + (downwards - side) // 2
+            across, downwards = side, side
+        end
         for _, part in ipairs(shape) do
-            local w = math.max(1, whole(part.w * ui.MONO_PX + 0.5))
-            local h = math.max(1, whole(part.h * whole(cell.h) + 0.5))
-            raster:rect(whole(gx + part.x * ui.MONO_PX), whole(ry + part.y * whole(cell.h)), w, h, ink)
+            local w = math.max(1, whole(part.w * across + 0.5))
+            local h = math.max(1, whole(part.h * downwards + 0.5))
+            raster:rect(whole(from_x + part.x * across), whole(from_y + part.y * downwards), w, h, ink)
         end
         return
     end

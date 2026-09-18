@@ -114,6 +114,17 @@ local function define_tests()
             test.not_nil(glyphs.shape("▤"), "a menu folder")
         end)
 
+        test.it("draws an icon as a square, not as a fraction of the cell", function()
+            -- A cell is taller than it is wide, so an icon given in fractions
+            -- of it comes out as a tall narrow bracket. These are marked
+            -- square and centred; a block element must NOT be, because it is
+            -- meant to fill its cell edge to edge.
+            test.is_true(glyphs.shape("▣").square == true, "the icon is square")
+            test.is_true(glyphs.shape("⊞").square == true, "and so is the Start marker")
+            test.is_nil(glyphs.shape("▁").square, "a block element fills the cell")
+            test.is_nil(glyphs.shape("█").square, "the full block above all")
+        end)
+
         test.it("reads a codepoint out of a multi-byte character", function()
             test.eq(glyphs.codepoint("▁"), 0x2581, "three bytes, one codepoint")
             test.eq(glyphs.codepoint("A"), 65, "and one byte")

@@ -65,15 +65,23 @@ local function down(from: number, to: number): any
 end
 
 -- An outlined square, for the symbols a terminal uses as small icons.
+--
+-- A cell is not square — eight pixels by twenty here — so a shape given in
+-- fractions of it comes out as a tall narrow bracket rather than a square.
+-- These shapes are therefore marked `square`: their coordinates are
+-- fractions of a SQUARE centred in the cell, the way an icon glyph sits on a
+-- line in a terminal face. Only the icons need it; a block element is meant
+-- to fill the cell it is in, edge to edge, and must not be centred.
+local EDGE = 1 / 6
 local function box(): any
-    return {rect(0.15, 0.2, 0.7, THIN), rect(0.15, 0.8 - THIN, 0.7, THIN),
-        rect(0.15, 0.2, THIN, 0.6), rect(0.85 - THIN, 0.2, THIN, 0.6)}
+    return {rect(0, 0, 1, EDGE), rect(0, 1 - EDGE, 1, EDGE),
+        rect(0, 0, EDGE, 1), rect(1 - EDGE, 0, EDGE, 1)}
 end
 
-local function with(base: any, extra: any): any
-    local out: any = {}
-    for _, item in ipairs(base) do out[#out + 1] = item end
-    for _, item in ipairs(extra) do out[#out + 1] = item end
+local function icon(extra: any): any
+    local out: any = {square = true}
+    for _, item in ipairs(box()) do out[#out + 1] = item end
+    for _, item in ipairs(extra or {}) do out[#out + 1] = item end
     return out
 end
 
@@ -108,11 +116,12 @@ local SHAPES: any = {
     [0x253C] = {across(0, 1), down(0, 1)},
     -- The small icons a terminal desktop draws with: a filled square, a
     -- ruled one, a squared plus. An empty cell in their place is never right.
-    [0x25A0] = {rect(0.2, 0.25, 0.6, 0.5)},
-    [0x25A3] = with(box(), {rect(0.3, 0.35, 0.4, 0.3)}),
-    [0x25A4] = with(box(), {rect(0.25, 0.35, 0.5, THIN), rect(0.25, 0.5, 0.5, THIN),
-        rect(0.25, 0.65, 0.5, THIN)}),
-    [0x229E] = with(box(), {rect(0.35, 0.47, 0.3, THIN), rect(0.5 - THIN / 2, 0.32, THIN, 0.36)}),
+    [0x25A0] = {square = true, rect(0, 0, 1, 1)},
+    [0x25A3] = icon({rect(0.3, 0.3, 0.4, 0.4)}),
+    [0x25A4] = icon({rect(0.25, 0.3, 0.5, EDGE), rect(0.25, 0.5 - EDGE / 2, 0.5, EDGE),
+        rect(0.25, 0.7 - EDGE, 0.5, EDGE)}),
+    [0x229E] = icon({rect(0.28, 0.5 - EDGE / 2, 0.44, EDGE),
+        rect(0.5 - EDGE / 2, 0.28, EDGE, 0.44)}),
 }
 
 -- codepoint reads one UTF-8 character. A byte that starts nothing valid is
