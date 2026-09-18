@@ -293,6 +293,24 @@ current data; `update` changes the model on a component's action.
   `fonts.mono` the interface face draws the text; the shell says so once in its
   log at start. In cells a column is a cell. A `font` other than `"mono"` is
   refused by `ui.problem`.
+- `terminal`: `rows`, `cursor` — someone else's screen inside a window: the
+  rows of a terminal, styled, laid out by whoever owns them. `rows` is an
+  array of strings that may carry SGR; `cursor` is `{x, y, visible}` in
+  one-based columns and rows of that screen. It takes no input and needs no
+  `id`: a terminal's keys belong to the other side, and the window forwards
+  them itself.
+  In cells the rows are placed exactly as they came — the canvas is
+  ANSI-aware, clips at a cell boundary and will not let a cut escape leak, so
+  styling them would only overwrite the colours the other side chose. In
+  pixels each row is decoded (`chicago.shell.sdk:ansi`) and drawn in
+  `fonts.mono`; a cell whose background is the window's own is left
+  unpainted, and the cursor reverses the cell it stands on rather than
+  covering it.
+  **The screen is measured in mono glyphs when there are pixels, not in
+  terminal cells** (`item.columns`): 40 cells of 10 px hold 50 columns. Ask
+  the other side to lay itself out on that number, or its screen is drawn on
+  a grid it did not use. Stretching each glyph to the cell width instead
+  resamples a bitmap face at a fraction nobody chose.
 - `tree`: `id`, `rows`, `selected`, `wheel_step`. A row is a visible row of the
   flattened tree: `{id, label, depth, has_children, expanded, trail,
   kind = "folder" | "entry", image?}`; `trail` says, per ancestor level, whether that
@@ -914,15 +932,13 @@ reconciles declarations and does not hot-reload a running compositor's libraries
 The app's `tools/live-update.sh app.desktop.widgets` uploads its instance namespace;
 a subsequent desktop refresh is still required.
 
-| Change | Process behavior |
-| --- | --- |
-| Add / re-enable | Start one process for the instance under the desktop actor |
-| Unchanged / order / title / opens | Keep PID and state |
-| Width / height / terminal size | Deliver actual content geometry through `resize`; keep PID |
-| Config / definition reference | Close the old provider and start a replacement with a new transient ID |
-| Disable / remove | Detach immediately; send SDK `close`; force termination after 3 seconds if needed |
-| Process exit | Retain last tree marked stopped; explicit refresh retries it |
-| Registry read / declaration validation error | Preserve current providers and report the error |
+- **Add / re-enable** — start one process for the instance under the desktop actor
+- **Unchanged / order / title / opens** — keep PID and state
+- **Width / height / terminal size** — deliver actual content geometry through `resize`; keep PID
+- **Config / definition reference** — close the old provider and start a replacement with a new transient ID
+- **Disable / remove** — detach immediately; send SDK `close`; force termination after 3 seconds if needed
+- **Process exit** — retain last tree marked stopped; explicit refresh retries it
+- **Registry read / declaration validation error** — preserve current providers and report the error
 
 Replacement processes may overlap briefly during the old provider's close grace;
 only the current provider can publish. Stable instance IDs remain unchanged while
