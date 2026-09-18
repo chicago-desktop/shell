@@ -306,6 +306,11 @@ current data; `update` changes the model on a component's action.
   `fonts.mono`; a cell whose background is the window's own is left
   unpainted, and the cursor reverses the cell it stands on rather than
   covering it.
+  A pointer standing on a `terminal` and a paste nobody took reach `update`
+  as `{type = "mouse", action, button, x, y, column, row, alt, ctrl, shift}`
+  and `{type = "paste", text}`; `column` and `row` are one-based in that
+  screen's own grid, already converted. A pointer anywhere else is swallowed
+  as it always was.
   **The screen is measured in mono glyphs when there are pixels, not in
   terminal cells** (`item.columns`): 40 cells of 10 px hold 50 columns. Ask
   the other side to lay itself out on that number, or its screen is drawn on

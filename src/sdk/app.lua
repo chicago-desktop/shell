@@ -382,6 +382,28 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
                         action = {type = "key", key = event.key, key_type = event.key_type,
                             alt = event.alt, ctrl = event.ctrl, shift = event.shift}
                     end
+                    -- So does a paste, and a pointer STANDING ON someone
+                    -- else's screen: that screen is passive here, and its
+                    -- mouse belongs to whatever is on the other side. The
+                    -- pointer carries that screen's own column and row,
+                    -- because only the plan knows the grid it was measured
+                    -- on.
+                    --
+                    -- A pointer anywhere else is still swallowed, as it
+                    -- always was. Handing every window every click it did
+                    -- not take would change what `update` sees in every
+                    -- application at once, to serve one of them.
+                    if action == nil and event.type == "mouse" then
+                        local item, column, row = ui.terminal_at(loop.plan, event.x, event.y)
+                        if item ~= nil then
+                            action = {type = "mouse", action = event.action, button = event.button,
+                                x = event.x, y = event.y, alt = event.alt, ctrl = event.ctrl,
+                                shift = event.shift, column = column, row = row}
+                        end
+                    end
+                    if action == nil and event.type == "paste" then
+                        action = {type = "paste", text = event.text}
+                    end
                 end
                 if event.type == "focus" then
                     -- The SDK's own bookkeeping, not an application action: a lost

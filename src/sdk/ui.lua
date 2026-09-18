@@ -1137,6 +1137,41 @@ end
 -- captions are measured in pixels, and right-aligned button rows are packed in
 -- pixels (`pack`). Without it the cell measures stand — the same tree in
 -- cells mode.
+-- Where a pointer lands on someone else's screen.
+--
+-- A `terminal` item is measured in mono glyphs when the plan draws pixels and
+-- in cells when it does not (see the `terminal` branch of the plan), so a
+-- click on a cell is not a click on a column. The conversion lives here, with
+-- the decision it follows: a window that worked it out for itself would copy
+-- the rule, and the copy would outlive the original.
+--
+-- The middle of the cell is what is converted, not its left edge: a pointer
+-- standing on a cell means the column under the middle of that cell, and the
+-- edges of the two are not the same places.
+--
+-- Returns the item and one-based column and row of that screen, or nil when
+-- the pointer is over something else.
+function ui.terminal_at(plan: any, x: any, y: any): any, any, any
+    local px, py = whole(x), whole(y)
+    for _, item in ipairs(plan and plan.items or {}) do
+        local rect: any = item.rect
+        if item.node.kind == "terminal" and rect ~= nil
+            and px >= whole(rect.x) and px <= whole(rect.x) + whole(rect.w) - 1
+            and py >= whole(rect.y) and py <= whole(rect.y) + whole(rect.h) - 1 then
+            local across = px - whole(rect.x)
+            local column = across + 1
+            if plan.cell ~= nil then
+                local middle = across * whole(plan.cell.w) + whole(plan.cell.w) // 2
+                column = middle // ui.MONO_PX + 1
+            end
+            column = math.max(1, math.min(whole(item.columns), column))
+            local row = math.max(1, math.min(whole(item.page), py - whole(rect.y) + 1))
+            return item, column, row
+        end
+    end
+    return nil, nil, nil
+end
+
 function ui.plan(tree: any, width: any, height: any, interaction: any, options: any?): any
     local given: any = type(options) == "table" and options or {}
     local cell: any = given.cell

@@ -47,6 +47,43 @@ local function define_tests()
         end)
     end)
 
+    test.describe("where the pointer lands", function()
+        test.it("maps a cell to a column of that screen", function()
+            -- The middle of the cell is converted, not its left edge: a
+            -- pointer standing on a cell means the column under the middle
+            -- of it, and the edges of the two are not the same places.
+            local state = ui.interaction()
+            local plan = ui.plan({kind = "terminal", rows = {}}, 40, 10, state, {cell = {w = 10, h = 20}})
+            local item, column, row = ui.terminal_at(plan, 1, 1)
+            test.not_nil(item, "the pointer is over the screen")
+            test.eq(column, 1, "the first cell is the first column")
+            test.eq(row, 1, "the first row")
+            local _, wider = ui.terminal_at(plan, 5, 3)
+            test.eq(wider, 6, "the fifth cell's middle stands in the sixth mono column")
+        end)
+
+        test.it("maps a cell to itself when there are no pixels", function()
+            local state = ui.interaction()
+            local plan = ui.plan({kind = "terminal", rows = {}}, 40, 10, state)
+            local _, column, row = ui.terminal_at(plan, 5, 3)
+            test.eq(column, 5, "a column is a cell")
+            test.eq(row, 3, "a row is a row")
+        end)
+
+        test.it("says nothing about a pointer that is somewhere else", function()
+            local state = ui.interaction()
+            local plan = ui.plan({kind = "terminal", rows = {}}, 10, 4, state)
+            test.is_nil((ui.terminal_at(plan, 99, 1)), "outside the screen")
+        end)
+
+        test.it("keeps a column inside the screen", function()
+            local state = ui.interaction()
+            local plan = ui.plan({kind = "terminal", rows = {}}, 8, 3, state, {cell = {w = 10, h = 20}})
+            local _, column = ui.terminal_at(plan, 8, 1)
+            test.is_true(column <= plan.items[1].columns, "never past the last column")
+        end)
+    end)
+
     test.describe("what reaches the screen", function()
         test.it("draws the rows it was given", function()
             local drawn = screen({"first", "second"}, nil, 20, 3)
