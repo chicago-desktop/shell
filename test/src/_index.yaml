@@ -928,6 +928,19 @@ entries:
       test: wippy.test:test
       format: chicago.shell.sdk:format
 
+  - name: ansi_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: chicago_shell
+      comment: "Styled terminal rows decoded into cells, pure — width and padding, the sixteen colours, a palette index, truecolour, reverse video, and the sequences that must be dropped rather than printed."
+    source: file://ansi_test.lua
+    method: run
+    imports:
+      test: wippy.test:test
+      ansi: chicago.shell.sdk:ansi
+
   - name: editor_model_test
     kind: function.lua
     meta:

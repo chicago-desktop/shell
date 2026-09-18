@@ -13,6 +13,11 @@ entries:
       scroll: chicago.tui_desktop.desktop:scroll
       input: chicago.tui_desktop.desktop:input
 
+  - name: ansi
+    kind: library.lua
+    meta: {comment: "Window SDK ansi: styled terminal rows decoded into cells a pixel renderer can paint. See docs/sdk.md."}
+    source: file://ansi.lua
+
   - name: charts
     kind: library.lua
     meta: {comment: "Window SDK charts: block-glyph graph and round ceilings. See docs/sdk.md."}
