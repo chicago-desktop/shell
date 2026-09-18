@@ -955,6 +955,7 @@ entries:
       ui: chicago.shell.sdk:ui
       cells: chicago.shell.sdk:cells
       glyphs: chicago.shell.sdk:glyphs
+    modules: [gfx]
 
   - name: editor_model_test
     kind: function.lua

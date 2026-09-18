@@ -888,6 +888,10 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         end
         item.rows = node.rows or {}
         item.cursor = node.cursor
+        -- The pictures standing on that screen. They are drawn only where
+        -- there are pixels to draw them with; in cells there is nowhere to
+        -- put them, and the rows the other side sent are the whole picture.
+        item.images = node.images or {}
     end
     if kind == "editor" then
         -- The multi-line editor (FR-007 §3). The document is the state's: made

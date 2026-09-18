@@ -795,6 +795,27 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                         end
                     end
                 end
+                -- The pictures the other side put on its screen, over the
+                -- text and in the order it gave them. A picture is placed by
+                -- the cell it starts at, on the same grid the rows were
+                -- measured on, and drawn at its own size: the other side was
+                -- told what a cell is here, so its pixels already fit. One
+                -- that does not is scaled rather than clipped — a picture
+                -- drawn at the wrong size is a mistake to see, one clipped to
+                -- nothing is a mistake to miss.
+                for _, picture in ipairs(item.images or {}) do
+                    local source: any = picture.raster
+                    if source ~= nil then
+                        local want_w = whole(picture.cols) * ui.MONO_PX
+                        local want_h = whole(picture.rows) * whole(cell.h)
+                        local have_w, have_h = source:size()
+                        if want_w > 0 and want_h > 0 and (whole(have_w) ~= want_w or whole(have_h) ~= want_h) then
+                            source = source:scaled(want_w, want_h)
+                        end
+                        raster:blit(source, whole(x + (whole(picture.x) - 1) * ui.MONO_PX),
+                            whole(y + (whole(picture.y) - 1) * whole(cell.h)))
+                    end
+                end
                 -- The cursor reverses the cell it stands on instead of
                 -- covering it, so the character being typed stays readable.
                 local cursor: any = item.cursor
@@ -1134,6 +1155,21 @@ local function sig(value: any, skip: any?): string
 end
 -- What an item draws on every row it crosses: its node (without the entries
 -- of a list-like node, which are per row) and its state.
+-- What the pictures on someone else's screen are, for damage.
+--
+-- The rasters themselves are never part of a signature: they are userdata,
+-- and what tostring makes of one says nothing about the pixels inside. A
+-- picture is identified by the pair it crossed the boundary with — its serial
+-- and version — together with where it now stands.
+local function pictures_sig(item: any): string
+    local parts: any = {}
+    for _, picture in ipairs(item.images or {}) do
+        parts[#parts + 1] = table.concat({tostring(picture.id), tostring(picture.serial),
+            tostring(picture.version), tostring(picture.x), tostring(picture.y),
+            tostring(picture.cols), tostring(picture.rows)}, ":")
+    end
+    return table.concat(parts, "|")
+end
 local function item_sig(item: any, plan: any, interaction: any): string
     local node: any = item.node
     local id = node.id
@@ -1150,7 +1186,8 @@ local function item_sig(item: any, plan: any, interaction: any): string
         -- An editor's text is per row (`item.visible`); its node's `text` is
         -- only the first value and its document is drawn from the plan.
         sig(node, lines and {items = true, rows = true, selected = true}
-            or (node.kind == "editor" and {text = true} or (node.kind == "terminal" and {rows = true} or nil))),
+            or (node.kind == "editor" and {text = true} or (node.kind == "terminal" and {rows = true, images = true} or nil))),
+        node.kind == "terminal" and pictures_sig(item) or "",
         sig(item.rect),
         tostring(item.offset), tostring(item.header), lines and "" or tostring(item.selected_index),
         sig(item.bar), sig(item.px), tostring(item.current), tostring(item.bar_cols),

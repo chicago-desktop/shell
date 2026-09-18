@@ -306,6 +306,14 @@ current data; `update` changes the model on a component's action.
   `fonts.mono`; a cell whose background is the window's own is left
   unpainted, and the cursor reverses the cell it stands on rather than
   covering it.
+  `images` carries the pictures standing on that screen —
+  `{id, raster, x, y, cols, rows, serial, version}`, the cell they start at
+  being one-based on the same grid the rows are measured on. They are drawn
+  over the text where there are pixels, and not at all in cells, where the
+  rows are the whole picture. A picture whose pixels do not match the cells
+  it covers is scaled rather than clipped. `serial` and `version` are the
+  identity it crossed a boundary with: a viewer recognises a picture by that
+  pair, and the SDK keys damage on it, never on the raster itself.
   Block elements and box drawing are drawn from geometry
   (`chicago.shell.sdk:glyphs`), not from the face: the fixed-pitch face does
   not carry them, and asked for one it draws nothing — a remote desktop with

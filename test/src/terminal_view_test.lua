@@ -4,6 +4,7 @@ local test = require("test")
 local ui = require("ui")
 local cells = require("cells")
 local glyphs = require("glyphs")
+local gfx = require("gfx")
 
 local ESC = string.char(27)
 
@@ -140,6 +141,30 @@ local function define_tests()
                         "inside the cell: " .. char)
                 end
             end
+        end)
+    end)
+
+    test.describe("the pictures on that screen", function()
+        test.it("carries them into the plan", function()
+            local state = ui.interaction()
+            local picture = gfx.raster(16, 36)
+            local plan = ui.plan({kind = "terminal", rows = {}, images = {
+                {id = "w", raster = picture, x = 3, y = 2, cols = 2, rows = 2, serial = 41, version = 9},
+            }}, 40, 10, state, {cell = {w = 8, h = 18}})
+            test.eq(#plan.items[1].images, 1, "one picture")
+            test.eq(plan.items[1].images[1].id, "w", "named")
+        end)
+
+        test.it("draws nothing of them in cells", function()
+            -- There is nowhere to put pixels in a cell, and the rows the
+            -- other side sent are the whole picture there.
+            local state = ui.interaction()
+            local tree: any = {kind = "terminal", rows = {"text"}, images = {
+                {id = "w", raster = gfx.raster(8, 18), x = 1, y = 1, cols = 1, rows = 1},
+            }}
+            local plan = ui.plan(tree, 20, 3, state)
+            local drawn = cells.rows(plan, state, 20, 3)
+            test.is_true(table.concat(drawn, "\n"):find("text", 1, true) ~= nil, "the rows are still drawn")
         end)
     end)
 
