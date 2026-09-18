@@ -888,9 +888,13 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         end
         item.rows = node.rows or {}
         item.cursor = node.cursor
-        -- The pictures standing on that screen. They are drawn only where
-        -- there are pixels to draw them with; in cells there is nowhere to
-        -- put them, and the rows the other side sent are the whole picture.
+        -- The pictures standing on that screen, as BYTES. They are drawn
+        -- only where there are pixels to draw them with; in cells there is
+        -- nowhere to put them, and the rows the other side sent are the whole
+        -- picture.
+        --
+        -- Bytes and not a raster, because this tree is published to the
+        -- compositor and a raster does not survive the crossing.
         item.images = node.images or {}
     end
     if kind == "editor" then
@@ -981,10 +985,37 @@ end
 -- the compositor's frame, and an error caught by `pcall` in go-lua tears the upvalues of
 -- the whole stack below it, that is, of the compositor's loop. It is stricter than `add` in one way: that one
 -- does not check nodes that got no space, while here all of them are checked.
+-- Nothing in a tree may be userdata.
+--
+-- A tree is PUBLISHED to the compositor, which is another process, and a
+-- message carries plain values: a raster, a channel or a pid arrives on the
+-- far side as nil. Rendered in the process that built it — a test, a preview
+-- — such a tree draws perfectly, which is how the rule gets broken and stays
+-- broken until someone looks at a real screen.
+local function carried_problem(node: any, depth: integer): any
+    if depth > 6 then return nil end
+    for key, value in pairs(node) do
+        if key ~= "children" then
+            local kind = type(value)
+            if kind == "userdata" or kind == "function" or kind == "thread" then
+                return "an SDK tree carries plain values only, and " .. tostring(key)
+                    .. " is " .. kind .. "; it does not survive being published to the compositor"
+            end
+            if kind == "table" then
+                local why = carried_problem(value, depth + 1)
+                if why then return why end
+            end
+        end
+    end
+    return nil
+end
+
 function ui.problem(tree: any): any
     local seen: any = {}
     local function walk(node: any): any
         local why = shape_problem(node)
+        if why then return why end
+        why = carried_problem(node, 1)
         if why then return why end
         if not containers[node.kind] and not inert(node) then
             why = id_problem(node, seen)

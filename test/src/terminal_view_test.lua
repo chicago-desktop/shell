@@ -145,14 +145,33 @@ local function define_tests()
     end)
 
     test.describe("the pictures on that screen", function()
-        test.it("carries them into the plan", function()
+        local function png_bytes(): string
+            local picture = gfx.raster(8, 18)
+            picture:fill("#cd0000")
+            return picture:encode("png")
+        end
+
+        test.it("carries them into the plan as bytes", function()
             local state = ui.interaction()
-            local picture = gfx.raster(16, 36)
             local plan = ui.plan({kind = "terminal", rows = {}, images = {
-                {id = "w", raster = picture, x = 3, y = 2, cols = 2, rows = 2, serial = 41, version = 9},
+                {id = "w", key = "n:1:w", png = png_bytes(), x = 3, y = 2, cols = 1, rows = 1,
+                 serial = 41, version = 9},
             }}, 40, 10, state, {cell = {w = 8, h = 18}})
             test.eq(#plan.items[1].images, 1, "one picture")
             test.eq(plan.items[1].images[1].id, "w", "named")
+        end)
+
+        test.it("refuses a tree carrying a raster", function()
+            -- A tree is PUBLISHED to the compositor, which is another
+            -- process, and userdata does not survive the crossing: on the far
+            -- side it is nil. Rendered in the process that built it such a
+            -- tree draws perfectly, so the mistake shows only on a real
+            -- screen — unless it is refused here.
+            local why = ui.problem({kind = "terminal", rows = {}, images = {
+                {id = "w", raster = gfx.raster(8, 18), x = 1, y = 1, cols = 1, rows = 1},
+            }})
+            test.not_nil(why, "a raster in a tree is a problem")
+            test.is_true(tostring(why):find("userdata", 1, true) ~= nil, "and it says why")
         end)
 
         test.it("draws nothing of them in cells", function()
@@ -160,7 +179,7 @@ local function define_tests()
             -- other side sent are the whole picture there.
             local state = ui.interaction()
             local tree: any = {kind = "terminal", rows = {"text"}, images = {
-                {id = "w", raster = gfx.raster(8, 18), x = 1, y = 1, cols = 1, rows = 1},
+                {id = "w", key = "n:1:w", png = png_bytes(), x = 1, y = 1, cols = 1, rows = 1},
             }}
             local plan = ui.plan(tree, 20, 3, state)
             local drawn = cells.rows(plan, state, 20, 3)

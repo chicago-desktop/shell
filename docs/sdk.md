@@ -307,13 +307,22 @@ current data; `update` changes the model on a component's action.
   unpainted, and the cursor reverses the cell it stands on rather than
   covering it.
   `images` carries the pictures standing on that screen —
-  `{id, raster, x, y, cols, rows, serial, version}`, the cell they start at
-  being one-based on the same grid the rows are measured on. They are drawn
+  `{id, key, png, serial, version, x, y, cols, rows, z}`, the cell they start
+  at being one-based on the same grid the rows are measured on. They are drawn
   over the text where there are pixels, and not at all in cells, where the
-  rows are the whole picture. A picture whose pixels do not match the cells
-  it covers is scaled rather than clipped. `serial` and `version` are the
-  identity it crossed a boundary with: a viewer recognises a picture by that
-  pair, and the SDK keys damage on it, never on the raster itself.
+  rows are the whole picture. A picture whose pixels do not match the cells it
+  covers is scaled rather than clipped, and one nobody has the bytes of is not
+  drawn at all — nothing is put in its place, because a rectangle standing in
+  for a picture looks like a window that arrived blank, which is a worse lie
+  than an absence.
+  **`png` is bytes, not a raster.** A tree is published to the compositor, and
+  a raster does not survive being sent to another process: it arrives nil, and
+  a tree rendered in the process that built it draws perfectly all the same,
+  so the mistake shows only on a real screen. `ui.problem` refuses userdata
+  anywhere in a tree for that reason. The renderer decodes each picture once
+  and keeps it by `key` — which must be unique to the SOURCE, because `serial`
+  is counted inside the process that drew the picture and two machines produce
+  the same numbers.
   Block elements and box drawing are drawn from geometry
   (`chicago.shell.sdk:glyphs`), not from the face: the fixed-pitch face does
   not carry them, and asked for one it draws nothing — a remote desktop with

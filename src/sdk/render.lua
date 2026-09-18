@@ -15,6 +15,54 @@ local glyphs = require("glyphs")
 
 local whole = geometry.whole
 
+
+-- The pictures of someone else's screen, decoded once and kept.
+--
+-- They arrive as BYTES, because the tree they ride in is published to this
+-- process and a raster does not survive that crossing. Decoding is the
+-- expensive part, so it happens once per picture and the result is held by
+-- the identity the picture crossed with.
+--
+-- The identity must be the SOURCE's, not ours: `serial` is counted inside the
+-- process that drew the picture, so two machines will happily produce the same
+-- one. A caller showing a remote screen passes `key`, unique to its source;
+-- without it the best guess is id, serial and version together, which is fine
+-- for one screen and not for two.
+--
+-- The store is capped and forgets in the order it learned. A remote desktop
+-- holds a few dozen pictures at a time; the cap is there so that a window
+-- redrawing itself for an hour cannot grow it without end.
+local held_pictures: any = {}
+local held_order: any = {}
+local held_first = 1
+local held_next = 1
+local HELD_LIMIT = 192
+
+local function picture_from(entry: any): any
+    local key: any = entry.key
+    if type(key) ~= "string" or key == "" then
+        key = table.concat({tostring(entry.id), tostring(entry.serial), tostring(entry.version)}, ":")
+    end
+    local held: any = held_pictures[key]
+    if held ~= nil then return held end
+    local bytes: any = entry.png
+    if type(bytes) ~= "string" or bytes == "" then return nil end
+    local decoded: any = gfx.image(bytes)
+    if decoded == nil then return nil end
+    held_pictures[key] = decoded
+    held_order[held_next] = key
+    held_next = held_next + 1
+    -- Forgetting in the order it learned, without moving the rest: a queue of
+    -- two indices rather than a shifted array.
+    while held_next - held_first > HELD_LIMIT do
+        local oldest = held_order[held_first]
+        held_order[held_first] = nil
+        held_first = held_first + 1
+        if oldest ~= nil then held_pictures[oldest] = nil end
+    end
+    return decoded
+end
+
 -- One character of someone else's screen.
 --
 -- The block elements a frame is built from are not in the fixed-pitch face,
@@ -804,7 +852,12 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                 -- drawn at the wrong size is a mistake to see, one clipped to
                 -- nothing is a mistake to miss.
                 for _, picture in ipairs(item.images or {}) do
-                    local source: any = picture.raster
+                    -- A picture nobody has the pixels of is not drawn, and
+                    -- nothing is put in its place: what the rows drew there
+                    -- stays. A rectangle standing in for it would look like a
+                    -- window that arrived blank, which is a worse lie than an
+                    -- absence.
+                    local source: any = picture_from(picture)
                     if source ~= nil then
                         local want_w = whole(picture.cols) * ui.MONO_PX
                         local want_h = whole(picture.rows) * whole(cell.h)
