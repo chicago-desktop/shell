@@ -39,10 +39,16 @@ local held_next = 1
 local HELD_LIMIT = 192
 
 local function picture_from(entry: any): any
-    local key: any = entry.key
-    if type(key) ~= "string" or key == "" then
-        key = table.concat({tostring(entry.id), tostring(entry.serial), tostring(entry.version)}, ":")
+    -- The key is WHICH picture, and the identity is WHICH VERSION OF IT.
+    -- Both belong in the name it is held under. Holding it by the key alone
+    -- would answer a redrawn picture with the pixels it had the first time it
+    -- was seen — and since a redraw is exactly what a field being typed into
+    -- looks like, the text would never appear.
+    local named: any = entry.key
+    if type(named) ~= "string" or named == "" then
+        named = tostring(entry.id)
     end
+    local key = table.concat({named, tostring(entry.serial), tostring(entry.version)}, ":")
     local held: any = held_pictures[key]
     if held ~= nil then return held end
     local bytes: any = entry.png

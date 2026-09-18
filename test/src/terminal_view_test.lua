@@ -161,6 +161,24 @@ local function define_tests()
             test.eq(plan.items[1].images[1].id, "w", "named")
         end)
 
+        test.it("holds a picture by its version, not by its name alone", function()
+            -- A picture is redrawn under the same name all the time: a field
+            -- being typed into, a clock, a graph. Holding it by the name
+            -- alone answers every redraw with the pixels it had the first
+            -- time — the field never shows the text, the widget never fills,
+            -- and nothing reports a fault.
+            local state = ui.interaction()
+            local first = {id = "w", key = "n:1:w", png = png_bytes(), serial = 5, version = 1,
+                x = 1, y = 1, cols = 1, rows = 1}
+            local second = {id = "w", key = "n:1:w", png = png_bytes(), serial = 5, version = 2,
+                x = 1, y = 1, cols = 1, rows = 1}
+            local plan = ui.plan({kind = "terminal", rows = {}, images = {first, second}},
+                40, 10, state, {cell = {w = 8, h = 18}})
+            local carried = plan.items[1].images
+            test.is_true(carried[1].version ~= carried[2].version,
+                "two versions of one picture are two different pictures")
+        end)
+
         test.it("refuses a tree carrying a raster", function()
             -- A tree is PUBLISHED to the compositor, which is another
             -- process, and userdata does not survive the crossing: on the far
