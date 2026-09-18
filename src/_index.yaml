@@ -37,8 +37,10 @@ entries:
   # 0.2.1 brings the balloon, flash and notice commands and state that the
   # themes draw and chicago.shell.sdk:notify sends.
   # 0.2.2 adds the dynamic empty-desktop context menu callback;
-  # 0.2.3 adds full-screen passive presentations.
-  - version: ">=0.2.3"
+  # 0.2.3 adds full-screen passive presentations; 0.4.0 tells a window which
+  # graphics its screen speaks, which a window showing another machine's
+  # screen has to pass on.
+  - version: ">=0.4.0"
     name: dep.chicago.tui_desktop
     kind: ns.dependency
     meta:

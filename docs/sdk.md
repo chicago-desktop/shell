@@ -315,6 +315,12 @@ current data; `update` changes the model on a component's action.
   drawn at all — nothing is put in its place, because a rectangle standing in
   for a picture looks like a window that arrived blank, which is a worse lie
   than an absence.
+  A window showing another machine's screen must tell that machine what it is
+  being drawn on, and `context.protocol` is that answer: the graphics
+  protocol of this screen, beside `context.cell`, nil when the window is not
+  drawn in pixels. Pass it on rather than naming a protocol yourself — a
+  machine told the wrong one draws for a terminal that is not there. It
+  arrives with the geometry and is renewed by every resize.
   **`png` is bytes, not a raster.** A tree is published to the compositor, and
   a raster does not survive being sent to another process: it arrives nil, and
   a tree rendered in the process that built it draws perfectly all the same,

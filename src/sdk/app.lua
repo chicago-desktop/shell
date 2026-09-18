@@ -75,6 +75,11 @@ function app.context(fields: any?): any
         scroll_cols = given.native == true and widgets.scroll_cols(given.cell_w) or 1,
         cell = given.native == true and (tonumber(given.cell_w) or 0) > 0 and (tonumber(given.cell_h) or 0) > 0
             and {w = given.cell_w, h = given.cell_h} or nil,
+        -- The graphics protocol of the screen this window is drawn on, beside
+        -- the cell it is drawn with. A window that only draws does not need
+        -- it; one that asks another machine to draw for it cannot do without.
+        protocol = given.native == true and type(given.protocol) == "string"
+            and given.protocol ~= "" and given.protocol or nil,
         watched = {}, timers = {}}
     -- The interaction the loop plans and handles events with: the SDK's own
     -- state, one table for the window's life.
@@ -131,6 +136,13 @@ function app.resize(context: any, event: any)
     if event.cell_w ~= nil then context.scroll_cols = widgets.scroll_cols(event.cell_w) end
     if (tonumber(event.cell_w) or 0) > 0 and (tonumber(event.cell_h) or 0) > 0 then
         context.cell = {w = event.cell_w, h = event.cell_h}
+    end
+    -- The screen can change under a window: a person moves it to another
+    -- terminal, or the desktop is served somewhere else. The protocol travels
+    -- with the cell for that reason, and an event that does not mention it
+    -- leaves what the window already knew.
+    if type(event.protocol) == "string" and event.protocol ~= "" then
+        context.protocol = event.protocol
     end
 end
 
@@ -290,7 +302,8 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
     local held = false
     local loop: any = {plan = nil, revision = 0}
     local context: any = app.context({args = args, width = width, height = height, native = native,
-        window_id = window_id, cell_w = native and viewport.cell_w or nil, cell_h = native and viewport.cell_h or nil})
+        window_id = window_id, cell_w = native and viewport.cell_w or nil, cell_h = native and viewport.cell_h or nil,
+        protocol = native and viewport.protocol or nil})
 
     local model: any = definition.init and guarded(context, "init", definition.init, args, context) or {}
     local interaction = context.interaction

@@ -217,7 +217,10 @@ local function define_tests()
         test.it("declares a dependency on the base as its GitHub repository, from the supported tag", function()
             local dep = get("chicago.shell:dep.chicago.tui_desktop")
             test.eq(data_of(dep).component, "github.com/chicago-desktop/tui-desktop")
-            test.eq(data_of(dep).version, ">=0.2.3")
+            -- 0.4.0 is where a window is told which graphics its screen
+            -- speaks; a window showing another machine's screen passes that
+            -- on, and on an older base it would have to guess.
+            test.eq(data_of(dep).version, ">=0.4.0")
         end)
 
         test.it("carries the layout migration", function()

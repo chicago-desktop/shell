@@ -274,6 +274,11 @@ local function main()
     -- way".
     local theme: any = chrome
     local cell_size: any = nil
+    -- Which graphics the screen speaks, kept for the windows rather than for
+    -- ourselves: we encode for this terminal and never need the name, but a
+    -- window showing another machine's screen has to tell that machine what
+    -- it is being drawn on.
+    local graphics: any = nil
     -- A short note about the outcome — it goes into the empty-desktop hint,
     -- that is, into the first thing the person sees after launch.
     local pixel_note = "pixels off"
@@ -292,6 +297,7 @@ local function main()
     if asked then
         local protocol, why = gfx.supported()
         local width, height = gfx.cell_size()
+        graphics = protocol
 
         if not protocol then
             pixel_note = "pixels off: the terminal has no graphics (" .. tostring(why) .. ")"
@@ -410,6 +416,7 @@ local function main()
         -- changes the terminal font, and a number taken once would drift away
         -- from the screen.
         cell_size = cell_size,
+        graphics = graphics,
         service_name = SERVICE_NAME,
         hint = "Start — programs · alt+n — bash window · ctrl+q — quit · " .. pixel_note,
         -- Optional seams to the base. Should the compositor not support them,
