@@ -18,6 +18,11 @@ entries:
     meta: {comment: "Window SDK ansi: styled terminal rows decoded into cells a pixel renderer can paint. See docs/sdk.md."}
     source: file://ansi.lua
 
+  - name: glyphs
+    kind: library.lua
+    meta: {comment: "Window SDK glyphs: block elements and box drawing as geometry, for faces that do not carry them. See docs/sdk.md."}
+    source: file://glyphs.lua
+
   - name: charts
     kind: library.lua
     meta: {comment: "Window SDK charts: block-glyph graph and round ceilings. See docs/sdk.md."}
@@ -63,6 +68,7 @@ entries:
     source: file://render.lua
     modules: [gfx]
     imports:
+      glyphs: chicago.shell.sdk:glyphs
       ansi: chicago.shell.sdk:ansi
       text: chicago.tui_desktop.desktop:text
       ui: chicago.shell.sdk:ui

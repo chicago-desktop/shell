@@ -1151,13 +1151,21 @@ end
 --
 -- Returns the item and one-based column and row of that screen, or nil when
 -- the pointer is over something else.
-function ui.terminal_at(plan: any, x: any, y: any): any, any, any
+--
+-- `anywhere` answers for a pointer outside the view as well, clamped to its
+-- edge. That is what a captured drag needs: the button went down on the
+-- screen, so the release belongs to it even if the pointer has left the
+-- window by then. Without it the far side is told the button went down and
+-- never that it came up, and whatever was being dragged stays stuck to the
+-- pointer.
+function ui.terminal_at(plan: any, x: any, y: any, anywhere: any?): any, any, any
     local px, py = whole(x), whole(y)
     for _, item in ipairs(plan and plan.items or {}) do
         local rect: any = item.rect
-        if item.node.kind == "terminal" and rect ~= nil
+        local inside = rect ~= nil
             and px >= whole(rect.x) and px <= whole(rect.x) + whole(rect.w) - 1
-            and py >= whole(rect.y) and py <= whole(rect.y) + whole(rect.h) - 1 then
+            and py >= whole(rect.y) and py <= whole(rect.y) + whole(rect.h) - 1
+        if item.node.kind == "terminal" and rect ~= nil and (inside or anywhere == true) then
             local across = px - whole(rect.x)
             local column = across + 1
             if plan.cell ~= nil then

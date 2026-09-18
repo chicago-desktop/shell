@@ -3,6 +3,7 @@
 local test = require("test")
 local ui = require("ui")
 local cells = require("cells")
+local glyphs = require("glyphs")
 
 local ESC = string.char(27)
 
@@ -81,6 +82,53 @@ local function define_tests()
             local plan = ui.plan({kind = "terminal", rows = {}}, 8, 3, state, {cell = {w = 10, h = 20}})
             local _, column = ui.terminal_at(plan, 8, 1)
             test.is_true(column <= plan.items[1].columns, "never past the last column")
+        end)
+    end)
+
+    test.describe("characters the face does not have", function()
+        test.it("draws a block element from geometry", function()
+            -- The frames of a remote desktop are built from these, and the
+            -- fixed-pitch face does not carry them: asked for one it draws
+            -- nothing, and the screen arrives with every border missing.
+            local shape = glyphs.shape("▁")
+            test.not_nil(shape, "the lower one eighth has a shape")
+            test.eq(#shape, 1, "one rectangle")
+            test.eq(shape[1].h, 1 / 8, "an eighth of the cell high")
+            test.eq(shape[1].y, 7 / 8, "sitting on the bottom")
+        end)
+
+        test.it("draws a quadrant as its quarters", function()
+            test.eq(#glyphs.shape("▟"), 3, "upper right, lower left, lower right")
+            test.eq(#glyphs.shape("▛"), 3, "upper left, upper right, lower left")
+        end)
+
+        test.it("leaves an ordinary character to the font", function()
+            test.is_nil(glyphs.shape("A"), "a letter is type, not geometry")
+            test.is_nil(glyphs.shape(" "), "and so is a space")
+        end)
+
+        test.it("has a shape for the small icons a desktop draws", function()
+            -- An empty cell in their place is never right.
+            test.not_nil(glyphs.shape("▣"), "the icon above My Computer")
+            test.not_nil(glyphs.shape("⊞"), "the one on Start")
+            test.not_nil(glyphs.shape("▤"), "a menu folder")
+        end)
+
+        test.it("reads a codepoint out of a multi-byte character", function()
+            test.eq(glyphs.codepoint("▁"), 0x2581, "three bytes, one codepoint")
+            test.eq(glyphs.codepoint("A"), 65, "and one byte")
+        end)
+
+        test.it("keeps every rectangle inside the cell", function()
+            -- A rectangle past the cell would paint over the neighbour, and
+            -- the neighbour is someone else's character.
+            for _, char in ipairs({"▁", "▛", "▟", "▏", "▕", "▔", "█", "▒", "▣", "⊞"}) do
+                for _, part in ipairs(glyphs.shape(char)) do
+                    test.is_true(part.x >= 0 and part.y >= 0
+                        and part.x + part.w <= 1.0001 and part.y + part.h <= 1.0001,
+                        "inside the cell: " .. char)
+                end
+            end
         end)
     end)
 

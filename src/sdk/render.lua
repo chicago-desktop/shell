@@ -11,7 +11,30 @@ local gfx = require("gfx")
 local widgets = require("widgets")
 local palette = require("palette")
 local ansi = require("ansi")
+local glyphs = require("glyphs")
+
 local whole = geometry.whole
+
+-- One character of someone else's screen.
+--
+-- The block elements a frame is built from are not in the fixed-pitch face,
+-- and a face is asked for them in vain: nothing is drawn and the remote
+-- desktop loses every border. Those are drawn from geometry instead, in the
+-- colour the text would have been.
+local function draw_glyph(raster: any, char: any, gx: any, ry: any, cell: any, mono: any, ink: any)
+    local shape: any = glyphs.shape(char)
+    if shape ~= nil then
+        for _, part in ipairs(shape) do
+            local w = math.max(1, whole(part.w * ui.MONO_PX + 0.5))
+            local h = math.max(1, whole(part.h * whole(cell.h) + 0.5))
+            raster:rect(whole(gx + part.x * ui.MONO_PX), whole(ry + part.y * whole(cell.h)), w, h, ink)
+        end
+        return
+    end
+    if mono then
+        raster:text(whole(gx), whole(ry + (whole(cell.h) - 15) // 2), char, {font = mono, color = ink})
+    end
+end
 local color = palette.exact
 local render = {}
 -- A copy of the interaction for laying out one frame. `ui.plan` clamps offsets,
@@ -756,9 +779,8 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                         if bg ~= color.field then
                             raster:rect(whole(gx), whole(ry), ui.MONO_PX, whole(cell.h), bg)
                         end
-                        if mono and glyph.char ~= " " then
-                            raster:text(whole(gx), whole(ry + (cell.h - 15) // 2), glyph.char,
-                                {font = mono, color = fg})
+                        if glyph.char ~= " " then
+                            draw_glyph(raster, glyph.char, gx, ry, cell, mono, fg)
                         end
                     end
                 end
@@ -773,9 +795,8 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                         local gx = x + (cx - 1) * ui.MONO_PX
                         local ry = y + (cy - 1) * cell.h
                         raster:rect(whole(gx), whole(ry), ui.MONO_PX, whole(cell.h), fg)
-                        if mono and glyph ~= nil and glyph.char ~= " " then
-                            raster:text(whole(gx), whole(ry + (cell.h - 15) // 2), glyph.char,
-                                {font = mono, color = bg})
+                        if glyph ~= nil and glyph.char ~= " " then
+                            draw_glyph(raster, glyph.char, gx, ry, cell, mono, bg)
                         end
                     end
                 end

@@ -954,6 +954,7 @@ entries:
       test: wippy.test:test
       ui: chicago.shell.sdk:ui
       cells: chicago.shell.sdk:cells
+      glyphs: chicago.shell.sdk:glyphs
 
   - name: editor_model_test
     kind: function.lua

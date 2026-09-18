@@ -306,8 +306,15 @@ current data; `update` changes the model on a component's action.
   `fonts.mono`; a cell whose background is the window's own is left
   unpainted, and the cursor reverses the cell it stands on rather than
   covering it.
+  Block elements and box drawing are drawn from geometry
+  (`chicago.shell.sdk:glyphs`), not from the face: the fixed-pitch face does
+  not carry them, and asked for one it draws nothing — a remote desktop with
+  every border missing. Geometry also does not depend on which fonts a
+  machine has, so the same screen looks the same everywhere.
   A pointer standing on a `terminal` and a paste nobody took reach `update`
   as `{type = "mouse", action, button, x, y, column, row, alt, ctrl, shift}`
+  — a press captures the pointer, so the release reaches the view even when it
+  happens outside the window, and the far side is never left holding a button
   and `{type = "paste", text}`; `column` and `row` are one-based in that
   screen's own grid, already converted. A pointer anywhere else is swallowed
   as it always was.

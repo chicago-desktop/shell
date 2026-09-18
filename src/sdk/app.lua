@@ -285,6 +285,9 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
     local width: any, height: any = 1, 1
     if native then width, height = viewport.width, viewport.height else width, height = tty.screen_size() end
 
+    -- Whether the pointer was captured by a `terminal` view: a press on it
+    -- owns the button until it comes up, wherever that happens.
+    local held = false
     local loop: any = {plan = nil, revision = 0}
     local context: any = app.context({args = args, width = width, height = height, native = native,
         window_id = window_id, cell_w = native and viewport.cell_w or nil, cell_h = native and viewport.cell_h or nil})
@@ -394,8 +397,17 @@ function app.run(definition: any, first: any, window_id: any, args: any, viewpor
                     -- not take would change what `update` sees in every
                     -- application at once, to serve one of them.
                     if action == nil and event.type == "mouse" then
-                        local item, column, row = ui.terminal_at(loop.plan, event.x, event.y)
+                        -- A press captures the pointer for the view it landed
+                        -- on, and the capture is released by the button
+                        -- coming up. Windows has always done this, and for a
+                        -- good reason: a drag that ends outside the window
+                        -- would otherwise be a press the far side never sees
+                        -- released, and whatever was being dragged there
+                        -- stays stuck to the pointer.
+                        local item, column, row = ui.terminal_at(loop.plan, event.x, event.y, held)
                         if item ~= nil then
+                            if event.action == "press" then held = true
+                            elseif event.action == "release" then held = false end
                             action = {type = "mouse", action = event.action, button = event.button,
                                 x = event.x, y = event.y, alt = event.alt, ctrl = event.ctrl,
                                 shift = event.shift, column = column, row = row}
