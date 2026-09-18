@@ -11,10 +11,10 @@ local leaves = {label = true, button = true, input = true, list = true, table = 
     statusbar = true, tabs = true, menu = true, image = true, field = true,
     group = true, graph = true, gauge = true, tree = true, calendar = true, clock = true, monitor = true,
     icons = true, select = true, slider = true, spectrum = true, radio = true, text = true, editor = true,
-    picture = true, separator = true}
+    picture = true, separator = true, terminal = true}
 -- Only the ones that take no input can live without an `id`.
 local passive = {label = true, statusbar = true, image = true, field = true, group = true, graph = true, gauge = true,
-    calendar = true, clock = true, monitor = true, spectrum = true, picture = true, separator = true}
+    calendar = true, clock = true, monitor = true, spectrum = true, picture = true, separator = true, terminal = true}
 -- A node that takes no input: a passive kind, or a table declared `static` —
 -- pairs of "name — value" on a properties sheet, which nobody selects. Such a
 -- table needs no `id`, takes no focus and no clicks, and keeps no scroll offset.
@@ -867,6 +867,27 @@ local function add(node: any, rect: any, plan: any, interaction: any)
         item.offset = scroll.clamp(id ~= nil and interaction.offsets[id] or 0, total, item.page)
         if id ~= nil then interaction.offsets[id] = item.offset end
         item.bar = scroll.bar(item.offset, total, item.page, rect.h)
+    end
+    if kind == "terminal" then
+        -- Someone else's screen, laid out by whoever owns it: the rows arrive
+        -- styled and are drawn as they came. The only thing decided here is
+        -- how much of that screen fits.
+        --
+        -- In pixels a column is a mono glyph and not a terminal cell, the
+        -- same rule the editor follows. The alternative — stretching each
+        -- glyph to the cell's width — resamples a bitmap face at a fraction
+        -- nobody chose, and the whole point of drawing someone else's screen
+        -- in pixels is that it stops looking cheap.
+        --
+        -- The node takes no input here: a terminal's keys belong to whatever
+        -- is on the other side, and the window forwards them itself.
+        item.page = whole(math.max(1, whole(rect.h)))
+        item.columns = whole(math.max(1, whole(rect.w)))
+        if plan.cell ~= nil then
+            item.columns = whole(math.max(1, (whole(rect.w) * whole(plan.cell.w)) // ui.MONO_PX))
+        end
+        item.rows = node.rows or {}
+        item.cursor = node.cursor
     end
     if kind == "editor" then
         -- The multi-line editor (FR-007 §3). The document is the state's: made

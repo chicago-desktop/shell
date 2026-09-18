@@ -10,6 +10,7 @@ local bitmap = require("bitmap")
 local gfx = require("gfx")
 local widgets = require("widgets")
 local palette = require("palette")
+local ansi = require("ansi")
 local whole = geometry.whole
 local color = palette.exact
 local render = {}
@@ -733,6 +734,51 @@ local function paint(raster: any, plan: any, interaction: any, cell: any, fonts:
                     raster:rect(whole(x + w - bar_w), whole(y + text_h), whole(bar_w), whole(cell.h), color.face)
                 end
                 pixels.edge(raster, whole(x), whole(y), whole(w), whole(h), false)
+            elseif node.kind == "terminal" then
+                -- Someone else's screen, painted a rune at a time: the rows
+                -- carry SGR, so each one is decoded and its cells drawn in
+                -- the fixed-pitch face on the mono grid (`ui.MONO_PX`), the
+                -- same grid the plan measured the screen in.
+                --
+                -- A cell whose background is the window's own is left unpainted:
+                -- a desktop is mostly its own background, and a rectangle per
+                -- cell would be the whole screen redrawn as rectangles.
+                local mono: any = fonts and (fonts.mono or fonts.face)
+                local rows: any = item.rows or {}
+                raster:rect(whole(x), whole(y), whole(w), whole(h), color.field)
+                for row_index = 1, whole(item.page) do
+                    local line = ansi.decode(rows[row_index], whole(item.columns))
+                    local ry = y + (row_index - 1) * cell.h
+                    for column = 1, #line do
+                        local glyph: any = line[column]
+                        local fg, bg = ansi.ink(glyph, color.field_text, color.field)
+                        local gx = x + (column - 1) * ui.MONO_PX
+                        if bg ~= color.field then
+                            raster:rect(whole(gx), whole(ry), ui.MONO_PX, whole(cell.h), bg)
+                        end
+                        if mono and glyph.char ~= " " then
+                            raster:text(whole(gx), whole(ry + (cell.h - 15) // 2), glyph.char,
+                                {font = mono, color = fg})
+                        end
+                    end
+                end
+                -- The cursor reverses the cell it stands on instead of
+                -- covering it, so the character being typed stays readable.
+                local cursor: any = item.cursor
+                if type(cursor) == "table" and cursor.visible ~= false then
+                    local cx, cy = whole(cursor.x), whole(cursor.y)
+                    if cx >= 1 and cx <= whole(item.columns) and cy >= 1 and cy <= whole(item.page) then
+                        local glyph: any = ansi.decode(rows[cy], whole(item.columns))[cx]
+                        local fg, bg = ansi.ink(glyph, color.field_text, color.field)
+                        local gx = x + (cx - 1) * ui.MONO_PX
+                        local ry = y + (cy - 1) * cell.h
+                        raster:rect(whole(gx), whole(ry), ui.MONO_PX, whole(cell.h), fg)
+                        if mono and glyph ~= nil and glyph.char ~= " " then
+                            raster:text(whole(gx), whole(ry + (cell.h - 15) // 2), glyph.char,
+                                {font = mono, color = bg})
+                        end
+                    end
+                end
             elseif node.kind == "text" then
                 -- The plan's lines, the same ones cells draw: the font never
                 -- re-wraps them, it only cuts what it does not fit.
@@ -1071,7 +1117,8 @@ local function item_sig(item: any, plan: any, interaction: any): string
         -- in the shared part they would repaint every row on a selection move.
         -- An editor's text is per row (`item.visible`); its node's `text` is
         -- only the first value and its document is drawn from the plan.
-        sig(node, lines and {items = true, rows = true, selected = true} or (node.kind == "editor" and {text = true} or nil)),
+        sig(node, lines and {items = true, rows = true, selected = true}
+            or (node.kind == "editor" and {text = true} or (node.kind == "terminal" and {rows = true} or nil))),
         sig(item.rect),
         tostring(item.offset), tostring(item.header), lines and "" or tostring(item.selected_index),
         sig(item.bar), sig(item.px), tostring(item.current), tostring(item.bar_cols),
@@ -1119,6 +1166,12 @@ local function row_keys(plan: any, interaction: any, rows: integer, base: string
                 elseif item.flow then parts[#parts + 1] = cells_sig(item, row) end
                 -- An editor's text row: its runes, their selection, the caret on it.
                 if item.node.kind == "editor" then parts[#parts + 1] = sig((item.visible or {})[row - r.y + 1]) end
+                -- A terminal's row is keyed by itself: one keystroke changes
+                -- one row, and without this the whole screen would be
+                -- redrawn for it.
+                if item.node.kind == "terminal" then
+                    parts[#parts + 1] = tostring((item.rows or {})[row - r.y + 1])
+                end
             elseif frame and row >= frame.y and row <= frame.y + frame.h - 1 then
                 -- Tabs draw their page frame below their rect, which is the
                 -- strip alone. The frame's top row holds the gap under the

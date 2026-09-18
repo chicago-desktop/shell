@@ -1,0 +1,94 @@
+-- The `terminal` view: someone else's screen inside a window. What the plan
+-- measures, and what the cells renderer actually puts on the screen.
+local test = require("test")
+local ui = require("ui")
+local cells = require("cells")
+
+local ESC = string.char(27)
+
+local function screen(rows: any, cursor: any, width: integer, height: integer): any
+    local state = ui.interaction()
+    local tree: any = {kind = "terminal", rows = rows, cursor = cursor}
+    local plan = ui.plan(tree, width, height, state)
+    return cells.rows(plan, state, width, height), plan
+end
+
+local function joined(drawn: any): string
+    return table.concat(drawn, "\n")
+end
+
+local function define_tests()
+    test.describe("what the plan measures", function()
+        test.it("measures the screen in cells when there are no pixels", function()
+            local state = ui.interaction()
+            local plan = ui.plan({kind = "terminal", rows = {}}, 40, 10, state)
+            test.eq(plan.items[1].columns, 40, "a column is a cell")
+            test.eq(plan.items[1].page, 10, "a row is a row")
+        end)
+
+        test.it("measures the screen in mono glyphs when it draws pixels", function()
+            -- A mono column is 8 px and a terminal cell here is 10, so the
+            -- remote screen is WIDER in columns than the window is in cells.
+            -- Measuring it in cells and stretching each glyph to 10 px would
+            -- resample a bitmap face at a fraction nobody chose.
+            local state = ui.interaction()
+            local plan = ui.plan({kind = "terminal", rows = {}}, 40, 10, state, {cell = {w = 10, h = 20}})
+            test.eq(plan.items[1].columns, 50, "40 cells of 10 px hold 50 mono columns")
+            test.eq(plan.items[1].page, 10, "the rows do not change")
+        end)
+
+        test.it("takes no input", function()
+            -- A terminal's keys belong to whatever is on the other side; the
+            -- window forwards them itself. A view that took focus here would
+            -- eat them.
+            local state = ui.interaction()
+            local plan = ui.plan({kind = "terminal", id = "remote", rows = {}}, 20, 4, state)
+            test.eq(#plan.focusable, 0, "nothing to focus")
+        end)
+    end)
+
+    test.describe("what reaches the screen", function()
+        test.it("draws the rows it was given", function()
+            local drawn = screen({"first", "second"}, nil, 20, 3)
+            test.is_true(joined(drawn):find("first", 1, true) ~= nil, "the first row")
+            test.is_true(joined(drawn):find("second", 1, true) ~= nil, "the second row")
+        end)
+
+        test.it("keeps the colours the other side chose", function()
+            -- The row is placed as it came. Styling it here would overwrite
+            -- the colours of the screen being shown, and nothing would say so.
+            local drawn = screen({ESC .. "[31mred"}, nil, 20, 1)
+            test.is_true(joined(drawn):find("31m", 1, true) ~= nil, "the row's own colour survives")
+        end)
+
+        test.it("does not print an escape it cannot use", function()
+            local drawn = screen({"a" .. ESC .. "[2Jb"}, nil, 20, 1)
+            test.is_true(joined(drawn):find("2J", 1, true) == nil, "no stray sequence as text")
+        end)
+
+        test.it("shows the cursor without hiding what is under it", function()
+            -- A block that covers the cell hides the character being typed.
+            local drawn = screen({"abc"}, {x = 2, y = 1, visible = true}, 20, 1)
+            test.is_true(joined(drawn):find("7m", 1, true) ~= nil, "the cell is reversed")
+            test.is_true(joined(drawn):find("b", 1, true) ~= nil, "and the character is still there")
+        end)
+
+        test.it("leaves the cursor out when it is hidden", function()
+            local drawn = screen({"abc"}, {x = 2, y = 1, visible = false}, 20, 1)
+            test.is_true(joined(drawn):find("7m", 1, true) == nil, "nothing reversed")
+        end)
+
+        test.it("ignores a cursor standing outside the screen", function()
+            local drawn = screen({"abc"}, {x = 99, y = 1, visible = true}, 20, 1)
+            test.is_true(joined(drawn):find("7m", 1, true) == nil, "no cursor off the edge")
+        end)
+
+        test.it("draws a screen with no rows at all", function()
+            local drawn = screen({}, nil, 12, 3)
+            test.eq(#drawn, 3, "three rows of window")
+        end)
+    end)
+end
+
+local run_cases = test.run_cases(define_tests)
+return {run = function(options) return run_cases(options) end}

@@ -941,6 +941,20 @@ entries:
       test: wippy.test:test
       ansi: chicago.shell.sdk:ansi
 
+  - name: terminal_view_test
+    kind: function.lua
+    meta:
+      type: test
+      group: Windows SDK
+      suite: chicago_shell
+      comment: "The terminal view: the screen measured in cells and in mono glyphs, the rows placed with their own colours, the cursor reversing a cell without hiding it."
+    source: file://terminal_view_test.lua
+    method: run
+    imports:
+      test: wippy.test:test
+      ui: chicago.shell.sdk:ui
+      cells: chicago.shell.sdk:cells
+
   - name: editor_model_test
     kind: function.lua
     meta:

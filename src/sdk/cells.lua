@@ -7,6 +7,7 @@ local text = require("text")
 local geometry = require("geometry")
 local editor = require("editor")
 local palette = require("palette")
+local ansi = require("ansi")
 local glyphs = require("glyphs")
 local whole = geometry.whole
 local cells = {}
@@ -424,6 +425,30 @@ function cells.rows(plan: any, interaction: any, width: any, height: any): any
                 canvas:put(whole(r.x), whole(r.y + page),
                     styles.face:render(hbar_marks(length, item.hbar, whole(item.span) > columns)), length)
                 canvas:put(whole(r.x + r.w - 1), whole(r.y + page), styles.face:render(" "), 1)
+            end
+        elseif node.kind == "terminal" then
+            -- Someone else's screen. The rows carry their own colours, so
+            -- they are placed exactly as they came: the runtime's canvas is
+            -- ANSI-aware, clips at a cell boundary and will not let a cut
+            -- escape leak into the neighbours. Styling them here would
+            -- overwrite the colours the other side chose.
+            local rows: any = item.rows or {}
+            for row = 0, r.h - 1 do
+                local line: any = rows[row + 1]
+                if line ~= nil then canvas:put(whole(r.x), whole(r.y + row), tostring(line), whole(r.w)) end
+            end
+            -- The cursor is the one thing not in the rows, and it is drawn by
+            -- reversing the cell it stands on rather than covering it: a
+            -- block that hides the character under it hides the character
+            -- being typed.
+            local cursor: any = item.cursor
+            if type(cursor) == "table" and cursor.visible ~= false then
+                local cx, cy = whole(cursor.x), whole(cursor.y)
+                if cx >= 1 and cx <= r.w and cy >= 1 and cy <= r.h then
+                    local under: any = ansi.decode(rows[cy], whole(r.w))[cx]
+                    canvas:put(whole(r.x + cx - 1), whole(r.y + cy - 1),
+                        "\27[7m" .. tostring(under ~= nil and under.char or " ") .. "\27[0m", 1)
+                end
             end
         elseif node.kind == "text" then
             -- A read-only text: the plan's lines (`item.lines`, already
